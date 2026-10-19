@@ -11,6 +11,7 @@ COPY apps/client/package.json apps/client/
 COPY apps/extension/package.json apps/extension/
 COPY packages/shared/package.json packages/shared/
 COPY packages/capture/package.json packages/capture/
+COPY packages/debugger-view/package.json packages/debugger-view/
 COPY packages/player/package.json packages/player/
 COPY packages/ui/package.json packages/ui/
 
