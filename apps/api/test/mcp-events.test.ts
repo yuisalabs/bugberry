@@ -50,7 +50,7 @@ describe("getTimeline", () => {
     await createReadyReport(ctx.db, { id, reporterId: ana.user.id, debuggerKey: await putDebugger(ctx, id, { events }) })
     const { text } = await callTool(await mcpClient(ctx.app, ana.headers), "getTimeline", { report: id })
     expect(lines(text).filter((line) => line.startsWith("+"))).toHaveLength(50)
-    expect(text).toContain("4950 more — call again with cursor=")
+    expect(text).toContain("4950 more. Call again with cursor=")
   })
 })
 

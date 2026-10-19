@@ -40,7 +40,7 @@ export function paginate<T>(items: readonly T[], limit = DEFAULT_LIMIT, cursor?:
 
 /** The line that tells the agent how to get the next page, or nothing on the last one. */
 export function moreLine(page: { nextCursor: string | null; remaining: number }): string[] {
-  return page.nextCursor ? [`${page.remaining} more — call again with cursor="${page.nextCursor}"`] : []
+  return page.nextCursor ? [`${page.remaining} more. Call again with cursor="${page.nextCursor}"`] : []
 }
 
 export function textResult(text: string, structured?: Record<string, unknown>): CallToolResult {

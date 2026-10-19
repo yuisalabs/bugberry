@@ -65,7 +65,7 @@ export async function reportSummary(ctx: McpContext, resolved: ResolvedReport) {
     `Created: ${detail.createdAt.toISOString()} · Link: ${url}`,
     ...(member ? [] : ["Access: read-only through the report's share link (comments and changes need workspace membership)."]),
     "",
-    `Page: ${detail.pageTitle ? `${detail.pageTitle} — ` : ""}${detail.pageUrl}`,
+    `Page: ${detail.pageTitle ? `${detail.pageTitle} · ` : ""}${detail.pageUrl}`,
     `Capture: ${detail.captureType}${detail.durationMs !== null ? `, ${duration(detail.durationMs)}` : ""}`,
     ...(detail.description ? ["", "Description:", clip(detail.description)] : []),
     "",

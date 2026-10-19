@@ -115,7 +115,7 @@ export function registerBrowseTools(server: McpServer, ctx: McpContext): void {
         const text = [
           `${result.total} report${result.total === 1 ? "" : "s"} found.`,
           ...result.items.map((item) => reportLine(config.appUrl, item, names)),
-          ...(remaining > 0 ? [`${remaining} more — call again with cursor="${encodePage(page + 1)}"`] : []),
+          ...(remaining > 0 ? [`${remaining} more. Call again with cursor="${encodePage(page + 1)}"`] : []),
         ].join("\n")
         return textResult(text, {
           total: result.total,
