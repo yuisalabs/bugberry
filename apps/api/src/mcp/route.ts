@@ -92,12 +92,21 @@ export function mcpModule(deps: AppDeps, options: { limiter?: RateLimiter } = {}
     if (caller instanceof Response) return caller
     if (!limiter.consume(caller.user.id)) return rpcError(429, -32029, RATE_LIMITED)
 
+    // One HTTP request is one call: a JSON-RPC batch would run up to 100 tools at once on one count.
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      return rpcError(400, -32700, "Parse error")
+    }
+    if (Array.isArray(body)) return rpcError(400, -32600, "Batch requests are not supported")
+
     const ctx: McpContext = { deps, caller, cache, screenshotLimiter, dispatcher }
     const server = createMcpServer(ctx)
     const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true })
     await server.connect(transport)
     try {
-      return await transport.handleRequest(request)
+      return await transport.handleRequest(request, { parsedBody: body })
     } finally {
       await transport.close()
       await server.close()

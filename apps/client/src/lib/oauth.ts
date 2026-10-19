@@ -21,6 +21,22 @@ export function loginTarget(search: string, next: unknown): string {
   return oauthResumeUrl(search) ?? safeNext(next)
 }
 
+/**
+ * Where approving sends the browser (and the code that becomes the app's access): the host of the
+ * app's redirect URI, or the whole URI for desktop apps with their own scheme. Anyone can register an
+ * app with any name, so this is the one thing on the consent page the app cannot fake.
+ */
+export function redirectHost(search: string): string | null {
+  const raw = new URLSearchParams(search).get("redirect_uri")
+  if (!raw) return null
+  try {
+    const url = new URL(raw)
+    return url.host || `${url.protocol}${url.pathname}`
+  } catch {
+    return raw
+  }
+}
+
 const SCOPE_TEXT: Record<string, string> = {
   "bugberry:read": "Read reports, comments and debugger data in your workspaces",
   "bugberry:write": "Comment, change status, priority and assignee, and send reports to trackers",

@@ -4,12 +4,13 @@ import { useEffect, useState } from "react"
 import { BugBerryLogo } from "../components/BugBerryLogo"
 import { Loading } from "../components/ui"
 import { ApiError } from "../lib/api"
-import { answerConsent, fetchOAuthClient, scopeLines } from "../lib/oauth"
+import { answerConsent, fetchOAuthClient, redirectHost, scopeLines } from "../lib/oauth"
 import { queries } from "../lib/queries"
 
 export function ConsentView({
   appName,
   appUri,
+  redirectHost,
   email,
   scope,
   busy,
@@ -19,6 +20,7 @@ export function ConsentView({
 }: {
   appName: string
   appUri: string | null
+  redirectHost: string | null
   email: string
   scope: string
   busy: boolean
@@ -31,9 +33,15 @@ export function ConsentView({
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-1">
         <h1 className="font-heading text-2xl font-bold text-foreground">{appName} wants to use BugBerry</h1>
-        {appUri && <p className="text-sm text-muted-foreground">{appUri}</p>}
+        {appUri && <p className="text-sm text-muted-foreground">{appUri} (not verified)</p>}
       </div>
       <p className="text-sm text-muted-foreground">Signed in as {email}</p>
+      {redirectHost && (
+        <p className="text-sm font-medium text-foreground">After you allow it, you'll be sent to {redirectHost}</p>
+      )}
+      <p className="text-sm text-muted-foreground">
+        The app chose its own name. Only allow it if you just started connecting it yourself.
+      </p>
       <div className="flex flex-col gap-2">
         <p className="text-sm font-medium text-foreground">It will be able to:</p>
         <ul className="flex list-disc flex-col gap-1 pl-5 text-sm text-foreground">
@@ -107,6 +115,7 @@ export function OAuthConsentPage() {
           <ConsentView
             appName={app.data.name}
             appUri={app.data.uri}
+            redirectHost={redirectHost(search)}
             email={me.data.email}
             scope={params.get("scope") ?? ""}
             busy={busy}

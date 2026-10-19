@@ -67,3 +67,19 @@ describe("POST /api/mcp", () => {
     await expect(client.ping()).rejects.toThrow("Too many requests, try again in a minute")
   })
 })
+
+describe("hostile requests", () => {
+  test("JSON-RPC batches are refused, so one request is one call for the rate limit", async () => {
+    const person = await createUserWithToken(ctx.db)
+    const call = (id: number) => ({ jsonrpc: "2.0", id, method: "tools/call", params: { name: "getTimeline", arguments: { report: "x" } } })
+    const response = await ctx.app.handle(
+      new Request("http://localhost/api/mcp", {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/json, text/event-stream", ...person.headers },
+        body: JSON.stringify(Array.from({ length: 50 }, (_, n) => call(n + 1))),
+      }),
+    )
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ jsonrpc: "2.0", error: { code: -32600, message: "Batch requests are not supported" }, id: null })
+  })
+})

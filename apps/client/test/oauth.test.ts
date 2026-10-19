@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test"
-import { answerConsent, fetchOAuthClient, loginTarget, oauthResumeUrl, scopeLines } from "../src/lib/oauth"
+import { answerConsent, fetchOAuthClient, loginTarget, oauthResumeUrl, redirectHost, scopeLines } from "../src/lib/oauth"
 
 const SIGNED = "?response_type=code&client_id=abc&scope=openid+bugberry%3Aread&exp=1&sig=xyz"
 
@@ -51,5 +51,14 @@ describe("consent calls", () => {
   test("answerConsent explains a refusal", async () => {
     const fetch = mock(async () => Response.json({ error_description: "expired" }, { status: 400 }))
     await expect(answerConsent(false, SIGNED, { fetch, assign: mock() })).rejects.toThrow("This request has expired. Start again from your AI app.")
+  })
+})
+
+describe("redirectHost", () => {
+  test("the host the app's redirect URI points at", () => {
+    expect(redirectHost("?redirect_uri=https%3A%2F%2Fevil.example%2Fcb&client_id=a")).toBe("evil.example")
+    expect(redirectHost("?redirect_uri=http%3A%2F%2Flocalhost%3A9999%2Fcallback")).toBe("localhost:9999")
+    expect(redirectHost("?redirect_uri=com.example.app%3A%2Fcb")).toBe("com.example.app:/cb")
+    expect(redirectHost("?client_id=a")).toBeNull()
   })
 })

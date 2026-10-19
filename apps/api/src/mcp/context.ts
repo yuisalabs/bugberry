@@ -63,6 +63,8 @@ export async function runTool(fn: () => Promise<CallToolResult>): Promise<CallTo
     if (error instanceof McpToolError || error instanceof AppError) {
       return { isError: true, content: [{ type: "text", text: error.message }] }
     }
-    throw error
+    // Database and storage errors can carry queries and keys: log them, and tell the agent nothing more.
+    console.error("MCP tool failed", error)
+    return { isError: true, content: [{ type: "text", text: "Something went wrong. Try again." }] }
   }
 }

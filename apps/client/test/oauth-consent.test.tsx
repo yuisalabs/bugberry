@@ -5,6 +5,7 @@ import { ConsentView } from "../src/pages/OAuthConsentPage"
 const props = {
   appName: "Claude Code",
   appUri: "https://claude.ai",
+  redirectHost: "localhost:9999",
   email: "ana@kantor.test",
   scope: "openid offline_access bugberry:read bugberry:write",
   busy: false,
@@ -40,5 +41,14 @@ describe("ConsentView", () => {
   test("shows errors", () => {
     render(<ConsentView {...props} error="This request has expired. Start again from your AI app." />)
     expect(screen.getByRole("alert").textContent).toBe("This request has expired. Start again from your AI app.")
+  })
+})
+
+describe("ConsentView against look-alike apps", () => {
+  test("says where approval sends you and that the app's own details are unverified", () => {
+    render(<ConsentView {...props} appName="Claude" redirectHost="evil.example" />)
+    expect(screen.getByText("After you allow it, you'll be sent to evil.example")).toBeTruthy()
+    expect(screen.getByText("https://claude.ai (not verified)")).toBeTruthy()
+    expect(screen.getByText("The app chose its own name. Only allow it if you just started connecting it yourself.")).toBeTruthy()
   })
 })
