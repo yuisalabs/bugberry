@@ -35,6 +35,17 @@ export function testMcpContext(
   } as McpContext
 }
 
+/** A client wired straight to createMcpServer, for callers the HTTP route can't make yet (read-only scopes). */
+export async function directClient(mcpCtx: McpContext): Promise<Client> {
+  const { InMemoryTransport } = await import("@modelcontextprotocol/sdk/inMemory.js")
+  const { createMcpServer } = await import("../src/mcp/server")
+  const [clientSide, serverSide] = InMemoryTransport.createLinkedPair()
+  await createMcpServer(mcpCtx).connect(serverSide)
+  const client = new Client({ name: "bugberry-test", version: "1.0.0" })
+  await client.connect(clientSide)
+  return client
+}
+
 export const T0 = 1_000_000
 
 /**

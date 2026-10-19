@@ -6,6 +6,7 @@ import { registerEventTools } from "./tools/events"
 import { registerInsightTools } from "./tools/insights"
 import { registerNetworkTools } from "./tools/network"
 import { registerReportReadTools } from "./tools/report-read"
+import { registerWriteTools } from "./tools/write"
 
 const INSTRUCTIONS =
   "BugBerry holds bug reports recorded in the browser: a screenshot or video plus console logs, network requests, " +
@@ -20,5 +21,6 @@ export function createMcpServer(ctx: McpContext): McpServer {
   registerNetworkTools(server, ctx)
   registerInsightTools(server, ctx)
   registerBrowseTools(server, ctx)
+  registerWriteTools(server, ctx)
   return server
 }
