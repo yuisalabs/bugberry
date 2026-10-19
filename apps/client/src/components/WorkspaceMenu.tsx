@@ -1,4 +1,4 @@
-import { RiAccountCircleLine, RiAddLine, RiExpandUpDownLine, RiLoginBoxLine, RiLogoutBoxRLine, RiSearchLine } from "@remixicon/react"
+import { RiAccountCircleLine, RiAddLine, RiExpandUpDownLine, RiLoginBoxLine, RiLogoutBoxRLine, RiRobot2Line, RiSearchLine } from "@remixicon/react"
 import type { WorkspaceRole } from "@bugberry/shared"
 import { useState } from "react"
 import { Dialog, DialogTrigger, Header, useFilter } from "react-aria-components"
@@ -29,6 +29,7 @@ interface PanelProps {
   onCreate(): void
   onJoin(): void
   onAccount(): void
+  onAiAgents(): void
   onLogout(): void
 }
 
@@ -54,7 +55,7 @@ export function WorkspaceTile({
 }
 
 /** What the workspace menu shows: find and switch workspaces, create or join one, and the account. */
-export function WorkspaceMenuPanel({ workspaces, currentId, me, onSwitch, onCreate, onJoin, onAccount, onLogout }: PanelProps) {
+export function WorkspaceMenuPanel({ workspaces, currentId, me, onSwitch, onCreate, onJoin, onAccount, onAiAgents, onLogout }: PanelProps) {
   const { contains } = useFilter({ sensitivity: "base" })
 
   return (
@@ -114,6 +115,10 @@ export function WorkspaceMenuPanel({ workspaces, currentId, me, onSwitch, onCrea
               <RiAccountCircleLine aria-hidden />
               <MenuLabel>Account settings</MenuLabel>
             </MenuItem>
+            <MenuItem textValue="AI agents (MCP)" onAction={onAiAgents}>
+              <RiRobot2Line aria-hidden />
+              <MenuLabel>AI agents (MCP)</MenuLabel>
+            </MenuItem>
             <MenuItem intent="danger" textValue="Log out" onAction={onLogout}>
               <RiLogoutBoxRLine aria-hidden />
               <MenuLabel>Log out</MenuLabel>
@@ -151,6 +156,7 @@ export function WorkspaceMenu(props: PanelProps) {
             onCreate={close(props.onCreate)}
             onJoin={close(props.onJoin)}
             onAccount={close(props.onAccount)}
+            onAiAgents={close(props.onAiAgents)}
             onLogout={close(props.onLogout)}
           />
         </Dialog>

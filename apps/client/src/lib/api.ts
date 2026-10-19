@@ -179,6 +179,11 @@ export function createApi(origin: string = window.location.origin, fetcher: type
     notifications: () => unwrap(api.notifications.get()),
     readNotification: (id: string) => unwrap(api.notifications({ id }).read.post()),
     readAllNotifications: () => unwrap(api.notifications["read-all"].post()),
+    mcpTokens: () => unwrap(api.me.tokens.get()),
+    createMcpToken: (label: string) => unwrap(api.me.tokens.post({ label })),
+    revokeMcpToken: (id: string) => unwrap(api.me.tokens({ id }).delete()),
+    oauthApps: () => unwrap(api.me["oauth-apps"].get()),
+    revokeOAuthApp: (clientId: string) => unwrap(api.me["oauth-apps"]({ clientId }).delete()),
     reportTrackers: (reportId: string) => unwrap(api.reports({ id: reportId }).trackers.get()),
     sendToTracker: (reportId: string, integrationId: string) =>
       unwrap(api.reports({ id: reportId }).trackers({ integrationId }).send.post()),

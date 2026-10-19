@@ -134,6 +134,13 @@ const integrationsRoute = createRoute({
 /** Everyone in the workspace sees its members; admins also invite and manage them. */
 const membersRoute = createRoute({ getParentRoute: () => authedRoute, path: "/app/settings/members", component: lazyRouteComponent(() => import("./pages/settings/MembersPage"), "MembersPage") })
 
+/** Anyone signed in: connect AI apps to the MCP server and manage their personal tokens. */
+const aiAgentsRoute = createRoute({
+  getParentRoute: () => authedRoute,
+  path: "/app/settings/ai",
+  component: lazyRouteComponent(() => import("./pages/settings/AiAgentsPage"), "AiAgentsPage"),
+})
+
 /** Anyone signed in: their own name, photo and sign-in methods. */
 const accountRoute = createRoute({
   getParentRoute: () => authedRoute,
@@ -175,6 +182,7 @@ const routeTree = rootRoute.addChildren([
     reportRoute,
     membersRoute,
     accountRoute,
+    aiAgentsRoute,
     adminRoute.addChildren([projectsSettingsRoute, integrationsRoute, workspaceSettingsRoute]),
   ]),
 ])

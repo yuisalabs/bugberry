@@ -104,6 +104,7 @@ export function AppShell() {
           onCreate={() => setCreating(true)}
           onJoin={() => setJoining(true)}
           onAccount={() => void navigate({ to: "/app/settings/account" })}
+          onAiAgents={() => void navigate({ to: "/app/settings/ai" })}
           onLogout={() => void logout()}
         />
       )}
