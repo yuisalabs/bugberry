@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import type { DebuggerView, ViewEvent } from "../src/lib/debugger-events"
+import type { DebuggerView, ViewEvent } from "@bugberry/debugger-view"
 import { timelineMarkers } from "../src/lib/timeline-markers"
 import { shareUrlAt } from "../src/lib/urls"
 

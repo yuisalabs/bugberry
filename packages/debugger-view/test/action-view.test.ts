@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import type { ViewAction } from "../src/lib/debugger-events"
-import { actionCounts, actionSentence, matchesActionFilter } from "../src/lib/action-view"
+import type { ViewAction } from "../src/debugger-events"
+import { actionCounts, actionSentence, matchesActionFilter } from "../src/action-view"
 
 const action = (overrides: Partial<ViewAction>): ViewAction => ({
   kind: "action",

@@ -1,0 +1,17 @@
+{
+  "name": "@bugberry/debugger-view",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@bugberry/capture": "workspace:*",
+    "@bugberry/shared": "workspace:*"
+  }
+}

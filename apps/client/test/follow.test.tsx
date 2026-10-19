@@ -2,7 +2,7 @@ import { describe, expect, mock, test } from "bun:test"
 import { render } from "@testing-library/react"
 import { ActionsTab } from "../src/components/debugger/ActionsTab"
 import { nextScrollTop } from "../src/components/debugger/useFollow"
-import { normalizePayload } from "../src/lib/debugger-events"
+import { normalizePayload } from "@bugberry/debugger-view"
 
 describe("nextScrollTop", () => {
   const panel = { scrollTop: 100, height: 300 }

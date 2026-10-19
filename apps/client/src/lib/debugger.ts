@@ -1,5 +1,5 @@
 import { decodeDebuggerPayload } from "@bugberry/capture"
-import { type DebuggerView, normalizePayload } from "./debugger-events"
+import { type DebuggerView, normalizePayload } from "@bugberry/debugger-view"
 
 export async function loadDebugger(url: string, fetcher: typeof fetch = fetch): Promise<DebuggerView> {
   const response = await fetcher(url)

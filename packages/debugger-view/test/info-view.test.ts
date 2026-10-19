@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import { normalizePayload } from "../src/lib/debugger-events"
-import { environmentRows, maskedCount, visitedUrls } from "../src/lib/info-view"
+import { normalizePayload } from "../src/debugger-events"
+import { environmentRows, maskedCount, visitedUrls } from "../src/info-view"
 
 describe("visitedUrls", () => {
   test("lists the pages in time order from 0, marking where the bug was reported", () => {

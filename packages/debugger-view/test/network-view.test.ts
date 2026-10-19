@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import type { ViewNetwork } from "../src/lib/debugger-events"
-import { curlFor, networkSummary, requestDomain, requestName, requestState, statusLabel } from "../src/lib/network-view"
+import type { ViewNetwork } from "../src/debugger-events"
+import { curlFor, networkSummary, requestDomain, requestName, requestState, statusLabel } from "../src/network-view"
 
 const request = (overrides: Partial<ViewNetwork> = {}): ViewNetwork => ({
   kind: "network",

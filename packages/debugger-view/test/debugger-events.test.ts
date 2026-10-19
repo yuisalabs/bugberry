@@ -6,7 +6,7 @@ import {
   MAX_TEXT,
   normalizePayload,
   type ViewNetwork,
-} from "../src/lib/debugger-events"
+} from "../src/debugger-events"
 
 describe("normalizePayload", () => {
   test("trusts only kind and t; coerces or drops everything else", () => {

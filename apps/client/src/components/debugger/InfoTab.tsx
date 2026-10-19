@@ -1,9 +1,9 @@
 import type { ReactNode } from "react"
 import { Button as AriaButton } from "react-aria-components"
 import type { ReportDetail } from "../../lib/api"
-import type { DebuggerView } from "../../lib/debugger-events"
+import type { DebuggerView } from "@bugberry/debugger-view"
 import { formatOffset, formatTimestamp } from "../../lib/format"
-import { environmentRows, maskedCount, visitedUrls } from "../../lib/info-view"
+import { environmentRows, maskedCount, visitedUrls } from "@bugberry/debugger-view"
 import type { Playback } from "../../lib/timeline"
 import { VisitedUrls } from "./VisitedUrls"
 

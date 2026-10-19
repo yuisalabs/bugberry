@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import { normalizePayload } from "../src/lib/debugger-events"
-import { consoleCounts, consoleRows, navigationText } from "../src/lib/console-view"
+import { normalizePayload } from "../src/debugger-events"
+import { consoleCounts, consoleRows, navigationText } from "../src/console-view"
 
 const { events } = normalizePayload({
   events: [

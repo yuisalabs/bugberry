@@ -5,7 +5,7 @@ import { Input, InputGroup } from "@bugberry/ui/input"
 import { SearchField } from "@bugberry/ui/search-field"
 import { Switch, SwitchField } from "@bugberry/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@bugberry/ui/toggle-group"
-import type { ViewEvent } from "../../lib/debugger-events"
+import type { ViewEvent } from "@bugberry/debugger-view"
 import { startHorizontalDrag } from "../../lib/drag"
 import { formatDuration } from "../../lib/format"
 import {
@@ -21,7 +21,7 @@ import {
   TYPE_FILTERS,
   type TypeFilter,
   waterfall,
-} from "../../lib/network-view"
+} from "@bugberry/debugger-view"
 import {
   clampColumnWidth,
   type ColumnWidths,

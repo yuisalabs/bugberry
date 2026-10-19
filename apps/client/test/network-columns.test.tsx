@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { NetworkTab } from "../src/components/debugger/NetworkTab"
 import { clampColumnWidth, DEFAULT_COLUMN_WIDTHS, readColumnWidths, saveColumnWidths } from "../src/lib/network-columns"
-import { normalizePayload } from "../src/lib/debugger-events"
+import { normalizePayload } from "@bugberry/debugger-view"
 
 afterEach(() => window.localStorage.clear())
 

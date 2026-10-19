@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { VisitedUrls } from "../src/components/debugger/VisitedUrls"
-import type { VisitedUrl } from "../src/lib/info-view"
+import type { VisitedUrl } from "@bugberry/debugger-view"
 
 const entries: VisitedUrl[] = [
   { atMs: 0, url: "https://shop.test/cart", bugHere: false },

@@ -13,6 +13,7 @@
       "name": "@bugberry/api",
       "version": "0.0.0",
       "dependencies": {
+        "@bugberry/debugger-view": "workspace:*",
         "@bugberry/shared": "workspace:*",
         "@elysiajs/cors": "1.4.2",
         "better-auth": "1.7.10",
@@ -31,6 +32,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@bugberry/capture": "workspace:*",
+        "@bugberry/debugger-view": "workspace:*",
         "@bugberry/player": "workspace:*",
         "@bugberry/shared": "workspace:*",
         "@bugberry/ui": "workspace:*",
@@ -109,6 +111,14 @@
       },
       "devDependencies": {
         "happy-dom": "21.0.1",
+      },
+    },
+    "packages/debugger-view": {
+      "name": "@bugberry/debugger-view",
+      "version": "0.0.0",
+      "dependencies": {
+        "@bugberry/capture": "workspace:*",
+        "@bugberry/shared": "workspace:*",
       },
     },
     "packages/player": {
@@ -200,6 +210,8 @@
     "@bugberry/capture": ["@bugberry/capture@workspace:packages/capture"],
 
     "@bugberry/client": ["@bugberry/client@workspace:apps/client"],
+
+    "@bugberry/debugger-view": ["@bugberry/debugger-view@workspace:packages/debugger-view"],
 
     "@bugberry/extension": ["@bugberry/extension@workspace:apps/extension"],
 

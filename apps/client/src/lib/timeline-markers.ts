@@ -1,5 +1,5 @@
 import type { TimelineMarker } from "@bugberry/player"
-import { type DebuggerView, eventBase, isFailedRequest } from "./debugger-events"
+import { type DebuggerView, eventBase, isFailedRequest } from "@bugberry/debugger-view"
 import { formatOffset } from "./format"
 
 /** The address without its host, which is the same for every request on a page. */

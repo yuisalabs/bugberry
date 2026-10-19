@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { FlaggedIssues } from "../src/components/report/FlaggedIssues"
 import { ReportView } from "../src/components/ReportView"
-import type { FlaggedIssue } from "../src/lib/flagged-issues"
+import type { FlaggedIssue } from "@bugberry/debugger-view"
 import { reportFixture } from "./fixtures"
 
 const issue = (index: number, overrides: Partial<FlaggedIssue> = {}): FlaggedIssue => ({

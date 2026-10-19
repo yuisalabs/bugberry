@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@elysiajs/cors": "1.4.2",
+    "@bugberry/debugger-view": "workspace:*",
     "@bugberry/shared": "workspace:*",
     "better-auth": "1.7.10",
     "drizzle-orm": "0.45.4",

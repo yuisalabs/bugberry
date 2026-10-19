@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import type { ViewEvent, ViewNetwork, ViewPage, ViewResource } from "../src/lib/debugger-events"
+import type { ViewEvent, ViewNetwork, ViewPage, ViewResource } from "../src/debugger-events"
 import {
   formatBytes,
   matchesFilter,
@@ -9,7 +9,7 @@ import {
   sizeLabel,
   TYPE_FILTERS,
   waterfall,
-} from "../src/lib/network-view"
+} from "../src/network-view"
 
 const request = (overrides: Partial<ViewNetwork> = {}): ViewNetwork => ({
   kind: "network",

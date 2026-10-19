@@ -2,7 +2,7 @@ import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useStat
 import type { ReportDetail } from "../lib/api"
 import { clampDevtoolsWidth, type DevtoolsLayout, readDevtools, saveDevtools } from "../lib/devtools-layout"
 import { PRIORITY_LABELS, PRIORITY_STYLES } from "../lib/labels"
-import { flaggedIssues } from "../lib/flagged-issues"
+import { flaggedIssues } from "@bugberry/debugger-view"
 import type { SentIssue } from "../lib/report-page"
 import { type Playback, seekSeconds } from "../lib/timeline"
 import { timelineMarkers } from "../lib/timeline-markers"

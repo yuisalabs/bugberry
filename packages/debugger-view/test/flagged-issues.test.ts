@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
-import { normalizePayload } from "../src/lib/debugger-events"
-import { flaggedIssues } from "../src/lib/flagged-issues"
-import { networkRows } from "../src/lib/network-view"
+import { normalizePayload } from "../src/debugger-events"
+import { flaggedIssues } from "../src/flagged-issues"
+import { networkRows } from "../src/network-view"
 
 const view = (events: unknown[], recordingStartedAt: number | null = 1000) =>
   normalizePayload({ version: 1, capturedAt: 99_000, recordingStartedAt, incomplete: [], events })

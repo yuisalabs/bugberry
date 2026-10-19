@@ -1,8 +1,8 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { RequestDetail } from "../src/components/debugger/RequestDetail"
-import { normalizePayload } from "../src/lib/debugger-events"
-import { networkRows, prettyBody } from "../src/lib/network-view"
+import { normalizePayload } from "@bugberry/debugger-view"
+import { networkRows, prettyBody } from "@bugberry/debugger-view"
 
 describe("prettyBody", () => {
   test("JSON objects and arrays are indented by two spaces", () => {

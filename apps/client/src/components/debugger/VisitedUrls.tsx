@@ -4,7 +4,7 @@ import { Button as AriaButton } from "react-aria-components"
 import { Disclosure, DisclosurePanel, DisclosureTrigger } from "@bugberry/ui/disclosure-group"
 import { Link } from "@bugberry/ui/link"
 import { formatOffset } from "../../lib/format"
-import type { VisitedUrl } from "../../lib/info-view"
+import type { VisitedUrl } from "@bugberry/debugger-view"
 import { activeIndex, type Playback } from "../../lib/timeline"
 import { safeHttpUrl } from "../../lib/urls"
 

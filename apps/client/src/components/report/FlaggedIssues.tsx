@@ -2,7 +2,7 @@ import { RiPlayFill } from "@remixicon/react"
 import { useState } from "react"
 import { Button as AriaButton } from "react-aria-components"
 import { Button } from "@bugberry/ui/button"
-import type { FlaggedIssue, IssueLevel, IssueTarget } from "../../lib/flagged-issues"
+import type { FlaggedIssue, IssueLevel, IssueTarget } from "@bugberry/debugger-view"
 import { formatOffset } from "../../lib/format"
 
 const SHOWN = 3
