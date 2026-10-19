@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { eq } from "drizzle-orm"
-import { report } from "../src/db/schema"
+import { comment, report } from "../src/db/schema"
+import { newId } from "../src/lib/ids"
 import { LocalStorageDriver } from "../src/storage/local"
 import { createProject, createReadyReport, createUser, createUserWithToken, setupTestApp } from "./helpers"
 
@@ -18,6 +19,36 @@ const make = (overrides: Partial<Parameters<typeof createReadyReport>[1]> = {}) 
   createReadyReport(ctx.db, { projectId, reporterId: member.user.id, ...overrides })
 
 describe("GET /api/reports", () => {
+  test("q matches description and comment text", async () => {
+    await make({ title: "Checkout", description: "Only on Safari 17" })
+    const commented = await make({ title: "Login" })
+    await ctx.db.insert(comment).values({ id: newId(), reportId: commented.id, authorId: member.user.id, body: "Also broken in safari" })
+    await make({ title: "Unrelated" })
+    const { data } = await ctx.api.api.reports.get({ query: { q: "Safari" }, headers: member.headers })
+    expect(data?.items.map((r) => r.title).sort()).toEqual(["Checkout", "Login"])
+    expect(data?.total).toBe(2)
+  })
+
+  test("createdAfter and createdBefore bound the list", async () => {
+    await make({ title: "jan", createdAt: new Date("2026-01-15T00:00:00Z") })
+    await make({ title: "feb", createdAt: new Date("2026-02-15T00:00:00Z") })
+    await make({ title: "mar", createdAt: new Date("2026-03-15T00:00:00Z") })
+    const { data } = await ctx.api.api.reports.get({
+      query: { createdAfter: "2026-02-01T00:00:00Z", createdBefore: "2026-03-01T00:00:00Z" },
+      headers: member.headers,
+    })
+    expect(data?.items.map((r) => r.title)).toEqual(["feb"])
+  })
+
+  test("hasErrors keeps reports with errors or failed requests", async () => {
+    const summary = { logs: 0, errors: 0, requests: 0, failedRequests: 0, actions: 0, incomplete: [] }
+    await make({ title: "errors", debuggerSummary: { ...summary, errors: 1 } })
+    await make({ title: "failed", debuggerSummary: { ...summary, failedRequests: 2 } })
+    await make({ title: "clean", debuggerSummary: summary })
+    const { data } = await ctx.api.api.reports.get({ query: { hasErrors: true }, headers: member.headers })
+    expect(data?.items.map((r) => r.title).sort()).toEqual(["errors", "failed"])
+  })
+
   test("lists only finished uploads, newest first", async () => {
     await make({ title: "old", createdAt: new Date("2026-01-01") })
     await make({ title: "new", createdAt: new Date("2026-02-01") })

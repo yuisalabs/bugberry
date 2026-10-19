@@ -62,6 +62,10 @@ export const listReportsQuery = t.Object({
   assigneeId: t.Optional(t.String()),
   reporterId: t.Optional(t.String()),
   q: t.Optional(t.String({ maxLength: 200 })),
+  createdAfter: t.Optional(t.String({ format: "date-time" })),
+  createdBefore: t.Optional(t.String({ format: "date-time" })),
+  /** Only reports whose debugger caught errors or failed requests. */
+  hasErrors: t.Optional(t.BooleanString()),
   sort: t.Optional(t.UnionEnum(["newest", "oldest", "priority"])),
   // Whole numbers only; the cap keeps the OFFSET inside what Postgres accepts.
   page: t.Optional(t.Numeric({ minimum: 1, maximum: 100_000, multipleOf: 1 })),
