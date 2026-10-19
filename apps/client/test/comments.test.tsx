@@ -11,6 +11,7 @@ const comments: Comment[] = [
     updatedAt: new Date("2026-10-16T08:00:00Z"),
     author: { id: "u1", name: "Ana", image: null },
     mentions: [],
+    viaAgent: null,
   },
   {
     id: "c2",
@@ -19,6 +20,7 @@ const comments: Comment[] = [
     updatedAt: new Date("2026-10-16T09:00:00Z"),
     author: { id: "u2", name: "Budi", image: null },
     mentions: [],
+    viaAgent: null,
   },
 ]
 
@@ -93,6 +95,7 @@ describe("CommentList", () => {
       updatedAt: new Date("2026-10-16T10:00:00Z"),
       author: { id: "u2", name: "Budi", image: null },
       mentions: [{ id: "u1", name: "Ana" }],
+      viaAgent: null,
     }
 
     test("typing @ suggests members, and sending stores the mention", async () => {

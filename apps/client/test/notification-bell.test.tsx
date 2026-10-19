@@ -13,6 +13,7 @@ const item = (index: number, overrides: Partial<Notifications["items"][number]> 
   report: { id: `r${index}`, number: index, title: "Pay button fails" },
   commentId: `c${index}`,
   snippet: "@Budi tolong cek",
+  viaAgent: null,
   ...overrides,
 })
 
