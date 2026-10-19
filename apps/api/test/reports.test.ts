@@ -40,6 +40,13 @@ describe("GET /api/reports", () => {
     expect(data?.items.map((r) => r.title)).toEqual(["feb"])
   })
 
+  test("assigneeId none keeps unassigned reports", async () => {
+    await make({ title: "taken", assigneeId: member.user.id })
+    await make({ title: "free" })
+    const { data } = await ctx.api.api.reports.get({ query: { assigneeId: "none" }, headers: member.headers })
+    expect(data?.items.map((r) => r.title)).toEqual(["free"])
+  })
+
   test("hasErrors keeps reports with errors or failed requests", async () => {
     const summary = { logs: 0, errors: 0, requests: 0, failedRequests: 0, actions: 0, incomplete: [] }
     await make({ title: "errors", debuggerSummary: { ...summary, errors: 1 } })

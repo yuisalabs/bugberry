@@ -19,6 +19,8 @@ export const debuggerSummarySchema = t.Object({
 
 /** `projectId=none` in the report list: only reports without a project. */
 export const NO_PROJECT = "none"
+/** `assigneeId=none` in the report list: only reports nobody is assigned to. */
+export const NO_ASSIGNEE = "none"
 
 export const createUploadBody = t.Object({
   /** Omitted: the reporter's current workspace. */

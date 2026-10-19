@@ -9,7 +9,7 @@ import { newShareSlug } from "../../lib/ids"
 import { escapeLike } from "../../lib/sql"
 import { memberRole, requireReportMember, resolveWorkspace } from "../../workspaces/access"
 import { loadReportDetail, type ReportDetail } from "./detail"
-import { type listReportsQuery, NO_PROJECT, type updateReportBody } from "./model"
+import { type listReportsQuery, NO_ASSIGNEE, NO_PROJECT, type updateReportBody } from "./model"
 
 const DEFAULT_PER_PAGE = 20
 const reporterUser = alias(user, "reporter")
@@ -41,7 +41,8 @@ export async function listReports({ db, storage }: Deps, caller: CurrentUser, in
   if (input.captureType) conditions.push(eq(report.captureType, input.captureType))
   if (input.status?.length) conditions.push(inArray(report.status, input.status))
   if (input.priority?.length) conditions.push(inArray(report.priority, input.priority))
-  if (input.assigneeId) conditions.push(eq(report.assigneeId, input.assigneeId))
+  if (input.assigneeId === NO_ASSIGNEE) conditions.push(isNull(report.assigneeId))
+  else if (input.assigneeId) conditions.push(eq(report.assigneeId, input.assigneeId))
   if (input.reporterId) conditions.push(eq(report.reporterId, input.reporterId))
   if (input.createdAfter) conditions.push(gte(report.createdAt, new Date(input.createdAfter)))
   if (input.createdBefore) conditions.push(lt(report.createdAt, new Date(input.createdBefore)))

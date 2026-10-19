@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import packageJson from "../../package.json"
 import type { McpContext } from "./context"
+import { registerBrowseTools } from "./tools/browse"
 import { registerEventTools } from "./tools/events"
 import { registerInsightTools } from "./tools/insights"
 import { registerNetworkTools } from "./tools/network"
@@ -18,5 +19,6 @@ export function createMcpServer(ctx: McpContext): McpServer {
   registerEventTools(server, ctx)
   registerNetworkTools(server, ctx)
   registerInsightTools(server, ctx)
+  registerBrowseTools(server, ctx)
   return server
 }
