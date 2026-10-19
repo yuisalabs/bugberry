@@ -86,6 +86,13 @@ const projectRoute = createRoute({
 /** Public: an invitation link works before signing in. */
 const inviteRoute = createRoute({ getParentRoute: () => rootRoute, path: "/invite/$token", component: lazyRouteComponent(() => import("./pages/InvitePage"), "InvitePage") })
 
+/** Where an AI app's OAuth sign-in asks the person to approve it; handles signed-out visitors itself. */
+const oauthConsentRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/oauth/consent",
+  component: lazyRouteComponent(() => import("./pages/OAuthConsentPage"), "OAuthConsentPage"),
+})
+
 /** Public: a workspace's shared invite link; works signed out so the person can sign in first. */
 const joinRoute = createRoute({ getParentRoute: () => rootRoute, path: "/join/$code", component: lazyRouteComponent(() => import("./pages/JoinPage"), "JoinPage") })
 
@@ -161,6 +168,7 @@ const routeTree = rootRoute.addChildren([
   shareRoute,
   inviteRoute,
   joinRoute,
+  oauthConsentRoute,
   authedRoute.addChildren([
     homeRoute,
     projectRoute,

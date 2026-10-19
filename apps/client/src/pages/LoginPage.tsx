@@ -5,6 +5,7 @@ import { LoginView } from "../components/LoginView"
 import { ErrorState, Loading } from "../components/ui"
 import { sendLoginCode, signInWithProvider, verifyLoginCode } from "../lib/auth"
 import { loginErrorMessage } from "../lib/login"
+import { loginTarget, oauthResumeUrl } from "../lib/oauth"
 import { queries } from "../lib/queries"
 import { safeNext } from "../lib/urls"
 
@@ -16,11 +17,16 @@ export function LoginPage() {
   const me = useQuery({ ...queries.me(), retry: false })
   const methods = useQuery(queries.authMethods())
   const [startError, setStartError] = useState<string | null>(null)
+  // An AI app's sign-in arrives with its signed request in the URL; after signing in it continues there.
+  const [target] = useState(() => loginTarget(window.location.search, next))
+  const resumesOAuth = oauthResumeUrl(window.location.search) !== null
 
   // Already signed in (e.g. a stale tab): continue to where the person was going.
   useEffect(() => {
-    if (me.isSuccess && !error) router.history.replace(safeNext(next))
-  }, [me.isSuccess, error, next, router])
+    if (!me.isSuccess || error) return
+    if (resumesOAuth) window.location.assign(target)
+    else router.history.replace(safeNext(next))
+  }, [me.isSuccess, error, next, router, resumesOAuth, target])
 
   if (methods.isPending) return <Loading />
   if (methods.isError) {
@@ -37,12 +43,12 @@ export function LoginPage() {
       message={startError ?? loginErrorMessage(error, errorDescription)}
       onProvider={(provider) => {
         setStartError(null)
-        signInWithProvider(provider, next).catch((caught: unknown) =>
+        signInWithProvider(provider, target).catch((caught: unknown) =>
           setStartError(caught instanceof Error ? caught.message : String(caught)),
         )
       }}
       onSendCode={(email) => sendLoginCode(email)}
-      onVerifyCode={(email, code) => verifyLoginCode(email, code, next)}
+      onVerifyCode={(email, code) => verifyLoginCode(email, code, target)}
     />
   )
 }
