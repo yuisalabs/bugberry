@@ -56,7 +56,9 @@ export function shareModule(deps: AppDeps) {
       .limit(1)
     if (!target) throw notFound("report_not_found", "Report not found")
 
-    const viewer = await resolveUser(request.headers)
+    const resolved = await resolveUser(request.headers)
+    // An MCP-only token reads reports through the MCP server, never here.
+    const viewer = resolved?.tokenKind === "mcp" ? null : resolved
     const allowed = viewer && isEmailAllowed(viewer.email, deps.config.allowedEmailDomains) ? viewer : null
     const isMember = Boolean(allowed && (await memberRole(deps.db, allowed.id, target.workspaceId)))
     const access = reportAccess(target, allowed ? { email: allowed.email, isMember } : null)

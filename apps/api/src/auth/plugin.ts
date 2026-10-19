@@ -14,6 +14,13 @@ export interface CurrentUser {
   lastWorkspaceId: string | null
 }
 
+/** The caller and how they signed in: a token's kind, or null for a dashboard session cookie. */
+export interface ResolvedCaller extends CurrentUser {
+  tokenKind: "full" | "mcp" | null
+}
+
+export const MCP_TOKEN_ONLY = "This token only works with the BugBerry MCP server"
+
 const LAST_USED_RESOLUTION_MS = 60_000
 
 const currentUserColumns = {
@@ -24,15 +31,18 @@ const currentUserColumns = {
   lastWorkspaceId: user.lastWorkspaceId,
 }
 
-/** Resolves the caller from an extension token (Bearer) or a Better Auth session cookie. */
+/**
+ * Resolves the caller from a personal token (Bearer) or a Better Auth session cookie. Callers decide
+ * what an MCP-kind token may do: authPlugin refuses it, the MCP route accepts it.
+ */
 export function createUserResolver({ db, betterAuth }: Pick<AppDeps, "db" | "betterAuth">) {
-  return async function resolveUser(headers: Headers): Promise<CurrentUser | null> {
+  return async function resolveUser(headers: Headers): Promise<ResolvedCaller | null> {
     const authorization = headers.get("authorization")
     if (authorization?.startsWith("Bearer ")) {
       const token = authorization.slice("Bearer ".length).trim()
       if (!token.startsWith(TOKEN_PREFIX)) return null
       const [row] = await db
-        .select({ ...currentUserColumns, tokenId: apiToken.id, lastUsedAt: apiToken.lastUsedAt })
+        .select({ ...currentUserColumns, tokenId: apiToken.id, lastUsedAt: apiToken.lastUsedAt, kind: apiToken.kind })
         .from(apiToken)
         .innerJoin(user, eq(apiToken.userId, user.id))
         .where(and(eq(apiToken.tokenHash, hashToken(token)), isNull(apiToken.revokedAt)))
@@ -41,13 +51,20 @@ export function createUserResolver({ db, betterAuth }: Pick<AppDeps, "db" | "bet
       if (!row.lastUsedAt || Date.now() - row.lastUsedAt.getTime() > LAST_USED_RESOLUTION_MS) {
         await db.update(apiToken).set({ lastUsedAt: new Date() }).where(eq(apiToken.id, row.tokenId))
       }
-      return { id: row.id, email: row.email, name: row.name, image: row.image, lastWorkspaceId: row.lastWorkspaceId }
+      return {
+        id: row.id,
+        email: row.email,
+        name: row.name,
+        image: row.image,
+        lastWorkspaceId: row.lastWorkspaceId,
+        tokenKind: row.kind,
+      }
     }
 
     const session = await betterAuth.api.getSession({ headers })
     if (!session) return null
     const [row] = await db.select(currentUserColumns).from(user).where(eq(user.id, session.user.id)).limit(1)
-    return row ?? null
+    return row ? { ...row, tokenKind: null } : null
   }
 }
 
@@ -60,12 +77,14 @@ export function authPlugin(deps: Pick<AppDeps, "db" | "betterAuth" | "config">) 
   return new Elysia({ name: "bugberry.auth" }).macro({
     auth: (_required: true) => ({
       async resolve({ request }) {
-        const current = await resolveUser(request.headers)
-        if (!current) throw unauthorized()
+        const resolved = await resolveUser(request.headers)
+        if (!resolved) throw unauthorized()
+        const { tokenKind, ...current } = resolved
+        if (tokenKind === "mcp") throw forbidden(MCP_TOKEN_ONLY)
         if (!isEmailAllowed(current.email, deps.config.allowedEmailDomains)) {
           throw forbidden("Your email domain is no longer allowed")
         }
-        return { user: current }
+        return { user: current as CurrentUser, tokenKind }
       },
     }),
   })

@@ -39,6 +39,8 @@ export const captureTypeEnum = pgEnum("capture_type", CAPTURE_TYPES)
 export const uploadStatusEnum = pgEnum("upload_status", UPLOAD_STATUSES)
 export const trackerProviderEnum = pgEnum("tracker_provider", TRACKER_PROVIDERS)
 export const workspaceRoleEnum = pgEnum("workspace_role", WORKSPACE_ROLES)
+/** "full" works on every route (CLI tokens); "mcp" only on /api/mcp (made in the dashboard for AI agents). */
+export const apiTokenKindEnum = pgEnum("api_token_kind", ["full", "mcp"])
 
 // --- Better Auth tables: property names must match Better Auth's model fields. ---
 
@@ -178,6 +180,7 @@ export const apiToken = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     tokenHash: text("token_hash").notNull().unique(),
     label: text("label").notNull(),
+    kind: apiTokenKindEnum("kind").notNull().default("full"),
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
     createdAt: createdAt(),

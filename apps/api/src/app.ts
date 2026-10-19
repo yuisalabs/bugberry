@@ -15,6 +15,7 @@ import { projectsModule } from "./modules/projects"
 import { reportsModule } from "./modules/reports"
 import { reportUploadsModule } from "./modules/reports/uploads"
 import { clientIp, shareModule } from "./modules/share"
+import { tokensModule } from "./modules/tokens"
 import { trackersModule } from "./modules/trackers"
 import { workspaceLogoModule } from "./modules/workspace-logo"
 import { workspacesModule } from "./modules/workspaces"
@@ -111,6 +112,7 @@ export function createApp(deps: AppDeps) {
     })
     .use(meModule(deps))
     .use(accountModule(deps))
+    .use(tokensModule(deps))
     .use(workspacesModule(deps))
     .use(workspaceLogoModule(deps))
     .use(invitationsModule(deps))

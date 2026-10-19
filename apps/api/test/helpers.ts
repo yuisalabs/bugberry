@@ -164,10 +164,10 @@ export async function createUser(db: Db, input: UserInput = {}) {
   return row
 }
 
-export async function createUserWithToken(db: Db, input: UserInput = {}) {
+export async function createUserWithToken(db: Db, input: UserInput & { kind?: "full" | "mcp" } = {}) {
   const created = await createUser(db, input)
   const token = generateApiToken()
-  await db.insert(apiToken).values({ id: newId(), userId: created.id, tokenHash: hashToken(token), label: "test" })
+  await db.insert(apiToken).values({ id: newId(), userId: created.id, tokenHash: hashToken(token), label: "test", kind: input.kind ?? "full" })
   return { user: created, token, headers: { authorization: `Bearer ${token}` } }
 }
 
