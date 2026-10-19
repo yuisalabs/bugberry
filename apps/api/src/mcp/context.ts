@@ -2,6 +2,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js"
 import type { AppDeps } from "../app"
 import type { CurrentUser } from "../auth/plugin"
 import { AppError } from "../lib/errors"
+import type { RateLimiter } from "../lib/rate-limit"
 import type { DebuggerCache } from "./debugger"
 
 export type McpScope = "bugberry:read" | "bugberry:write"
@@ -19,7 +20,11 @@ export interface McpContext {
   caller: McpCaller
   /** Shared by every request of this app. */
   cache: DebuggerCache
+  /** Images are heavier than text: a smaller allowance, shared by every request. */
+  screenshotLimiter: RateLimiter
 }
+
+export const RATE_LIMITED = "Too many requests, try again in a minute"
 
 /** A problem the agent should read as the tool's answer, not a crash. */
 export class McpToolError extends Error {
