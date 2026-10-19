@@ -15,13 +15,15 @@
     "token:create": "bun scripts/create-token.ts"
   },
   "dependencies": {
-    "@elysiajs/cors": "1.4.2",
     "@bugberry/debugger-view": "workspace:*",
     "@bugberry/shared": "workspace:*",
+    "@elysiajs/cors": "1.4.2",
+    "@modelcontextprotocol/sdk": "1.32.1",
     "better-auth": "1.7.10",
     "drizzle-orm": "0.45.4",
     "elysia": "1.4.30",
-    "nodemailer": "10.1.2"
+    "nodemailer": "10.1.2",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@elysiajs/eden": "1.4.9",

@@ -5,6 +5,7 @@ import type { Auth } from "./auth/better-auth"
 import type { Config } from "./config"
 import type { Db } from "./db/client"
 import { AppError } from "./lib/errors"
+import { mcpModule } from "./mcp/route"
 import type { TrackerFactory } from "./lib/trackers/providers"
 import { commentsModule } from "./modules/comments"
 import { integrationsModule } from "./modules/integrations"
@@ -126,6 +127,7 @@ export function createApp(deps: AppDeps) {
     .use(notificationsModule(deps))
     .use(integrationsModule(deps))
     .use(trackersModule(deps))
+    .use(mcpModule(deps))
 }
 
 export type App = ReturnType<typeof createApp>
