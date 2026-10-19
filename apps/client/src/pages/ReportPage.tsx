@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { getRouteApi, useNavigate } from "@tanstack/react-router"
 import { useEffect } from "react"
 import { NotificationBell } from "../components/NotificationBell"
+import { CopyForAiButton } from "../components/report/CopyForAiButton"
 import { CopyLinkButton } from "../components/report/CopyLinkButton"
 import { MoreMenu } from "../components/report/MoreMenu"
 import { ReportFields } from "../components/report/ReportFields"
@@ -74,6 +75,7 @@ export function ReportPage() {
         <ReportHeader back={backTarget(report.data, projects.data ?? [])}>
           <NotificationBell />
           <CopyLinkButton report={report.data} />
+          <CopyForAiButton reportId={report.data.id} />
           <MoreMenu report={report.data} />
         </ReportHeader>
       }

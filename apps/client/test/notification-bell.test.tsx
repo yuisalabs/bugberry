@@ -70,3 +70,10 @@ describe("NotificationBell", () => {
     expect(document.querySelector("b")).toBeNull()
   })
 })
+
+describe("NotificationBell via AI", () => {
+  test("says which app wrote the mention", () => {
+    view({ items: [item(9, { viaAgent: "Claude Code" })], unreadCount: 1 })
+    expect(screen.getByRole("button", { name: /mentioned you/ }).textContent).toContain("Ana mentioned you (via Claude Code) in BB-9")
+  })
+})

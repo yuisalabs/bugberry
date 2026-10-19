@@ -61,7 +61,8 @@ export function NotificationBellView({
                 />
                 <span className="flex min-w-0 flex-col gap-0.5">
                   <span className="text-sm text-foreground">
-                    <span className="font-semibold">{item.actor?.name ?? "Someone"}</span> mentioned you in{" "}
+                    <span className="font-semibold">{item.actor?.name ?? "Someone"}</span> mentioned you
+                    {item.viaAgent ? ` (via ${item.viaAgent})` : ""} in{" "}
                     <span className="font-semibold">BB-{item.report.number}</span> · {item.report.title}
                   </span>
                   <span className="line-clamp-2 text-xs text-muted-foreground">{item.snippet}</span>

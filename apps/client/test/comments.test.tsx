@@ -201,3 +201,13 @@ describe("CommentList", () => {
     })
   })
 })
+
+describe("via AI", () => {
+  test("a comment an AI app wrote shows a badge naming the app", () => {
+    const written = [{ ...comments[0]!, viaAgent: "Cursor" }, comments[1]!]
+    render(<CommentList comments={written} me={{ id: "u1", role: "member" }} busy={false} {...handlers()} />)
+    const badges = screen.getAllByText("via AI")
+    expect(badges).toHaveLength(1)
+    expect(badges[0]?.getAttribute("title")).toBe("Written by Cursor for Ana")
+  })
+})

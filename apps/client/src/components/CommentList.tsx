@@ -76,6 +76,14 @@ function CommentItem({
       <div className="flex items-baseline justify-between gap-2">
         <p className="text-sm">
           <span className="font-medium">{comment.author.name}</span>
+          {comment.viaAgent && (
+            <span
+              title={`Written by ${comment.viaAgent} for ${comment.author.name}`}
+              className="ml-2 rounded-full bg-primary-subtle px-1.5 py-0.5 text-[11px] font-medium text-primary-subtle-foreground"
+            >
+              via AI
+            </span>
+          )}
           <span className="ml-2 text-xs text-muted-foreground">{formatDateTime(comment.createdAt)}</span>
         </p>
         <div className="flex gap-1">
