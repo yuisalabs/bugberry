@@ -10,6 +10,6 @@ export default defineConfig({
     port: 5173,
     // Same origin as the API in dev too (APP_URL=http://localhost:5173), so session cookies and
     // local file URLs work unchanged.
-    proxy: { "/api": "http://localhost:3000" },
+    proxy: { "/api": "http://localhost:3000", "/.well-known": "http://localhost:3000" },
   },
 })

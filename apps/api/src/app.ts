@@ -6,6 +6,7 @@ import type { Config } from "./config"
 import type { Db } from "./db/client"
 import { AppError } from "./lib/errors"
 import { mcpModule } from "./mcp/route"
+import { wellKnownModule } from "./well-known"
 import type { TrackerFactory } from "./lib/trackers/providers"
 import { commentsModule } from "./modules/comments"
 import { integrationsModule } from "./modules/integrations"
@@ -71,7 +72,7 @@ export function createApp(deps: AppDeps) {
   const origins = [config.appUrl]
   if (config.extensionId) origins.push(`chrome-extension://${config.extensionId}`)
 
-  return new Elysia({ prefix: "/api" })
+  const api = new Elysia({ prefix: "/api" })
     .use(cors({ origin: origins, credentials: true }))
     // Returns plain Responses: a typed `status()` here would leak into every route's Eden response type.
     .onError({ as: "global" }, ({ code, error }) => {
@@ -128,6 +129,9 @@ export function createApp(deps: AppDeps) {
     .use(integrationsModule(deps))
     .use(trackersModule(deps))
     .use(mcpModule(deps))
+
+  // OAuth discovery must sit at the site root; everything else is under /api.
+  return new Elysia().use(wellKnownModule(deps)).use(api)
 }
 
 export type App = ReturnType<typeof createApp>

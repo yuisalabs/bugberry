@@ -118,6 +118,24 @@ openssl rand -base64 32
 
 If `ENCRYPTION_KEY` is changed, the old tokens can no longer be read: save the token again in each integration.
 
+## AI agents (MCP)
+
+BugBerry runs an MCP server at `https://<your domain>/api/mcp`, so AI apps can read reports and work on them. It supports Claude Code, Claude.ai, Cursor, VS Code, Windsurf and ChatGPT. Paste a report link or a number like `BB-123` into the agent and it can:
+
+- read the report: details, timeline, console, network, user actions, performance, the files and lines that failed, the screenshot and comments;
+- search reports;
+- comment (shown with a **via AI** badge);
+- change status, priority or assignee;
+- send the report to a tracker.
+
+Each person sets it up under **Account → AI agents (MCP)**. The page has copy-paste setup for each app, a list of connected apps that can be revoked, and personal tokens.
+
+- **Sign-in:** apps sign in with OAuth. The person approves the app on a BugBerry consent page, and access tokens last one hour. Revoking an app stops it immediately.
+- **Personal tokens:** for apps without OAuth, send `Authorization: Bearer <token>`. These tokens only work on `/api/mcp`.
+- **Permissions:** an agent can see and change exactly what its person can in the dashboard. It cannot delete reports, change who can see a report, or manage workspaces.
+
+Behind your own reverse proxy, also forward `/.well-known/oauth-*` and `/.well-known/openid-configuration` to the api: MCP clients discover the sign-in server there. The bundled nginx already does this.
+
 ## Deploy (VPS + Docker)
 
 You need a server with Docker Compose v2, a domain pointing at the server, and a Google OAuth client.
