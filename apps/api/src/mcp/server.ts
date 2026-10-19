@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import packageJson from "../../package.json"
 import type { McpContext } from "./context"
+import { registerEventTools } from "./tools/events"
 import { registerReportReadTools } from "./tools/report-read"
 
 const INSTRUCTIONS =
@@ -12,5 +13,6 @@ const INSTRUCTIONS =
 export function createMcpServer(ctx: McpContext): McpServer {
   const server = new McpServer({ name: "bugberry", version: packageJson.version }, { instructions: INSTRUCTIONS })
   registerReportReadTools(server, ctx)
+  registerEventTools(server, ctx)
   return server
 }
