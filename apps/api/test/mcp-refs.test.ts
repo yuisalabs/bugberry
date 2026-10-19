@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test"
-import type { McpContext } from "../src/mcp/context"
 import { parseReportRef, resolveReportRef } from "../src/mcp/refs"
 import { addMember, createReadyReport, createUser, createWorkspaceRow, setupTestApp } from "./helpers"
+import { testMcpContext } from "./mcp-helpers"
 
 let ctx: Awaited<ReturnType<typeof setupTestApp>>
 
@@ -10,10 +10,7 @@ beforeEach(async () => {
 })
 
 const APP = "http://localhost:3000"
-const mcpCtx = (user: Awaited<ReturnType<typeof createUser>>): McpContext => ({
-  deps: ctx,
-  caller: { user, scopes: new Set(["bugberry:read", "bugberry:write"]), via: { kind: "token" } },
-})
+const mcpCtx = (user: Awaited<ReturnType<typeof createUser>>) => testMcpContext(ctx, user)
 
 describe("parseReportRef", () => {
   test.each([

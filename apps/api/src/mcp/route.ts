@@ -5,6 +5,7 @@ import { createUserResolver } from "../auth/plugin"
 import { isEmailAllowed } from "../auth/policy"
 import { createRateLimiter, type RateLimiter } from "../lib/rate-limit"
 import type { McpCaller, McpContext } from "./context"
+import { createDebuggerCache } from "./debugger"
 import { createMcpServer } from "./server"
 
 const CALLS_PER_MINUTE = 120
@@ -25,6 +26,7 @@ export function resourceMetadataUrl(appUrl: string): string {
 export function mcpModule(deps: AppDeps, options: { limiter?: RateLimiter } = {}) {
   const resolveUser = createUserResolver(deps)
   const limiter = options.limiter ?? createRateLimiter({ limit: CALLS_PER_MINUTE, windowMs: 60_000 })
+  const cache = createDebuggerCache()
 
   const authenticate = async (headers: Headers): Promise<McpCaller | Response> => {
     const resolved = await resolveUser(headers)
@@ -45,7 +47,7 @@ export function mcpModule(deps: AppDeps, options: { limiter?: RateLimiter } = {}
     if (caller instanceof Response) return caller
     if (!limiter.consume(caller.user.id)) return rpcError(429, -32029, "Too many requests, try again in a minute")
 
-    const ctx: McpContext = { deps, caller }
+    const ctx: McpContext = { deps, caller, cache }
     const server = createMcpServer(ctx)
     const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true })
     await server.connect(transport)

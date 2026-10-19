@@ -2,6 +2,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js"
 import type { AppDeps } from "../app"
 import type { CurrentUser } from "../auth/plugin"
 import { AppError } from "../lib/errors"
+import type { DebuggerCache } from "./debugger"
 
 export type McpScope = "bugberry:read" | "bugberry:write"
 
@@ -16,6 +17,8 @@ export interface McpCaller {
 export interface McpContext {
   deps: AppDeps
   caller: McpCaller
+  /** Shared by every request of this app. */
+  cache: DebuggerCache
 }
 
 /** A problem the agent should read as the tool's answer, not a crash. */
