@@ -40,7 +40,7 @@ const REPEAT_WINDOW_MS = 1000
 const errorKey = (message: string) => message.replace(/^Uncaught\s+/, "").trim()
 
 /** "https://shop.test/js/app.js:3:9" → "app.js:3". */
-function shortSource(source: string | null): string | null {
+export function shortSource(source: string | null): string | null {
   if (!source) return null
   const match = source.match(/([^/\\]+?):(\d+)(?::\d+)?$/)
   return match ? `${match[1]}:${match[2]}` : source
