@@ -6,6 +6,7 @@ import { registerEventTools } from "./tools/events"
 import { registerInsightTools } from "./tools/insights"
 import { registerNetworkTools } from "./tools/network"
 import { registerReportReadTools } from "./tools/report-read"
+import { registerTrackerTools } from "./tools/trackers"
 import { registerWriteTools } from "./tools/write"
 
 const INSTRUCTIONS =
@@ -22,5 +23,6 @@ export function createMcpServer(ctx: McpContext): McpServer {
   registerInsightTools(server, ctx)
   registerBrowseTools(server, ctx)
   registerWriteTools(server, ctx)
+  registerTrackerTools(server, ctx)
   return server
 }

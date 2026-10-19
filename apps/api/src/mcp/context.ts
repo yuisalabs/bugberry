@@ -3,6 +3,7 @@ import type { AppDeps } from "../app"
 import type { CurrentUser } from "../auth/plugin"
 import { AppError } from "../lib/errors"
 import type { RateLimiter } from "../lib/rate-limit"
+import type { createDispatcher } from "../lib/trackers/dispatch"
 import type { DebuggerCache } from "./debugger"
 
 export type McpScope = "bugberry:read" | "bugberry:write"
@@ -22,6 +23,8 @@ export interface McpContext {
   cache: DebuggerCache
   /** Images are heavier than text: a smaller allowance, shared by every request. */
   screenshotLimiter: RateLimiter
+  /** Sends reports to trackers; one per app, like trackersModule's. */
+  dispatcher: ReturnType<typeof createDispatcher>
 }
 
 export const RATE_LIMITED = "Too many requests, try again in a minute"

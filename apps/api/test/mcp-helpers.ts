@@ -5,6 +5,8 @@ import type { CurrentUser } from "../src/auth/plugin"
 import type { McpCaller, McpContext } from "../src/mcp/context"
 import { createDebuggerCache } from "../src/mcp/debugger"
 import { createRateLimiter } from "../src/lib/rate-limit"
+import { createDispatcher } from "../src/lib/trackers/dispatch"
+import { createTrackerFactory } from "../src/lib/trackers/providers"
 import { debuggerKeyFor } from "../src/storage/keys"
 import type { LocalStorageDriver } from "../src/storage/local"
 import type { setupTestApp } from "./helpers"
@@ -30,6 +32,7 @@ export function testMcpContext(
     deps: ctx,
     cache: createDebuggerCache(),
     screenshotLimiter: createRateLimiter({ limit: 1000, windowMs: 60_000 }),
+    dispatcher: createDispatcher({ ...ctx, trackers: createTrackerFactory() }),
     ...rest,
     caller: { user, scopes: new Set(["bugberry:read", "bugberry:write"]), via: { kind: "token" }, ...caller },
   } as McpContext
