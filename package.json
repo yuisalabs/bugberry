@@ -1,0 +1,16 @@
+{
+  "name": "bugberry",
+  "private": true,
+  "type": "module",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev:db": "docker compose -f docker-compose.dev.yml up -d",
+    "build:client": "bun run --filter @bugberry/client build",
+    "test": "bun run --filter '*' test",
+    "typecheck": "bun run --filter '*' typecheck"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.3",
+    "typescript": "~5.9.3"
+  }
+}

@@ -1,0 +1,6 @@
+@import "tailwindcss";
+/* The dashboard's Intent UI theme (packages/ui), so the extension and the dashboard look like one product. */
+@import "@bugberry/ui/theme.css";
+@import "@fontsource-variable/dm-sans";
+@import "@fontsource-variable/outfit";
+@import "@fontsource-variable/geist-mono";

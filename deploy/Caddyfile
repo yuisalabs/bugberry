@@ -1,0 +1,11 @@
+# HTTPS in front of BugBerry (docker compose --profile caddy up -d). Caddy gets a certificate for
+# BUGBERRY_DOMAIN automatically; ports 80 and 443 must reach this server. Set TRUST_PROXY=true in .env.
+{$BUGBERRY_DOMAIN} {
+	reverse_proxy client:80
+}
+
+# Storage from the "s3" profile, for presigned upload and download URLs. Set BUGBERRY_S3_DOMAIN in .env;
+# the Host header is passed through unchanged, so the signatures stay valid.
+{$BUGBERRY_S3_DOMAIN} {
+	reverse_proxy s3:9000
+}

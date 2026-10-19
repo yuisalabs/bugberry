@@ -1,0 +1,241 @@
+import { describe, expect, mock, test } from "bun:test"
+import type { CaptureEvent } from "@bugberry/capture"
+import { fireEvent, render, screen, within } from "@testing-library/react"
+import { ReviewView, type ReviewViewProps } from "../entrypoints/review/ReviewView"
+import type { ReportDraft } from "../lib/types"
+
+const events: CaptureEvent[] = [
+  { kind: "network", t: 1200, method: "POST", url: "https://shop.test/api/pay?id=1", status: 500 },
+  { kind: "console", t: 1300, level: "error", args: ["a"] },
+  { kind: "console", t: 1400, level: "error", args: ["b"] },
+  { kind: "error", t: 1500, message: "boom" },
+  { kind: "network", t: 1600, method: "GET", url: "https://shop.test/api/x", failed: "TypeError" },
+  ...Array.from({ length: 13 }, (_, index): CaptureEvent => ({ kind: "action", t: 2000 + index, type: "click", target: "b" })),
+]
+
+const base = {
+  id: "d1",
+  createdAt: 0,
+  page: { url: "https://shop.test/checkout", title: "Checkout" },
+  device: { browser: "Chrome 141", os: "Windows", viewport: "1440x900" },
+  debuggerGzip: null,
+  status: "editing" as const,
+  error: null,
+  session: null,
+  form: null,
+}
+
+const video = {
+  ...base,
+  captureType: "video",
+  video: new Blob(["v"]),
+  durationMs: 42_000,
+  recordingStartedAt: 1000,
+  debuggerPayload: {
+    version: 1,
+    capturedAt: 50_000,
+    recordingStartedAt: 1000,
+    incomplete: [],
+    events,
+    notes: [{ n: 1, atMs: 31_000, text: "Spins forever", author: "Dana" }],
+  },
+} as ReportDraft
+
+const screenshot = {
+  ...base,
+  captureType: "screenshot",
+  screenshot: new Blob(["png"]),
+  annotations: [],
+  debuggerPayload: { version: 1, capturedAt: 50_000, recordingStartedAt: null, incomplete: [], events: [] },
+} as ReportDraft
+
+function view(overrides: Partial<ReviewViewProps> = {}) {
+  const props: ReviewViewProps = {
+    embedded: false,
+    draft: video,
+    media: <div>media</div>,
+    workspaces: [{ id: "w1", name: "Cuy Workspaces" } as ReviewViewProps["workspaces"][number]],
+    workspaceId: "w1",
+    projects: [],
+    email: "dana@acme.io",
+    name: "Dana",
+    status: "ready",
+    includeCity: false,
+    cityNote: null,
+    onSend: mock(),
+    onDiscard: mock(),
+    onAgain: mock(),
+    onClose: mock(),
+    onWorkspaceChange: mock(),
+    onIncludeCityChange: mock(),
+    onChange: mock(),
+    ...overrides,
+  }
+  const rendered = render(<ReviewView {...props} />)
+  return { props, ...rendered }
+}
+
+const button = (name: string | RegExp) => screen.getByRole("button", { name })
+
+describe("what the review shows", () => {
+  test("a title suggested from the failed request, until the reporter edits it", () => {
+    view()
+    const title = screen.getByLabelText("Title") as HTMLInputElement
+    expect(title.value).toBe("POST /api/pay failed (500)")
+    expect(screen.getByText("Suggested from the failed request")).toBeTruthy()
+    fireEvent.change(title, { target: { value: "Checkout hangs after clicking Pay" } })
+    expect(screen.queryByText("Suggested from the failed request")).toBeNull()
+  })
+
+  test("the title is optional: left empty, the report is a Bugcord or a Bugshoot by me", () => {
+    const { props } = view()
+    const title = screen.getByLabelText("Title") as HTMLInputElement
+    expect(title.placeholder).toBe("Bugcord by Dana")
+    fireEvent.change(title, { target: { value: "" } })
+    fireEvent.click(button("Create report"))
+    expect(screen.queryByRole("alert")).toBeNull()
+    expect((props.onSend as ReturnType<typeof mock>).mock.calls.at(-1)?.[0]).toMatchObject({ title: "" })
+  })
+
+  test("an untitled screenshot is a Bugshoot", () => {
+    view({ draft: screenshot })
+    expect((screen.getByLabelText("Title") as HTMLInputElement).placeholder).toBe("Bugshoot by Dana")
+  })
+
+  test("the four tiles", () => {
+    view()
+    expect(screen.getByText("3 errors")).toBeTruthy()
+    expect(screen.getByText("2 failed")).toBeTruthy()
+    expect(screen.getByText("13 steps")).toBeTruthy()
+    expect(screen.getByText("Chrome 141 · Windows")).toBeTruthy()
+  })
+
+  test("the masked line, and no Trim", () => {
+    view()
+    expect(screen.getByText("Passwords and card numbers were masked in the logs")).toBeTruthy()
+    expect(screen.queryByText(/Trim/)).toBeNull()
+  })
+
+  test("where it goes and who sees it, in one line", () => {
+    view()
+    expect(button(/Cuy Workspaces · Workspace members/)).toBeTruthy()
+  })
+})
+
+describe("buttons", () => {
+  test("Record again asks first", () => {
+    const { props } = view()
+    fireEvent.click(button("Record again"))
+    expect(screen.getByText("Delete this recording?")).toBeTruthy()
+    fireEvent.click(button("Delete"))
+    expect(props.onAgain).toHaveBeenCalledTimes(1)
+  })
+
+  test("a screenshot has Retake", () => {
+    view({ draft: screenshot })
+    expect(button("Retake")).toBeTruthy()
+    expect(screen.queryByRole("button", { name: "Record again" })).toBeNull()
+  })
+
+  test("Discard asks first", () => {
+    const { props } = view()
+    fireEvent.click(button("Discard"))
+    fireEvent.click(button("Delete"))
+    expect(props.onDiscard).toHaveBeenCalledTimes(1)
+  })
+
+  test("edited notes go with the report", () => {
+    const { props } = view()
+    const note = screen.getByDisplayValue("Spins forever")
+    fireEvent.change(note, { target: { value: "Spins after Pay" } })
+    fireEvent.click(button("Create report"))
+    expect(props.onSend).toHaveBeenCalledTimes(1)
+    const [form, notes] = (props.onSend as ReturnType<typeof mock>).mock.calls[0] as [{ title: string }, Array<{ text: string }>]
+    expect(form.title).toBe("POST /api/pay failed (500)")
+    expect(notes.map((entry) => entry.text)).toEqual(["Spins after Pay"])
+  })
+
+  test("a note can be removed", () => {
+    const { props } = view()
+    fireEvent.click(button("Remove note 1"))
+    fireEvent.click(button("Create report"))
+    const [, notes] = (props.onSend as ReturnType<typeof mock>).mock.calls[0] as [unknown, unknown[]]
+    expect(notes).toEqual([])
+  })
+})
+
+describe("closing", () => {
+  test("× asks to keep a draft; Esc does nothing", () => {
+    const { props } = view()
+    fireEvent.keyDown(document, { key: "Escape" })
+    expect(props.onClose).not.toHaveBeenCalled()
+    fireEvent.click(button("Close"))
+    const dialog = screen.getByRole("alertdialog")
+    expect(within(dialog).getByText("Keep this as a draft?")).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole("button", { name: "Keep" }))
+    expect(props.onClose).toHaveBeenCalledTimes(1)
+    const [kept] = (props.onClose as ReturnType<typeof mock>).mock.calls[0] as [{ form: { title: string }; notes: unknown[] } | null]
+    expect(kept?.form.title).toBe("POST /api/pay failed (500)")
+    expect(kept?.notes).toHaveLength(1)
+  })
+})
+
+describe("after sending", () => {
+  test("Report created, with the link", () => {
+    const { props } = view({ status: { sent: { reportUrl: "https://b.test/app/r/1", shareUrl: "https://b.test/s/x" } } })
+    expect(screen.getByText("Report created")).toBeTruthy()
+    expect(button("Copy link")).toBeTruthy()
+    expect(screen.getByRole("link", { name: "Open report" }).getAttribute("href")).toBe("https://b.test/app/r/1")
+    fireEvent.click(button("Close"))
+    expect(props.onClose).toHaveBeenCalledWith(null)
+  })
+
+  test("a failure says why and can be tried again with the same form", () => {
+    const { props } = view({ status: { failed: "Network error" } })
+    expect(screen.getByText("Network error")).toBeTruthy()
+    fireEvent.click(button("Try again"))
+    expect(props.onSend).toHaveBeenCalledTimes(1)
+  })
+})
+
+test("over a page, the city can't be asked for", () => {
+  view({ embedded: true })
+  fireEvent.click(button(/Cuy Workspaces/))
+  const city = screen.getByRole("checkbox", { name: "Include my city" }) as HTMLInputElement
+  expect(city.disabled).toBe(true)
+  expect(screen.getByText("Available when the review opens in its own tab")).toBeTruthy()
+})
+
+test("every edit is handed up, so closing the tab keeps it", () => {
+  const { props } = view()
+  fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Checkout hangs" } })
+  fireEvent.change(screen.getByDisplayValue("Spins forever"), { target: { value: "Spins after Pay" } })
+  const calls = (props.onChange as ReturnType<typeof mock>).mock.calls as Array<[{ title: string }, Array<{ text: string }>]>
+  const [form, notes] = calls.at(-1) ?? []
+  expect(form?.title).toBe("Checkout hangs")
+  expect(notes?.map((note) => note.text)).toEqual(["Spins after Pay"])
+})
+
+describe("Copy link", () => {
+  const sent = { sent: { reportUrl: "https://b.test/app/r/1", shareUrl: "https://b.test/s/x" } }
+
+  test("says when the link was copied", async () => {
+    const writeText = mock(async (_text: string) => {})
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true })
+    view({ status: sent })
+    fireEvent.click(button("Copy link"))
+    expect(await screen.findByText("Link copied")).toBeTruthy()
+    expect(writeText).toHaveBeenCalledWith("https://b.test/s/x")
+  })
+
+  test("shows the link to copy by hand when the clipboard refuses", async () => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: () => Promise.reject(new DOMException("blocked", "NotAllowedError")) },
+      configurable: true,
+    })
+    view({ status: sent })
+    fireEvent.click(button("Copy link"))
+    expect(await screen.findByText("Copy this link:")).toBeTruthy()
+    expect((screen.getByLabelText("Share link") as HTMLInputElement).value).toBe("https://b.test/s/x")
+  })
+})

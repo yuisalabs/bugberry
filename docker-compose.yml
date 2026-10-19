@@ -1,0 +1,134 @@
+# Production. Setup: cp .env.docker.example .env, fill it in, then: docker compose up -d --build
+# Optional: --profile s3 (S3-compatible storage on this server), --profile caddy (automatic HTTPS).
+# Named explicitly so it never shares containers or volumes with docker-compose.dev.yml in the same folder.
+# Upgrading from the single "fdebag" service: docker compose up -d --build --remove-orphans (volumes stay).
+name: fdebag-prod
+
+# Rotated container logs, so a long-running server does not fill its disk.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  # Reached only through the client's nginx; PROXY_HOPS counts that nginx.
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    image: fdebag-api:latest
+    init: true
+    restart: unless-stopped
+    # Time for in-flight requests (a large local upload) to finish before Docker kills the process.
+    stop_grace_period: 60s
+    logging: *logging
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://fdebag@postgres:5432/fdebag
+      # Passed separately: the server encodes it into the URL, so any generated password works.
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      LOCAL_STORAGE_DIR: /data/uploads
+      PORT: "3000"
+      PROXY_HOPS: "1"
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # nginx: the dashboard build, and /api proxied to the api service.
+  client:
+    build:
+      context: .
+      dockerfile: docker/client.Dockerfile
+    image: fdebag-client:latest
+    restart: unless-stopped
+    # Local uploads stream through nginx; give them the same time as the api to finish.
+    stop_grace_period: 60s
+    logging: *logging
+    ports:
+      # Localhost only: the reverse proxy is the way in. BUGBERRY_BIND=0.0.0.0 exposes it directly.
+      # The older FDEBAG_* names in an existing .env still work.
+      - "${BUGBERRY_BIND:-${FDEBAG_BIND:-127.0.0.1}}:${BUGBERRY_PORT:-${FDEBAG_PORT:-3000}}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      POSTGRES_USER: fdebag
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: fdebag
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fdebag -d fdebag"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # S3-compatible storage on this server. Browsers load media straight from it, so S3_ENDPOINT must be
+  # a public https address: with the caddy profile, set BUGBERRY_S3_DOMAIN and S3_ENDPOINT=https://<that domain>.
+  s3:
+    # Pinned by digest (RustFS publishes pre-release tags); update deliberately after testing.
+    image: rustfs/rustfs@sha256:1803faef57627e2d9c2e7d89d655d712ddded5389040054987163043fecb6a3c
+    profiles: ["s3"]
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY_ID:-}
+      RUSTFS_SECRET_KEY: ${S3_SECRET_ACCESS_KEY:-}
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: ":9000"
+    ports:
+      - "${S3_BIND:-127.0.0.1}:${S3_PORT:-9000}:9000"
+    volumes:
+      - s3data:/data
+
+  s3-init:
+    image: amazon/aws-cli:2.38.1
+    profiles: ["s3"]
+    logging: *logging
+    depends_on:
+      - s3
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+      AWS_DEFAULT_REGION: us-east-1
+      BUCKET: ${S3_BUCKET:-fdebag}
+    entrypoint: >
+      /bin/sh -c "
+      until aws --endpoint-url http://s3:9000 s3 ls >/dev/null 2>&1; do sleep 1; done;
+      aws --endpoint-url http://s3:9000 s3 mb s3://$$BUCKET || true
+      "
+
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["caddy"]
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      # The older FDEBAG_DOMAIN and FDEBAG_S3_DOMAIN in an existing .env still work.
+      BUGBERRY_DOMAIN: ${BUGBERRY_DOMAIN:-${FDEBAG_DOMAIN:-localhost}}
+      BUGBERRY_S3_DOMAIN: ${BUGBERRY_S3_DOMAIN:-${FDEBAG_S3_DOMAIN:-s3.localhost}}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - client
+
+volumes:
+  pgdata: {}
+  uploads: {}
+  s3data: {}
+  caddy_data: {}
+  caddy_config: {}

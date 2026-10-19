@@ -1,0 +1,30 @@
+{
+  "name": "@bugberry/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/app.ts"
+  },
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit -p .",
+    "db:generate": "bunx --bun drizzle-kit generate",
+    "token:create": "bun scripts/create-token.ts"
+  },
+  "dependencies": {
+    "@elysiajs/cors": "1.4.2",
+    "@bugberry/shared": "workspace:*",
+    "better-auth": "1.7.10",
+    "drizzle-orm": "0.45.4",
+    "elysia": "1.4.30",
+    "nodemailer": "10.1.2"
+  },
+  "devDependencies": {
+    "@elysiajs/eden": "1.4.9",
+    "@types/nodemailer": "8.0.2",
+    "drizzle-kit": "0.31.11"
+  }
+}

@@ -1,0 +1,44 @@
+@import "tailwindcss";
+@import "@bugberry/ui/theme.css";
+/* Bundled with the app (no request to a font CDN); the theme names them first. */
+@import "@fontsource-variable/dm-sans";
+@import "@fontsource-variable/outfit";
+@import "@fontsource-variable/geist-mono";
+@import "@fontsource-variable/caveat";
+
+@theme inline {
+    /* The hand-written notes on the sign-in page. */
+    --font-hand: "Caveat Variable", "Caveat", cursive;
+}
+
+/*
+ * The landing page's entrances (useReveal): hidden until shown, then eased into place. Only for people who have
+ * not asked their system for less motion; everyone else sees the page still and complete.
+ */
+@media (prefers-reduced-motion: no-preference) {
+    [data-reveal] {
+        opacity: 0;
+        transition:
+            opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0ms),
+            transform 0.9s cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0ms),
+            filter 0.9s cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0ms);
+    }
+    [data-reveal="up"] {
+        transform: translateY(28px);
+    }
+    [data-reveal="down"] {
+        transform: translateY(-14px);
+    }
+    [data-reveal="blur"] {
+        transform: translateY(18px);
+        filter: blur(10px);
+    }
+    [data-reveal="rise"] {
+        transform: translateY(72px) scale(0.96);
+    }
+    [data-reveal][data-shown] {
+        opacity: 1;
+        transform: none;
+        filter: none;
+    }
+}

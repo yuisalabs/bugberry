@@ -1,0 +1,62 @@
+import { useQuery } from "@tanstack/react-query"
+import { getRouteApi, useNavigate } from "@tanstack/react-router"
+import { useEffect } from "react"
+import { CopyLinkButton } from "../components/report/CopyLinkButton"
+import { ReportHeader } from "../components/report/ReportHeader"
+import { ReportTitle } from "../components/report/ReportTitle"
+import { ReportView } from "../components/ReportView"
+import { EmptyState, ErrorState, Loading } from "../components/ui"
+import { ApiError } from "../lib/api"
+import { queries } from "../lib/queries"
+import { sharePageTarget } from "../lib/report-page"
+
+const routeApi = getRouteApi("/s/$slug")
+
+/**
+ * Read-only report for a share link. Internal reports answer 401; the query client's 401 handler
+ * then sends the visitor to /login?next=/s/<slug>. Unknown and withdrawn links look the same.
+ * Members of the report's workspace go on to the full report page.
+ */
+export function SharePage() {
+  const { slug } = routeApi.useParams()
+  const { t } = routeApi.useSearch()
+  const navigate = useNavigate()
+  const share = useQuery(queries.share(slug))
+  const target = share.data ? sharePageTarget(share.data) : null
+
+  useEffect(() => {
+    if (target) void navigate({ ...target, search: { t }, replace: true })
+  }, [target?.params.reportId, t, navigate])
+
+  if (share.isPending || target) return <Loading />
+  if (share.isError) {
+    return (
+      <main className="mx-auto max-w-3xl p-6">
+        {share.error instanceof ApiError && share.error.status === 404 ? (
+          <EmptyState title="Report not found">This link is wrong, was replaced, or the report isn't shared.</EmptyState>
+        ) : share.error instanceof ApiError && share.error.status === 401 ? (
+          <Loading label="Redirecting to sign in…" />
+        ) : (
+          <ErrorState error={share.error} onRetry={() => void share.refetch()} />
+        )}
+      </main>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <ReportView
+        key={share.data.id}
+        report={share.data}
+        header={
+          <ReportHeader back={null}>
+            <CopyLinkButton report={share.data} settings={false} />
+          </ReportHeader>
+        }
+        title={<ReportTitle title={share.data.title} editable={false} onSave={() => {}} />}
+        refreshReport={async () => (await share.refetch()).data}
+        startAtSeconds={t}
+      />
+    </div>
+  )
+}

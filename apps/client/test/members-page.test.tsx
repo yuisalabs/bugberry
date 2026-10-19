@@ -1,0 +1,135 @@
+import { describe, expect, mock, test } from "bun:test"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { MembersView } from "../src/pages/settings/MembersPage"
+
+const members = [
+  { id: "u1", name: "Budi", email: "budi@kantor.test", image: null, role: "admin" as const, owner: false },
+  { id: "u2", name: "Sari", email: "sari@kantor.test", image: null, role: "member" as const, owner: false },
+]
+const pending = [{ id: "i1", email: "andi@gmail.com", invitedBy: "Budi", expiresAt: new Date("2026-10-24T00:00:00Z") }]
+
+function view(overrides: Partial<Parameters<typeof MembersView>[0]> = {}) {
+  const props = {
+    meId: "u1",
+    isAdmin: true,
+    members,
+    invitations: pending,
+    onInvite: mock(async () => [
+      { email: "a@kantor.test", status: "sent" as const },
+      { email: "sari@kantor.test", status: "member" as const },
+      { email: "andi@gmail.com", status: "pending" as const },
+      { email: "eve@x.test", status: "not_allowed" as const },
+    ]),
+    onSetRole: mock(),
+    onRemove: mock(),
+    onRevoke: mock(),
+    onResend: mock(),
+    ...overrides,
+  }
+  render(<MembersView {...props} />)
+  return props
+}
+
+describe("MembersView", () => {
+  test("sends invites and labels each result", async () => {
+    const props = view()
+    fireEvent.change(screen.getByRole("textbox", { name: "Invite by email" }), {
+      target: { value: "a@kantor.test, sari@kantor.test\nandi@gmail.com eve@x.test" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Send invites" }))
+    expect(props.onInvite).toHaveBeenCalledWith(["a@kantor.test", "sari@kantor.test", "andi@gmail.com", "eve@x.test"])
+    await waitFor(() => expect(screen.getByText("a@kantor.test: Invited")).toBeTruthy())
+    expect(screen.getByText("sari@kantor.test: Already a member")).toBeTruthy()
+    expect(screen.getByText("andi@gmail.com: Already invited")).toBeTruthy()
+    expect(screen.getByText("eve@x.test: Not allowed on this server")).toBeTruthy()
+  })
+
+  test("pending invitations can be resent or revoked", () => {
+    const props = view()
+    expect(screen.getByRole("heading", { name: "Pending invitations" })).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: "Resend andi@gmail.com" }))
+    fireEvent.click(screen.getByRole("button", { name: "Revoke andi@gmail.com" }))
+    expect(props.onResend).toHaveBeenCalledWith("i1")
+    expect(props.onRevoke).toHaveBeenCalledWith("i1")
+  })
+
+  test("admins change roles and remove others; everyone can leave", () => {
+    const props = view()
+    fireEvent.click(screen.getByRole("button", { name: "Make Sari admin" }))
+    expect(props.onSetRole).toHaveBeenCalledWith("u2", "admin")
+    fireEvent.click(screen.getByRole("button", { name: "Remove Sari" }))
+    expect(props.onRemove).toHaveBeenCalledWith("u2")
+    fireEvent.click(screen.getByRole("button", { name: "Leave workspace" }))
+    expect(props.onRemove).toHaveBeenCalledWith("u1")
+  })
+
+  test("members see the list without admin controls", () => {
+    view({ meId: "u2", isAdmin: false, invitations: [] })
+    expect(screen.queryByRole("textbox", { name: "Invite by email" })).toBeNull()
+    expect(screen.queryByRole("button", { name: /Make Budi/ })).toBeNull()
+    expect(screen.getByRole("button", { name: "Leave workspace" })).toBeTruthy()
+  })
+})
+
+describe("MembersView owner", () => {
+  test("Members shows the owner and protects them", () => {
+    view({
+      meId: "u2",
+      members: [
+        { id: "u1", name: "Budi", email: "budi@kantor.test", image: null, role: "admin", owner: true },
+        { id: "u2", name: "Sari", email: "sari@kantor.test", image: null, role: "admin", owner: false },
+      ],
+    })
+    const row = screen.getByText("Budi").closest("li") as HTMLElement
+    expect(row.textContent).toContain("Owner")
+    expect(row.querySelector("button")).toBeNull()
+  })
+})
+
+describe("MembersView join requests", () => {
+  test("Members lists requests to join for admins", () => {
+    const onApprove = mock()
+    const onDecline = mock()
+    const requests = [{ user: { id: "u9", name: "Budi", email: "budi@javan.co.id", image: null }, createdAt: new Date() }]
+    const { unmount } = render(
+      <MembersView
+        meId="u1"
+        isAdmin
+        members={[]}
+        invitations={[]}
+        requests={requests}
+        onApprove={onApprove}
+        onDecline={onDecline}
+        onInvite={mock(async () => [])}
+        onSetRole={mock()}
+        onRemove={mock()}
+        onRevoke={mock()}
+        onResend={mock()}
+      />,
+    )
+    expect(screen.getByRole("heading", { name: "Requests to join" })).toBeTruthy()
+    expect(screen.getByText("budi@javan.co.id")).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: "Approve Budi" }))
+    fireEvent.click(screen.getByRole("button", { name: "Decline Budi" }))
+    expect(onApprove).toHaveBeenCalledWith("u9")
+    expect(onDecline).toHaveBeenCalledWith("u9")
+    unmount()
+    render(
+      <MembersView
+        meId="u1"
+        isAdmin={false}
+        members={[]}
+        invitations={[]}
+        requests={requests}
+        onApprove={mock()}
+        onDecline={mock()}
+        onInvite={mock(async () => [])}
+        onSetRole={mock()}
+        onRemove={mock()}
+        onRevoke={mock()}
+        onResend={mock()}
+      />,
+    )
+    expect(screen.queryByRole("heading", { name: "Requests to join" })).toBeNull()
+  })
+})

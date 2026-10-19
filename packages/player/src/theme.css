@@ -1,0 +1,255 @@
+/* BugBerry colours on Video.js's default skin: berry progress, dark panel, rounded corners. */
+.video-js.vjs-bugberry {
+  background-color: #1c1022;
+  border-radius: 12px;
+  overflow: hidden;
+  font-family: inherit;
+}
+
+.vjs-bugberry .vjs-control-bar {
+  background: linear-gradient(to top, rgba(28, 16, 34, 0.9), rgba(28, 16, 34, 0.6));
+}
+
+.vjs-bugberry .vjs-play-progress,
+.vjs-bugberry .vjs-volume-level,
+.vjs-bugberry .vjs-slider-bar {
+  background-color: #d61f69;
+}
+
+.vjs-bugberry .vjs-load-progress div {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* A big white play button in the middle, with the length under it until playback starts. */
+.vjs-bugberry .vjs-big-play-button {
+  top: 50%;
+  left: 50%;
+  width: 2em;
+  height: 2em;
+  margin: -1.3em 0 0 -1em;
+  border: none;
+  border-radius: 999px;
+  line-height: 2em;
+  color: #1c1022;
+  background-color: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+
+.vjs-bugberry:hover .vjs-big-play-button,
+.vjs-bugberry .vjs-big-play-button:focus {
+  background-color: #ffffff;
+}
+.vjs-bugberry .bb-start {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin-top: 1.9em;
+  transform: translateX(-50%);
+  /* A dark pill like the length on the report cards, so it reads on light frames too. */
+  padding: 2px 8px;
+  border-radius: 6px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.vjs-bugberry.vjs-has-started .bb-start {
+  display: none;
+}
+
+.vjs-bugberry .vjs-menu-content .vjs-selected {
+  background-color: #d61f69;
+  color: #ffffff;
+}
+
+/* Time as one pill: "0:03 / 0:56". */
+.vjs-bugberry .vjs-current-time,
+.vjs-bugberry .vjs-time-divider,
+.vjs-bugberry .vjs-duration {
+  display: block;
+  padding: 0;
+  min-width: 0;
+  background-color: rgba(255, 255, 255, 0.12);
+  line-height: 2em;
+  margin: auto 0;
+  height: 2em;
+}
+.vjs-bugberry .vjs-current-time {
+  padding-left: 0.9em;
+  border-radius: 999px 0 0 999px;
+}
+.vjs-bugberry .vjs-time-divider {
+  padding: 0 0.35em;
+}
+.vjs-bugberry .vjs-duration {
+  padding-right: 0.9em;
+  border-radius: 0 999px 999px 0;
+}
+.vjs-bugberry .vjs-time-control .vjs-control-text {
+  display: none;
+}
+
+/* Error markers sit just above the seek bar, at their share of the video. */
+.vjs-bugberry .bb-markers {
+  position: absolute;
+  inset: auto 0 100% 0;
+  height: 0;
+  pointer-events: none;
+}
+.vjs-bugberry .bb-marker {
+  position: absolute;
+  bottom: 0.9em;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.2em;
+  height: 2.2em;
+  padding: 0 0.45em;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 999px;
+  background-color: #e5484d;
+  color: #ffffff;
+  font-size: 0.95em;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+.vjs-bugberry .bb-marker:hover,
+.vjs-bugberry .bb-marker:focus-visible {
+  background-color: #d61f69;
+  outline: none;
+}
+.vjs-bugberry .bb-marker-group {
+  background-color: #d9952b;
+}
+.vjs-bugberry .bb-marker-note {
+  background-color: #d61f69;
+}
+.vjs-bugberry .bb-marker-pause {
+  background-color: #635a6b;
+}
+
+/* Along the top: who reported it, and share / download. Fades with the controls. */
+.vjs-bugberry .bb-overlay {
+  position: absolute;
+  inset: 0 0 auto 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1em;
+  padding: 1em 1.2em 2.5em;
+  background: linear-gradient(to bottom, rgba(28, 16, 34, 0.75), rgba(28, 16, 34, 0));
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+.vjs-bugberry .bb-overlay-side {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  pointer-events: auto;
+}
+.vjs-bugberry.vjs-user-inactive.vjs-playing .bb-overlay {
+  opacity: 0;
+}
+
+/* Like Jam: the timeline runs the full width just above the buttons, so markers have room. */
+.vjs-bugberry .vjs-control-bar {
+  height: 4em;
+  padding: 0 0.6em;
+  align-items: center;
+}
+/*
+ * Video.js centres its icon glyphs for a 3em-tall bar; this bar is 4em, so the glyphs sat high above the
+ * time pill. Their line height now matches the 4em button (the glyph is drawn at 1.8em).
+ */
+.vjs-bugberry .vjs-control-bar .vjs-icon-placeholder::before {
+  line-height: calc(4em / 1.8);
+}
+/* The same for the "1x" speed label, drawn at 1.5em. */
+.vjs-bugberry .vjs-playback-rate .vjs-playback-rate-value {
+  line-height: calc(4em / 1.5);
+}
+/* The shade carries on above the bar, under the timeline, so the frame behind never shows through it. */
+.vjs-bugberry .vjs-control-bar::before {
+  content: "";
+  position: absolute;
+  inset: auto 0 100% 0;
+  height: 3.5em;
+  background: linear-gradient(to top, rgba(28, 16, 34, 0.6), rgba(28, 16, 34, 0));
+  pointer-events: none;
+}
+.vjs-bugberry .vjs-progress-control {
+  position: absolute;
+  left: 0.6em;
+  right: 0.6em;
+  top: -1.4em;
+  width: auto;
+  height: 1.6em;
+}
+.vjs-bugberry .vjs-progress-control .vjs-progress-holder {
+  margin: 0;
+}
+.vjs-bugberry .vjs-control-bar .vjs-custom-control-spacer {
+  display: flex;
+  flex: auto;
+}
+.vjs-bugberry .bb-marker {
+  bottom: 1.2em;
+  font-size: 1.15em;
+}
+.vjs-bugberry .bb-overlay-side > * {
+  white-space: nowrap;
+}
+
+/* Buttons in the overlay: Video.js resets every <button> inside the player, so these restate their look. */
+.vjs-bugberry .bb-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  width: auto;
+  height: auto;
+  padding: 0.45em 0.9em;
+  border: 0;
+  border-radius: 0.5rem;
+  background-color: rgba(0, 0, 0, 0.45);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+}
+.vjs-bugberry .bb-pill:hover {
+  background-color: rgba(0, 0, 0, 0.6);
+}
+.vjs-bugberry .bb-pill:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+.vjs-bugberry .bb-pill svg {
+  display: inline-block;
+  width: 1.15em;
+  height: 1.15em;
+}
+.vjs-bugberry .bb-reporter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  min-width: 0;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+.vjs-bugberry .bb-reporter-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -1,0 +1,33 @@
+{
+  "name": "@bugberry/ui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./primitive": "./src/primitive.ts",
+    "./theme.css": "./src/theme.css",
+    "./*": "./src/*.tsx"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@remixicon/react": "4.9.0",
+    "cn": "0.5.0",
+    "react-aria-components": "1.22.1",
+    "sonner": "2.0.8",
+    "tailwind-variants": "3.3.1",
+    "tailwindcss-react-aria-components": "2.2.0",
+    "tw-animate-css": "1.4.0"
+  },
+  "peerDependencies": {
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  }
+}

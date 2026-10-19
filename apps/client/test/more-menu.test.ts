@@ -1,0 +1,77 @@
+import { describe, expect, test } from "bun:test"
+import type { ReportTrackers } from "../src/lib/api"
+import { trackerItems } from "../src/lib/more-menu"
+
+const now = new Date("2026-10-16T08:00:00Z")
+const integrations = [
+  { id: "gh", provider: "github" as const, label: "kantor/web", autoSend: true },
+  { id: "ac", provider: "activecollab" as const, label: "Project #12", autoSend: false },
+]
+const data = (links: ReportTrackers["links"]): ReportTrackers => ({ needsProject: false, integrations, links })
+const link = (overrides: Partial<ReportTrackers["links"][number]>) => ({
+  integrationId: "gh",
+  externalId: null,
+  externalUrl: null,
+  error: null,
+  updatedAt: now,
+  ...overrides,
+})
+
+describe("trackerItems", () => {
+  test("offers to send to each tracker not used yet", () => {
+    expect(trackerItems(data([]), now.getTime())).toEqual([
+      { integrationId: "gh", label: "Send to GitHub · kantor/web", action: "send", href: null, note: null },
+      { integrationId: "ac", label: "Send to ActiveCollab · Project #12", action: "send", href: null, note: null },
+    ])
+  })
+
+  test("a send in progress cannot be started again", () => {
+    const [item] = trackerItems(data([link({})]), now.getTime() + 10_000)
+    expect(item).toMatchObject({ label: "Sending to GitHub…", action: "none" })
+  })
+
+  test("a send this page just started shows as running", () => {
+    const [item] = trackerItems(data([link({ error: "Bad token" })]), now.getTime(), "gh")
+    expect(item).toMatchObject({ label: "Sending to GitHub…", action: "none", note: null })
+  })
+
+  test("a failed send offers a retry with the error", () => {
+    const [item] = trackerItems(data([link({ error: "Bad token" })]), now.getTime())
+    expect(item).toMatchObject({ label: "Retry send to GitHub", action: "retry", note: "Bad token" })
+  })
+
+  test("a send that never finished offers a retry", () => {
+    const [item] = trackerItems(data([link({})]), now.getTime() + 3 * 60_000)
+    expect(item).toMatchObject({ label: "Retry send to GitHub", action: "retry", note: "The earlier send didn't finish." })
+  })
+
+  test("a created issue opens in its tracker, only through a safe link", () => {
+    const [item] = trackerItems(
+      data([link({ externalId: "142", externalUrl: "https://github.com/kantor/web/issues/142" })]),
+      now.getTime(),
+    )
+    expect(item).toEqual({
+      integrationId: "gh",
+      label: "Open in GitHub #142",
+      action: "open",
+      href: "https://github.com/kantor/web/issues/142",
+      note: null,
+    })
+    const [unsafe] = trackerItems(data([link({ externalId: "142", externalUrl: "javascript:alert(1)" })]), now.getTime())
+    expect(unsafe).toMatchObject({ action: "open", href: null })
+  })
+
+  test("issues created before the report moved projects still open", () => {
+    const earlier = link({ integrationId: "gone", externalId: "42", externalUrl: "https://github.com/kantor/web/issues/42" })
+    const items = trackerItems({ needsProject: true, integrations: [], links: [earlier] }, now.getTime())
+    expect(items).toEqual([
+      {
+        integrationId: "gone",
+        label: "Open issue #42",
+        action: "open",
+        href: "https://github.com/kantor/web/issues/42",
+        note: "Created before the report moved projects",
+      },
+    ])
+  })
+})

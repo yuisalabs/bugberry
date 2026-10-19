@@ -1,0 +1,19 @@
+# Never send secrets or local artefacts to the build context.
+**/.env
+**/.env.*
+**/*.pem
+**/node_modules
+**/dist
+**/.output
+**/.wxt
+**/test-results
+**/playwright-report
+**/data
+.git
+.codegraph
+.superpowers
+.claude
+.cursor
+.gemini
+.kiro
+docs

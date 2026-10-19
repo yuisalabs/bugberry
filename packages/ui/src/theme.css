@@ -1,0 +1,256 @@
+/*
+ * Intent UI's theme in BugBerry's colours, shared by the dashboard and the extension. Each app imports it
+ * after "tailwindcss" and loads the fonts it names (DM Sans, Outfit, Geist Mono) itself.
+ */
+@import "tw-animate-css";
+
+@plugin "tailwindcss-react-aria-components";
+
+@custom-variant dark (&:is(.dark *));
+
+/* The components' own classes live here, outside the apps' folders. */
+@source ".";
+
+@theme inline {
+    --font-heading: "Outfit Variable", "Outfit", ui-sans-serif, system-ui, sans-serif;
+    --font-sans: "DM Sans Variable", "DM Sans", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    --font-mono: "Geist Mono Variable", "Geist Mono", 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', '"Liberation Mono"', '"Courier New"', 'monospace';
+    --font-mono--font-feature-settings: "ss02", "zero";
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-primary: var(--primary);
+    --color-leaf: var(--leaf);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary-subtle: var(--primary-subtle);
+    --color-primary-subtle-foreground: var(--primary-subtle-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-success: var(--success);
+    --color-success-foreground: var(--success-foreground);
+    --color-success-subtle: var(--success-subtle);
+    --color-success-subtle-foreground: var(--success-subtle-foreground);
+    --color-danger: var(--danger);
+    --color-danger-foreground: var(--danger-foreground);
+    --color-danger-subtle: var(--danger-subtle);
+    --color-danger-subtle-foreground: var(--danger-subtle-foreground);
+    --color-warning: var(--warning);
+    --color-warning-foreground: var(--warning-foreground);
+    --color-warning-subtle: var(--warning-subtle);
+    --color-warning-subtle-foreground: var(--warning-subtle-foreground);
+    --color-info-subtle: var(--info-subtle);
+    --color-info-subtle-foreground: var(--info-subtle-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-overlay: var(--overlay);
+    --color-overlay-foreground: var(--overlay-foreground);
+    --color-navbar: var(--navbar);
+    --color-navbar-foreground: var(--navbar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-chart-1: var(--chart-1);
+    --color-chart-2: var(--chart-2);
+    --color-chart-3: var(--chart-3);
+    --color-chart-4: var(--chart-4);
+    --color-chart-5: var(--chart-5);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+    --background: #FFFFFF;
+    --foreground: #1C1022;
+    --card: #FFFFFF;
+    --card-foreground: #1C1022;
+    --primary: #D61F69;
+    --primary-foreground: #FFFFFF;
+    /* The green of the "bug" in the wordmark, for sign-up buttons that sit on pink. */
+    --leaf: #4FA024;
+    --primary-subtle: #FCE3EE;
+    --primary-subtle-foreground: #D61F69;
+    --secondary: #ECE8F0;
+    --secondary-foreground: #1C1022;
+    --overlay: #FFFFFF;
+    --overlay-foreground: #1C1022;
+    --accent: #ECE8F0;
+    --accent-foreground: #1C1022;
+    --muted: #F7F6FA;
+    --muted-foreground: #635A6B;
+    --success: #5FCB93;
+    --success-foreground: #FFFFFF;
+    --success-subtle: #E3F6EC;
+    --success-subtle-foreground: #1F7A4D;
+    --info-subtle: #ECE8F0;
+    --info-subtle-foreground: #4A3F52;
+    --warning: #E8B04B;
+    --warning-foreground: #1C1022;
+    --warning-subtle: #FBF0DB;
+    --warning-subtle-foreground: #8A5A0B;
+    --danger: #E5484D;
+    --danger-foreground: #FFFFFF;
+    --danger-subtle: #FDF3F3;
+    --danger-subtle-foreground: #C4282D;
+    --border: #E6E1EC;
+    --input: #E6E1EC;
+    --ring: #D61F69;
+    --navbar: #FFFFFF;
+    --navbar-foreground: #1C1022;
+    --sidebar: #F7F6FA;
+    --sidebar-foreground: #1C1022;
+    --sidebar-primary: #FCE3EE;
+    --sidebar-primary-foreground: #D61F69;
+    --sidebar-accent: #ECE8F0;
+    --sidebar-accent-foreground: #1C1022;
+    --sidebar-border: #E6E1EC;
+    --sidebar-ring: #D61F69;
+    --chart-1: oklch(0.546 0.245 262.881);
+    --chart-2: oklch(0.623 0.214 259.815);
+    --chart-3: oklch(0.707 0.165 254.624);
+    --chart-4: oklch(0.809 0.105 251.813);
+    --chart-5: oklch(0.882 0.059 254.128);
+    --radius: 0.5rem;
+}
+
+.dark {
+    --background: oklch(0.181 0.005 285.823);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.181 0.005 285.823);
+    --card-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.546 0.245 262.881);
+    --primary-foreground: oklch(1 0 0);
+    --leaf: #4FA024;
+    --primary-subtle: oklch(0.623 0.214 259.815 / 0.1);
+    --primary-subtle-foreground: oklch(0.707 0.165 254.624);
+    --secondary: oklch(0.244 0.006 286.033);
+    --secondary-foreground: oklch(0.985 0 0);
+    --overlay: oklch(0.210 0.006 285.885);
+    --overlay-foreground: oklch(0.985 0 0);
+    --accent: oklch(0.274 0.006 286.033);
+    --accent-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.21 0.006 285.885);
+    --muted-foreground: oklch(0.705 0.015 286.067);
+    --success: oklch(0.596 0.145 163.225);
+    --success-foreground: oklch(1 0 0);
+    --success-subtle: oklch(0.696 0.17 162.48 / 0.1);
+    --success-subtle-foreground: oklch(0.765 0.177 163.223);
+    --info-subtle: oklch(0.685 0.169 237.323 / 0.1);
+    --info-subtle-foreground: oklch(0.828 0.111 230.318);
+    --warning: oklch(0.828 0.189 84.429);
+    --warning-foreground: oklch(0.279 0.077 45.635);
+    --warning-subtle: oklch(0.828 0.189 84.429 / 0.1);
+    --warning-subtle-foreground: oklch(0.828 0.189 84.429);
+    --danger: oklch(0.577 0.245 27.325);
+    --danger-foreground: oklch(0.971 0.013 17.38);
+    --danger-subtle: oklch(0.637 0.237 25.331 / 0.1);
+    --danger-subtle-foreground: oklch(0.704 0.191 22.216);
+    --border: oklch(0.270 0.013 285.805);
+    --input: oklch(0.310 0.013 285.805);
+    --ring: oklch(0.546 0.245 262.881);
+    --navbar: oklch(0.190 0.006 285.885);
+    --navbar-foreground: oklch(0.985 0 0);
+    --sidebar: oklch(0.180 0.006 285.885);
+    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar-primary: oklch(0.623 0.214 259.815 / 0.1);
+    --sidebar-primary-foreground: oklch(0.707 0.165 254.624);
+    --sidebar-accent: oklch(0.274 0.006 286.033);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(0.274 0.006 286.033);
+    --sidebar-ring: oklch(0.546 0.245 262.881);
+    --chart-1: oklch(0.488 0.243 264.376);
+    --chart-2: oklch(0.623 0.214 259.815);
+    --chart-3: oklch(0.707 0.165 254.624);
+    --chart-4: oklch(0.809 0.105 251.813);
+    --chart-5: oklch(0.882 0.059 254.128);
+}
+
+@layer base {
+  *, ::after, ::before, ::backdrop, ::file-selector-button {
+    border-color: var(--border, currentColor);
+    }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+    }
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
+    }
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    }
+  ::-webkit-scrollbar {
+    width: 4px;
+    }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+    }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+    }
+}
+
+@utility touch-target {
+    position: relative;
+  &::before {
+    content: "";
+    position: absolute;
+    display: block;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    height: 100%;
+    min-height: 44px;
+    min-width: 44px;
+    z-index: 9999;
+    }
+}
+/* BugBerry: headings in Outfit, like the landing page. */
+@layer base {
+    h1,
+    h2,
+    h3 {
+        font-family: var(--font-heading);
+        letter-spacing: -0.01em;
+    }
+}
+
+/* Intent's Sheet: its backdrop fades and the page behind scales back while it is swiped open. */
+@keyframes sheet-backdrop {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+@keyframes sheet-scale-back {
+    to {
+        transform: translate(var(--sheet-stack-x, 0px), var(--sheet-stack-y, 0px)) scale(0.95);
+    }
+}
+@supports not (animation-timeline: view()) {
+    .react-aria-sheet[data-has-descendants] {
+        transform: translate(var(--sheet-stack-x, 0px), var(--sheet-stack-y, 0px)) scale(0.95);
+    }
+}

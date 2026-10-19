@@ -1,0 +1,52 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: fdebag
+      POSTGRES_PASSWORD: fdebag
+      POSTGRES_DB: fdebag
+    ports:
+      - "54329:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
+
+  # S3-compatible storage for dev/test. MinIO no longer publishes public images; RustFS speaks the same S3 API.
+  s3:
+    image: rustfs/rustfs:latest
+    environment:
+      RUSTFS_ACCESS_KEY: fdebag
+      RUSTFS_SECRET_KEY: fdebag-secret
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ENABLE: "true"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - s3data:/data
+
+  s3-init:
+    image: amazon/aws-cli:latest
+    depends_on:
+      - s3
+    environment:
+      AWS_ACCESS_KEY_ID: fdebag
+      AWS_SECRET_ACCESS_KEY: fdebag-secret
+      AWS_DEFAULT_REGION: us-east-1
+    entrypoint: >
+      /bin/sh -c "
+      until aws --endpoint-url http://s3:9000 s3 ls >/dev/null 2>&1; do sleep 1; done;
+      aws --endpoint-url http://s3:9000 s3 mb s3://fdebag || true;
+      aws --endpoint-url http://s3:9000 s3 mb s3://fdebag-test || true;
+      aws --endpoint-url http://s3:9000 s3api put-bucket-cors --bucket fdebag --cors-configuration file:///cors/bucket-cors.dev.json || true;
+      exit 0;
+      "
+    # The dashboard reads debugger.json.gz straight from storage with fetch, which needs CORS
+    # (video and images do not). Origins: Vite dev server and a local production-like run.
+    volumes:
+      - ./deploy/bucket-cors.dev.json:/cors/bucket-cors.dev.json:ro
+
+volumes:
+  pgdata: {}
+  s3data: {}

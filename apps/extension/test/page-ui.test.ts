@@ -1,0 +1,185 @@
+import { afterEach, describe, expect, mock, test } from "bun:test"
+import { type BarPosition, clampPosition, createPageUi, uiStateNeeded } from "../lib/page-ui"
+
+const ORIGIN = "chrome-extension://abcdefghijklmnopabcdefghijklmnop"
+
+function setup(saved: BarPosition | null = null) {
+  const savePosition = mock((_position: BarPosition) => {})
+  const ui = createPageUi(document, window, {
+    extensionUrl: (path) => `${ORIGIN}/${path}`,
+    extensionOrigin: ORIGIN,
+    savePosition,
+    loadPosition: () => saved,
+    shadowMode: "open",
+    // happy-dom's events are never trusted; the real page layer only takes the reporter's own keys.
+    trusted: () => true,
+  })
+  const root = () => document.querySelector("[data-bugberry-ui]")?.shadowRoot ?? null
+  return { ui, savePosition, root }
+}
+
+const post = (data: unknown, origin = ORIGIN) => window.dispatchEvent(new MessageEvent("message", { data, origin }))
+
+afterEach(() => {
+  for (const host of document.querySelectorAll("[data-bugberry-ui]")) host.remove()
+})
+
+describe("clampPosition", () => {
+  test("keeps the bar on screen", () => {
+    expect(clampPosition({ x: 2000, y: -5 }, { width: 300, height: 60 }, { width: 1280, height: 720 })).toEqual({ x: 980, y: 0 })
+    expect(clampPosition({ x: 10, y: 20 }, { width: 300, height: 60 }, { width: 1280, height: 720 })).toEqual({ x: 10, y: 20 })
+  })
+})
+
+describe("the recording layer", () => {
+  test("one host, a bar for this recording and a drawing layer that lets clicks through", () => {
+    const { ui, root } = setup()
+    ui.showRecording("s1")
+    ui.showRecording("s1")
+    expect(document.querySelectorAll("[data-bugberry-ui]")).toHaveLength(1)
+    const frames = [...(root()?.querySelectorAll("iframe") ?? [])]
+    expect(frames).toHaveLength(2)
+    const bar = frames.find((frame) => frame.src.includes("recorder-bar.html"))
+    const draw = frames.find((frame) => frame.src.includes("draw.html"))
+    expect(bar?.src).toBe(`${ORIGIN}/recorder-bar.html?session=s1`)
+    expect(draw?.src).toBe(`${ORIGIN}/draw.html?session=s1`)
+    expect(draw?.style.pointerEvents).toBe("none")
+    ui.hideRecording()
+    expect(root()).toBeNull()
+  })
+
+  test("the bar has no grip of its own: it is dragged from inside its frame", () => {
+    const { ui, root } = setup()
+    ui.showRecording("s1")
+    expect(root()?.querySelector("[data-grip]")).toBeNull()
+    expect(root()?.querySelector("[data-bar]")?.children).toHaveLength(1)
+  })
+
+  test("a drag inside the bar's frame moves the bar, and only that frame can drag it", () => {
+    const { ui, root, savePosition } = setup({ x: 100, y: 100 })
+    ui.showRecording("s1")
+    const bar = root()?.querySelector("[data-bar]") as HTMLElement
+    const barFrame = [...(root()?.querySelectorAll("iframe") ?? [])].find((frame) => frame.src.includes("recorder-bar.html"))
+    // happy-dom gives frames no window of their own; this one stands in for the bar's.
+    if (barFrame) Object.defineProperty(barFrame, "contentWindow", { value: window, configurable: true })
+    const fromBar = (data: unknown) => window.dispatchEvent(new MessageEvent("message", { data, origin: ORIGIN, source: window }))
+    // Another page of the extension can't move it.
+    post({ bugberry: "bar-drag", phase: "start" })
+    post({ bugberry: "bar-drag", phase: "move", dx: 300, dy: 0 })
+    expect(bar.style.left).toBe("100px")
+
+    fromBar({ bugberry: "bar-drag", phase: "start" })
+    fromBar({ bugberry: "bar-drag", phase: "move", dx: 40, dy: -20 })
+    expect([bar.style.left, bar.style.top]).toEqual(["140px", "80px"])
+    expect(savePosition).not.toHaveBeenCalled()
+    fromBar({ bugberry: "bar-drag", phase: "end", dx: 50, dy: 10 })
+    expect([bar.style.left, bar.style.top]).toEqual(["150px", "110px"])
+    expect(savePosition).toHaveBeenCalledWith({ x: 150, y: 110 })
+  })
+
+  test("only the extension's own pages are listened to", () => {
+    const { ui, root } = setup()
+    ui.showRecording("s1")
+    const draw = () => [...(root()?.querySelectorAll("iframe") ?? [])].find((frame) => frame.src.includes("draw.html"))
+    post({ bugberry: "drawing", on: true }, "https://evil.test")
+    expect(draw()?.style.pointerEvents).toBe("none")
+    post({ bugberry: "drawing", on: true })
+    expect(draw()?.style.pointerEvents).toBe("auto")
+    post({ bugberry: "bar-size", width: 640, height: 150 })
+    const bar = [...(root()?.querySelectorAll("iframe") ?? [])].find((frame) => frame.src.includes("recorder-bar.html"))
+    expect(bar?.style.width).toBe("640px")
+    expect(bar?.style.height).toBe("150px")
+  })
+
+  test("the review opens over the page and closes when it asks", () => {
+    const { ui, root } = setup()
+    ui.showReview("d1")
+    const review = root()?.querySelector("iframe")
+    expect(review?.src).toBe(`${ORIGIN}/review.html?draft=d1&embedded=1`)
+    // A cross-origin frame needs these allowed, for the player's fullscreen and for "Copy link".
+    expect(review?.getAttribute("allow")).toBe("fullscreen; clipboard-write")
+    post({ bugberry: "review-close" })
+    expect(root()).toBeNull()
+  })
+})
+
+describe("countdown", () => {
+  test("Esc cancels, and the overlay is gone", async () => {
+    const { ui, root } = setup()
+    const result = ui.countdown()
+    expect(root()?.textContent).toContain("Recording starts in 3 seconds")
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))
+    expect(await result).toBe("cancel")
+    expect(root()?.textContent ?? "").not.toContain("Recording starts")
+  })
+})
+
+test("a page load only wakes the background while something is being recorded", () => {
+  expect(uiStateNeeded({})).toBe(false)
+  expect(uiStateNeeded({ recording: { draftId: "d1", tabId: 7, startedAt: 1 } })).toBe(true)
+})
+
+test("a page can't cancel the countdown with a made-up Esc", async () => {
+  const ui = createPageUi(document, window, {
+    extensionUrl: (path) => `${ORIGIN}/${path}`,
+    extensionOrigin: ORIGIN,
+    savePosition: () => {},
+    loadPosition: () => null,
+    shadowMode: "open",
+    tickMs: 5,
+  })
+  const result = ui.countdown()
+  window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))
+  expect(await result).toBe("done")
+})
+
+test("a hidden tab paints no frames; the countdown still ends", async () => {
+  const realFrame = window.requestAnimationFrame
+  window.requestAnimationFrame = () => 0
+  Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true })
+  try {
+    const ui = createPageUi(document, window, {
+      extensionUrl: (path) => `${ORIGIN}/${path}`,
+      extensionOrigin: ORIGIN,
+      savePosition: () => {},
+      loadPosition: () => null,
+      shadowMode: "open",
+      tickMs: 5,
+    })
+    expect(await ui.countdown()).toBe("done")
+  } finally {
+    window.requestAnimationFrame = realFrame
+    Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true })
+  }
+})
+
+test("Esc pressed while the bar has focus cancels the countdown too, from the bar's frame only", async () => {
+  const { ui, root } = setup()
+  ui.showRecording("s1")
+  const bar = [...(root()?.querySelectorAll("iframe") ?? [])].find((frame) => frame.src.includes("recorder-bar.html"))
+  // happy-dom gives frames no window of their own; this one stands in for the bar's.
+  if (bar) Object.defineProperty(bar, "contentWindow", { value: window, configurable: true })
+  const result = ui.countdown()
+  window.dispatchEvent(new MessageEvent("message", { data: { bugberry: "escape" }, origin: ORIGIN, source: window }))
+  expect(await result).toBe("cancel")
+})
+
+test("an escape from another extension frame doesn't cancel the countdown", async () => {
+  const { ui } = setup()
+  ui.showRecording("s1")
+  const result = ui.countdown()
+  window.dispatchEvent(new MessageEvent("message", { data: { bugberry: "escape" }, origin: ORIGIN }))
+  const done = await Promise.race([result, new Promise((resolve) => setTimeout(() => resolve("waiting"), 50))])
+  expect(done).toBe("waiting")
+  window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))
+  await result
+})
+
+test("the page's own CSS can't hide the layer", () => {
+  const { ui } = setup()
+  ui.showRecording("s1")
+  const host = document.querySelector("[data-bugberry-ui]") as HTMLElement
+  for (const property of ["display", "position", "z-index", "visibility", "opacity"]) {
+    expect(host.style.getPropertyPriority(property)).toBe("important")
+  }
+})

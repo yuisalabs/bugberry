@@ -1,0 +1,376 @@
+import {
+  CAPTURE_TYPES,
+  type DebuggerSummary,
+  type DeviceInfo,
+  PRIORITIES,
+  REPORT_STATUSES,
+  TRACKER_PROVIDERS,
+  type TrackerConfig,
+  UPLOAD_STATUSES,
+  VISIBILITIES,
+  WORKSPACE_ROLES,
+} from "@bugberry/shared"
+import { sql } from "drizzle-orm"
+import {
+  type AnyPgColumn,
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uniqueIndex,
+} from "drizzle-orm/pg-core"
+
+const createdAt = () => timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
+const updatedAt = () =>
+  timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull()
+
+export const reportStatusEnum = pgEnum("report_status", REPORT_STATUSES)
+export const priorityEnum = pgEnum("priority", PRIORITIES)
+export const visibilityEnum = pgEnum("visibility", VISIBILITIES)
+export const captureTypeEnum = pgEnum("capture_type", CAPTURE_TYPES)
+export const uploadStatusEnum = pgEnum("upload_status", UPLOAD_STATUSES)
+export const trackerProviderEnum = pgEnum("tracker_provider", TRACKER_PROVIDERS)
+export const workspaceRoleEnum = pgEnum("workspace_role", WORKSPACE_ROLES)
+
+// --- Better Auth tables: property names must match Better Auth's model fields. ---
+
+export const user = pgTable("user", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull().unique(),
+  emailVerified: boolean("email_verified").default(false).notNull(),
+  image: text("image"),
+  /** The workspace the dashboard opens; null until the person has one. */
+  lastWorkspaceId: text("last_workspace_id").references((): AnyPgColumn => workspace.id, { onDelete: "set null" }),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+})
+
+export const session = pgTable(
+  "session",
+  {
+    id: text("id").primaryKey(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    token: text("token").notNull().unique(),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [index("session_user_id_idx").on(table.userId)],
+)
+
+export const account = pgTable(
+  "account",
+  {
+    id: text("id").primaryKey(),
+    accountId: text("account_id").notNull(),
+    providerId: text("provider_id").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    accessToken: text("access_token"),
+    refreshToken: text("refresh_token"),
+    idToken: text("id_token"),
+    accessTokenExpiresAt: timestamp("access_token_expires_at", { withTimezone: true }),
+    refreshTokenExpiresAt: timestamp("refresh_token_expires_at", { withTimezone: true }),
+    scope: text("scope"),
+    password: text("password"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [index("account_user_id_idx").on(table.userId)],
+)
+
+export const verification = pgTable(
+  "verification",
+  {
+    id: text("id").primaryKey(),
+    identifier: text("identifier").notNull(),
+    value: text("value").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [index("verification_identifier_idx").on(table.identifier)],
+)
+
+// --- BugBerry tables ---
+
+/** A team: its members see its reports, projects and integrations; nobody else does. */
+export const workspace = pgTable(
+  "workspace",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    /** Short URL ("javan-qa"), unique per server. Only shown for now; pages stay at /app. */
+    slug: text("slug"),
+    /** The uploaded logo's public link; null shows the first letter instead. */
+    logoUrl: text("logo_url"),
+    /** The shared invite link's code ("7KX-29QF"); null while the link is off. */
+    shareCode: text("share_code").unique(),
+    /** People with this email domain may join (directly or by asking); null turns it off. */
+    joinDomain: text("join_domain"),
+    joinMode: text("join_mode").$type<"direct" | "approval">(),
+    /** The number the next report gets; reports are BB-1, BB-2, … within a workspace. */
+    nextReportNumber: integer("next_report_number").notNull().default(1),
+    /** Who created it: an admin who can't be demoted or removed. Their member row stays "admin". */
+    ownerId: text("owner_id").references((): AnyPgColumn => user.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [uniqueIndex("workspace_slug_idx").on(table.slug)],
+)
+
+export const workspaceMember = pgTable(
+  "workspace_member",
+  {
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    role: workspaceRoleEnum("role").notNull().default("member"),
+    createdAt: createdAt(),
+  },
+  (table) => [primaryKey({ columns: [table.workspaceId, table.userId] }), index("workspace_member_user_idx").on(table.userId)],
+)
+
+/** An emailed invitation; only the SHA-256 of its token is stored. */
+export const workspaceInvitation = pgTable(
+  "workspace_invitation",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    /** SHA-256 of the short code in the email ("7KX-29QF"); null for invitations from before codes. */
+    codeHash: text("code_hash").unique(),
+    invitedById: text("invited_by_id").references(() => user.id, { onDelete: "set null" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (table) => [index("workspace_invitation_workspace_idx").on(table.workspaceId), index("workspace_invitation_email_idx").on(table.email)],
+)
+
+export const apiToken = pgTable(
+  "api_token",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull().unique(),
+    label: text("label").notNull(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (table) => [index("api_token_user_id_idx").on(table.userId)],
+)
+
+export const project = pgTable(
+  "project",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "restrict" }),
+    name: text("name").notNull(),
+    /** Unique within its workspace. */
+    slug: text("slug").notNull(),
+    urlPatterns: text("url_patterns")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    createdAt: createdAt(),
+  },
+  (table) => [uniqueIndex("project_workspace_slug_idx").on(table.workspaceId, table.slug)],
+)
+
+export const report = pgTable(
+  "report",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "restrict" }),
+    projectId: text("project_id").references(() => project.id, { onDelete: "restrict" }),
+    reporterId: text("reporter_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+    assigneeId: text("assignee_id").references(() => user.id, { onDelete: "set null" }),
+    /** Counts up within the workspace, shown as BB-{number}. */
+    number: integer("number").notNull(),
+    title: text("title").notNull(),
+    description: text("description").notNull().default(""),
+    status: reportStatusEnum("status").notNull().default("open"),
+    priority: priorityEnum("priority").notNull().default("none"),
+    visibility: visibilityEnum("visibility").notNull().default("workspace"),
+    /** The reporter's email domain when the report was made; "internal" shares with this domain. */
+    reporterDomain: text("reporter_domain"),
+    shareSlug: text("share_slug").notNull().unique(),
+    captureType: captureTypeEnum("capture_type").notNull(),
+    pageUrl: text("page_url").notNull(),
+    pageTitle: text("page_title").notNull().default(""),
+    device: jsonb("device").$type<DeviceInfo>().notNull(),
+    durationMs: integer("duration_ms"),
+    mediaKey: text("media_key").notNull(),
+    mediaType: text("media_type").notNull(),
+    /** Size in bytes declared by the client when the upload session was created. */
+    mediaSize: integer("media_size").notNull(),
+    debuggerKey: text("debugger_key"),
+    debuggerSize: integer("debugger_size"),
+    /** Null when the report has no preview: older reports, or a thumbnail that failed to upload. */
+    thumbnailKey: text("thumbnail_key"),
+    thumbnailSize: integer("thumbnail_size"),
+    debuggerSummary: jsonb("debugger_summary").$type<DebuggerSummary>().notNull(),
+    uploadStatus: uploadStatusEnum("upload_status").notNull().default("uploading"),
+    uploadError: text("upload_error"),
+    /** "City, Country" from the reporter's location, when they chose to include it. Never coordinates. */
+    location: text("location"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    index("report_project_created_idx").on(table.projectId, table.createdAt),
+    index("report_workspace_created_idx").on(table.workspaceId, table.createdAt),
+    index("report_status_idx").on(table.status),
+    index("report_upload_status_created_idx").on(table.uploadStatus, table.createdAt),
+    uniqueIndex("report_workspace_number_idx").on(table.workspaceId, table.number),
+  ],
+)
+
+export const comment = pgTable(
+  "comment",
+  {
+    id: text("id").primaryKey(),
+    reportId: text("report_id")
+      .notNull()
+      .references(() => report.id, { onDelete: "cascade" }),
+    authorId: text("author_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+    body: text("body").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [index("comment_report_created_idx").on(table.reportId, table.createdAt)],
+)
+
+export const integration = pgTable(
+  "integration",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => project.id, { onDelete: "cascade" }),
+    provider: trackerProviderEnum("provider").notNull(),
+    config: jsonb("config").$type<TrackerConfig>().notNull(),
+    /** AES-256-GCM ciphertext from SecretBox; never returned by the API. */
+    secretEncrypted: text("secret_encrypted").notNull(),
+    autoSend: boolean("auto_send").notNull().default(false),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [index("integration_project_idx").on(table.projectId)],
+)
+
+/**
+ * One row per (report, integration). States: sent (external_id set), failed (error set),
+ * or being sent (both empty) — the row doubles as the lock that prevents duplicate issues.
+ */
+export const reportExternalLink = pgTable(
+  "report_external_link",
+  {
+    id: text("id").primaryKey(),
+    reportId: text("report_id")
+      .notNull()
+      .references(() => report.id, { onDelete: "cascade" }),
+    integrationId: text("integration_id")
+      .notNull()
+      .references(() => integration.id, { onDelete: "cascade" }),
+    externalId: text("external_id"),
+    externalUrl: text("external_url"),
+    error: text("error"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [uniqueIndex("report_external_link_report_integration_idx").on(table.reportId, table.integrationId)],
+)
+
+/** "Someone mentioned you": one row per person and comment, so edits never notify anyone twice. */
+export const notification = pgTable(
+  "notification",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    commentId: text("comment_id")
+      .notNull()
+      .references(() => comment.id, { onDelete: "cascade" }),
+    reportId: text("report_id")
+      .notNull()
+      .references(() => report.id, { onDelete: "cascade" }),
+    actorId: text("actor_id").references(() => user.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+    readAt: timestamp("read_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("notification_user_comment_idx").on(table.userId, table.commentId),
+    index("notification_user_created_idx").on(table.userId, table.createdAt),
+  ],
+)
+
+/**
+ * The photo a person asked to upload but has not confirmed yet. One per person: starting another upload
+ * deletes this one, so abandoned uploads never pile up in storage.
+ */
+export const pendingAvatar = pgTable("pending_avatar", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  avatarId: text("avatar_id").notNull(),
+  createdAt: createdAt(),
+})
+
+/** A logo upload not confirmed yet, one per workspace; starting another deletes it (as with avatars). */
+export const pendingLogo = pgTable("pending_logo", {
+  workspaceId: text("workspace_id")
+    .primaryKey()
+    .references(() => workspace.id, { onDelete: "cascade" }),
+  logoId: text("logo_id").notNull(),
+  createdAt: createdAt(),
+})
+
+/** Someone asked to join a workspace through its email domain; an admin approves or declines. */
+export const joinRequest = pgTable(
+  "join_request",
+  {
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+  },
+  (table) => [primaryKey({ columns: [table.workspaceId, table.userId] })],
+)

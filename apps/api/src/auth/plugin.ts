@@ -1,0 +1,72 @@
+import { and, eq, isNull } from "drizzle-orm"
+import { Elysia } from "elysia"
+import type { AppDeps } from "../app"
+import { apiToken, user } from "../db/schema"
+import { hashToken, TOKEN_PREFIX } from "../lib/api-token"
+import { forbidden, unauthorized } from "../lib/errors"
+import { isEmailAllowed } from "./policy"
+
+export interface CurrentUser {
+  id: string
+  email: string
+  name: string
+  image: string | null
+  lastWorkspaceId: string | null
+}
+
+const LAST_USED_RESOLUTION_MS = 60_000
+
+const currentUserColumns = {
+  id: user.id,
+  email: user.email,
+  name: user.name,
+  image: user.image,
+  lastWorkspaceId: user.lastWorkspaceId,
+}
+
+/** Resolves the caller from an extension token (Bearer) or a Better Auth session cookie. */
+export function createUserResolver({ db, betterAuth }: Pick<AppDeps, "db" | "betterAuth">) {
+  return async function resolveUser(headers: Headers): Promise<CurrentUser | null> {
+    const authorization = headers.get("authorization")
+    if (authorization?.startsWith("Bearer ")) {
+      const token = authorization.slice("Bearer ".length).trim()
+      if (!token.startsWith(TOKEN_PREFIX)) return null
+      const [row] = await db
+        .select({ ...currentUserColumns, tokenId: apiToken.id, lastUsedAt: apiToken.lastUsedAt })
+        .from(apiToken)
+        .innerJoin(user, eq(apiToken.userId, user.id))
+        .where(and(eq(apiToken.tokenHash, hashToken(token)), isNull(apiToken.revokedAt)))
+        .limit(1)
+      if (!row) return null
+      if (!row.lastUsedAt || Date.now() - row.lastUsedAt.getTime() > LAST_USED_RESOLUTION_MS) {
+        await db.update(apiToken).set({ lastUsedAt: new Date() }).where(eq(apiToken.id, row.tokenId))
+      }
+      return { id: row.id, email: row.email, name: row.name, image: row.image, lastWorkspaceId: row.lastWorkspaceId }
+    }
+
+    const session = await betterAuth.api.getSession({ headers })
+    if (!session) return null
+    const [row] = await db.select(currentUserColumns).from(user).where(eq(user.id, session.user.id)).limit(1)
+    return row ?? null
+  }
+}
+
+/**
+ * Adds the `auth: true` route option, which puts the signed-in `user` on the context. What they may
+ * do inside a workspace is checked per route (workspaces/access.ts).
+ */
+export function authPlugin(deps: Pick<AppDeps, "db" | "betterAuth" | "config">) {
+  const resolveUser = createUserResolver(deps)
+  return new Elysia({ name: "bugberry.auth" }).macro({
+    auth: (_required: true) => ({
+      async resolve({ request }) {
+        const current = await resolveUser(request.headers)
+        if (!current) throw unauthorized()
+        if (!isEmailAllowed(current.email, deps.config.allowedEmailDomains)) {
+          throw forbidden("Your email domain is no longer allowed")
+        }
+        return { user: current }
+      },
+    }),
+  })
+}

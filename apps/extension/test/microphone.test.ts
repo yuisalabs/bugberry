@@ -1,0 +1,51 @@
+import { describe, expect, test } from "bun:test"
+import { micAccess, micChoiceAfterCheck, micDeviceLabel, micErrorText } from "../lib/microphone"
+
+describe("micDeviceLabel", () => {
+  test("names the default microphone without Chrome's prefix", () => {
+    expect(
+      micDeviceLabel([
+        { kind: "videoinput", deviceId: "cam", label: "FaceTime HD Camera" },
+        { kind: "audioinput", deviceId: "usb", label: "USB Mic" },
+        { kind: "audioinput", deviceId: "default", label: "Default - MacBook Pro Microphone" },
+      ]),
+    ).toBe("MacBook Pro Microphone")
+  })
+
+  test("falls back to the first microphone, then to a plain name", () => {
+    expect(micDeviceLabel([{ kind: "audioinput", deviceId: "usb", label: "USB Mic" }])).toBe("USB Mic")
+    // Before permission is granted, Chrome hides the labels.
+    expect(micDeviceLabel([{ kind: "audioinput", deviceId: "", label: "" }])).toBe("Microphone")
+    expect(micDeviceLabel([])).toBe("Microphone")
+  })
+})
+
+describe("micAccess", () => {
+  test("maps the permission state, and an error means Chrome has to ask", async () => {
+    expect(await micAccess(async () => ({ state: "granted" }))).toBe("granted")
+    expect(await micAccess(async () => ({ state: "denied" }))).toBe("denied")
+    expect(await micAccess(async () => ({ state: "prompt" }))).toBe("prompt")
+    expect(await micAccess(() => Promise.reject(new TypeError("unsupported")))).toBe("prompt")
+  })
+})
+
+test("a Mic choice whose permission is gone is turned off when the popup opens", () => {
+  expect(micChoiceAfterCheck(true, "granted")).toBe(true)
+  expect(micChoiceAfterCheck(true, "denied")).toBe(false)
+  expect(micChoiceAfterCheck(true, "prompt")).toBe(false)
+  expect(micChoiceAfterCheck(false, "granted")).toBe(false)
+})
+
+test("the microphone page says what actually went wrong", () => {
+  const error = (name: string) => new DOMException("x", name)
+  expect(micErrorText(error("NotAllowedError"), "denied")).toBe("Microphone is blocked. Allow it for BugBerry in Chrome's site settings.")
+  // A prompt closed without an answer leaves the permission at "prompt": nothing is blocked.
+  expect(micErrorText(error("NotAllowedError"), "prompt")).toBe("Chrome didn't get an answer. Try again and choose Allow.")
+  // Chrome allows it, the computer doesn't: macOS or Windows privacy settings.
+  expect(micErrorText(error("NotAllowedError"), "granted")).toBe(
+    "Your computer's privacy settings block the microphone for Chrome. Allow it there, then try again.",
+  )
+  expect(micErrorText(error("NotReadableError"), "granted")).toBe("The microphone is in use by another app. Close it there, then try again.")
+  expect(micErrorText(error("NotFoundError"), "prompt")).toBe("No microphone was found.")
+  expect(micErrorText(new Error("odd"), "prompt")).toBe("The microphone couldn't be started. Try again.")
+})

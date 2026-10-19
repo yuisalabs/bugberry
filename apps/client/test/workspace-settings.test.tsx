@@ -1,0 +1,68 @@
+import { describe, expect, mock, test } from "bun:test"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { WorkspaceSettingsView } from "../src/pages/settings/WorkspaceSettingsPage"
+import type { SlugAnswer } from "../src/lib/workspace-slug"
+import { fileInput } from "./fields"
+
+const workspace = { id: "w1", name: "Javan QA", slug: "javan-qa", logoUrl: null as string | null }
+const answer = (available: boolean) =>
+  mock(async (query: { slug?: string }): Promise<SlugAnswer> => ({
+    slug: query.slug ?? "",
+    available,
+    reason: available ? null : "taken",
+  }))
+
+function view(overrides: Partial<Parameters<typeof WorkspaceSettingsView>[0]> = {}) {
+  const props = {
+    workspace,
+    origin: "https://bugberry.kantor.com",
+    busy: false,
+    onSave: mock(),
+    onLogo: mock(),
+    onRemoveLogo: mock(),
+    check: answer(true),
+    measure: async () => ({ width: 256, height: 256 }),
+    ...overrides,
+  }
+  render(<WorkspaceSettingsView {...props} />)
+  return props
+}
+
+const save = () => screen.getByRole("button", { name: "Save" }) as HTMLButtonElement
+
+describe("WorkspaceSettingsView", () => {
+  test("shows and saves name and URL", async () => {
+    const props = view()
+    expect((screen.getByRole("textbox", { name: "Workspace URL" }) as HTMLInputElement).value).toBe("javan-qa")
+    expect(screen.getByText("bugberry.kantor.com/")).toBeTruthy()
+    fireEvent.change(screen.getByRole("textbox", { name: "Workspace URL" }), { target: { value: "javan-team" } })
+    await waitFor(() => expect(screen.getByText("Available")).toBeTruthy(), { timeout: 2000 })
+    fireEvent.click(save())
+    expect(props.onSave).toHaveBeenCalledWith({ slug: "javan-team" })
+  })
+
+  test("a taken URL disables Save; a name change alone sends only the name", async () => {
+    const props = view({ check: answer(false) })
+    fireEvent.change(screen.getByRole("textbox", { name: "Workspace URL" }), { target: { value: "someone-else" } })
+    await waitFor(() => expect(screen.getByText("Taken")).toBeTruthy(), { timeout: 2000 })
+    expect(save().disabled).toBe(true)
+    fireEvent.change(screen.getByRole("textbox", { name: "Workspace URL" }), { target: { value: "javan-qa" } })
+    fireEvent.change(screen.getByRole("textbox", { name: "Name" }), { target: { value: "Javan QA Team" } })
+    fireEvent.click(save())
+    expect(props.onSave).toHaveBeenCalledWith({ name: "Javan QA Team" })
+  })
+
+  test("changes and removes the logo", async () => {
+    const props = view({ workspace: { ...workspace, logoUrl: "http://localhost:3000/api/workspace-logos/w1/a.png" } })
+    const file = new File([new Uint8Array(10)], "logo.png", { type: "image/png" })
+    fireEvent.change(fileInput(), { target: { files: [file] } })
+    await waitFor(() => expect(props.onLogo).toHaveBeenCalledWith(file))
+    fireEvent.click(screen.getByRole("button", { name: "Remove logo" }))
+    expect(props.onRemoveLogo).toHaveBeenCalled()
+  })
+
+  test("Remove shows only with a logo", () => {
+    view()
+    expect(screen.queryByRole("button", { name: "Remove logo" })).toBeNull()
+  })
+})
