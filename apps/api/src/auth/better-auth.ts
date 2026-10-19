@@ -1,15 +1,30 @@
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { APIError, createAuthMiddleware } from "better-auth/api"
-import { emailOTP } from "better-auth/plugins"
+import { mcp } from "@better-auth/mcp"
+import { emailOTP, jwt } from "better-auth/plugins"
 import type { Config } from "../config"
 import type { Db } from "../db/client"
-import { account, session, user, verification } from "../db/schema"
+import {
+  account,
+  jwks,
+  oauthAccessToken,
+  oauthClient,
+  oauthClientAssertion,
+  oauthClientResource,
+  oauthConsent,
+  oauthRefreshToken,
+  oauthResource,
+  session,
+  user,
+  verification,
+} from "../db/schema"
 import { createRateLimiter } from "../lib/rate-limit"
 import { otpEmail } from "../email/otp-email"
 import { createEmailSender, type EmailSender } from "../email/sender"
 import { githubUserInfo, gitlabUserInfo } from "./identity"
 import { provisionNewUser } from "../workspaces/provision"
+import { MCP_SCOPES, mcpResource } from "./mcp-oauth"
 import { isEmailAllowed } from "./policy"
 
 type GithubUserInfo = NonNullable<NonNullable<Parameters<typeof betterAuth>[0]["socialProviders"]>["github"]> extends infer P
@@ -20,6 +35,8 @@ type GitlabUserInfo = NonNullable<NonNullable<Parameters<typeof betterAuth>[0]["
   : never
 
 const OTP_SECONDS = 600
+/** An hour: revoking an AI app takes effect at the latest when its last access token expires. */
+const ACCESS_TOKEN_SECONDS = 60 * 60
 const CODES_PER_ADDRESS = 5
 
 export function createAuth(config: Config, db: Db, options: { email?: EmailSender } = {}) {
@@ -35,7 +52,20 @@ export function createAuth(config: Config, db: Db, options: { email?: EmailSende
     trustedOrigins: [config.appUrl],
     database: drizzleAdapter(db, {
       provider: "pg",
-      schema: { user, session, account, verification },
+      schema: {
+        user,
+        session,
+        account,
+        verification,
+        jwks,
+        oauthClient,
+        oauthResource,
+        oauthClientResource,
+        oauthRefreshToken,
+        oauthAccessToken,
+        oauthConsent,
+        oauthClientAssertion,
+      },
     }),
     socialProviders: {
       ...(config.google && {
@@ -92,8 +122,25 @@ export function createAuth(config: Config, db: Db, options: { email?: EmailSende
         if (!allowed) return ctx.json({ success: true })
       }),
     },
-    plugins: sender
-      ? [
+    plugins: [
+      // OAuth 2.1 for the MCP server: AI apps register themselves, people approve them on /oauth/consent,
+      // and access tokens are JWTs bound to the MCP resource. jwt() signs them and publishes the keys.
+      jwt(),
+      mcp({
+        loginPage: "/login",
+        consentPage: "/oauth/consent",
+        resource: mcpResource(config),
+        scopes: [...MCP_SCOPES],
+        clientRegistrationDefaultScopes: [...MCP_SCOPES],
+        clientRegistrationAllowedScopes: [...MCP_SCOPES],
+        allowDynamicClientRegistration: true,
+        allowUnauthenticatedClientRegistration: true,
+        // Desktop apps (Claude Code, Cursor) redirect to http://localhost; web apps (Claude.ai) to https.
+        clientRegistrationDefaultApplicationType: "infer",
+        accessTokenExpiresIn: ACCESS_TOKEN_SECONDS,
+      }),
+      ...(sender
+        ? [
           emailOTP({
             otpLength: 6,
             expiresIn: OTP_SECONDS,
@@ -106,7 +153,8 @@ export function createAuth(config: Config, db: Db, options: { email?: EmailSende
             },
           }),
         ]
-      : [],
+        : []),
+    ],
     user: {
       // Rejects a provider identity before any user/account row is written.
       validateUserInfo: ({ user: info }) => {

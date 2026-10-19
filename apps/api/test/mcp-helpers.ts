@@ -49,6 +49,89 @@ export async function directClient(mcpCtx: McpContext): Promise<Client> {
   return client
 }
 
+const b64url = (bytes: ArrayBuffer | Uint8Array) => Buffer.from(bytes as ArrayBuffer).toString("base64url")
+
+export interface OAuthGrant {
+  clientId: string
+  accessToken: string
+  refreshToken: string | null
+}
+
+/**
+ * Runs the whole OAuth flow in-process the way an AI app does: dynamic registration, authorize with
+ * PKCE as the signed-in person, consent, then the code exchange.
+ */
+export async function grantOAuth(
+  ctx: TestCtx,
+  userId: string,
+  opts: { scopes?: string[]; clientName?: string } = {},
+): Promise<OAuthGrant> {
+  const base = ctx.config.appUrl
+  const redirectUri = "http://localhost:9999/cb"
+  const call = (path: string, init: RequestInit = {}) => ctx.app.handle(new Request(`${base}${path}`, init))
+  const register = await call("/api/auth/oauth2/register", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ client_name: opts.clientName ?? "Claude Code", redirect_uris: [redirectUri], token_endpoint_auth_method: "none" }),
+  })
+  const { client_id: clientId } = (await register.json()) as { client_id: string }
+
+  const verifier = b64url(crypto.getRandomValues(new Uint8Array(32)))
+  const challenge = b64url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)))
+  const { sessionHeaders } = await import("./helpers")
+  const cookie = await sessionHeaders(ctx, userId)
+  const params = new URLSearchParams({
+    response_type: "code",
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    scope: (opts.scopes ?? ["openid", "offline_access", "bugberry:read", "bugberry:write"]).join(" "),
+    state: "state",
+    code_challenge: challenge,
+    code_challenge_method: "S256",
+    resource: `${base}/api/mcp`,
+  })
+  const authorize = await call(`/api/auth/oauth2/authorize?${params}`, { headers: cookie, redirect: "manual" })
+  const consentUrl = new URL(authorize.headers.get("location") ?? "", base)
+  if (consentUrl.pathname !== "/oauth/consent") throw new Error(`authorize went to ${consentUrl}`)
+  const consent = await call("/api/auth/oauth2/consent", {
+    method: "POST",
+    headers: { ...cookie, "content-type": "application/json", origin: base },
+    body: JSON.stringify({ accept: true, oauth_query: consentUrl.search.slice(1) }),
+  })
+  const { url } = (await consent.json()) as { url: string }
+  const code = new URL(url).searchParams.get("code") ?? ""
+  const token = await call("/api/auth/oauth2/token", {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: redirectUri,
+      client_id: clientId,
+      code_verifier: verifier,
+      resource: `${base}/api/mcp`,
+    }),
+  })
+  const tokens = (await token.json()) as { access_token: string; refresh_token?: string }
+  return { clientId, accessToken: tokens.access_token, refreshToken: tokens.refresh_token ?? null }
+}
+
+/** Trades a refresh token for new tokens; the HTTP status says whether the grant still stands. */
+export function refreshOAuth(ctx: TestCtx, grant: OAuthGrant): Promise<Response> {
+  return ctx.app.handle(
+    new Request(`${ctx.config.appUrl}/api/auth/oauth2/token`, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: grant.refreshToken ?? "",
+        client_id: grant.clientId,
+        resource: `${ctx.config.appUrl}/api/mcp`,
+      }),
+    }),
+  )
+}
+
 export const T0 = 1_000_000
 
 /**

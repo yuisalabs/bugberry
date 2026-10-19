@@ -1,13 +1,17 @@
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js"
+import { eq } from "drizzle-orm"
 import { Elysia } from "elysia"
 import type { AppDeps } from "../app"
-import { createUserResolver } from "../auth/plugin"
+import { type CurrentUser, createUserResolver } from "../auth/plugin"
 import { isEmailAllowed } from "../auth/policy"
+import { user as userTable } from "../db/schema"
+import { TOKEN_PREFIX } from "../lib/api-token"
 import { createRateLimiter, type RateLimiter } from "../lib/rate-limit"
 import { createDispatcher } from "../lib/trackers/dispatch"
 import { createTrackerFactory } from "../lib/trackers/providers"
 import { type McpCaller, type McpContext, RATE_LIMITED } from "./context"
 import { createDebuggerCache } from "./debugger"
+import { verifyOAuthAccessToken } from "./oauth"
 import { createMcpServer } from "./server"
 
 const CALLS_PER_MINUTE = 120
@@ -33,18 +37,54 @@ export function mcpModule(deps: AppDeps, options: { limiter?: RateLimiter } = {}
   const screenshotLimiter = createRateLimiter({ limit: SCREENSHOTS_PER_MINUTE, windowMs: 60_000 })
   const dispatcher = createDispatcher({ ...deps, trackers: deps.trackers ?? createTrackerFactory() })
 
-  const authenticate = async (headers: Headers): Promise<McpCaller | Response> => {
-    const resolved = await resolveUser(headers)
-    if (!resolved || resolved.tokenKind === null) {
-      return rpcError(401, -32001, "Unauthorized", {
-        "www-authenticate": `Bearer resource_metadata="${resourceMetadataUrl(deps.config.appUrl)}"`,
+  const challenge = `Bearer resource_metadata="${resourceMetadataUrl(deps.config.appUrl)}"`
+  const unauthorized = () => rpcError(401, -32001, "Unauthorized", { "www-authenticate": challenge })
+
+  const loadUser = async (id: string): Promise<CurrentUser | null> => {
+    const [row] = await deps.db
+      .select({
+        id: userTable.id,
+        email: userTable.email,
+        name: userTable.name,
+        image: userTable.image,
+        lastWorkspaceId: userTable.lastWorkspaceId,
       })
+      .from(userTable)
+      .where(eq(userTable.id, id))
+      .limit(1)
+    return row ?? null
+  }
+
+  /**
+   * Bearer only: a personal token (fdb_…, read + write) or an OAuth access token for this MCP resource
+   * (its granted scopes). Dashboard cookies are not accepted, so a web page cannot call tools as a visitor.
+   */
+  const authenticate = async (headers: Headers): Promise<McpCaller | Response> => {
+    const authorization = headers.get("authorization")
+    const token = authorization?.startsWith("Bearer ") ? authorization.slice("Bearer ".length).trim() : ""
+    if (!token) return unauthorized()
+
+    let caller: McpCaller
+    if (token.startsWith(TOKEN_PREFIX)) {
+      const resolved = await resolveUser(headers)
+      if (!resolved || resolved.tokenKind === null) return unauthorized()
+      const { tokenKind: _kind, ...user } = resolved
+      caller = { user, scopes: BOTH_SCOPES, via: { kind: "token" } }
+    } else {
+      const verified = await verifyOAuthAccessToken(deps, token)
+      const user = verified ? await loadUser(verified.userId) : null
+      if (!verified || !user) return unauthorized()
+      if (!verified.scopes.includes("bugberry:read")) {
+        return rpcError(403, -32003, "This connection has no access to BugBerry data", {
+          "www-authenticate": `Bearer error="insufficient_scope", scope="bugberry:read", resource_metadata="${resourceMetadataUrl(deps.config.appUrl)}"`,
+        })
+      }
+      caller = { user, scopes: new Set(verified.scopes), via: { kind: "oauth", clientId: verified.clientId, clientName: verified.clientName } }
     }
-    const { tokenKind: _kind, ...user } = resolved
-    if (!isEmailAllowed(user.email, deps.config.allowedEmailDomains)) {
+    if (!isEmailAllowed(caller.user.email, deps.config.allowedEmailDomains)) {
       return rpcError(403, -32003, "Your email domain is no longer allowed")
     }
-    return { user, scopes: BOTH_SCOPES, via: { kind: "token" } }
+    return caller
   }
 
   const handle = async (request: Request): Promise<Response> => {

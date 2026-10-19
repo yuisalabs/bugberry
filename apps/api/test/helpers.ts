@@ -26,6 +26,14 @@ export const TEST_DATABASE_URL =
 
 /** Every table in the public schema. Add new tables here when later plans create them. */
 const TABLES = [
+  "oauth_client_assertion",
+  "oauth_consent",
+  "oauth_access_token",
+  "oauth_refresh_token",
+  "oauth_client_resource",
+  "oauth_resource",
+  "oauth_client",
+  "jwks",
   "notification",
   "pending_avatar",
   "pending_logo",
