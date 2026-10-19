@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test"
+import { createCommentsService } from "../src/modules/comments/service"
 import { createProject, createReadyReport, createUserWithToken, setupTestApp } from "./helpers"
 
 let ctx: Awaited<ReturnType<typeof setupTestApp>>
@@ -63,5 +64,22 @@ describe("comments", () => {
     expect((await ctx.api.api.comments({ id: second }).delete(undefined, { headers: admin.headers })).data).toEqual({ ok: true })
     const missing = await ctx.api.api.comments({ id: first }).delete(undefined, { headers: ana.headers })
     expect(missing.error?.status as number | undefined).toBe(404)
+  })
+})
+
+describe("via AI", () => {
+  test("REST comments never carry viaAgent", async () => {
+    const created = await comments().post({ body: "x", viaAgent: "Hacker" } as { body: string }, { headers: ana.headers })
+    expect(created.data?.viaAgent).toBeNull()
+  })
+
+  test("service create stores viaAgent and edits keep it", async () => {
+    const service = createCommentsService({ ...ctx, background: undefined })
+    const created = await service.create(ana.user, reportId, "Hi", { viaAgent: "Claude Code" })
+    expect(created.viaAgent).toBe("Claude Code")
+    const { data } = await ctx.api.api.comments({ id: created.id }).patch({ body: "Edited" }, { headers: ana.headers })
+    expect(data?.viaAgent).toBe("Claude Code")
+    const listed = await comments().get({ headers: ana.headers })
+    expect(listed.data?.[0]?.viaAgent).toBe("Claude Code")
   })
 })

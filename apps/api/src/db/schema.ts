@@ -268,6 +268,8 @@ export const comment = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "restrict" }),
     body: text("body").notNull(),
+    /** The AI app that wrote it through MCP ("Claude Code", "AI agent"); null when written in BugBerry. */
+    viaAgent: text("via_agent"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

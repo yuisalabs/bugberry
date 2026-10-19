@@ -28,6 +28,7 @@ export async function listNotifications(
       createdAt: notification.createdAt,
       commentId: notification.commentId,
       body: comment.body,
+      viaAgent: comment.viaAgent,
       workspaceId: report.workspaceId,
       report: { id: report.id, number: report.number, title: report.title },
       actorId: actor.id,
@@ -73,6 +74,7 @@ export async function listNotifications(
       report: row.report,
       commentId: row.commentId,
       snippet: snippetOf(row.body, namesIn(row.workspaceId)),
+      viaAgent: row.viaAgent,
     })),
     unreadCount: unread?.value ?? 0,
   }

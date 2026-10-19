@@ -107,3 +107,17 @@ describe("mention emails with the log driver", () => {
     }
   })
 })
+
+describe("mention email via AI", () => {
+  test("says which app wrote it", () => {
+    const email = mentionEmail({ actorName: "Ana", reportNumber: 3, reportTitle: "Pay", snippet: "hi", url: "http://x", viaAgent: "Cursor" })
+    expect(email.subject).toContain("Ana mentioned you (via Cursor)")
+    expect(email.text).toContain("Ana mentioned you (via Cursor)")
+    expect(email.html).toContain("(via Cursor)")
+  })
+
+  test("leaves the text alone without an app", () => {
+    const email = mentionEmail({ actorName: "Ana", reportNumber: 3, reportTitle: "Pay", snippet: "hi", url: "http://x", viaAgent: null })
+    expect(email.subject).toBe("Ana mentioned you in BB-3: Pay")
+  })
+})

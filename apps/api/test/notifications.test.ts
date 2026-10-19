@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test } from "bun:test"
 import { and, eq } from "drizzle-orm"
 import { workspaceMember } from "../src/db/schema"
 import { renderMentions } from "../src/modules/comments/mentions"
+import { createCommentsService } from "../src/modules/comments/service"
 import { createProject, createReadyReport, createUserWithToken, setupTestApp } from "./helpers"
 
 let ctx: Awaited<ReturnType<typeof setupTestApp>>
@@ -91,5 +92,14 @@ describe("notifications", () => {
   test("anonymous callers get 401", async () => {
     expect((await ctx.api.api.notifications.get()).error?.status as number | undefined).toBe(401)
     expect((await ctx.api.api.notifications["read-all"].post()).error?.status as number | undefined).toBe(401)
+  })
+})
+
+describe("notifications via AI", () => {
+  test("a mention written by an AI app says so", async () => {
+    await createCommentsService(ctx).create(ana.user, reportId, `${tag(budi.user.id)} look`, { viaAgent: "Cursor" })
+    await post(ana, `${tag(budi.user.id)} by hand`)
+    const { data } = await list(budi)
+    expect(data?.items.map((item) => item.viaAgent)).toEqual([null, "Cursor"])
   })
 })

@@ -16,6 +16,7 @@ const commentColumns = {
   body: comment.body,
   createdAt: comment.createdAt,
   updatedAt: comment.updatedAt,
+  viaAgent: comment.viaAgent,
   author: { id: author.id, name: author.name, image: author.image },
 }
 
@@ -47,7 +48,15 @@ export function createCommentsService(deps: AppDeps) {
    * Emails the people just notified, in the background: the comment is already saved, and a failed
    * email is only logged, never retried.
    */
-  const emailMentions = (input: { userIds: string[]; commentId: string; reportId: string; workspaceId: string; actorName: string; body: string }) => {
+  const emailMentions = (input: {
+    userIds: string[]
+    commentId: string
+    reportId: string
+    workspaceId: string
+    actorName: string
+    body: string
+    viaAgent: string | null
+  }) => {
     if (!sender || input.userIds.length === 0) return
     const mailer = sender
     const task = (async () => {
@@ -60,6 +69,7 @@ export function createCommentsService(deps: AppDeps) {
         reportTitle: target.title,
         snippet: snippetOf(input.body, names),
         url: `${config.appUrl}/app/r/${input.reportId}#comment-${input.commentId}`,
+        viaAgent: input.viaAgent,
       })
       const people = await db.select({ email: user.email }).from(user).where(inArray(user.id, input.userIds))
       for (const person of people) {
@@ -82,7 +92,7 @@ export function createCommentsService(deps: AppDeps) {
   /** The comment's author and the caller's role in its report's workspace; outsiders get 404. */
   const commentAccess = async (userId: string, id: string) => {
     const [row] = await db
-      .select({ authorId: comment.authorId, reportId: comment.reportId, workspaceId: report.workspaceId })
+      .select({ authorId: comment.authorId, reportId: comment.reportId, workspaceId: report.workspaceId, viaAgent: comment.viaAgent })
       .from(comment)
       .innerJoin(report, eq(report.id, comment.reportId))
       .where(eq(comment.id, id))
@@ -92,20 +102,21 @@ export function createCommentsService(deps: AppDeps) {
     return { ...row, role }
   }
 
-
   return {
     async list(current: CurrentUser, reportId: string) {
       const workspaceId = await requireReport(current.id, reportId)
       const rows = await select().where(eq(comment.reportId, reportId)).orderBy(asc(comment.createdAt), asc(comment.id))
       return withMentions(rows, workspaceId)
     },
-    async create(current: CurrentUser, reportId: string, body: string) {
+    /** `viaAgent` is set only by MCP tools; REST never passes it. */
+    async create(current: CurrentUser, reportId: string, body: string, opts: { viaAgent?: string } = {}) {
       const workspaceId = await requireReport(current.id, reportId)
       const id = newId()
       const text = cleanBody(body)
-      await db.insert(comment).values({ id, reportId, authorId: current.id, body: text })
+      const viaAgent = opts.viaAgent ?? null
+      await db.insert(comment).values({ id, reportId, authorId: current.id, body: text, viaAgent })
       const notified = await notifyMentions(db, { commentId: id, reportId, workspaceId, actorId: current.id, body: text })
-      emailMentions({ userIds: notified, commentId: id, reportId, workspaceId, actorName: current.name, body: text })
+      emailMentions({ userIds: notified, commentId: id, reportId, workspaceId, actorName: current.name, body: text, viaAgent })
       return loadComment(id, workspaceId)
     },
     async edit(current: CurrentUser, commentId: string, body: string) {
@@ -127,6 +138,7 @@ export function createCommentsService(deps: AppDeps) {
         workspaceId: access.workspaceId,
         actorName: current.name,
         body: text,
+        viaAgent: access.viaAgent,
       })
       return loadComment(commentId, access.workspaceId)
     },

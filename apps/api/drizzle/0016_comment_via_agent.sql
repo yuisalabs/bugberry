@@ -1,0 +1,1 @@
+ALTER TABLE "comment" ADD COLUMN "via_agent" text;
