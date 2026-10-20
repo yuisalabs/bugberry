@@ -277,6 +277,9 @@ export function LandingView({ signedIn }: { signedIn: boolean }) {
             <Link href={signedIn ? "/app" : "/login"} className="hover:text-foreground">
               {signedIn ? "Dashboard" : "Sign in"}
             </Link>
+            <Link href="/privacy" className="hover:text-foreground">
+              Privacy Policy
+            </Link>
           </nav>
         </Reveal>
         <p className={`${container} pb-8 text-xs text-muted-foreground`}>© 2026 BugBerry</p>
