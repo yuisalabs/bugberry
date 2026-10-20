@@ -125,6 +125,8 @@ describe("installResourceHooks", () => {
       resource({ name: "data:image/png;base64,AAAA" }),
       resource({ name: "blob:https://shop.test/1" }),
       resource({ name: "chrome-extension://abc/capture.js" }),
+      resource({ name: "moz-extension://3f2a9c1e/capture.js" }),
+      resource({ name: "safari-web-extension://ABCD/capture.js" }),
     ])
     expect(resources()).toEqual([])
   })

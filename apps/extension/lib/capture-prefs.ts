@@ -1,3 +1,5 @@
+import type { RecordOptions } from "./messages"
+
 export type ScreenshotMode = "visible" | "area"
 export type RecordSource = "tab" | "screen" | "window"
 
@@ -35,6 +37,24 @@ export function capturePrefsFrom(raw: unknown): CapturePrefs {
     mic: typeof value.mic === "boolean" ? value.mic : DEFAULT_CAPTURE_PREFS.mic,
     systemAudio: typeof value.systemAudio === "boolean" ? value.systemAudio : DEFAULT_CAPTURE_PREFS.systemAudio,
     countdown: typeof value.countdown === "boolean" ? value.countdown : DEFAULT_CAPTURE_PREFS.countdown,
+  }
+}
+
+/** Without a tab recorder (Firefox) a tab can't be recorded on its own: the reporter picks a window instead. */
+export function effectiveSource(source: RecordSource, tabRecorder: boolean): RecordSource {
+  return !tabRecorder && source === "tab" ? "window" : source
+}
+
+/** What a recording starts with; without a tab recorder there is no system audio either (Firefox can't share it). */
+export function recordOptionsFor(
+  prefs: Pick<CapturePrefs, "recordSource" | "mic" | "systemAudio" | "countdown">,
+  tabRecorder: boolean,
+): RecordOptions {
+  return {
+    source: effectiveSource(prefs.recordSource, tabRecorder),
+    mic: prefs.mic,
+    systemAudio: tabRecorder && prefs.systemAudio,
+    countdown: prefs.countdown,
   }
 }
 

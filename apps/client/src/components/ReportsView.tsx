@@ -112,7 +112,7 @@ export function ReportsView({
         hasFilters(search) ? (
           <EmptyState title="No reports match these filters" />
         ) : (
-          <EmptyState title="No reports yet">Reports from the Chrome extension will show up here.</EmptyState>
+          <EmptyState title="No reports yet">Reports from the BugBerry extension will show up here.</EmptyState>
         )
       ) : (
         <>

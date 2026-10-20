@@ -3,6 +3,7 @@ import type { DraftStore } from "../lib/draft-store"
 import type { OffscreenMessage } from "../lib/messages"
 import {
   createRecordingController,
+  discardRecording,
   type RecordOptions,
   formatElapsed,
   type RecordingFlowDeps,
@@ -269,6 +270,34 @@ describe("startVideoRecording", () => {
     expect(badges).toEqual([])
     expect(state.peek()).toBeNull()
     expect(offscreenOpen).toBe(false)
+  })
+})
+
+describe("recorder window hosts", () => {
+  test("focusTab runs after the source opens and before the countdown", async () => {
+    const order: string[] = []
+    const base = deps.sendToOffscreen
+    deps.sendToOffscreen = async (message) => {
+      if (message.type === "bugberry:offscreen-open") order.push("open")
+      return base(message)
+    }
+    deps.focusTab = async (focused) => void order.push(`focus-${focused.windowId}`)
+    deps.countdown = async () => {
+      order.push("countdown")
+      return "done"
+    }
+    await startVideoRecording(tab, { ...TAB_OPTIONS, source: "window", countdown: true }, deps)
+    expect(order).toEqual(["open", "focus-3", "countdown"])
+  })
+
+  test("a recorder that is gone mid-recording still lets the take be discarded", async () => {
+    await startVideoRecording(tab, TAB_OPTIONS, deps)
+    deps.sendToOffscreen = async () => {
+      throw new Error("Could not establish connection. Receiving end does not exist.")
+    }
+    expect(await discardRecording(deps)).toMatchObject({ ok: false, code: "cancelled" })
+    expect(state.peek()).toBeNull()
+    expect(store.drafts.size).toBe(0)
   })
 })
 

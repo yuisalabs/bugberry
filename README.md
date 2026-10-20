@@ -227,6 +227,39 @@ This version of the extension needs an updated server (reports without a project
 
 For the Chrome Web Store (unlisted/private), build the zip without `VITE_EXTENSION_KEY` (temporarily remove that line from `.env.production`): the Web Store assigns its own ID and may reject a manifest that contains `key`. Set `EXTENSION_ID` to the ID from the Web Store.
 
+#### Opera
+
+Opera runs the Chrome build. With the same `.env.production` (so the extension ID matches `EXTENSION_ID`), run:
+
+```bash
+bun run zip:opera
+```
+
+Share `apps/extension/.output/bugberryextension-<version>-opera.zip`. Each team member extracts it, opens `opera://extensions`, turns on Developer mode, then uses "Load unpacked" on the extracted folder.
+
+#### Firefox
+
+Firefox 128 or newer is needed, and Firefox only installs extensions Mozilla has signed. Signing is free and needs no public listing:
+
+1. Create an account on [addons.mozilla.org](https://addons.mozilla.org) and get API keys under Developer Hub → Manage API Keys.
+2. Export them in your shell (never in a committed file): `WEB_EXT_API_KEY` (the JWT issuer) and `WEB_EXT_API_SECRET` (the JWT secret).
+3. Raise `version` in `apps/extension/package.json`: Mozilla never signs the same version twice.
+4. From the `apps/extension` folder, run:
+
+```bash
+bun run sign:firefox
+```
+
+Share the signed `.xpi` it writes to `apps/extension/.output/`. Each team member drags it into Firefox (or opens it) and confirms the install. The Firefox extension's ID is `yuisalabs@gmail.com`; it must never change.
+
+To try a build on your own Firefox without signing, run `bun run build:firefox`, open `about:debugging#/runtime/this-firefox`, and use "Load Temporary Add-on" on `.output/firefox-mv3/manifest.json` (it is gone when Firefox closes).
+
+What is different in Firefox:
+
+- Recording always asks which screen or window to share; Firefox can't record one tab on its own, and has no system audio. The microphone works.
+- A small BugBerry recorder window opens for each recording. Keep it open while recording (minimising is fine); closing it loses the recording.
+- "Open BugBerry" is Alt+Shift+B (Firefox uses Ctrl+Shift+K for its Web Console). The other shortcuts are the same.
+
 ### External Postgres
 
 Compose always uses its own Postgres: `DATABASE_URL` in `docker-compose.yml` overrides the value from `.env`. For a managed database, change `DATABASE_URL` in `docker-compose.yml` (without the password), set `POSTGRES_PASSWORD` to that database's password, then remove the `postgres` service along with its `depends_on`.

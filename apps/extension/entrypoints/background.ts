@@ -3,7 +3,9 @@ import { createFailureFlag } from "../lib/badge"
 import { bridgeSenderOrigin, createBridge, createConfirmOpener } from "../lib/bridge"
 import { browserRecordingState } from "../lib/browser-recording-state"
 import { createBugberryApi } from "../lib/api"
-import type { ScreenshotMode } from "../lib/capture-prefs"
+import { handleApiFetch, isApiFetchRequest } from "../lib/api-relay"
+import { hasTabRecorder } from "../lib/browser-support"
+import { recordOptionsFor, type ScreenshotMode } from "../lib/capture-prefs"
 import { BUILD_SERVER_ORIGIN, browserSettingsStorage, capturePrefsStorage } from "../lib/browser-settings"
 import { type ActiveTab, type CaptureFlowDeps, type CaptureResult, startScreenshotReport } from "../lib/capture-flow"
 import { createIndexedDbDraftStore } from "../lib/draft-store"
@@ -15,6 +17,7 @@ import {
   isBridgeUseServerRequest,
   isPageFlush,
   isPageStart,
+  isRecorderReadyNotice,
   isRecordingEndedNotice,
   isRecordStartRequest,
   isRecordStatusRequest,
@@ -25,6 +28,8 @@ import {
   type RecordOptions,
 } from "../lib/messages"
 import { createRecordingController, type RecordingFlowDeps } from "../lib/recording-flow"
+import { createWindowRecorderHost, onRecorderClosed } from "../lib/recorder-window"
+import { openSessionToContentScripts } from "../lib/session-access"
 import { createReviewOpener } from "../lib/review-opener"
 import { fromExtensionPage, ofThisRecording } from "../lib/sender-rules"
 import { createTakeAgain } from "../lib/take-again"
@@ -36,6 +41,8 @@ import { DEFAULT_MAX_UPLOAD_MB, recordingByteBudget, uploadLimitMb } from "../li
 /** Casts keep these valid before WXT has generated the path types for the pages. */
 const REVIEW_PAGE = "/review.html" as Parameters<typeof browser.runtime.getURL>[0]
 const OFFSCREEN_PAGE = "/offscreen.html" as Parameters<typeof browser.runtime.getURL>[0]
+/** Session storage key of Firefox's recorder window id. */
+const RECORDER_WINDOW_KEY = "recorderWindow"
 const CONFIRM_PAGE = "/confirm-server.html" as Parameters<typeof browser.runtime.getURL>[0]
 
 function toActiveTab(tab: Browser.tabs.Tab | undefined): ActiveTab | null {
@@ -157,6 +164,51 @@ export default defineBackground(() => {
     newId,
   }
 
+  /** Chrome and Opera record a tab through an offscreen document; Firefox records in a window of its own. */
+  const tabRecorder = hasTabRecorder(browser)
+
+  const windowHost = tabRecorder
+    ? null
+    : createWindowRecorderHost({
+        createWindow: async (url) => {
+          const created = await browser.windows.create({
+            url: browser.runtime.getURL(url as Parameters<typeof browser.runtime.getURL>[0]),
+            type: "popup",
+            width: 380,
+            height: 240,
+          })
+          if (created?.id === undefined) throw new Error("The recorder window didn't open")
+          return created.id
+        },
+        windowExists: (id) => browser.windows.get(id).then(
+          () => true,
+          () => false,
+        ),
+        focusWindow: async (id) => void (await browser.windows.update(id, { focused: true })),
+        removeWindow: (id) => browser.windows.remove(id),
+        sendMessage: (message) => browser.runtime.sendMessage(message),
+        windowId: {
+          get: async () => {
+            const stored = (await browser.storage.session.get(RECORDER_WINDOW_KEY))[RECORDER_WINDOW_KEY]
+            return typeof stored === "number" ? stored : null
+          },
+          set: (id) => browser.storage.session.set({ [RECORDER_WINDOW_KEY]: id }),
+        },
+      })
+
+  /** The offscreen document's place in Firefox: the recorder window, which the reporter brings back to the tab from. */
+  const windowRecorder: Partial<RecordingFlowDeps> = windowHost
+    ? {
+        getStreamId: async () => {
+          throw new Error("Tab capture isn't available in this browser")
+        },
+        ensureOffscreen: () => windowHost.ensure(),
+        closeOffscreen: () => windowHost.close(),
+        sendToOffscreen: (message) => windowHost.send(message),
+        focusTab: async (tab) => void (await browser.windows.update(tab.windowId, { focused: true })),
+      }
+    : {}
+
   const recordingDeps: RecordingFlowDeps = {
     getStreamId: (tabId) => browser.tabCapture.getMediaStreamId({ targetTabId: tabId }),
     ensureOffscreen: async () => {
@@ -205,6 +257,7 @@ export default defineBackground(() => {
     userAgent: navigator.userAgent,
     now: Date.now,
     newId,
+    ...windowRecorder,
   }
 
   const flagFailure = createFailureFlag({
@@ -232,11 +285,8 @@ export default defineBackground(() => {
   /** Without options (the shortcut) the popup's stored choices apply. */
   const record = async (tab: ActiveTab | null, options?: RecordOptions): Promise<CaptureResult> => {
     if (!tab) return { ok: false, error: "No active tab" }
-    let chosen = options
-    if (!chosen) {
-      const prefs = await capturePrefsStorage.get()
-      chosen = { source: prefs.recordSource, mic: prefs.mic, systemAudio: prefs.systemAudio, countdown: prefs.countdown }
-    }
+    const picked = options ? { ...options, recordSource: options.source } : await capturePrefsStorage.get()
+    const chosen = recordOptionsFor(picked, tabRecorder)
     return flagFailure(tab.id, await recordings.start(tab, { ...chosen, maxBytes: await recordingBudget() }))
   }
 
@@ -308,10 +358,32 @@ export default defineBackground(() => {
     }
   }
 
+  // Firefox: the reporter closed the recorder window. Before a source was picked the open is cancelled (the
+  // host answers it); mid-recording the take is gone, and the recorded tab says so.
+  if (windowHost) {
+    browser.windows.onRemoved.addListener(async (windowId) => {
+      if (!(await windowHost.windowRemoved(windowId))) return
+      await onRecorderClosed({ status: () => recordings.status(), discard: () => recordings.discard(), flag: flagFailure })
+    })
+  }
+
+  const extensionOrigin = browser.runtime.getURL("")
+
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const reply = (work: Promise<unknown>) => {
       work.then(sendResponse, (error: unknown) => sendResponse({ ok: false, error: String(error) }))
       return true // keeps the channel open for the async response
+    }
+    // Firefox's review over a page gets no sign-in cookie of its own; its API requests come here.
+    if (isApiFetchRequest(message)) {
+      if (!fromExtensionPage(sender, browser.runtime.id, extensionOrigin)) return undefined
+      return reply(
+        loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN).then((settings) => handleApiFetch(message, settings?.serverUrl ?? null, fetch)),
+      )
+    }
+    if (isRecorderReadyNotice(message)) {
+      if (fromExtensionPage(sender, browser.runtime.id, extensionOrigin)) windowHost?.ready()
+      return undefined
     }
     if (isBridgeHelloRequest(message) || isBridgeUseServerRequest(message) || isBridgeOpenPopupRequest(message)) {
       const origin = bridgeSenderOrigin(sender, browser.runtime.id)
@@ -336,13 +408,13 @@ export default defineBackground(() => {
     // Only the extension's own pages drive a recording: the review from anywhere, the bar and the drawing
     // layer only from inside the recorded tab (another site can embed those pages, but not in that tab).
     if (isReviewAgainRequest(message)) {
-      return fromExtensionPage(sender, browser.runtime.id) ? reply(takeAgain(message.draftId)) : undefined
+      return fromExtensionPage(sender, browser.runtime.id, extensionOrigin) ? reply(takeAgain(message.draftId)) : undefined
     }
     if (isBarRequest(message)) {
-      if (message.type === "bugberry:me-name") return fromExtensionPage(sender, browser.runtime.id) ? reply(author()) : undefined
+      if (message.type === "bugberry:me-name") return fromExtensionPage(sender, browser.runtime.id, extensionOrigin) ? reply(author()) : undefined
       return reply(
         browserRecordingState.get().then((state) =>
-          ofThisRecording(sender, browser.runtime.id, state, message.session) ? barAction(message) : { ok: false, error: "Not the recorded tab" },
+          ofThisRecording(sender, browser.runtime.id, extensionOrigin, state, message.session) ? barAction(message) : { ok: false, error: "Not the recorded tab" },
         ),
       )
     }
@@ -361,10 +433,6 @@ export default defineBackground(() => {
     return undefined
   })
 
-  // The flush script reads whether a recording runs from session storage, so a normal page load never
-  // has to wake this worker. Content scripts may only read that area once it is opened to them.
-  void browser.storage.session.setAccessLevel({ accessLevel: "TRUSTED_AND_UNTRUSTED_CONTEXTS" }).catch(() => {})
-
   browser.commands.onCommand.addListener(async (command, tab) => {
     const active = toActiveTab(tab ?? (await browser.tabs.query({ active: true, currentWindow: true }))[0])
     if (command === "take-screenshot") await screenshot(active)
@@ -381,4 +449,7 @@ export default defineBackground(() => {
 
   // Older versions kept a token next to the server; the dashboard's sign-in replaces it.
   browser.runtime.onInstalled.addListener(() => void browserSettingsStorage.removeLegacyToken())
+
+  // Last, so a browser without it (Firefox) still registers every listener above.
+  openSessionToContentScripts(browser.storage.session as Parameters<typeof openSessionToContentScripts>[0])
 })

@@ -3,6 +3,7 @@ import { VideoPlayer } from "@bugberry/player/video-player"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { browser } from "wxt/browser"
 import { createBugberryApi, type Project, type Workspace } from "../../lib/api"
+import { relayFetcher } from "../../lib/api-relay"
 import { BUILD_SERVER_ORIGIN, browserSettingsStorage, includeCityStorage, lastWorkspaceStorage } from "../../lib/browser-settings"
 import { createIndexedDbDraftStore, saveAnnotations } from "../../lib/draft-store"
 import { type EditorDeps, loadEditor, loadProjects } from "../../lib/editor-load"
@@ -12,7 +13,7 @@ import { isSignedOut } from "../../lib/popup"
 import { reviewMarkers } from "../../lib/review-data"
 import { draftKept, draftWithNotes } from "../../lib/review-draft"
 import { signInUrl } from "../../lib/session"
-import { loadSettings } from "../../lib/settings"
+import { loadSettings, type Settings } from "../../lib/settings"
 import { makeThumbnail } from "../../lib/thumbnail"
 import { browserThumbnailDeps } from "../../lib/thumbnail-browser"
 import type { ReportDraft } from "../../lib/types"
@@ -29,13 +30,21 @@ function lock<T>(name: string, work: () => Promise<T>): Promise<T | typeof LOCKE
     T | typeof LOCKED
   >
 }
+/**
+ * Over a page, Firefox sends this frame's requests without the sign-in cookie (they count as cross-site), so
+ * they go through the background there. Chrome and Opera, and the review in a tab of its own, fetch directly.
+ */
+const relayed = import.meta.env.FIREFOX && new URLSearchParams(location.search).get("embedded") === "1"
+const apiOf = (settings: Settings) =>
+  createBugberryApi(settings, relayed ? relayFetcher((request) => browser.runtime.sendMessage(request)) : fetch)
+
 const editorDeps: Omit<EditorDeps, "createObjectURL"> = {
   loadSettings: () => loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN),
   getDraft: (id) => store.get(id),
-  listWorkspaces: (settings) => createBugberryApi(settings).listWorkspaces(),
-  me: (settings) => createBugberryApi(settings).me(),
+  listWorkspaces: (settings) => apiOf(settings).listWorkspaces(),
+  me: (settings) => apiOf(settings).me(),
   lastWorkspaceId: () => lastWorkspaceStorage.get(),
-  listProjects: (settings, workspaceId) => createBugberryApi(settings).listProjects(workspaceId),
+  listProjects: (settings, workspaceId) => apiOf(settings).listProjects(workspaceId),
   createImageBitmap: (blob) => createImageBitmap(blob),
 }
 
@@ -144,7 +153,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
         draftId,
         form,
         media,
-        { api: createBugberryApi(settings), store, putFile: (target, body) => putFile(target, body), sleep, lock, serverUrl: settings.serverUrl },
+        { api: apiOf(settings), store, putFile: (target, body) => putFile(target, body), sleep, lock, serverUrl: settings.serverUrl },
         thumbnail,
         { location: asked.location },
       )

@@ -9,6 +9,12 @@ import { initialsOf } from "../../lib/people"
 import type { SentIssue } from "../../lib/report-page"
 import { safeHttpUrl } from "../../lib/urls"
 
+/** "Firefox extension" from the report's "Firefox 131"; a browser the extension couldn't name stays generic. */
+export function reportedVia(browser: string): string {
+  const name = browser.replace(/\s+\d[\d.]*$/, "").trim()
+  return !name || name === "Unknown browser" ? "the BugBerry extension" : `${name} extension`
+}
+
 /** Who reported it and when, the browser it came from, and the issues it already has. */
 export function ReportMeta({ report, issues }: { report: ReportDetail; issues: SentIssue[] }) {
   const now = useNow()
@@ -23,7 +29,7 @@ export function ReportMeta({ report, issues }: { report: ReportDetail; issues: S
           className="bg-secondary text-secondary-foreground"
         />
         <span>
-          {report.reporter.name} reported via Chrome extension, {formatRelative(report.createdAt, now)}
+          {report.reporter.name} reported via {reportedVia(browser)}, {formatRelative(report.createdAt, now)}
         </span>
       </span>
       <span className="flex items-center gap-1.5">

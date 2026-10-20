@@ -92,7 +92,7 @@ export function withinBudget(events: CaptureEvent[]): CaptureEvent[] {
   }
   return kept.reverse()
 }
-const BLOCKED_HOSTS = new Set(["chrome.google.com", "chromewebstore.google.com"])
+const BLOCKED_HOSTS = new Set(["chrome.google.com", "chromewebstore.google.com", "addons.mozilla.org", "addons.opera.com"])
 
 function isEvent(value: unknown): value is CaptureEvent {
   if (typeof value !== "object" || value === null) return false

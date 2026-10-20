@@ -69,7 +69,7 @@ export function confirmNotes(
 }
 
 /**
- * The page origin of a bridge message, taken from what Chrome says about the sender and never from
+ * The page origin of a bridge message, taken from what the browser says about the sender and never from
  * the message: only this extension's content script in a tab's top frame counts.
  */
 export function bridgeSenderOrigin(

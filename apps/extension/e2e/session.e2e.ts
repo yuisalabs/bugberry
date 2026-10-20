@@ -81,6 +81,6 @@ test("a BugBerry dashboard points the extension at itself", async () => {
 
   await dashboard.bringToFront()
   await dashboard.evaluate(() => window.dispatchEvent(new Event("focus")))
-  await expect(dashboard.getByRole("region", { name: "Chrome extension" }).getByText(/^Installed, v/)).toBeVisible()
+  await expect(dashboard.getByRole("region", { name: "Browser extension" }).getByText(/^Installed, v/)).toBeVisible()
   await context.close()
 })

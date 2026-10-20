@@ -63,6 +63,8 @@ describe("icons are line, and fill for what is chosen", () => {
           recording: { recording: false },
           drafts: [],
           logsAvailable: true,
+          tabRecorder: true,
+          hostAccess: true,
           error: null,
           busy: false,
           onPrefs: noop,
@@ -75,6 +77,7 @@ describe("icons are line, and fill for what is chosen", () => {
           onOpenDashboard: noop,
           onOpenDraft: noop,
           onDeleteDraft: noop,
+          onAllowHosts: noop,
           ...props,
         } as PopupViewProps)}
       />,

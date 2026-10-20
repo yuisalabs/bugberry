@@ -4,6 +4,8 @@ export const VIDEO_BITS_PER_SECOND = 1_500_000
 export const AUDIO_BITS_PER_SECOND = 128_000
 const TIMESLICE_MS = 1000
 const MIME_TYPES = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"] as const
+/** With sound the audio codec must be named too: Firefox refuses to record an audio track into a video-only type. */
+const MIME_TYPES_WITH_AUDIO = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"] as const
 
 export type RecordingEndReason = "max-duration" | "size-limit" | "source-ended" | "error"
 
@@ -22,6 +24,7 @@ export interface RecorderLike {
 }
 
 export interface TrackLike {
+  readonly kind?: string
   stop(): void
   addEventListener(type: "ended", listener: () => void): void
 }
@@ -55,8 +58,8 @@ export interface Recording {
   cancel(): Promise<void>
 }
 
-export function pickMimeType(isTypeSupported: (type: string) => boolean): string {
-  return MIME_TYPES.find((type) => isTypeSupported(type)) ?? "video/webm"
+export function pickMimeType(isTypeSupported: (type: string) => boolean, withAudio = false): string {
+  return (withAudio ? MIME_TYPES_WITH_AUDIO : MIME_TYPES).find((type) => isTypeSupported(type)) ?? "video/webm"
 }
 
 /**
@@ -84,9 +87,10 @@ export function startRecording(
   const stopped = new Promise<void>((resolve) => {
     markStopped = resolve
   })
+  const withAudio = stream.getTracks().some((track) => track.kind === "audio")
   const recorder = deps.createRecorder(
     stream,
-    { mimeType: pickMimeType(deps.isTypeSupported), videoBitsPerSecond: VIDEO_BITS_PER_SECOND, audioBitsPerSecond: AUDIO_BITS_PER_SECOND },
+    { mimeType: pickMimeType(deps.isTypeSupported, withAudio), videoBitsPerSecond: VIDEO_BITS_PER_SECOND, audioBitsPerSecond: AUDIO_BITS_PER_SECOND },
     {
       onData: (chunk) => {
         if (chunk.size === 0) return
