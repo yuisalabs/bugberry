@@ -40,11 +40,20 @@
     --ring: oklch(0.546 0.245 262.881);
 }
 
-/* Fumadocs' colours and fonts follow the BugBerry theme, so the docs look like the app. */
+/* Fumadocs' fonts follow the BugBerry theme. */
 @theme inline {
     --font-heading: "Outfit Variable", "Outfit", ui-sans-serif, system-ui, sans-serif;
     --font-sans: "DM Sans Variable", "DM Sans", ui-sans-serif, system-ui, sans-serif;
     --font-mono: "Geist Mono Variable", "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+
+/*
+ * And so do its colours. Fumadocs sets its dark palette on .dark (and the sidebar's on .dark #nd-sidebar), so the
+ * mapping is repeated there; @theme alone only reaches the light one.
+ */
+:root,
+.dark,
+.dark #nd-sidebar {
     --color-fd-background: var(--background);
     --color-fd-foreground: var(--foreground);
     --color-fd-card: var(--card);
