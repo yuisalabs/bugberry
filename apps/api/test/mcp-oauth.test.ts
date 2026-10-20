@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { eq } from "drizzle-orm"
-import { comment, oauthConsent } from "../src/db/schema"
+import { comment } from "../src/db/schema"
 import { createReadyReport, createUser, sessionHeaders, setupTestApp } from "./helpers"
 import { callTool, grantOAuth, mcpClient, refreshOAuth } from "./mcp-helpers"
 
@@ -73,26 +73,16 @@ describe("OAuth on the MCP server", () => {
     expect((await postMcp(grant.accessToken)).status).toBe(200)
   })
 
-  test("revoking consent stops the access token and anything refreshed from it", async () => {
+  test("disconnecting the app stops the access token and its refresh token", async () => {
     const grant = await grantOAuth(ctx, ana.id)
     expect((await postMcp(grant.accessToken)).status).toBe(200)
     const cookie = await sessionHeaders(ctx, ana.id)
-    const [consent] = await ctx.db.select().from(oauthConsent).where(eq(oauthConsent.userId, ana.id))
-    const deleted = await ctx.app.handle(
-      new Request("http://localhost:3000/api/auth/oauth2/delete-consent", {
-        method: "POST",
-        headers: { ...cookie, "content-type": "application/json", origin: "http://localhost:3000" },
-        body: JSON.stringify({ id: consent?.id }),
-      }),
-    )
-    expect(deleted.status).toBe(200)
+    const removed = await ctx.api.api.me["oauth-apps"]({ clientId: grant.clientId }).delete(undefined, {
+      headers: { ...cookie, origin: "http://localhost:3000" },
+    })
+    expect(removed.data).toEqual({ ok: true })
     expect((await postMcp(grant.accessToken)).status).toBe(401)
-    // The plugin's delete-consent leaves refresh tokens; whatever they mint is refused while no consent exists.
-    const refreshed = await refreshOAuth(ctx, grant)
-    if (refreshed.status === 200) {
-      const { access_token } = (await refreshed.json()) as { access_token: string }
-      expect((await postMcp(access_token)).status).toBe(401)
-    }
+    expect((await refreshOAuth(ctx, grant)).status).not.toBe(200)
   })
 
   test("disallowed email domains are refused", async () => {

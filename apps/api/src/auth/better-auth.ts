@@ -39,6 +39,30 @@ const OTP_SECONDS = 600
 const ACCESS_TOKEN_SECONDS = 60 * 60
 const CODES_PER_ADDRESS = 5
 
+/**
+ * Endpoints the OAuth plugins add that BugBerry never uses. Closed so nothing can manage clients or
+ * consents behind the dashboard's back: Better Auth's delete-consent, for one, keeps refresh tokens
+ * that would work again after a new consent. People revoke apps through /api/me/oauth-apps.
+ */
+const CLOSED_PATHS = new Set([
+  "/token",
+  "/oauth2/continue",
+  "/oauth2/public-client-prelogin",
+  "/oauth2/create-client",
+  "/oauth2/update-client",
+  "/oauth2/delete-client",
+  "/oauth2/get-client",
+  "/oauth2/get-clients",
+  "/oauth2/client/rotate-secret",
+  "/oauth2/get-consent",
+  "/oauth2/get-consents",
+  "/oauth2/update-consent",
+  "/oauth2/delete-consent",
+  "/admin/oauth2/create-client",
+  "/admin/oauth2/update-client",
+  "/admin/oauth2/resources",
+])
+
 export function createAuth(config: Config, db: Db, options: { email?: EmailSender } = {}) {
   const domainMessage = `Use an email address from: ${config.allowedEmailDomains.join(", ")}`
   const sender = options.email ?? (config.email ? createEmailSender(config.email) : null)
@@ -113,6 +137,7 @@ export function createAuth(config: Config, db: Db, options: { email?: EmailSende
       before: createAuthMiddleware(async (ctx) => {
         // Name and photo change through /api/me, which checks them; Better Auth's own route would take any image URL.
         if (ctx.path === "/update-user") throw new APIError("FORBIDDEN", { message: "Change your profile in Account settings" })
+        if (CLOSED_PATHS.has(ctx.path)) throw new APIError("NOT_FOUND")
         if (ctx.path !== "/email-otp/send-verification-otp") return
         const body = (ctx.body ?? {}) as { email?: unknown; type?: unknown }
         if (typeof body.email !== "string") return
