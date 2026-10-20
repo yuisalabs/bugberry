@@ -1,3 +1,4 @@
+import { cleanAppName } from "@bugberry/shared"
 import type { AuthDeps } from "./auth"
 import { safeNext } from "./urls"
 
@@ -60,7 +61,7 @@ export async function fetchOAuthClient(clientId: string, deps: AuthDeps = browse
   if (!response.ok) throw new Error("This app is not known to BugBerry. Start again from your AI app.")
   const body = (await response.json()) as { client_name?: unknown; client_uri?: unknown }
   return {
-    name: typeof body.client_name === "string" && body.client_name.trim() ? body.client_name.trim() : "An AI app",
+    name: cleanAppName(typeof body.client_name === "string" ? body.client_name : null),
     uri: typeof body.client_uri === "string" ? body.client_uri : null,
   }
 }

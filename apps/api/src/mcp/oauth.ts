@@ -5,6 +5,7 @@
  * (no HTTP round trip to /api/auth/jwks), and the person's consent must still exist, so revoking an app
  * in the dashboard stops its tokens at once instead of when they expire.
  */
+import { cleanAppName } from "@bugberry/shared"
 import { and, eq } from "drizzle-orm"
 import { createLocalJWKSet, type JSONWebKeySet, jwtVerify } from "jose"
 import type { AppDeps } from "../app"
@@ -48,7 +49,7 @@ export async function verifyOAuthAccessToken(
     const allowed = new Set(consent.scopes)
     const granted = typeof payload.scope === "string" ? payload.scope.split(" ") : []
     const scopes = granted.filter((scope): scope is McpScope => MCP_SCOPE_SET.has(scope) && allowed.has(scope))
-    return { userId, clientId, clientName: consent.clientName?.trim() || "AI app", scopes }
+    return { userId, clientId, clientName: cleanAppName(consent.clientName), scopes }
   } catch {
     return null
   }

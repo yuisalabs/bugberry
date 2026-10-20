@@ -36,6 +36,16 @@ describe("OAuth on the MCP server", () => {
     expect(row?.viaAgent).toBe("Claude Code")
   })
 
+  test("a self-chosen app name is cleaned before it is stored on comments", async () => {
+    const grant = await grantOAuth(ctx, ana.id, { clientName: `Claude\r\nBcc: x@evil ${"A".repeat(100)}` })
+    const client = await mcpClient(ctx.app, bearer(grant.accessToken))
+    await callTool(client, "addComment", { report: reportId, body: "hi" })
+    const [row] = await ctx.db.select().from(comment).where(eq(comment.reportId, reportId))
+    expect(row?.viaAgent).toStartWith("Claude Bcc: x@evil AAA")
+    expect(row?.viaAgent?.length).toBe(60)
+    expect(row?.viaAgent).not.toContain("\n")
+  })
+
   test("a read-only grant cannot use write tools", async () => {
     const grant = await grantOAuth(ctx, ana.id, { scopes: ["openid", "bugberry:read"] })
     const client = await mcpClient(ctx.app, bearer(grant.accessToken))

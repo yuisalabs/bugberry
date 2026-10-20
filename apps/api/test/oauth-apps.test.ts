@@ -25,6 +25,12 @@ describe("/me/oauth-apps", () => {
     expect(data?.[0]?.lastUsedAt).not.toBeNull()
   })
 
+  test("app names are cleaned in the list", async () => {
+    await grantOAuth(ctx, ana.id, { clientName: "Cursor‮\n  Pro" })
+    const { data } = await ctx.api.api.me["oauth-apps"].get({ headers: await session(ana.id) })
+    expect(data?.[0]?.name).toBe("Cursor Pro")
+  })
+
   test("revoking removes the consent and every token; refresh fails afterwards", async () => {
     const grant = await grantOAuth(ctx, ana.id)
     const headers = await session(ana.id)

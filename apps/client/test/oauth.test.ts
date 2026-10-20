@@ -40,6 +40,11 @@ describe("consent calls", () => {
     expect((fetch.mock.calls[0] as unknown as [string])[0]).toBe("/api/auth/oauth2/public-client?client_id=abc")
   })
 
+  test("fetchOAuthClient cleans the name the app chose", async () => {
+    const fetch = mock(async () => Response.json({ client_name: "Claude\nCode​", client_uri: null }))
+    expect((await fetchOAuthClient("abc", { fetch, assign: mock() })).name).toBe("Claude Code")
+  })
+
   test("answerConsent posts the signed query and returns where to go", async () => {
     const fetch = mock(async () => Response.json({ redirect: true, url: "http://localhost:9999/cb?code=1" }))
     expect(await answerConsent(true, SIGNED, { fetch, assign: mock() })).toBe("http://localhost:9999/cb?code=1")

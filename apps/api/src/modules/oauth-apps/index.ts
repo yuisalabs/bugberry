@@ -1,3 +1,4 @@
+import { cleanAppName } from "@bugberry/shared"
 import { and, desc, eq, max } from "drizzle-orm"
 import { Elysia } from "elysia"
 import type { AppDeps } from "../../app"
@@ -39,7 +40,7 @@ export function oauthAppsModule(deps: AppDeps) {
           .leftJoin(lastToken, eq(lastToken.clientId, oauthConsent.clientId))
           .where(eq(oauthConsent.userId, user.id))
           .orderBy(desc(oauthConsent.createdAt))
-        return rows.map((row) => ({ ...row, name: row.name?.trim() || "AI app" }))
+        return rows.map((row) => ({ ...row, name: cleanAppName(row.name) }))
       },
       { auth: true },
     )
