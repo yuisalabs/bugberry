@@ -14,7 +14,7 @@ import { AppError, conflict, notFound, tooManyRequests } from "../../lib/errors"
 import { newId } from "../../lib/ids"
 import { createRateLimiter } from "../../lib/rate-limit"
 import { requireMember } from "../../workspaces/access"
-import { assertCanAddMembers } from "../../workspaces/limits"
+import { assertCanAddMembers, isWorkspaceLimited } from "../../workspaces/limits"
 import { hashInviteToken, INVITE_TTL_MS, invitationStatus, inviteUrl, newInviteToken } from "../../workspaces/invitations"
 
 const INVITES_PER_WORKSPACE_PER_HOUR = 50
@@ -38,7 +38,7 @@ export async function accept(
   userId: string,
 ): Promise<{ workspaceId: string }> {
   await db.transaction(async (tx) => {
-    await assertCanAddMembers(tx, limits, workspaceId)
+    await assertCanAddMembers(tx, limits, workspaceId, "joiner")
     const marked = await tx
       .update(workspaceInvitation)
       .set({ acceptedAt: new Date() })
@@ -234,14 +234,19 @@ export function invitationsModule(deps: AppDeps) {
     )
     .get(
       "/me/invitations",
-      async ({ user: current }) =>
-        db
-          .select({ id: workspaceInvitation.id, workspaceName: workspace.name, inviterName: inviter.name })
+      async ({ user: current }) => {
+        const rows = await db
+          .select({ id: workspaceInvitation.id, workspaceId: workspaceInvitation.workspaceId, workspaceName: workspace.name, inviterName: inviter.name })
           .from(workspaceInvitation)
           .innerJoin(workspace, eq(workspace.id, workspaceInvitation.workspaceId))
           .leftJoin(inviter, eq(inviter.id, workspaceInvitation.invitedById))
           .where(and(eq(workspaceInvitation.email, current.email.trim().toLowerCase()), liveNow()))
-          .orderBy(asc(workspaceInvitation.createdAt)),
+          .orderBy(asc(workspaceInvitation.createdAt))
+        // A workspace under ACCOUNT_LIMITS takes nobody new: its invitations would only fail.
+        const open = []
+        for (const { workspaceId, ...row } of rows) if (!(await isWorkspaceLimited(db, config.accountLimits, workspaceId))) open.push(row)
+        return open
+      },
       { auth: true },
     )
     .post(

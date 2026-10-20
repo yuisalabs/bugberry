@@ -11,7 +11,7 @@ import { createRateLimiter } from "../../lib/rate-limit"
 import { oneOf } from "../../lib/schema"
 import { hashInviteToken } from "../../workspaces/invitations"
 import { requireMember } from "../../workspaces/access"
-import { assertCanAddMembers } from "../../workspaces/limits"
+import { assertCanAddMembers, isWorkspaceLimited } from "../../workspaces/limits"
 import { hashCode, newJoinCode, parseJoinValue } from "../../workspaces/join-codes"
 import { isUniqueViolation } from "../../workspaces/slug"
 import { accept } from "../invitations"
@@ -95,7 +95,7 @@ export function joinModule(deps: AppDeps) {
   /** Adds the person as Member (once) and makes the workspace their current one. */
   const joinAsMember = async (workspaceId: string, userId: string) => {
     await db.transaction(async (tx) => {
-      await assertCanAddMembers(tx, config.accountLimits, workspaceId)
+      await assertCanAddMembers(tx, config.accountLimits, workspaceId, "joiner")
       await tx.insert(workspaceMember).values({ workspaceId, userId, role: "member" }).onConflictDoNothing()
       // A request still waiting would keep counting in the admins' sidebar.
       await tx.delete(joinRequest).where(and(eq(joinRequest.workspaceId, workspaceId), eq(joinRequest.userId, userId)))
@@ -208,11 +208,14 @@ export function joinModule(deps: AppDeps) {
           .from(workspace)
           .where(and(eq(workspace.joinDomain, domain), notInArray(workspace.id, mine)))
           .orderBy(asc(workspace.name))
+        // A workspace under ACCOUNT_LIMITS takes nobody new, so it isn't offered.
+        const open = []
+        for (const row of rows) if (!(await isWorkspaceLimited(db, config.accountLimits, row.id))) open.push(row)
         const asked = new Set(
           (await db.select({ id: joinRequest.workspaceId }).from(joinRequest).where(eq(joinRequest.userId, current.id))).map((row) => row.id),
         )
         return Promise.all(
-          rows.map(async (row) => ({
+          open.map(async (row) => ({
             workspace: await card(row.id),
             mode: row.joinMode ?? ("approval" as const),
             requested: asked.has(row.id),
@@ -226,7 +229,7 @@ export function joinModule(deps: AppDeps) {
       async ({ user: current, params }) => {
         const target = await domainWorkspace(params.workspaceId, current)
         if (await isMember(target.id, current.id)) return { workspaceId: target.id }
-        await assertCanAddMembers(db, config.accountLimits, target.id)
+        await assertCanAddMembers(db, config.accountLimits, target.id, "joiner")
         if (target.joinMode === "direct") return joinAsMember(target.id, current.id)
         await db.insert(joinRequest).values({ workspaceId: target.id, userId: current.id }).onConflictDoNothing()
         return { requested: true as const }

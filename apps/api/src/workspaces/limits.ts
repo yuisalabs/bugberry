@@ -96,10 +96,19 @@ export async function assertCanCreateReport(
   throw new AppError(403, "report_limit_reached", message)
 }
 
-export async function assertCanAddMembers(db: Reader, limits: AccountLimits | null, workspaceId: string): Promise<void> {
-  if (await isWorkspaceLimited(db, limits, workspaceId)) {
-    throw new AppError(403, "members_not_allowed", "Inviting teammates isn't available on this account.")
-  }
+/**
+ * Refuses a new member. `"joiner"` is the person trying to get in: the owner's account limit is not theirs
+ * to act on, so they get their own message.
+ */
+export async function assertCanAddMembers(
+  db: Reader,
+  limits: AccountLimits | null,
+  workspaceId: string,
+  audience: "admin" | "joiner" = "admin",
+): Promise<void> {
+  if (!(await isWorkspaceLimited(db, limits, workspaceId))) return
+  const message = audience === "joiner" ? "This workspace isn't taking new members." : "Inviting teammates isn't available on this account."
+  throw new AppError(403, "members_not_allowed", message)
 }
 
 export async function assertCanCreateWorkspace(db: Reader, limits: AccountLimits | null, userId: string): Promise<void> {

@@ -33,6 +33,11 @@ const refused = (result: { error: { status: unknown; value: unknown } | null }) 
   expect(Number(result.error?.status)).toBe(403)
   expect(result.error?.value).toMatchObject({ code: "members_not_allowed", message: "Inviting teammates isn't available on this account." })
 }
+/** What someone trying to join sees: the owner's reason is not theirs to act on. */
+const closed = (result: { error: { status: unknown; value: unknown } | null }) => {
+  expect(Number(result.error?.status)).toBe(403)
+  expect(result.error?.value).toMatchObject({ code: "members_not_allowed", message: "This workspace isn't taking new members." })
+}
 const ok = (result: { error: unknown }) => expect(result.error).toBeNull()
 const isMember = async (userId: string) =>
   (await ctx.db.select().from(workspaceMember).where(and(eq(workspaceMember.workspaceId, ctx.workspace.id), eq(workspaceMember.userId, userId))))
@@ -57,27 +62,37 @@ describe("a limited workspace takes no new members", () => {
 
   test("an invitation from before can't be accepted by link, from the list or by code, and stays pending", async () => {
     const { token, code, id } = await invitationFromBefore()
-    refused(await ctx.api.api.invitations({ token }).accept.post(undefined, { headers: budi.headers }))
-    refused(await ctx.api.api.me.invitations({ id }).accept.post(undefined, { headers: budi.headers }))
-    refused(await ctx.api.api.join.post({ value: code }, { headers: budi.headers }))
+    closed(await ctx.api.api.invitations({ token }).accept.post(undefined, { headers: budi.headers }))
+    closed(await ctx.api.api.me.invitations({ id }).accept.post(undefined, { headers: budi.headers }))
+    closed(await ctx.api.api.join.post({ value: code }, { headers: budi.headers }))
     expect(await isMember(budi.user.id)).toBe(false)
     expect((await pendingInvitation())?.acceptedAt).toBeNull()
   })
 
   test("a shared link from before doesn't let anyone in", async () => {
     await ctx.db.update(workspace).set({ shareCode: "ABC-2345" }).where(eq(workspace.id, ctx.workspace.id))
-    refused(await ctx.api.api.join.post({ value: "https://x.test/join/ABC-2345" }, { headers: budi.headers }))
+    closed(await ctx.api.api.join.post({ value: "https://x.test/join/ABC-2345" }, { headers: budi.headers }))
     expect(await isMember(budi.user.id)).toBe(false)
   })
 
   test("joining by email domain is refused, directly or by request", async () => {
     const domainJoin = () => ctx.api.api.join.domain({ workspaceId: ctx.workspace.id }).post(undefined, { headers: budi.headers })
     await ctx.db.update(workspace).set({ joinDomain: "kantor.test", joinMode: "direct" }).where(eq(workspace.id, ctx.workspace.id))
-    refused(await domainJoin())
+    closed(await domainJoin())
     await ctx.db.update(workspace).set({ joinMode: "approval" }).where(eq(workspace.id, ctx.workspace.id))
-    refused(await domainJoin())
+    closed(await domainJoin())
     expect(await ctx.db.select().from(joinRequest)).toHaveLength(0)
     expect(await isMember(budi.user.id)).toBe(false)
+  })
+
+  test("people looking for a workspace to join don't see it", async () => {
+    await invitationFromBefore()
+    await ctx.db.update(workspace).set({ joinDomain: "kantor.test", joinMode: "direct" }).where(eq(workspace.id, ctx.workspace.id))
+    expect((await ctx.api.api.me.invitations.get({ headers: budi.headers })).data).toEqual([])
+    expect((await ctx.api.api.join.domain.get({ headers: budi.headers })).data).toEqual([])
+    await setUnlimited(true)
+    expect((await ctx.api.api.me.invitations.get({ headers: budi.headers })).data).toHaveLength(1)
+    expect((await ctx.api.api.join.domain.get({ headers: budi.headers })).data).toHaveLength(1)
   })
 
   test("a join request from before can't be approved", async () => {
