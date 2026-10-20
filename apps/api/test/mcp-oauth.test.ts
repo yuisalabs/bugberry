@@ -94,6 +94,20 @@ describe("OAuth on the MCP server", () => {
     expect((await postMcp(grant.accessToken)).status).toBe(200)
   })
 
+  test("a validly signed token for another audience is refused because of its audience", async () => {
+    const grant = await grantOAuth(ctx, ana.id)
+    const claims = JSON.parse(Buffer.from(grant.accessToken.split(".")[1] ?? "", "base64url").toString())
+    const sign = async (aud: string) =>
+      (await ctx.betterAuth.api.signJWT({ body: { payload: { ...claims, aud } } })).token
+    // Control: the same claims signed the same way are accepted when the audience is the MCP server.
+    expect((await postMcp(await sign("http://localhost:3000/api/mcp"))).status).toBe(200)
+    for (const aud of ["http://localhost:3000/other", "http://localhost:3000/api/auth/oauth2/userinfo"]) {
+      const response = await postMcp(await sign(aud))
+      expect(response.status).toBe(401)
+      expect(response.headers.get("www-authenticate")).toBe(CHALLENGE)
+    }
+  })
+
   test("disconnecting the app stops the access token and its refresh token", async () => {
     const grant = await grantOAuth(ctx, ana.id)
     expect((await postMcp(grant.accessToken)).status).toBe(200)
