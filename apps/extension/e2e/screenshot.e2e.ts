@@ -50,7 +50,8 @@ test("a screenshot report travels from the extension to the server", async () =>
   const review = demo.frames().find((frame) => frame.url().includes("/review.html"))
   if (!review) throw new Error("The review did not open over the page")
   await review.getByLabel("Title").fill("Pay button fails")
-  await expect(review.getByLabel("Project")).toHaveValue(/.+/)
+  // The project the page URL matches is chosen. By role: react-aria also labels a hidden native select for autofill.
+  await expect(review.getByRole("button", { name: /Project$/ })).toHaveText("Demo")
   await review.getByRole("button", { name: "Create report" }).click()
   await expect(review.getByText("Report created")).toBeVisible({ timeout: 30_000 })
 
@@ -113,7 +114,7 @@ test("a screenshot report travels from the extension to the server", async () =>
   await expect(share.getByRole("tabpanel").getByText("GET /api/price", { exact: true })).toBeVisible()
   await expect(share.getByRole("tabpanel").getByText("500 Internal Server Error")).toBeVisible()
 
-  await share.getByRole("button", { name: "All requests" }).click()
+  await share.getByRole("button", { name: "Close request" }).click()
   await share.getByRole("tab", { name: /Info/ }).click()
   await expect(share.getByText(/timezone/)).toBeVisible()
 
