@@ -12,7 +12,8 @@
     "test": "bun test",
     "typecheck": "tsc --noEmit -p .",
     "db:generate": "bunx --bun drizzle-kit generate",
-    "token:create": "bun scripts/create-token.ts"
+    "token:create": "bun scripts/create-token.ts",
+    "account:unlimited": "bun scripts/set-unlimited.ts"
   },
   "dependencies": {
     "@better-auth/mcp": "1.7.10",

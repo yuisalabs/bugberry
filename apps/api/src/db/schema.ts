@@ -52,6 +52,8 @@ export const user = pgTable("user", {
   image: text("image"),
   /** The workspace the dashboard opens; null until the person has one. */
   lastWorkspaceId: text("last_workspace_id").references((): AnyPgColumn => workspace.id, { onDelete: "set null" }),
+  /** Exempt from ACCOUNT_LIMITS; set only from the server's CLI (bun run account:unlimited). */
+  unlimited: boolean("unlimited").default(false).notNull(),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 })
