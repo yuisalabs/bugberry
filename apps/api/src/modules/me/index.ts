@@ -4,16 +4,22 @@ import type { AppDeps } from "../../app"
 import { authPlugin } from "../../auth/plugin"
 import { user } from "../../db/schema"
 import { requireMember } from "../../workspaces/access"
-import { canCreateWorkspace } from "../../workspaces/limits"
+import { canCreateWorkspace, isAccountLimited } from "../../workspaces/limits"
 
 export function meModule(deps: AppDeps) {
   const { db } = deps
   return new Elysia()
     .use(authPlugin(deps))
     .get("/me", ({ user: current }) => current, { auth: true })
-    .get("/me/limits", async ({ user: current }) => ({ canCreateWorkspace: await canCreateWorkspace(db, deps.config.accountLimits, current.id) }), {
-      auth: true,
-    })
+    // What the dashboard offers: "Create workspace", and inviting teammates into a workspace this person creates.
+    .get(
+      "/me/limits",
+      async ({ user: current }) => ({
+        canCreateWorkspace: await canCreateWorkspace(db, deps.config.accountLimits, current.id),
+        canAddMembers: !(await isAccountLimited(db, deps.config.accountLimits, current.id)),
+      }),
+      { auth: true },
+    )
     .put(
       "/me/workspace",
       async ({ user: current, body }) => {

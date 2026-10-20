@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { ConfigError, loadConfig } from "../src/config"
+import { accountLimitsNotice, ConfigError, loadConfig } from "../src/config"
 
 const baseEnv: Record<string, string | undefined> = {
   APP_URL: "http://localhost:3000/",
@@ -162,6 +162,16 @@ describe("loadConfig", () => {
   test("limit numbers can be overridden", () => {
     const env = { ...baseEnv, ACCOUNT_LIMITS: "true", LIMIT_SCREENSHOTS: "10", LIMIT_RECORDINGS: "2", LIMIT_OWNED_WORKSPACES: "3" }
     expect(loadConfig(env).accountLimits).toEqual({ screenshots: 10, recordings: 2, ownedWorkspaces: 3 })
+  })
+
+  test("the startup line says when account limits are on", () => {
+    expect(accountLimitsNotice(null)).toBeNull()
+    expect(accountLimitsNotice({ screenshots: 5, recordings: 5, ownedWorkspaces: 1 })).toBe(
+      "Account limits on: 5 screenshots / 5 recordings / 1 workspace per account",
+    )
+    expect(accountLimitsNotice({ screenshots: 1, recordings: 2, ownedWorkspaces: 3 })).toBe(
+      "Account limits on: 1 screenshot / 2 recordings / 3 workspaces per account",
+    )
   })
 
   test("limit numbers must be positive integers", () => {

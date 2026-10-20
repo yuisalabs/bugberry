@@ -66,10 +66,15 @@ export async function workspaceLimits(db: Reader, config: LimitsConfig, workspac
   }
 }
 
-export async function canCreateWorkspace(db: Reader, limits: AccountLimits | null, userId: string): Promise<boolean> {
-  if (!limits) return true
+/** Whether ACCOUNT_LIMITS apply to this person, and so to the workspaces they own. */
+export async function isAccountLimited(db: Reader, limits: AccountLimits | null, userId: string): Promise<boolean> {
+  if (!limits) return false
   const [person] = await db.select({ unlimited: user.unlimited }).from(user).where(eq(user.id, userId)).limit(1)
-  if (person?.unlimited) return true
+  return person?.unlimited !== true
+}
+
+export async function canCreateWorkspace(db: Reader, limits: AccountLimits | null, userId: string): Promise<boolean> {
+  if (!limits || !(await isAccountLimited(db, limits, userId))) return true
   const [owned] = await db.select({ value: count() }).from(workspace).where(eq(workspace.ownerId, userId))
   return (owned?.value ?? 0) < limits.ownedWorkspaces
 }

@@ -52,6 +52,14 @@ describe("email sign-in codes", () => {
     expect(row?.name.length).toBeLessThanOrEqual(80)
   })
 
+  test("an email-code sign-up can't mark itself unlimited", async () => {
+    await requestCode("ana@kantor.test")
+    const response = await post("/sign-in/email-otp", { email: "ana@kantor.test", otp: codeIn(outbox[0]), unlimited: true })
+    expect(response.status).toBe(200)
+    const [row] = await ctx.db.select({ unlimited: user.unlimited }).from(user).where(eq(user.email, "ana@kantor.test"))
+    expect(row?.unlimited).toBe(false)
+  })
+
   test("a code for a domain that is not allowed is never sent", async () => {
     const allowed = await requestCode("ana@kantor.test")
     const refused = await requestCode("eve@evil.test")

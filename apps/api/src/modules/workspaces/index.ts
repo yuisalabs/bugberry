@@ -1,5 +1,5 @@
 import { WORKSPACE_ROLES } from "@bugberry/shared"
-import { and, asc, eq } from "drizzle-orm"
+import { and, asc, eq, sql } from "drizzle-orm"
 import { Elysia, t } from "elysia"
 import type { AppDeps } from "../../app"
 import { authPlugin } from "../../auth/plugin"
@@ -82,8 +82,12 @@ export function workspacesModule(deps: AppDeps) {
       "/workspaces",
       async ({ user: current, body }) => {
         if (!creations.consume(current.id)) throw tooManyRequests()
-        await assertCanCreateWorkspace(db, config.accountLimits, current.id)
-        const created = await createWorkspace(db, current.id, body.name.trim(), body.slug?.trim())
+        const created = await db.transaction(async (tx) => {
+          // One at a time per person, so requests sent together can't all pass the owned-workspace check.
+          await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${current.id}))`)
+          await assertCanCreateWorkspace(tx, config.accountLimits, current.id)
+          return createWorkspace(tx, current.id, body.name.trim(), body.slug?.trim())
+        })
         return { ...created, role: "admin" as const, owner: true }
       },
       { auth: true, body: t.Object({ name, slug: t.Optional(slug) }) },

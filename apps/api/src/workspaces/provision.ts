@@ -1,6 +1,8 @@
 import { and, eq, gt, isNull } from "drizzle-orm"
 import type { AccountLimits } from "../config"
 import type { Db } from "../db/client"
+
+type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0]
 import { user, workspace, workspaceInvitation, workspaceMember } from "../db/schema"
 import { conflict, unprocessable } from "../lib/errors"
 import { newId } from "../lib/ids"
@@ -21,7 +23,7 @@ export function defaultWorkspaceName(userName: string, email: string): string {
  * Without a typed slug, a free one is picked from the name.
  */
 export async function createWorkspace(
-  db: Db,
+  db: Db | Tx,
   ownerId: string,
   name: string,
   typedSlug?: string,

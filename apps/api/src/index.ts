@@ -1,6 +1,6 @@
 import { createApp } from "./app"
 import { createAuth } from "./auth/better-auth"
-import { loadConfig } from "./config"
+import { accountLimitsNotice, loadConfig } from "./config"
 import { createDb } from "./db/client"
 import { runMigrations } from "./db/migrate"
 import { cleanupStaleUploads, startCleanupSchedule } from "./jobs/cleanup"
@@ -36,3 +36,5 @@ installShutdown(process, async () => {
 })
 
 console.info(`BugBerry server listening on port ${app.server?.port}; ${clientIpSource(config.proxyHops)}`)
+const limitsNotice = accountLimitsNotice(config.accountLimits)
+if (limitsNotice) console.info(limitsNotice)

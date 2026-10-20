@@ -55,6 +55,14 @@ describe("owning workspaces", () => {
     expect(await owned(owner.user.id)).toHaveLength(2)
   })
 
+  test("creating at the same time still makes only one", async () => {
+    const { ctx, owned, create } = await setup()
+    const member = await createUserWithToken(ctx.db, { role: "member" })
+    const results = await Promise.all([create(member.headers, "A"), create(member.headers, "B"), create(member.headers, "C")])
+    expect(results.filter((result) => result.data).length).toBe(1)
+    expect(await owned(member.user.id)).toHaveLength(1)
+  })
+
   test("an unlimited account creates as many as it likes", async () => {
     const { ctx, owned, create } = await setup()
     const owner = await ownTestWorkspace(ctx, true)

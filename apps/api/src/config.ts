@@ -36,6 +36,14 @@ export interface AccountLimits {
   ownedWorkspaces: number
 }
 
+const counted = (count: number, noun: string) => `${count} ${noun}${count === 1 ? "" : "s"}`
+
+/** The startup line that confirms ACCOUNT_LIMITS took effect; null when limits are off. */
+export function accountLimitsNotice(limits: AccountLimits | null): string | null {
+  if (!limits) return null
+  return `Account limits on: ${counted(limits.screenshots, "screenshot")} / ${counted(limits.recordings, "recording")} / ${counted(limits.ownedWorkspaces, "workspace")} per account`
+}
+
 export interface Config {
   port: number
   appUrl: string
