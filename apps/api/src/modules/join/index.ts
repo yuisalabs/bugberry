@@ -11,6 +11,7 @@ import { createRateLimiter } from "../../lib/rate-limit"
 import { oneOf } from "../../lib/schema"
 import { hashInviteToken } from "../../workspaces/invitations"
 import { requireMember } from "../../workspaces/access"
+import { assertCanAddMembers } from "../../workspaces/limits"
 import { hashCode, newJoinCode, parseJoinValue } from "../../workspaces/join-codes"
 import { isUniqueViolation } from "../../workspaces/slug"
 import { accept } from "../invitations"
@@ -94,6 +95,7 @@ export function joinModule(deps: AppDeps) {
   /** Adds the person as Member (once) and makes the workspace their current one. */
   const joinAsMember = async (workspaceId: string, userId: string) => {
     await db.transaction(async (tx) => {
+      await assertCanAddMembers(tx, config.accountLimits, workspaceId)
       await tx.insert(workspaceMember).values({ workspaceId, userId, role: "member" }).onConflictDoNothing()
       // A request still waiting would keep counting in the admins' sidebar.
       await tx.delete(joinRequest).where(and(eq(joinRequest.workspaceId, workspaceId), eq(joinRequest.userId, userId)))
@@ -167,6 +169,9 @@ export function joinModule(deps: AppDeps) {
       "/workspaces/:id/access",
       async ({ user: current, params, body }) => {
         await requireMember(db, current.id, params.id, "admin")
+        // Closing a way in is always allowed; opening one is not in a workspace under ACCOUNT_LIMITS.
+        const opens = body.shareLink === "on" || body.shareLink === "reset" || (typeof body.joinDomain === "string" && body.joinDomain.trim() !== "")
+        if (opens) await assertCanAddMembers(db, config.accountLimits, params.id)
         if (body.shareLink === "off") await db.update(workspace).set({ shareCode: null }).where(eq(workspace.id, params.id))
         else if (body.shareLink) await setNewShareCode(params.id)
         const changes: { joinDomain?: string | null; joinMode?: "direct" | "approval" } = {}
@@ -221,6 +226,7 @@ export function joinModule(deps: AppDeps) {
       async ({ user: current, params }) => {
         const target = await domainWorkspace(params.workspaceId, current)
         if (await isMember(target.id, current.id)) return { workspaceId: target.id }
+        await assertCanAddMembers(db, config.accountLimits, target.id)
         if (target.joinMode === "direct") return joinAsMember(target.id, current.id)
         await db.insert(joinRequest).values({ workspaceId: target.id, userId: current.id }).onConflictDoNothing()
         return { requested: true as const }
@@ -252,6 +258,7 @@ export function joinModule(deps: AppDeps) {
       "/workspaces/:id/join-requests/:userId/approve",
       async ({ user: current, params }) => {
         await requireMember(db, current.id, params.id, "admin")
+        await assertCanAddMembers(db, config.accountLimits, params.id)
         const removed = await db
           .delete(joinRequest)
           .where(and(eq(joinRequest.workspaceId, params.id), eq(joinRequest.userId, params.userId)))
@@ -283,7 +290,7 @@ export function joinModule(deps: AppDeps) {
       "/join",
       async ({ user: current, body }) => {
         const resolved = await resolve(current, body.value)
-        if (resolved.invitationId) return accept(db, resolved.invitationId, resolved.workspaceId, current.id)
+        if (resolved.invitationId) return accept(db, config.accountLimits, resolved.invitationId, resolved.workspaceId, current.id)
         return joinAsMember(resolved.workspaceId, current.id)
       },
       { auth: true, body: t.Object({ value: t.String({ minLength: 1, maxLength: 500 }) }) },

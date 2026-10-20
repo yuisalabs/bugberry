@@ -4,6 +4,7 @@ import { Elysia, t } from "elysia"
 import type { AppDeps } from "../../app"
 import { authPlugin } from "../../auth/plugin"
 import { isEmailAllowed } from "../../auth/policy"
+import type { AccountLimits } from "../../config"
 import type { Db } from "../../db/client"
 import { joinRequest, user, workspace, workspaceInvitation, workspaceMember } from "../../db/schema"
 import { inviteEmail } from "../../email/invite-email"
@@ -13,6 +14,7 @@ import { AppError, conflict, notFound, tooManyRequests } from "../../lib/errors"
 import { newId } from "../../lib/ids"
 import { createRateLimiter } from "../../lib/rate-limit"
 import { requireMember } from "../../workspaces/access"
+import { assertCanAddMembers } from "../../workspaces/limits"
 import { hashInviteToken, INVITE_TTL_MS, invitationStatus, inviteUrl, newInviteToken } from "../../workspaces/invitations"
 
 const INVITES_PER_WORKSPACE_PER_HOUR = 50
@@ -24,9 +26,19 @@ export type InviteOutcome = "sent" | "member" | "pending" | "not_allowed" | "inv
 
 const gone = () => new AppError(410, "invite_unavailable", "This invitation has expired or was withdrawn")
 
-/** Adds the person to the invitation's workspace once, and makes it their current workspace. */
-export async function accept(db: Db, invitationId: string, workspaceId: string, userId: string): Promise<{ workspaceId: string }> {
+/**
+ * Adds the person to the invitation's workspace once, and makes it their current workspace. A workspace
+ * under ACCOUNT_LIMITS takes no new members; the invitation then stays pending.
+ */
+export async function accept(
+  db: Db,
+  limits: AccountLimits | null,
+  invitationId: string,
+  workspaceId: string,
+  userId: string,
+): Promise<{ workspaceId: string }> {
   await db.transaction(async (tx) => {
+    await assertCanAddMembers(tx, limits, workspaceId)
     const marked = await tx
       .update(workspaceInvitation)
       .set({ acceptedAt: new Date() })
@@ -99,6 +111,7 @@ export function invitationsModule(deps: AppDeps) {
       "/workspaces/:id/invitations",
       async ({ user: current, params, body }) => {
         await requireMember(db, current.id, params.id, "admin")
+        await assertCanAddMembers(db, config.accountLimits, params.id)
         const outcomes: Array<{ email: string; status: InviteOutcome }> = []
         for (const raw of body.emails) {
           const email = raw.trim().toLowerCase()
@@ -184,6 +197,7 @@ export function invitationsModule(deps: AppDeps) {
       "/workspaces/:id/invitations/:invitationId/resend",
       async ({ user: current, params }) => {
         await requireMember(db, current.id, params.id, "admin")
+        await assertCanAddMembers(db, config.accountLimits, params.id)
         const row = await findLive(params.id, params.invitationId)
         const { token, hash } = newInviteToken()
         const code = newJoinCode()
@@ -214,7 +228,7 @@ export function invitationsModule(deps: AppDeps) {
         if (row.invitation.email !== current.email.trim().toLowerCase()) {
           throw new AppError(403, "invite_email_mismatch", `This invitation is for ${row.invitation.email}`)
         }
-        return accept(db, row.invitation.id, row.invitation.workspaceId, current.id)
+        return accept(db, config.accountLimits, row.invitation.id, row.invitation.workspaceId, current.id)
       },
       { auth: true },
     )
@@ -240,7 +254,7 @@ export function invitationsModule(deps: AppDeps) {
           .limit(1)
         if (!row) throw notFound("invitation_not_found", "Invitation not found")
         if (invitationStatus(row) !== "pending") throw gone()
-        return accept(db, row.id, row.workspaceId, current.id)
+        return accept(db, config.accountLimits, row.id, row.workspaceId, current.id)
       },
       { auth: true },
     )
