@@ -3,6 +3,7 @@ import { createFailureFlag } from "../lib/badge"
 import { bridgeSenderOrigin, createBridge, createConfirmOpener } from "../lib/bridge"
 import { browserRecordingState } from "../lib/browser-recording-state"
 import { createBugberryApi } from "../lib/api"
+import { handleApiFetch, isApiFetchRequest } from "../lib/api-relay"
 import { hasTabRecorder } from "../lib/browser-support"
 import { recordOptionsFor, type ScreenshotMode } from "../lib/capture-prefs"
 import { BUILD_SERVER_ORIGIN, browserSettingsStorage, capturePrefsStorage } from "../lib/browser-settings"
@@ -372,6 +373,13 @@ export default defineBackground(() => {
     const reply = (work: Promise<unknown>) => {
       work.then(sendResponse, (error: unknown) => sendResponse({ ok: false, error: String(error) }))
       return true // keeps the channel open for the async response
+    }
+    // Firefox's review over a page gets no sign-in cookie of its own; its API requests come here.
+    if (isApiFetchRequest(message)) {
+      if (!fromExtensionPage(sender, browser.runtime.id, extensionOrigin)) return undefined
+      return reply(
+        loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN).then((settings) => handleApiFetch(message, settings?.serverUrl ?? null, fetch)),
+      )
     }
     if (isRecorderReadyNotice(message)) {
       if (fromExtensionPage(sender, browser.runtime.id, extensionOrigin)) windowHost?.ready()
