@@ -76,4 +76,17 @@ describe("repairWebmRecordings", () => {
 
     expect(summary).toMatchObject({ checked: 2, missing: 1, repaired: 1 })
   })
+
+  test("finds the damage on S3, where a read file's size is NaN until it is fetched", async () => {
+    await videoReport(damaged())
+    const s3Like = Object.create(storage) as LocalStorageDriver
+    s3Like.read = async (key) => {
+      const blob = await storage.read(key)
+      return blob && Object.defineProperty(blob.slice(), "size", { value: Number.NaN })
+    }
+
+    const summary = await repairWebmRecordings({ db: ctx.db, storage: s3Like }, { apply: false, log: quiet })
+
+    expect(summary).toMatchObject({ checked: 1, needsRepair: 1, unrecognized: 0 })
+  })
 })

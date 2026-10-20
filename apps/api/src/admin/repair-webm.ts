@@ -33,14 +33,16 @@ export async function repairWebmRecordings(
   for (const video of videos) {
     summary.checked += 1
     try {
-      const file = await deps.storage.read(video.mediaKey)
-      if (!file) {
+      // The size comes from head(): a Bun S3File's own size is NaN until it is fetched.
+      const info = await deps.storage.head(video.mediaKey)
+      const file = info ? await deps.storage.read(video.mediaKey) : null
+      if (!info || !file) {
         summary.missing += 1
         opts.log(`missing   ${video.mediaKey}`)
         continue
       }
       const head = new Uint8Array(await file.slice(0, WEBM_HEAD_BYTES).arrayBuffer())
-      const plan = planWebmRepair(head, file.size)
+      const plan = planWebmRepair(head, info.size)
       if (plan.status === "ok") {
         summary.alreadyOk += 1
         continue
