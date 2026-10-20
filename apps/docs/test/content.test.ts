@@ -73,6 +73,17 @@ describe("env reference", () => {
     expect(undocumented(names)).toEqual([])
   })
 
+  test("every example value survives `set -a; . ./.env`, which the storage page runs", () => {
+    // An unquoted `EMAIL_FROM=BugBerry <no-reply@…>` is a shell syntax error: sourcing stops there.
+    const unsafe = (value: string) => !/^["']/.test(value) && /[\s<>|&;()`$]/.test(value)
+    const example = readFileSync(join(ROOT, ".env.docker.example"), "utf8")
+    const fromExample = [...example.matchAll(/^#?\s*([A-Z][A-Z0-9_]+)=(.*)$/gm)].filter((match) => unsafe(match[2]!.trim()))
+    const fromDocs = pages.flatMap((page) =>
+      [...page.source.matchAll(/^(EMAIL_FROM)=(.*)$/gm)].filter((match) => unsafe(match[2]!.trim())).map((match) => `${page.name}: ${match[0]}`),
+    )
+    expect([...fromExample.map((match) => `.env.docker.example: ${match[0]}`), ...fromDocs]).toEqual([])
+  })
+
   test("every variable the server reads is documented", () => {
     const config = readFileSync(join(ROOT, "apps", "api", "src", "config.ts"), "utf8")
     const read = [...config.matchAll(/(?:optional|required|integer|list)\("([A-Z][A-Z0-9_]+)"/g)].map((match) => match[1]!)

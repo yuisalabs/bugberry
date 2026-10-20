@@ -36,7 +36,7 @@ At least one method must be on. See [Sign-in methods](/self-host/sign-in).
 | `GITLAB_CLIENT_ID`, `GITLAB_CLIENT_SECRET` | off | GitLab sign-in. Set both or neither. |
 | `GITLAB_URL` | `https://gitlab.com` | Your own GitLab's address. |
 | `EMAIL_DRIVER` | off | `resend` or `smtp`: sign-in with an emailed code. |
-| `EMAIL_FROM` | — | Sender, for example `BugBerry <no-reply@example.com>`. Required with `EMAIL_DRIVER`. |
+| `EMAIL_FROM` | — | Sender, in quotes: `"BugBerry <no-reply@example.com>"`. Required with `EMAIL_DRIVER`. |
 | `RESEND_API_KEY` | — | Required with `EMAIL_DRIVER=resend`. |
 | `SMTP_HOST` | — | Required with `EMAIL_DRIVER=smtp`. |
 | `SMTP_PORT` | `587` | SMTP port. |

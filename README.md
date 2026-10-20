@@ -57,7 +57,7 @@ You need a server with Docker Compose v2, a domain, and a sign-in method (Google
 git clone https://github.com/yuisalabs/bugberry.git
 cd bugberry
 cp .env.docker.example .env
-# fill in APP_URL, the secrets, and a sign-in method
+# fill in APP_URL, BUGBERRY_DOMAIN, TRUST_PROXY=true, the secrets, and a sign-in method
 docker compose --profile caddy up -d --build
 ```
 

@@ -41,7 +41,7 @@ People type their email and receive a 6-digit code. Choose a mail service:
 
 ```bash
 EMAIL_DRIVER=resend
-EMAIL_FROM=BugBerry <no-reply@example.com>
+EMAIL_FROM="BugBerry <no-reply@example.com>"
 RESEND_API_KEY=...
 ```
 
@@ -50,13 +50,15 @@ RESEND_API_KEY=...
 
 ```bash
 EMAIL_DRIVER=smtp
-EMAIL_FROM=BugBerry <no-reply@example.com>
+EMAIL_FROM="BugBerry <no-reply@example.com>"
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
 SMTP_USER=...
 SMTP_PASSWORD=...
 SMTP_SECURE=false
 ```
+
+Keep the quotes around `EMAIL_FROM`: without them, the space and the `<>` break shell commands that read `.env`.
 
 `SMTP_SECURE=true` is for servers that start TLS right away, usually on port 465.
 
@@ -78,6 +80,11 @@ ALLOWED_EMAIL_DOMAINS=example.com,example.co.id
 
 ## When someone leaves
 
-The "verified" mark on an email at GitHub and GitLab doesn't go away when a work mailbox is shut down. Someone who once verified their work email on a personal GitHub or GitLab account can still sign in through that button.
+The "verified" mark on an email at GitHub and GitLab doesn't go away when a work mailbox is shut down. Someone who once verified their work email on a personal GitHub or GitLab account can still sign in through that button, and `ALLOWED_EMAIL_DOMAINS` lets them in, because the address is still on your domain.
 
-When someone leaves, remove them from your workspaces on the **Members** page (or delete their account); don't rely on disabling their work email.
+When someone leaves, remove them from your workspaces on the **Members** page. That ends their access to workspace reports, but not everything:
+
+- **Internal** reports stay open to anyone signed in with your company's email domain, member or not, so a former employee who can still sign in can open their share links.
+- BugBerry has no button to delete an account.
+
+For a company server, prefer sign-in methods your company controls: Google (with Google Workspace) or email codes stop working when the work mailbox is shut down. If you turn on GitHub or GitLab, use **Workspace** rather than **Internal** for sensitive reports.
