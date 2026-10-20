@@ -18,6 +18,13 @@ describe("LandingView", () => {
     expect(document.getElementById("features")).toBeTruthy()
   })
 
+  test("the footer links the privacy policy", () => {
+    render(<LandingView signedIn={false} />)
+    const footer = screen.getByRole("navigation", { name: "Footer" })
+    const privacy = Array.from(footer.querySelectorAll("a")).find((link) => link.textContent === "Privacy Policy")
+    expect(privacy?.getAttribute("href")).toBe("/privacy")
+  })
+
   test("a signed-in visitor gets a way back to the dashboard instead of sign-up", () => {
     render(<LandingView signedIn />)
     expect(screen.getAllByRole("link", { name: "Open dashboard" })[0]?.getAttribute("href")).toBe("/app")

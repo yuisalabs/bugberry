@@ -93,6 +93,9 @@ const oauthConsentRoute = createRoute({
   component: lazyRouteComponent(() => import("./pages/OAuthConsentPage"), "OAuthConsentPage"),
 })
 
+/** Public: the privacy policy the browser extension stores link to. */
+const privacyRoute = createRoute({ getParentRoute: () => rootRoute, path: "/privacy", component: lazyRouteComponent(() => import("./pages/PrivacyPage"), "PrivacyPage") })
+
 /** Public: a workspace's shared invite link; works signed out so the person can sign in first. */
 const joinRoute = createRoute({ getParentRoute: () => rootRoute, path: "/join/$code", component: lazyRouteComponent(() => import("./pages/JoinPage"), "JoinPage") })
 
@@ -175,6 +178,7 @@ const routeTree = rootRoute.addChildren([
   shareRoute,
   inviteRoute,
   joinRoute,
+  privacyRoute,
   oauthConsentRoute,
   authedRoute.addChildren([
     homeRoute,
