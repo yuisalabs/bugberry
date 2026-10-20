@@ -31,6 +31,7 @@ export function ReportsView({
   canInvite,
   onInvite,
   newReport,
+  usage,
   layout,
   onLayout,
   onSearch,
@@ -55,6 +56,8 @@ export function ReportsView({
   canInvite: boolean
   onInvite(): void
   newReport: ReactNode
+  /** Under ACCOUNT_LIMITS: "3 of 5 screenshots · 5 of 5 recordings". */
+  usage?: string | null
   layout: ReportLayout
   onLayout(layout: ReportLayout): void
   onSearch: (patch: Partial<ReportSearch>) => void
@@ -75,7 +78,10 @@ export function ReportsView({
           below that padding, so it sticks 24 px higher (-top-6) to reach the very top. */}
       <div data-sticky-bar className="flow-root bg-background md:sticky md:-top-6 md:z-20 md:-mx-8 md:-mt-6 md:px-8 md:pt-6">
         <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground">{title}</h1>
+          <div className="flex flex-col gap-0.5">
+            <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground">{title}</h1>
+            {usage && <p className="text-xs text-muted-foreground">{usage}</p>}
+          </div>
           <div className="flex w-full items-center gap-2 sm:w-auto">
             <ReportSearchBox value={search.q} onSearch={(q) => onSearch({ q })} />
             {actions}

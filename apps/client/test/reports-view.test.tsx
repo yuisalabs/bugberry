@@ -44,6 +44,13 @@ describe("ReportsView", () => {
     expect(screen.getByText("Second")).toBeTruthy()
   })
 
+  test("a limited workspace shows its usage in the header", () => {
+    const { rerender } = render(<ReportsView {...props({ usage: "3 of 5 screenshots · 0 of 5 recordings" })} />)
+    expect(screen.getByText("3 of 5 screenshots · 0 of 5 recordings")).toBeTruthy()
+    rerender(<ReportsView {...props()} />)
+    expect(screen.queryByText(/of 5 screenshots/)).toBeNull()
+  })
+
   test("the header has search, invite for admins, and new report", () => {
     const onSearch = mock()
     const onInvite = mock()

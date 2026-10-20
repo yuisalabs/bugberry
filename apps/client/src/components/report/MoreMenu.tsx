@@ -172,6 +172,8 @@ export function MoreMenu({ report }: { report: ReportDetail }) {
       await navigate(backTarget(report, projects.data ?? []))
       queryClient.removeQueries({ queryKey: reportKey })
       void queryClient.invalidateQueries({ queryKey: ["reports"] })
+      // A deleted report frees a slot under ACCOUNT_LIMITS.
+      void queryClient.invalidateQueries({ queryKey: ["workspace-limits"] })
     },
     onError: failed,
   })
