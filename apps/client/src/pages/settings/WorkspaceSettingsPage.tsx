@@ -119,13 +119,33 @@ export function WorkspaceAccessView({
   busy,
   onShareLink,
   onDomain,
+  membersAllowed = true,
 }: {
   access: WorkspaceAccess
   origin: string
   busy: boolean
   onShareLink(action: "on" | "off" | "reset"): void
   onDomain(patch: { joinDomain?: string | null; joinMode?: "direct" | "approval" }): void
+  /** False under ACCOUNT_LIMITS: nothing can be turned on, but a way in already open can be closed. */
+  membersAllowed?: boolean
 }) {
+  if (!membersAllowed) {
+    return (
+      <section className="flex flex-col items-start gap-2 rounded-lg border border-border bg-background p-4">
+        <p className="text-sm text-muted-foreground">Inviting teammates isn't available on this account.</p>
+        {access.shareCode && (
+          <Button size="sm" intent="outline" isDisabled={busy} onPress={() => onShareLink("off")}>
+            Turn off invite link
+          </Button>
+        )}
+        {access.joinDomain && (
+          <Button size="sm" intent="outline" isDisabled={busy} onPress={() => onDomain({ joinDomain: null })}>
+            Turn off joining by email domain
+          </Button>
+        )}
+      </section>
+    )
+  }
   // The stored domain when there is one (it may be another admin's), else the domain I could turn on.
   const domain = access.joinDomain ?? access.ownDomain
   const link = access.shareCode ? `${new URL(origin).host}/join/${access.shareCode}` : null
@@ -205,6 +225,7 @@ export function WorkspaceAccessView({
 function WorkspaceAccessSection({ workspaceId }: { workspaceId: string }) {
   const queryClient = useQueryClient()
   const access = useQuery(queries.workspaceAccess(workspaceId))
+  const limits = useQuery(queries.workspaceLimits(workspaceId))
   const update = useMutation({
     mutationFn: (patch: Parameters<typeof api.updateWorkspaceAccess>[1]) => api.updateWorkspaceAccess(workspaceId, patch),
     onSuccess: (next) => queryClient.setQueryData(queries.workspaceAccess(workspaceId).queryKey, next),
@@ -218,6 +239,7 @@ function WorkspaceAccessSection({ workspaceId }: { workspaceId: string }) {
         busy={update.isPending}
         onShareLink={(action) => update.mutate({ shareLink: action })}
         onDomain={(patch) => update.mutate(patch)}
+        membersAllowed={limits.data?.limited !== true}
       />
       {update.error && (
         <p role="alert" className="text-sm text-danger-subtle-foreground">

@@ -133,3 +133,21 @@ describe("MembersView join requests", () => {
     expect(screen.queryByRole("heading", { name: "Requests to join" })).toBeNull()
   })
 })
+
+describe("MembersView on a limited account", () => {
+  test("no inviting or approving, but pending invitations and requests can still be cleared", () => {
+    const props = view({
+      membersAllowed: false,
+      requests: [{ user: { id: "u9", name: "Rina", email: "rina@kantor.test", image: null }, createdAt: new Date("2026-10-20T00:00:00Z") }],
+      onDecline: mock(),
+    })
+    expect(screen.getByText("Inviting teammates isn't available on this account.")).toBeTruthy()
+    expect(screen.queryByRole("button", { name: "Send invites" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "Approve Rina" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "Resend andi@gmail.com" })).toBeNull()
+    fireEvent.click(screen.getByRole("button", { name: "Revoke andi@gmail.com" }))
+    expect(props.onRevoke).toHaveBeenCalledWith("i1")
+    fireEvent.click(screen.getByRole("button", { name: "Decline Rina" }))
+    expect(props.onDecline).toHaveBeenCalledWith("u9")
+  })
+})

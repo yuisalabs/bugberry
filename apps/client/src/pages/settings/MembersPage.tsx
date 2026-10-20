@@ -22,6 +22,7 @@ export function MembersView({
   requests = [],
   onApprove = () => {},
   onDecline = () => {},
+  membersAllowed = true,
 }: {
   meId: string
   isAdmin: boolean
@@ -35,14 +36,19 @@ export function MembersView({
   requests?: readonly JoinRequest[]
   onApprove?(userId: string): void
   onDecline?(userId: string): void
+  /** False under ACCOUNT_LIMITS: nobody new can join, but what is pending can still be cleared. */
+  membersAllowed?: boolean
 }) {
   return (
     <div className="flex flex-col gap-6">
-      {isAdmin && (
-        <div className="rounded-lg border border-border bg-background p-4">
-          <InviteForm onInvite={onInvite} />
-        </div>
-      )}
+      {isAdmin &&
+        (membersAllowed ? (
+          <div className="rounded-lg border border-border bg-background p-4">
+            <InviteForm onInvite={onInvite} />
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">Inviting teammates isn't available on this account.</p>
+        ))}
 
       {isAdmin && requests.length > 0 && (
         <section className="flex flex-col gap-2">
@@ -56,9 +62,11 @@ export function MembersView({
                   <span className="ml-2 text-xs text-muted-foreground">{formatDateTime(request.createdAt)}</span>
                 </span>
                 <span className="flex gap-2">
-                  <Button size="sm" aria-label={`Approve ${request.user.name}`} onPress={() => onApprove(request.user.id)}>
-                    Approve
-                  </Button>
+                  {membersAllowed && (
+                    <Button size="sm" aria-label={`Approve ${request.user.name}`} onPress={() => onApprove(request.user.id)}>
+                      Approve
+                    </Button>
+                  )}
                   <Button size="sm" intent="plain" aria-label={`Decline ${request.user.name}`} onPress={() => onDecline(request.user.id)}>
                     Decline
                   </Button>
@@ -80,9 +88,11 @@ export function MembersView({
                   <span className="ml-2 text-xs text-muted-foreground">until {formatDateTime(invitation.expiresAt)}</span>
                 </span>
                 <span className="flex gap-2">
-                  <Button size="sm" intent="plain" aria-label={`Resend ${invitation.email}`} onPress={() => onResend(invitation.id)}>
-                    Resend
-                  </Button>
+                  {membersAllowed && (
+                    <Button size="sm" intent="plain" aria-label={`Resend ${invitation.email}`} onPress={() => onResend(invitation.id)}>
+                      Resend
+                    </Button>
+                  )}
                   <Button size="sm" intent="plain" aria-label={`Revoke ${invitation.email}`} onPress={() => onRevoke(invitation.id)}>
                     Revoke
                   </Button>
@@ -140,6 +150,7 @@ export function MembersPage() {
   const members = useQuery({ ...queries.members(workspaceId), enabled: Boolean(workspace) })
   const invitations = useQuery({ ...queries.invitations(workspaceId), enabled: isAdmin })
   const requests = useQuery({ ...queries.joinRequests(workspaceId), enabled: isAdmin })
+  const limits = useQuery({ ...queries.workspaceLimits(workspaceId), enabled: Boolean(workspace) })
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ["members", workspaceId] })
     await queryClient.invalidateQueries({ queryKey: ["invitations", workspaceId] })
@@ -183,6 +194,7 @@ export function MembersPage() {
           members={members.data}
           invitations={invitations.data ?? []}
           requests={requests.data ?? []}
+          membersAllowed={limits.data?.limited !== true}
           onApprove={(userId) => approve.mutate(userId)}
           onDecline={(userId) => decline.mutate(userId)}
           onInvite={async (emails) => {

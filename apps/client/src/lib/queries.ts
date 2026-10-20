@@ -13,6 +13,8 @@ export const NOTIFICATIONS_REFRESH_MS = 30_000
 
 export const queries = {
   me: () => queryOptions({ queryKey: ["me"], queryFn: () => api.me(), staleTime: 60_000 }),
+  /** Whether "Create workspace" is offered (ACCOUNT_LIMITS). */
+  myLimits: () => queryOptions({ queryKey: ["my-limits"], queryFn: () => api.myLimits(), staleTime: 60_000 }),
   clientConfig: () => queryOptions({ queryKey: ["client-config"], queryFn: () => api.clientConfig(), staleTime: Infinity }),
   authMethods: () => queryOptions({ queryKey: ["auth-methods"], queryFn: () => api.authMethods(), staleTime: Infinity }),
   workspaces: () => queryOptions({ queryKey: ["workspaces"], queryFn: () => api.workspaces(), staleTime: 60_000 }),
@@ -24,6 +26,13 @@ export const queries = {
     queryOptions({ queryKey: ["invitations", workspaceId], queryFn: () => api.invitations(workspaceId) }),
   myInvitations: () => queryOptions({ queryKey: ["my-invitations"], queryFn: () => api.myInvitations() }),
   domainWorkspaces: () => queryOptions({ queryKey: ["domain-workspaces"], queryFn: () => api.domainWorkspaces() }),
+  /** Under ACCOUNT_LIMITS: screenshots and recordings kept, and no inviting. Refreshed with the report list. */
+  workspaceLimits: (workspaceId: string) =>
+    queryOptions({
+      queryKey: ["workspace-limits", workspaceId],
+      queryFn: () => api.workspaceLimits(workspaceId),
+      refetchInterval: REPORT_LIST_REFRESH_MS,
+    }),
   workspaceAccess: (workspaceId: string) =>
     queryOptions({ queryKey: ["workspace-access", workspaceId], queryFn: () => api.workspaceAccess(workspaceId) }),
   /** Admins see waiting requests as a count next to Members, so the list is refreshed every minute. */

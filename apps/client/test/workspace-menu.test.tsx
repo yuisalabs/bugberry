@@ -44,6 +44,14 @@ describe("WorkspaceMenuPanel", () => {
     expect(props.onJoin).toHaveBeenCalled()
   })
 
+  test("without onCreate there is no Create workspace, only Join", () => {
+    render(
+      <WorkspaceMenuPanel workspaces={workspaces} currentId="w1" me={me} onSwitch={mock()} onJoin={mock()} onAccount={mock()} onAiAgents={mock()} onLogout={mock()} />,
+    )
+    expect(screen.queryByRole("menuitem", { name: "Create workspace" })).toBeNull()
+    expect(screen.getByRole("menuitem", { name: "Join workspace" })).toBeTruthy()
+  })
+
   test("the account part of the menu", () => {
     const props = panel()
     expect(screen.getByText("Ervalsa Dwi Nanda")).toBeTruthy()

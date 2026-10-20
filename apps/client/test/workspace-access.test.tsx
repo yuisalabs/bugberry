@@ -68,3 +68,25 @@ describe("WorkspaceAccessView", () => {
     expect(screen.queryByRole("switch", { name: /Let people with/ })).toBeNull()
   })
 })
+
+describe("WorkspaceAccessView on a limited account", () => {
+  const limited = (access: Partial<Access> = {}) => {
+    const props = { access: { ...base, ...access }, origin: "https://bugberry.kantor.com", busy: false, onShareLink: mock(), onDomain: mock() }
+    render(<WorkspaceAccessView {...props} membersAllowed={false} />)
+    return props
+  }
+
+  test("shows why, with nothing to turn on", () => {
+    limited()
+    expect(screen.getByText("Inviting teammates isn't available on this account.")).toBeTruthy()
+    expect(screen.queryByRole("switch")).toBeNull()
+  })
+
+  test("a way in that is already open can still be closed", () => {
+    const props = limited({ shareCode: "7KX-29QF", joinDomain: "javan.co.id", joinMode: "direct" })
+    fireEvent.click(screen.getByRole("button", { name: "Turn off invite link" }))
+    expect(props.onShareLink).toHaveBeenCalledWith("off")
+    fireEvent.click(screen.getByRole("button", { name: "Turn off joining by email domain" }))
+    expect(props.onDomain).toHaveBeenCalledWith({ joinDomain: null })
+  })
+})

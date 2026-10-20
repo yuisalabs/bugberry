@@ -114,6 +114,7 @@ export function createApi(origin: string = window.location.origin, fetcher: type
   const { api } = treaty<App>(origin, { fetcher })
   return {
     me: () => unwrap(api.me.get()),
+    myLimits: () => unwrap(api.me.limits.get()),
     switchWorkspace: (workspaceId: string) => unwrap(api.me.workspace.put({ workspaceId })),
     workspaces: () => unwrap(api.workspaces.get()),
     createWorkspace: (name: string, slug?: string) => unwrap(api.workspaces.post(slug === undefined ? { name } : { name, slug })),
@@ -145,6 +146,7 @@ export function createApi(origin: string = window.location.origin, fetcher: type
     joinByDomain: (workspaceId: string) => unwrap(api.join.domain({ workspaceId }).post()),
     cancelJoinRequest: (workspaceId: string) => unwrap(api.join.domain({ workspaceId }).request.delete()),
     workspaceAccess: (workspaceId: string) => unwrap(api.workspaces({ id: workspaceId }).access.get()),
+    workspaceLimits: (workspaceId: string) => unwrap(api.workspaces({ id: workspaceId }).limits.get()),
     updateWorkspaceAccess: (
       workspaceId: string,
       patch: { shareLink?: "on" | "off" | "reset"; joinDomain?: string | null; joinMode?: "direct" | "approval" },
@@ -208,6 +210,8 @@ export type PendingInvitation = Awaited<ReturnType<Api["invitations"]>>[number]
 export type MyInvitation = Awaited<ReturnType<Api["myInvitations"]>>[number]
 export type JoinPreview = Awaited<ReturnType<Api["joinPreview"]>>
 export type WorkspaceAccess = Awaited<ReturnType<Api["workspaceAccess"]>>
+export type WorkspaceLimits = Awaited<ReturnType<Api["workspaceLimits"]>>
+export type MyLimits = Awaited<ReturnType<Api["myLimits"]>>
 export type JoinRequest = Awaited<ReturnType<Api["joinRequests"]>>[number]
 export type InviteResult = Awaited<ReturnType<Api["invite"]>>[number]
 export type InvitationInfo = Awaited<ReturnType<Api["invitation"]>>

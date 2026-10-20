@@ -41,6 +41,7 @@ export function ReportsBrowser({
   const config = useQuery(queries.clientConfig())
   const [layout, setLayout] = useState<ReportLayout>(readLayout)
   const [inviting, setInviting] = useState(false)
+  const limits = useQuery({ ...queries.workspaceLimits(workspaceId), enabled: Boolean(workspace) })
 
   const update = (patch: Partial<ReportSearch>) => setSearch((prev) => ({ ...prev, ...patch }))
   const pages = reports.data?.pages ?? []
@@ -69,7 +70,7 @@ export function ReportsBrowser({
       }
       now={now}
       actions={actions}
-      canInvite={workspace?.role === "admin"}
+      canInvite={workspace?.role === "admin" && limits.data?.limited !== true}
       onInvite={() => setInviting(true)}
       newReport={<NewReportButton installUrl={config.data?.extensionInstallUrl ?? null} />}
       layout={layout}

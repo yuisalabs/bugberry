@@ -26,7 +26,8 @@ interface PanelProps {
   currentId: string
   me: { name: string; email: string; image: string | null }
   onSwitch(id: string): void
-  onCreate(): void
+  /** Left out when the account can't own another workspace (ACCOUNT_LIMITS). */
+  onCreate?(): void
   onJoin(): void
   onAccount(): void
   onAiAgents(): void
@@ -93,10 +94,12 @@ export function WorkspaceMenuPanel({ workspaces, currentId, me, onSwitch, onCrea
           </MenuSection>
           <MenuSeparator />
           <MenuSection aria-label="Workspace actions">
-            <MenuItem textValue="Create workspace" onAction={onCreate}>
-              <RiAddLine aria-hidden />
-              <MenuLabel>Create workspace</MenuLabel>
-            </MenuItem>
+            {onCreate && (
+              <MenuItem textValue="Create workspace" onAction={onCreate}>
+                <RiAddLine aria-hidden />
+                <MenuLabel>Create workspace</MenuLabel>
+              </MenuItem>
+            )}
             <MenuItem textValue="Join workspace" onAction={onJoin}>
               <RiLoginBoxLine aria-hidden />
               <MenuLabel>Join workspace</MenuLabel>
@@ -153,7 +156,7 @@ export function WorkspaceMenu(props: PanelProps) {
           <WorkspaceMenuPanel
             {...props}
             onSwitch={close(props.onSwitch)}
-            onCreate={close(props.onCreate)}
+            onCreate={props.onCreate && close(props.onCreate)}
             onJoin={close(props.onJoin)}
             onAccount={close(props.onAccount)}
             onAiAgents={close(props.onAiAgents)}

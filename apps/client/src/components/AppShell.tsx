@@ -47,6 +47,7 @@ export function AppShell() {
   const projects = useQuery({ ...queries.projects(workspace?.id ?? ""), enabled: Boolean(workspace) })
   const waiting = useQuery({ ...queries.joinRequests(workspace?.id ?? ""), enabled: workspace?.role === "admin" })
   const waitingCount = waiting.data?.length ?? 0
+  const myLimits = useQuery(queries.myLimits())
   const [drawer, setDrawer] = useState(false)
   const [creating, setCreating] = useState(false)
   const [joining, setJoining] = useState(false)
@@ -101,7 +102,7 @@ export function AppShell() {
           currentId={workspace?.id ?? ""}
           me={me.data}
           onSwitch={(id) => void switchWorkspace(id)}
-          onCreate={() => setCreating(true)}
+          onCreate={myLimits.data?.canCreateWorkspace === false ? undefined : () => setCreating(true)}
           onJoin={() => setJoining(true)}
           onAccount={() => void navigate({ to: "/app/settings/account" })}
           onAiAgents={() => void navigate({ to: "/app/settings/ai" })}
