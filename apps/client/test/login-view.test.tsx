@@ -69,7 +69,8 @@ describe("LoginView", () => {
   test("the name in the corner is the typeface alone, as in the design; then the terms line and this year's footer", () => {
     render(<LoginView methods={all} message={null} {...handlers()} />)
     expect(screen.getByRole("img", { name: "BugBerry" }).getAttribute("src")).toBe("/assets/bugberry_typeface_small.webp")
-    expect(screen.getByText("By continuing, you agree to BugBerry's Terms of Service and Privacy Policy.")).toBeTruthy()
+    expect(screen.getByText(/^By continuing, you agree to BugBerry's Terms of Service and/)).toBeTruthy()
+    expect(screen.getByRole("link", { name: "Privacy Policy" }).getAttribute("href")).toBe("/privacy")
     expect(screen.getByText(`© ${new Date().getFullYear()} BugBerry`)).toBeTruthy()
   })
 

@@ -10,6 +10,7 @@ import {
 import { type FormEvent, type ReactNode, useEffect, useState } from "react"
 import { Button as AriaButton } from "react-aria-components"
 import { Button } from "@bugberry/ui/button"
+import { Link } from "@bugberry/ui/link"
 import { Label } from "@bugberry/ui/field"
 import { Input, InputGroup } from "@bugberry/ui/input"
 import { TextField } from "@bugberry/ui/text-field"
@@ -221,7 +222,11 @@ export function LoginView({
           )}
 
           <p className="text-xs/[18px] text-muted-foreground">
-            By continuing, you agree to BugBerry's Terms of Service and Privacy Policy.
+            By continuing, you agree to BugBerry's Terms of Service and{" "}
+            <Link href="/privacy" className="underline hover:text-foreground">
+              Privacy Policy
+            </Link>
+            .
           </p>
         </div>
 
