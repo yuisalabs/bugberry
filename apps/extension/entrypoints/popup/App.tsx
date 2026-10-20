@@ -20,6 +20,7 @@ const MICROPHONE_PAGE = "/microphone.html" as Parameters<typeof browser.runtime.
 
 /** Wires the popup to Chrome: settings, session, drafts, the recording and the background's actions. */
 const tabRecorder = hasTabRecorder(browser)
+const ALL_SITES = { origins: ["<all_urls>"] }
 
 export function App() {
   const [settings, setSettings] = useState<Settings | null | undefined>(undefined)
@@ -32,6 +33,11 @@ export function App() {
   const [shortcut, setShortcut] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  // Firefox lets the reporter take website access away; Chrome grants it with the install.
+  const [hostAccess, setHostAccess] = useState(true)
+  const readHostAccess = () =>
+    void browser.permissions.contains(ALL_SITES).then(setHostAccess, () => setHostAccess(true))
+  useEffect(readHostAccess, [])
 
   useEffect(() => {
     loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN).then((loaded) => {
@@ -131,7 +137,7 @@ export function App() {
       drafts={drafts}
       logsAvailable={capturable(activeTab?.url)}
       tabRecorder={tabRecorder}
-      hostAccess={true}
+      hostAccess={hostAccess}
       error={error}
       busy={busy}
       onPrefs={(patch) => void updatePrefs(patch)}
@@ -144,7 +150,7 @@ export function App() {
       onOpenDashboard={() => settings && void browser.tabs.create({ url: `${settings.serverUrl}/app` })}
       onOpenDraft={(id) => void browser.tabs.create({ url: `${browser.runtime.getURL("/review.html")}?draft=${encodeURIComponent(id)}` })}
       onDeleteDraft={(id) => void remove(id)}
-      onAllowHosts={() => {}}
+      onAllowHosts={() => void browser.permissions.request(ALL_SITES).finally(readHostAccess)}
     />
   )
 }

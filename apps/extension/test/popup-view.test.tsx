@@ -206,3 +206,17 @@ describe("the More menu", () => {
     expect(screen.queryByRole("menu")).toBeNull()
   })
 })
+
+describe("website access", () => {
+  test("asks for website access when it was revoked", () => {
+    const props = view({ hostAccess: false })
+    fireEvent.click(button("Allow access to websites"))
+    expect(props.onAllowHosts).toHaveBeenCalledTimes(1)
+    expect(screen.getByText("BugBerry can't read this page. Allow access to websites to capture logs.")).toBeTruthy()
+  })
+
+  test("no button while access is granted", () => {
+    view()
+    expect(screen.queryByRole("button", { name: "Allow access to websites" })).toBeNull()
+  })
+})

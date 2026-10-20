@@ -133,6 +133,15 @@ export function PopupView(props: PopupViewProps) {
       {session?.kind === "signed-out" && <StatusCard title="Sign in to BugBerry" action="Sign in" onAction={props.onSignIn} />}
       {session?.kind === "no-server" && <StatusCard title="Choose your BugBerry server" action="Open settings" onAction={props.onOpenSettings} />}
 
+      {!props.hostAccess && (
+        <div className="flex flex-col gap-2 rounded-xl bg-warning-subtle px-3 py-2 text-sm text-warning-subtle-foreground">
+          <span>BugBerry can't read this page. Allow access to websites to capture logs.</span>
+          <Button size="sm" className="self-start" onPress={props.onAllowHosts}>
+            Allow access to websites
+          </Button>
+        </div>
+      )}
+
       {!blocked && (
         <>
           <Row
