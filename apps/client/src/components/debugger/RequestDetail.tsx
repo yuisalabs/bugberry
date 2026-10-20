@@ -111,9 +111,13 @@ export function RequestDetail({
           </Button>
         </div>
         <Tabs selectedKey={section} onSelectionChange={(key) => setSection(key as Section)} className="gap-0 self-stretch">
+          {/*
+            The first tab is pulled left by its own padding so its label lines up with the text below; a smaller
+            padding keeps its hover and selected box clear of the panel's left edge, as the DevTools tabs above are.
+          */}
           <TabList aria-label="Request" className="px-3">
             {sections.map(([id, label]) => (
-              <Tab key={id} id={id} className="text-xs/6">
+              <Tab key={id} id={id} className="text-xs/6 [--tab-gutter-x:--spacing(1.5)]">
                 {label}
               </Tab>
             ))}

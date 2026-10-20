@@ -42,6 +42,10 @@ export function startHorizontalDrag(
 }
 
 /** The same for an up-and-down drag that started at `startY`. */
-export function startVerticalDrag(startY: number, onMove: (deltaY: number) => void): () => void {
-  return startDrag("row-resize", startY, (event) => event.clientY, onMove)
+export function startVerticalDrag(
+  startY: number,
+  onMove: (deltaY: number) => void,
+  onEnd?: (deltaY: number) => void,
+): () => void {
+  return startDrag("row-resize", startY, (event) => event.clientY, onMove, onEnd)
 }

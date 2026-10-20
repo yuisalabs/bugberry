@@ -53,13 +53,29 @@ describe("the edge between the table and the request", () => {
   test("dragging up makes the detail taller, down shorter, and the height is remembered", () => {
     render(<NetworkTab events={events} base={1000} />)
     fireEvent.click(screen.getByRole("button", { name: /^pay/ }))
+    const box = () => edge().nextElementSibling as HTMLElement
     fireEvent.pointerDown(edge(), { clientY: 500 })
     fireEvent.pointerMove(window, { clientY: 400 })
-    expect(edge().getAttribute("aria-valuenow")).toBe("420")
+    expect(box().style.flexBasis).toBe("420px")
     fireEvent.pointerMove(window, { clientY: 600 })
-    expect(edge().getAttribute("aria-valuenow")).toBe("220")
+    expect(box().style.flexBasis).toBe("220px")
+    // Only the box moves while dragging; the panel settles, and remembers, once the pointer is let go.
+    expect(edge().getAttribute("aria-valuenow")).toBe(String(DEFAULT_DETAIL_HEIGHT))
+    expect(readDetailHeight()).toBe(DEFAULT_DETAIL_HEIGHT)
     fireEvent.pointerUp(window)
+    expect(edge().getAttribute("aria-valuenow")).toBe("220")
+    expect(box().style.flexBasis).toBe("220px")
     expect(readDetailHeight()).toBe(220)
+  })
+
+  test("a drag keeps the table in view, however far it goes", () => {
+    render(<NetworkTab events={events} base={1000} />)
+    fireEvent.click(screen.getByRole("button", { name: /^pay/ }))
+    fireEvent.pointerDown(edge(), { clientY: 500 })
+    fireEvent.pointerMove(window, { clientY: -2000 })
+    expect((edge().nextElementSibling as HTMLElement).style.flexBasis).toBe("704px")
+    fireEvent.pointerUp(window)
+    expect(edge().getAttribute("aria-valuenow")).toBe("704")
   })
 
   test("arrow keys move it in steps, and a double click goes back to the default", () => {

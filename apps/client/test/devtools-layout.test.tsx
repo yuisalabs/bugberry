@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
+import { readdirSync, readFileSync } from "node:fs"
+import { join } from "node:path"
 import { DevtoolsResizer, DevtoolsToggle } from "../src/components/DevtoolsLayout"
 import { clampDevtoolsWidth, devtoolsColumn, readDevtools, saveDevtools } from "../src/lib/devtools-layout"
 
@@ -95,5 +97,22 @@ describe("DevtoolsResizer", () => {
     expect(onResize).toHaveBeenLastCalledWith(568)
     fireEvent.doubleClick(edge)
     expect(onReset).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe("the DevTools edge", () => {
+  // The panel's own layers: sticky headers, column and detail edges. All of them live in the aside's stacking
+  // context, where an equal or higher z would paint over the edge's line.
+  const DEBUGGER = join(import.meta.dir, "..", "src", "components", "debugger")
+  const zOf = (text: string) => [...text.matchAll(/\bz-(\d+)\b/g)].map((match) => Number(match[1]))
+
+  test("sits above every layer inside the panel, so no header covers its line", () => {
+    render(<DevtoolsResizer width={600} measure={() => 0} onDrag={() => {}} onResize={() => {}} onReset={() => {}} />)
+    const [edge] = zOf(screen.getByRole("separator", { name: "Resize DevTools" }).className)
+    const inside = readdirSync(DEBUGGER)
+      .filter((name) => name.endsWith(".tsx"))
+      .flatMap((name) => zOf(readFileSync(join(DEBUGGER, name), "utf8")))
+    expect(inside.length).toBeGreaterThan(0)
+    expect(edge).toBeGreaterThan(Math.max(...inside))
   })
 })

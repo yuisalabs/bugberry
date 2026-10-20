@@ -77,7 +77,9 @@ export function DevtoolsResizer({
         event.preventDefault()
       }}
       onDoubleClick={onReset}
-      className="group/edge absolute inset-y-0 -left-1.5 z-10 hidden w-3 cursor-col-resize outline-hidden xl:block"
+      // Above every layer inside the panel (the tabs' sticky headers are z-10, the Network detail's edge z-20):
+      // at an equal z the later header would paint over the inner half of this line.
+      className="group/edge absolute inset-y-0 -left-1.5 z-30 hidden w-3 cursor-col-resize outline-hidden xl:block"
     >
       <span className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-transparent transition-colors group-hover/edge:bg-primary group-focus-visible/edge:bg-primary" />
     </div>

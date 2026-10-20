@@ -12,6 +12,15 @@
 }
 
 /*
+ * The report page's DevTools column, which a drag changes on every frame. Only the page grid reads it; left to
+ * inherit, each change would restyle every row in the panel too (13 ms a frame on a 126-request Network tab).
+ */
+@property --devtools-width {
+    syntax: "*";
+    inherits: false;
+}
+
+/*
  * The landing page's entrances (useReveal): hidden until shown, then eased into place. Only for people who have
  * not asked their system for less motion; everyone else sees the page still and complete.
  */

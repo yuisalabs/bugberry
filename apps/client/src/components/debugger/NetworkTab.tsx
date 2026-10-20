@@ -107,9 +107,18 @@ function ColumnResizer({
 
 /**
  * The edge between the table and the request opened under it: it drags up to make the detail taller, down to make
- * it shorter. Arrow keys move it in steps; a double click goes back to the default height.
+ * it shorter. A drag only previews (`onDrag`) and settles once, on release (`onResize`). Arrow keys move it in
+ * steps; a double click goes back to the default height.
  */
-function DetailResizer({ height, onResize }: { height: number; onResize(height: number): void }) {
+function DetailResizer({
+  height,
+  onDrag,
+  onResize,
+}: {
+  height: number
+  onDrag(height: number): void
+  onResize(height: number): void
+}) {
   const stopDrag = useRef<() => void>(() => {})
   useEffect(() => () => stopDrag.current(), [])
   return (
@@ -123,7 +132,11 @@ function DetailResizer({ height, onResize }: { height: number; onResize(height: 
       onPointerDown={(down) => {
         down.preventDefault()
         const startHeight = height
-        stopDrag.current = startVerticalDrag(down.clientY, (deltaY) => onResize(startHeight - deltaY))
+        stopDrag.current = startVerticalDrag(
+          down.clientY,
+          (deltaY) => onDrag(startHeight - deltaY),
+          (deltaY) => onResize(startHeight - deltaY),
+        )
       }}
       onKeyDown={(event) => {
         if (event.key === "ArrowUp") onResize(height + KEY_STEP)
@@ -162,8 +175,15 @@ export function NetworkTab({
   const [widths, setWidths] = useState<ColumnWidths>(readColumnWidths)
   const [detailHeight, setDetailHeight] = useState(readDetailHeight)
   const split = useRef<HTMLDivElement>(null)
+  const detail = useRef<HTMLDivElement>(null)
+  const fitDetail = (height: number) => clampDetailHeight(height, split.current?.clientHeight ?? Number.POSITIVE_INFINITY)
+  // While dragging only the detail's box moves: re-rendering the table and a long response body on every pointer
+  // move is what made the drag stall. React and storage hear about it once, on release.
+  const previewDetail = (height: number) => {
+    if (detail.current) detail.current.style.flexBasis = `${fitDetail(height)}px`
+  }
   const resizeDetail = (height: number) => {
-    const next = clampDetailHeight(height, split.current?.clientHeight ?? Number.POSITIVE_INFINITY)
+    const next = fitDetail(height)
     setDetailHeight(next)
     saveDetailHeight(next)
   }
@@ -327,9 +347,9 @@ export function NetworkTab({
         )}
         {opened && (
           <>
-            <DetailResizer height={detailHeight} onResize={resizeDetail} />
+            <DetailResizer height={detailHeight} onDrag={previewDetail} onResize={resizeDetail} />
             {/* Shrinks before the table does when the panel gets short, so the table keeps a few rows. */}
-            <div className="min-h-0 shrink overflow-y-auto" style={{ flexBasis: detailHeight }}>
+            <div ref={detail} className="min-h-0 shrink overflow-y-auto" style={{ flexBasis: detailHeight }}>
               <RequestDetail key={opened.key} row={opened} base={base} playback={playback} onClose={() => setOpen(null)} />
             </div>
           </>
