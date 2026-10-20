@@ -42,17 +42,19 @@ export const FIREFOX_OPEN_SHORTCUT = "Alt+Shift+B"
 
 /** The manifest for one target browser. Chrome and Opera share it; Firefox gets its own permissions and id. */
 export function manifestFor(target: string, key: string | undefined): Record<string, unknown> {
-  const common = {
-    name: "BugBerry",
-    description: "Report bugs with a screenshot or recording, plus console, network and the steps that led there.",
+  const name = "BugBerry"
+  const description = "Report bugs with a screenshot or recording, plus console, network and the steps that led there."
+  const rest = {
     host_permissions: ["<all_urls>"],
     web_accessible_resources: WEB_ACCESSIBLE_RESOURCES,
     action: { default_title: "BugBerry" },
   }
   if (target === "firefox") {
     return {
-      ...common,
+      name,
+      description,
       permissions: FIREFOX_PERMISSIONS,
+      ...rest,
       commands: {
         ...MANIFEST_COMMANDS,
         _execute_action: { ...MANIFEST_COMMANDS._execute_action, suggested_key: { default: FIREFOX_OPEN_SHORTCUT } },
@@ -60,7 +62,8 @@ export function manifestFor(target: string, key: string | undefined): Record<str
       browser_specific_settings: { gecko: FIREFOX_GECKO },
     }
   }
-  return { ...common, permissions: MANIFEST_PERMISSIONS, commands: MANIFEST_COMMANDS, ...(key ? { key } : {}) }
+  // Today's key order, so the Chrome build's manifest.json stays byte-for-byte the same.
+  return { name, description, permissions: MANIFEST_PERMISSIONS, ...rest, commands: MANIFEST_COMMANDS, ...(key ? { key } : {}) }
 }
 
 /** Chrome's extension ID for a public key: SHA-256 of the DER key, first 32 hex digits written as a–p. */

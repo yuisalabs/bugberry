@@ -2,6 +2,7 @@ import { Button } from "@bugberry/ui/button"
 import { useEffect, useRef, useState } from "react"
 import { browser } from "wxt/browser"
 import { isOffscreenMessage, type OffscreenMessage, type RecorderReadyNotice } from "../../lib/messages"
+import { keepBackgroundAwake } from "../../lib/keep-alive"
 import type { RecorderReply } from "../../lib/recorder-handler"
 
 type Phase = "waiting" | "choose" | "starting" | "recording" | "done"
@@ -45,6 +46,19 @@ export function App({ handle }: { handle(message: OffscreenMessage): Promise<Rec
     browser.runtime.sendMessage(ready).catch(() => {})
     return () => browser.runtime.onMessage.removeListener(listener)
   }, [handle])
+
+  // While the reporter is choosing, nothing else reaches the background: keep it from being unloaded.
+  useEffect(() => {
+    if (phase !== "choose" && phase !== "starting") return
+    return keepBackgroundAwake(
+      // Any message resets Firefox's idle timer; the background ignores this one.
+      () => browser.runtime.sendMessage({ type: "bugberry:recorder-keepalive" }),
+      (run, ms) => {
+        const id = setInterval(run, ms)
+        return () => clearInterval(id)
+      },
+    )
+  }, [phase])
 
   const choose = () => {
     const request = pending.current

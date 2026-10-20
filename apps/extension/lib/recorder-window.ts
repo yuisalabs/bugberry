@@ -16,9 +16,12 @@ export interface WindowRecorderDeps {
   /** In session storage, so a background page that was unloaded still knows its window. */
   windowId: { get(): Promise<number | null>; set(id: number | null): Promise<void> }
   readyTimeoutMs?: number
+  /** How long a failed `open` waits to learn whether the reporter closed the window. */
+  cancelGraceMs?: number
 }
 
 const READY_TIMEOUT_MS = 10_000
+const CANCEL_GRACE_MS = 1000
 const CANCELLED = { ok: false, error: "Cancelled", code: "cancelled" } as const
 
 /**
@@ -79,6 +82,12 @@ export function createWindowRecorderHost(deps: WindowRecorderDeps) {
       })
       try {
         return await Promise.race([deps.sendMessage(message), cancelled])
+      } catch (error) {
+        // Closing the window drops the page's pending answer, and Firefox may reject the send before it
+        // reports the window gone: that is still the reporter backing out, not a failure.
+        const grace = new Promise((resolve) => setTimeout(resolve, deps.cancelGraceMs ?? CANCEL_GRACE_MS, null))
+        if ((await Promise.race([cancelled, grace])) === CANCELLED) return CANCELLED
+        throw error
       } finally {
         cancelOpen = null
       }

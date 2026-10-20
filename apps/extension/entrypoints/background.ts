@@ -28,6 +28,7 @@ import {
 } from "../lib/messages"
 import { createRecordingController, type RecordingFlowDeps } from "../lib/recording-flow"
 import { createWindowRecorderHost, onRecorderClosed } from "../lib/recorder-window"
+import { openSessionToContentScripts } from "../lib/session-access"
 import { createReviewOpener } from "../lib/review-opener"
 import { fromExtensionPage, ofThisRecording } from "../lib/sender-rules"
 import { createTakeAgain } from "../lib/take-again"
@@ -424,10 +425,6 @@ export default defineBackground(() => {
     return undefined
   })
 
-  // The flush script reads whether a recording runs from session storage, so a normal page load never
-  // has to wake this worker. Content scripts may only read that area once it is opened to them.
-  void browser.storage.session.setAccessLevel({ accessLevel: "TRUSTED_AND_UNTRUSTED_CONTEXTS" }).catch(() => {})
-
   browser.commands.onCommand.addListener(async (command, tab) => {
     const active = toActiveTab(tab ?? (await browser.tabs.query({ active: true, currentWindow: true }))[0])
     if (command === "take-screenshot") await screenshot(active)
@@ -444,4 +441,7 @@ export default defineBackground(() => {
 
   // Older versions kept a token next to the server; the dashboard's sign-in replaces it.
   browser.runtime.onInstalled.addListener(() => void browserSettingsStorage.removeLegacyToken())
+
+  // Last, so a browser without it (Firefox) still registers every listener above.
+  openSessionToContentScripts(browser.storage.session as Parameters<typeof openSessionToContentScripts>[0])
 })

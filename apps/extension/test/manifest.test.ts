@@ -72,6 +72,19 @@ describe("manifestFor", () => {
     expect("key" in manifestFor("chrome", undefined)).toBe(false)
   })
 
+  test("chrome keeps today's key order, so the built manifest.json is byte-for-byte the same", () => {
+    expect(Object.keys(manifestFor("chrome", "KEY"))).toEqual([
+      "name",
+      "description",
+      "permissions",
+      "host_permissions",
+      "web_accessible_resources",
+      "action",
+      "commands",
+      "key",
+    ])
+  })
+
   test("firefox drops Chrome-only permissions and the key, and adds the gecko block", () => {
     const manifest = manifestFor("firefox", "KEY") as Record<string, unknown> & {
       browser_specific_settings: { gecko: unknown }

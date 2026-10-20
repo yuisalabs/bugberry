@@ -66,6 +66,22 @@ describe("createWindowRecorderHost", () => {
     expect(stored.peek()).toBeNull()
   })
 
+  test("the page going away first (Firefox rejects the pending send) still counts as a cancel", async () => {
+    const { host } = setup({ sendMessage: mock(() => Promise.reject(new Error("Message manager disconnected"))) }, memoryWindowId(41))
+    const sending = host.send(open)
+    await Bun.sleep(5)
+    await host.windowRemoved(41)
+    expect(await sending).toEqual({ ok: false, error: "Cancelled", code: "cancelled" })
+  })
+
+  test("a failed open with the window still there is a real error", async () => {
+    const { host } = setup(
+      { sendMessage: mock(() => Promise.reject(new Error("boom"))), cancelGraceMs: 10 },
+      memoryWindowId(41),
+    )
+    await expect(host.send(open)).rejects.toThrow("boom")
+  })
+
   test("windowRemoved ignores other windows", async () => {
     const { stored, host } = setup({}, memoryWindowId(41))
     expect(await host.windowRemoved(7)).toBe(false)
