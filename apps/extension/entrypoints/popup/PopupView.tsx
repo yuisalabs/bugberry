@@ -23,7 +23,7 @@ import {
 } from "@remixicon/react"
 import { type ReactNode, useState } from "react"
 import { Button as AriaButton } from "react-aria-components"
-import type { CapturePrefs, RecordSource } from "../../lib/capture-prefs"
+import { type CapturePrefs, effectiveSource, type RecordSource } from "../../lib/capture-prefs"
 import { canDelete, draftNote } from "../../lib/popup"
 import type { RecordingStatus } from "../../lib/recording-flow"
 import type { SessionState } from "../../lib/session"
@@ -41,6 +41,10 @@ export interface PopupViewProps {
   drafts: ReportDraft[]
   /** False when the active tab isn't a web page: a screen or window recorded from it has no logs. */
   logsAvailable: boolean
+  /** False in Firefox: no "This tab" choice and no system audio; the browser's picker chooses a screen or window. */
+  tabRecorder: boolean
+  /** False when the reporter took away BugBerry's access to websites (Firefox lets them). */
+  hostAccess: boolean
   error: string | null
   busy: boolean
   onPrefs(patch: Partial<CapturePrefs>): void
@@ -53,6 +57,7 @@ export interface PopupViewProps {
   onOpenDashboard(): void
   onOpenDraft(id: string): void
   onDeleteDraft(id: string): void
+  onAllowHosts(): void
 }
 
 /** Each source's icon: the line variant, or the fill variant for the chosen one. */
@@ -71,6 +76,7 @@ export function PopupView(props: PopupViewProps) {
   if (showDrafts) return <DraftList {...props} onBack={() => setShowDrafts(false)} />
 
   const { session } = props
+  const recordSource = effectiveSource(props.prefs.recordSource, props.tabRecorder)
   const blocked = session?.kind === "signed-out" || session?.kind === "no-server"
   // Intent's Menu closes itself on a choice, a click elsewhere or Esc.
   const menuItems = [
@@ -142,8 +148,8 @@ export function PopupView(props: PopupViewProps) {
             <ScreenshotPanel {...props} />
           </Row>
           <Row
-            icon={SOURCES.find((source) => source.id === props.prefs.recordSource)?.icon(false)}
-            label={RECORD_LABEL[props.prefs.recordSource]}
+            icon={SOURCES.find((source) => source.id === recordSource)?.icon(false)}
+            label={RECORD_LABEL[recordSource]}
             extra={<MicBadge on={props.prefs.mic} />}
             optionsLabel="Record options"
             open={open === "record"}
@@ -248,8 +254,8 @@ function ScreenshotPanel({ prefs, onPrefs }: PopupViewProps) {
   )
 }
 
-function RecordPanel({ prefs, micLabel, logsAvailable, onPrefs, onMicToggle }: PopupViewProps) {
-  const source = prefs.recordSource
+function RecordPanel({ prefs, micLabel, logsAvailable, tabRecorder, onPrefs, onMicToggle }: PopupViewProps) {
+  const source = effectiveSource(prefs.recordSource, tabRecorder)
   const surface = source === "screen" ? "screen" : "window"
   return (
     <>
@@ -265,7 +271,7 @@ function RecordPanel({ prefs, micLabel, logsAvailable, onPrefs, onMicToggle }: P
         }}
         className="w-full bg-background"
       >
-        {SOURCES.map((option) => (
+        {SOURCES.filter((option) => tabRecorder || option.id !== "tab").map((option) => (
           <ToggleGroupItem key={option.id} id={option.id} aria-label={option.label} className="flex-1 text-[13px]">
             {option.icon(option.id === source)}
             {option.label}
@@ -274,7 +280,7 @@ function RecordPanel({ prefs, micLabel, logsAvailable, onPrefs, onMicToggle }: P
       </ToggleGroup>
       <Toggle icon={<MicIcon />} label="Microphone" detail={micLabel} checked={prefs.mic} onChange={onMicToggle} />
       <Toggle icon={<TimerIcon />} label="3-second countdown" detail="" checked={prefs.countdown} onChange={(on) => onPrefs({ countdown: on })} />
-      {source === "screen" && (
+      {source === "screen" && tabRecorder && (
         <Toggle
           icon={<SpeakerIcon />}
           label="System audio"
@@ -285,7 +291,7 @@ function RecordPanel({ prefs, micLabel, logsAvailable, onPrefs, onMicToggle }: P
       )}
       {source !== "tab" && (
         <>
-          <Note>{`Click “${RECORD_LABEL[source]}” and Chrome will ask which ${surface} to share.`}</Note>
+          <Note>{`Click “${RECORD_LABEL[source]}” and your browser will ask which ${surface} to share.`}</Note>
           <Note>{logsAvailable ? "Console and network logs come from this tab only." : "Console and network logs aren't available on this page."}</Note>
         </>
       )}

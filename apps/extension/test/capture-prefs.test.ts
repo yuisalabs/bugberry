@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { capturePrefsFrom, createCapturePrefsStorage } from "../lib/capture-prefs"
+import { capturePrefsFrom, createCapturePrefsStorage, DEFAULT_CAPTURE_PREFS, recordOptionsFor } from "../lib/capture-prefs"
 
 function memoryArea() {
   const items: Record<string, unknown> = {}
@@ -40,5 +40,29 @@ describe("capture prefs storage", () => {
     await prefs.set({ recordSource: "screen" })
     expect(await prefs.get()).toEqual({ screenshotMode: "visible", recordSource: "screen", mic: true, systemAudio: true, countdown: true })
     expect(Object.keys(area.items)).toEqual(["capturePrefs"])
+  })
+})
+
+describe("recordOptionsFor", () => {
+  test("without a tab recorder, tab becomes window and system audio is off", () => {
+    expect(recordOptionsFor({ ...DEFAULT_CAPTURE_PREFS, recordSource: "tab", systemAudio: true }, false)).toEqual({
+      source: "window",
+      mic: false,
+      systemAudio: false,
+      countdown: true,
+    })
+    expect(recordOptionsFor({ ...DEFAULT_CAPTURE_PREFS, recordSource: "screen", systemAudio: true }, false)).toMatchObject({
+      source: "screen",
+      systemAudio: false,
+    })
+  })
+
+  test("with a tab recorder the choices pass through unchanged", () => {
+    expect(recordOptionsFor({ ...DEFAULT_CAPTURE_PREFS, recordSource: "screen", systemAudio: true, mic: true }, true)).toEqual({
+      source: "screen",
+      mic: true,
+      systemAudio: true,
+      countdown: true,
+    })
   })
 })

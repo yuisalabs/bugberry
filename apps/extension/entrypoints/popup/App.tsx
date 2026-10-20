@@ -3,7 +3,8 @@ import { browser } from "wxt/browser"
 import { createBugberryApi } from "../../lib/api"
 import { BUILD_SERVER_ORIGIN, browserSettingsStorage, capturePrefsStorage } from "../../lib/browser-settings"
 import { capturable } from "../../lib/capture-flow"
-import { type CapturePrefs, DEFAULT_CAPTURE_PREFS } from "../../lib/capture-prefs"
+import { hasTabRecorder } from "../../lib/browser-support"
+import { type CapturePrefs, DEFAULT_CAPTURE_PREFS, recordOptionsFor } from "../../lib/capture-prefs"
 import { createIndexedDbDraftStore } from "../../lib/draft-store"
 import type { RecordStartRequest, RecordStatusRequest, ScreenshotRequest } from "../../lib/messages"
 import { micAccess, micChoiceAfterCheck, micDeviceLabel } from "../../lib/microphone"
@@ -18,6 +19,8 @@ const MIC_BLOCKED = "Microphone is blocked. Allow it for BugBerry in Chrome's si
 const MICROPHONE_PAGE = "/microphone.html" as Parameters<typeof browser.runtime.getURL>[0]
 
 /** Wires the popup to Chrome: settings, session, drafts, the recording and the background's actions. */
+const tabRecorder = hasTabRecorder(browser)
+
 export function App() {
   const [settings, setSettings] = useState<Settings | null | undefined>(undefined)
   const [session, setSession] = useState<SessionState | undefined>(undefined)
@@ -97,9 +100,9 @@ export function App() {
 
   const onRecord = () => {
     if (activeTab?.id === undefined) return setError("No active tab")
-    const note = recordStartNote(prefs.recordSource, activeTab.url)
+    const options = recordOptionsFor(prefs, tabRecorder)
+    const note = recordStartNote(options.source, activeTab.url)
     if (note) return setError(note)
-    const options = { source: prefs.recordSource, mic: prefs.mic, systemAudio: prefs.systemAudio, countdown: prefs.countdown }
     // The countdown runs on the page; an open popup would take its Esc. Later failures go on the badge.
     void browser.runtime.sendMessage({ type: "bugberry:record-start", tabId: activeTab.id, options }).catch(() => {})
     window.close()
@@ -127,6 +130,8 @@ export function App() {
       recording={recording}
       drafts={drafts}
       logsAvailable={capturable(activeTab?.url)}
+      tabRecorder={tabRecorder}
+      hostAccess={true}
       error={error}
       busy={busy}
       onPrefs={(patch) => void updatePrefs(patch)}
@@ -139,6 +144,7 @@ export function App() {
       onOpenDashboard={() => settings && void browser.tabs.create({ url: `${settings.serverUrl}/app` })}
       onOpenDraft={(id) => void browser.tabs.create({ url: `${browser.runtime.getURL("/review.html")}?draft=${encodeURIComponent(id)}` })}
       onDeleteDraft={(id) => void remove(id)}
+      onAllowHosts={() => {}}
     />
   )
 }

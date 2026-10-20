@@ -3,7 +3,8 @@ import { createFailureFlag } from "../lib/badge"
 import { bridgeSenderOrigin, createBridge, createConfirmOpener } from "../lib/bridge"
 import { browserRecordingState } from "../lib/browser-recording-state"
 import { createBugberryApi } from "../lib/api"
-import type { ScreenshotMode } from "../lib/capture-prefs"
+import { hasTabRecorder } from "../lib/browser-support"
+import { recordOptionsFor, type ScreenshotMode } from "../lib/capture-prefs"
 import { BUILD_SERVER_ORIGIN, browserSettingsStorage, capturePrefsStorage } from "../lib/browser-settings"
 import { type ActiveTab, type CaptureFlowDeps, type CaptureResult, startScreenshotReport } from "../lib/capture-flow"
 import { createIndexedDbDraftStore } from "../lib/draft-store"
@@ -157,6 +158,9 @@ export default defineBackground(() => {
     newId,
   }
 
+  /** Chrome and Opera record a tab through an offscreen document; Firefox records in a window of its own. */
+  const tabRecorder = hasTabRecorder(browser)
+
   const recordingDeps: RecordingFlowDeps = {
     getStreamId: (tabId) => browser.tabCapture.getMediaStreamId({ targetTabId: tabId }),
     ensureOffscreen: async () => {
@@ -232,11 +236,8 @@ export default defineBackground(() => {
   /** Without options (the shortcut) the popup's stored choices apply. */
   const record = async (tab: ActiveTab | null, options?: RecordOptions): Promise<CaptureResult> => {
     if (!tab) return { ok: false, error: "No active tab" }
-    let chosen = options
-    if (!chosen) {
-      const prefs = await capturePrefsStorage.get()
-      chosen = { source: prefs.recordSource, mic: prefs.mic, systemAudio: prefs.systemAudio, countdown: prefs.countdown }
-    }
+    const picked = options ? { ...options, recordSource: options.source } : await capturePrefsStorage.get()
+    const chosen = recordOptionsFor(picked, tabRecorder)
     return flagFailure(tab.id, await recordings.start(tab, { ...chosen, maxBytes: await recordingBudget() }))
   }
 

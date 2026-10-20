@@ -17,6 +17,8 @@ function view(overrides: Partial<PopupViewProps> = {}) {
     recording: { recording: false },
     drafts: [],
     logsAvailable: true,
+    tabRecorder: true,
+    hostAccess: true,
     error: null,
     busy: false,
     onPrefs: mock(),
@@ -29,6 +31,7 @@ function view(overrides: Partial<PopupViewProps> = {}) {
     onOpenDashboard: mock(),
     onOpenDraft: mock(),
     onDeleteDraft: mock(),
+    onAllowHosts: mock(),
     ...overrides,
   }
   render(<PopupView {...props} />)
@@ -123,7 +126,7 @@ describe("record row", () => {
     fireEvent.click(button("Record options"))
     expect(screen.getByRole("switch", { name: /System audio/ })).toBeTruthy()
     expect(screen.getByText("Sound from apps and videos")).toBeTruthy()
-    expect(screen.getByText("Click “Record screen” and Chrome will ask which screen to share.")).toBeTruthy()
+    expect(screen.getByText("Click “Record screen” and your browser will ask which screen to share.")).toBeTruthy()
     expect(screen.getByText("Console and network logs come from this tab only.")).toBeTruthy()
   })
 
@@ -131,7 +134,23 @@ describe("record row", () => {
     view({ prefs: { ...DEFAULT_CAPTURE_PREFS, recordSource: "window" } })
     fireEvent.click(button("Record options"))
     expect(screen.queryByRole("switch", { name: /System audio/ })).toBeNull()
-    expect(screen.getByText("Click “Record window” and Chrome will ask which window to share.")).toBeTruthy()
+    expect(screen.getByText("Click “Record window” and your browser will ask which window to share.")).toBeTruthy()
+  })
+
+  test("without a tab recorder: no tab choice, no system audio, and a stored tab shows as window", () => {
+    view({ tabRecorder: false, prefs: { ...DEFAULT_CAPTURE_PREFS, recordSource: "tab", systemAudio: true } })
+    expect(button(/Record window/)).toBeTruthy()
+    fireEvent.click(button("Record options"))
+    expect(screen.queryByRole("radio", { name: "This tab" })).toBeNull()
+    expect(screen.getByRole("radio", { name: "Screen" })).toBeTruthy()
+    expect(screen.getByRole("radio", { name: "Window" }).getAttribute("aria-checked")).toBe("true")
+    expect(screen.getByText("Click “Record window” and your browser will ask which window to share.")).toBeTruthy()
+  })
+
+  test("without a tab recorder a screen has no system audio switch", () => {
+    view({ tabRecorder: false, prefs: { ...DEFAULT_CAPTURE_PREFS, recordSource: "screen" } })
+    fireEvent.click(button("Record options"))
+    expect(screen.queryByRole("switch", { name: /System audio/ })).toBeNull()
   })
 
   test("a screen from a page that isn't a web page says there are no logs", () => {
