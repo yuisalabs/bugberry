@@ -50,6 +50,7 @@ const config: Config = {
   proxyHops: 0,
   encryptionKey: Buffer.alloc(32, 3).toString("base64"),
   storage: { driver: "local", dir: mkdtempSync(join(tmpdir(), "bugberry-e2e-")) },
+  accountLimits: null,
 }
 
 const db = createDb(config.databaseUrl)

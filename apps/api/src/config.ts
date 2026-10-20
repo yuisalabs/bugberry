@@ -29,6 +29,13 @@ export type EmailConfig =
     }
   | { driver: "log"; from: string }
 
+/** BugBerry cloud's per-account caps; exempt accounts are marked `unlimited` from the CLI. */
+export interface AccountLimits {
+  screenshots: number
+  recordings: number
+  ownedWorkspaces: number
+}
+
 export interface Config {
   port: number
   appUrl: string
@@ -55,6 +62,8 @@ export interface Config {
   /** Base64 of 32 random bytes; encrypts tracker tokens at rest. */
   encryptionKey: string
   storage: StorageConfig
+  /** Null unless ACCOUNT_LIMITS=true: self-hosted servers have no limits. */
+  accountLimits: AccountLimits | null
 }
 
 export class ConfigError extends Error {
@@ -202,5 +211,13 @@ export function loadConfig(env: Env): Config {
     proxyHops: integer("PROXY_HOPS", 0, 0, 5) + (optional("TRUST_PROXY") === "true" ? 1 : 0),
     encryptionKey,
     storage,
+    accountLimits:
+      optional("ACCOUNT_LIMITS") === "true"
+        ? {
+            screenshots: integer("LIMIT_SCREENSHOTS", 5, 1, 10_000),
+            recordings: integer("LIMIT_RECORDINGS", 5, 1, 10_000),
+            ownedWorkspaces: integer("LIMIT_OWNED_WORKSPACES", 1, 1, 10_000),
+          }
+        : null,
   }
 }

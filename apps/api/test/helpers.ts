@@ -89,6 +89,7 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
     proxyHops: 0,
     encryptionKey: TEST_ENCRYPTION_KEY,
     storage: { driver: "local", dir: mkdtempSync(join(tmpdir(), "bugberry-test-")) },
+    accountLimits: null,
     ...overrides,
   }
 }

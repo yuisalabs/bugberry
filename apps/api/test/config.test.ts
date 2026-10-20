@@ -149,4 +149,23 @@ describe("loadConfig", () => {
   test("rejects unknown storage drivers", () => {
     expect(() => loadConfig({ ...baseEnv, STORAGE_DRIVER: "ftp" })).toThrow(/STORAGE_DRIVER/)
   })
+
+  test("account limits are off unless ACCOUNT_LIMITS is true", () => {
+    expect(loadConfig(baseEnv).accountLimits).toBeNull()
+    expect(loadConfig({ ...baseEnv, ACCOUNT_LIMITS: "false" }).accountLimits).toBeNull()
+  })
+
+  test("ACCOUNT_LIMITS=true uses 5 / 5 / 1 by default", () => {
+    expect(loadConfig({ ...baseEnv, ACCOUNT_LIMITS: "true" }).accountLimits).toEqual({ screenshots: 5, recordings: 5, ownedWorkspaces: 1 })
+  })
+
+  test("limit numbers can be overridden", () => {
+    const env = { ...baseEnv, ACCOUNT_LIMITS: "true", LIMIT_SCREENSHOTS: "10", LIMIT_RECORDINGS: "2", LIMIT_OWNED_WORKSPACES: "3" }
+    expect(loadConfig(env).accountLimits).toEqual({ screenshots: 10, recordings: 2, ownedWorkspaces: 3 })
+  })
+
+  test("limit numbers must be positive integers", () => {
+    const env = { ...baseEnv, ACCOUNT_LIMITS: "true", LIMIT_RECORDINGS: "0" }
+    expect(() => loadConfig(env)).toThrow(new ConfigError("LIMIT_RECORDINGS must be an integer between 1 and 10000"))
+  })
 })
