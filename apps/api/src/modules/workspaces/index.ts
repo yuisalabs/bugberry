@@ -9,7 +9,7 @@ import { conflict, forbidden, notFound, tooManyRequests, unprocessable } from ".
 import { createRateLimiter } from "../../lib/rate-limit"
 import { oneOf } from "../../lib/schema"
 import { requireMember } from "../../workspaces/access"
-import { assertCanCreateWorkspace } from "../../workspaces/limits"
+import { assertCanCreateWorkspace, workspaceLimits } from "../../workspaces/limits"
 import { createWorkspace } from "../../workspaces/provision"
 import { freeSlug, isUniqueViolation, slugProblem, slugTaken } from "../../workspaces/slug"
 
@@ -87,6 +87,15 @@ export function workspacesModule(deps: AppDeps) {
         return { ...created, role: "admin" as const, owner: true }
       },
       { auth: true, body: t.Object({ name, slug: t.Optional(slug) }) },
+    )
+    // Screenshots and recordings kept against ACCOUNT_LIMITS; { limited: false } when they don't apply.
+    .get(
+      "/workspaces/:id/limits",
+      async ({ user: current, params }) => {
+        await requireMember(db, current.id, params.id)
+        return workspaceLimits(db, config, params.id)
+      },
+      { auth: true },
     )
     // What the Create workspace modal and Settings show under the URL field.
     .get(
