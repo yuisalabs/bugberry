@@ -126,6 +126,10 @@ export class LocalStorageDriver implements StorageDriver {
     }
   }
 
+  async replace(key: string, body: Uint8Array<ArrayBuffer>, _contentType: string): Promise<void> {
+    await this.writeObject(key, body)
+  }
+
   openObject(key: string): BunFile {
     return Bun.file(this.pathFor(key))
   }

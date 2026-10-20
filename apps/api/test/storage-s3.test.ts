@@ -46,6 +46,19 @@ describe.skipIf(!endpoint)("S3StorageDriver against MinIO", () => {
     await driver.delete(key)
   })
 
+  test("replaces an object, keeping the content type it is served with", async () => {
+    const key = mediaKeyFor(newId(), "video")
+    const target = await driver.createUploadTarget(key, { contentType: "video/webm", maxBytes: 3 })
+    await fetch(target.url, { method: target.method, headers: target.headers, body: new Uint8Array([1, 2, 3]) })
+
+    await driver.replace(key, new Uint8Array([4, 5, 6]), "video/webm")
+
+    const read = await fetch(await driver.getReadUrl(key, { contentType: "video/webm" }))
+    expect(read.headers.get("content-type")).toBe("video/webm")
+    expect(new Uint8Array(await read.arrayBuffer())).toEqual(new Uint8Array([4, 5, 6]))
+    await driver.delete(key)
+  })
+
   test("presigned URLs use the configured lifetimes", async () => {
     const key = mediaKeyFor(newId(), "screenshot")
     const upload = await driver.createUploadTarget(key, { contentType: "image/png", maxBytes: 1 })

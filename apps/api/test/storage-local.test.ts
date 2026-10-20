@@ -57,6 +57,15 @@ describe("LocalStorageDriver", () => {
     expect(driver.verifyReadToken(readUrl.split("/").at(-1) ?? "")).toMatchObject({ k: key, t: "image/png" })
   })
 
+  test("replaces an object in place", async () => {
+    const key = mediaKeyFor(newId(), "video")
+    await driver.writeObject(key, new Uint8Array([1, 2, 3]))
+
+    await driver.replace(key, new Uint8Array([4, 5, 6]), "video/webm")
+
+    expect(new Uint8Array(await ((await driver.read(key)) as Blob).arrayBuffer())).toEqual(new Uint8Array([4, 5, 6]))
+  })
+
   test("writes, measures, reads and deletes objects", async () => {
     const key = debuggerKeyFor(newId())
     expect(await driver.head(key)).toBeNull()

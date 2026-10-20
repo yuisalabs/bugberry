@@ -16,5 +16,7 @@ export interface StorageDriver {
   read(key: string): Promise<Blob | null>
   /** `expiresInSeconds` overrides READ_URL_TTL_SECONDS for this link. */
   getReadUrl(key: string, opts: { contentType: string; expiresInSeconds?: number }): Promise<string>
+  /** Overwrites an existing object (maintenance scripts; uploads go through createUploadTarget). */
+  replace(key: string, body: Uint8Array<ArrayBuffer>, contentType: string): Promise<void>
   delete(key: string): Promise<void>
 }

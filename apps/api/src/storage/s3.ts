@@ -75,6 +75,11 @@ export class S3StorageDriver implements StorageDriver {
     })
   }
 
+  async replace(key: string, body: Uint8Array<ArrayBuffer>, contentType: string): Promise<void> {
+    assertSafeKey(key)
+    await this.client.write(key, body, { type: contentType })
+  }
+
   async delete(key: string): Promise<void> {
     assertSafeKey(key)
     await this.client.delete(key)
