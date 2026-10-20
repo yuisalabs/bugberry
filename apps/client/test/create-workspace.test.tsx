@@ -30,6 +30,11 @@ function form(overrides: Partial<Parameters<typeof CreateWorkspaceForm>[0]> = {}
 const create = () => screen.getByRole("button", { name: "Create workspace" }) as HTMLButtonElement
 
 describe("CreateWorkspaceForm", () => {
+  test("an account that can't add members isn't offered invites", () => {
+    form({ canInvite: false })
+    expect(screen.queryByRole("textbox", { name: "Invite teammates" })).toBeNull()
+  })
+
   test("creates with name, suggested slug, logo and invites", async () => {
     const props = form()
     expect(screen.getByRole("heading", { name: "Create a workspace" })).toBeTruthy()

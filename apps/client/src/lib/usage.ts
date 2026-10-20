@@ -7,3 +7,8 @@ export function usageText(limits: WorkspaceLimits): string | null {
   if (!limits.limited) return null
   return `${kept(limits.screenshots, "screenshot")} · ${kept(limits.recordings, "recording")}`
 }
+
+/** Invite controls show only once the workspace is known not to be limited, never while that is loading. */
+export function invitesAllowed(limits: WorkspaceLimits | undefined): boolean {
+  return limits?.limited === false
+}

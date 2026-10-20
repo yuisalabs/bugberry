@@ -2,7 +2,7 @@ import { useInfiniteQuery, useQuery } from "@tanstack/react-query"
 import { type ReactNode, useState } from "react"
 import { useNow } from "../hooks/useNow"
 import { queries } from "../lib/queries"
-import { usageText } from "../lib/usage"
+import { invitesAllowed, usageText } from "../lib/usage"
 import { feedItems } from "../lib/report-feed"
 import { type ReportSearch, toReportsQuery } from "../lib/report-search"
 import { readLayout, type ReportLayout, saveLayout } from "../lib/report-layout"
@@ -71,7 +71,7 @@ export function ReportsBrowser({
       }
       now={now}
       actions={actions}
-      canInvite={workspace?.role === "admin" && limits.data?.limited !== true}
+      canInvite={workspace?.role === "admin" && invitesAllowed(limits.data)}
       onInvite={() => setInviting(true)}
       usage={limits.data ? usageText(limits.data) : null}
       newReport={<NewReportButton installUrl={config.data?.extensionInstallUrl ?? null} />}

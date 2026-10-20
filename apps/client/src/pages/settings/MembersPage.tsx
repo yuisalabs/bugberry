@@ -7,6 +7,7 @@ import { errorMessage, type InviteResult, type JoinRequest, type Member, type Pe
 import { api } from "../../lib/client"
 import { formatDateTime } from "../../lib/format"
 import { queries } from "../../lib/queries"
+import { invitesAllowed } from "../../lib/usage"
 import { roleLabel, useCurrentWorkspace } from "../../lib/workspace"
 
 export function MembersView({
@@ -183,7 +184,7 @@ export function MembersPage() {
           {errorMessage(error)}
         </p>
       )}
-      {members.isPending || me.isPending ? (
+      {members.isPending || me.isPending || limits.isPending ? (
         <Loading />
       ) : members.isError ? (
         <ErrorState error={members.error} onRetry={() => void members.refetch()} />
@@ -194,7 +195,7 @@ export function MembersPage() {
           members={members.data}
           invitations={invitations.data ?? []}
           requests={requests.data ?? []}
-          membersAllowed={limits.data?.limited !== true}
+          membersAllowed={invitesAllowed(limits.data)}
           onApprove={(userId) => approve.mutate(userId)}
           onDecline={(userId) => decline.mutate(userId)}
           onInvite={async (emails) => {

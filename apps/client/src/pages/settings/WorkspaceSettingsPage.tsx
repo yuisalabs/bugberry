@@ -230,7 +230,8 @@ function WorkspaceAccessSection({ workspaceId }: { workspaceId: string }) {
     mutationFn: (patch: Parameters<typeof api.updateWorkspaceAccess>[1]) => api.updateWorkspaceAccess(workspaceId, patch),
     onSuccess: (next) => queryClient.setQueryData(queries.workspaceAccess(workspaceId).queryKey, next),
   })
-  if (!access.data) return null
+  // Nothing until both are known, so a limited workspace never flashes controls that would be refused.
+  if (!access.data || !limits.data) return null
   return (
     <>
       <WorkspaceAccessView
@@ -239,7 +240,7 @@ function WorkspaceAccessSection({ workspaceId }: { workspaceId: string }) {
         busy={update.isPending}
         onShareLink={(action) => update.mutate({ shareLink: action })}
         onDomain={(patch) => update.mutate(patch)}
-        membersAllowed={limits.data?.limited !== true}
+        membersAllowed={!limits.data.limited}
       />
       {update.error && (
         <p role="alert" className="text-sm text-danger-subtle-foreground">

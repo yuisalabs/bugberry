@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { usageText } from "../src/lib/usage"
+import { invitesAllowed, usageText } from "../src/lib/usage"
 
 describe("usageText", () => {
   test("nothing when the workspace isn't limited", () => {
@@ -22,5 +22,13 @@ describe("usageText", () => {
     expect(usageText({ limited: true, screenshots: { used: 0, max: 1 }, recordings: { used: 1, max: 1 } })).toBe(
       "0 of 1 screenshot · 1 of 1 recording",
     )
+  })
+})
+
+describe("invitesAllowed", () => {
+  test("only once the workspace is known not to be limited", () => {
+    expect(invitesAllowed(undefined)).toBe(false)
+    expect(invitesAllowed({ limited: false })).toBe(true)
+    expect(invitesAllowed({ limited: true, screenshots: { used: 0, max: 5 }, recordings: { used: 0, max: 5 } })).toBe(false)
   })
 })

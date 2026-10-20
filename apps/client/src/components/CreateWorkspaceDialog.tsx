@@ -1,5 +1,5 @@
 import { RiAddLine, RiCheckboxCircleLine } from "@remixicon/react"
-import { useQueryClient } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { type FormEvent, useState } from "react"
 import { Dialog, DialogBody, DialogFooter, DialogHeader, DialogTitle } from "@bugberry/ui/dialog"
 import { Button } from "@bugberry/ui/button"
@@ -8,6 +8,7 @@ import { Input } from "@bugberry/ui/input"
 import { TextField } from "@bugberry/ui/text-field"
 import { errorMessage, type InviteResult } from "../lib/api"
 import { api } from "../lib/client"
+import { queries } from "../lib/queries"
 import { type SlugAnswer, type SlugStatus, useSlugCheck } from "../lib/workspace-slug"
 import { EmailChips } from "./EmailChips"
 import { RESULT_LABELS } from "./InviteDialog"
@@ -67,6 +68,7 @@ export function CreateWorkspaceForm({
   onClose,
   check,
   measure,
+  canInvite = true,
 }: {
   /** This server's address; its host is shown before the URL field. */
   origin: string
@@ -77,6 +79,8 @@ export function CreateWorkspaceForm({
   onClose(): void
   check?: (query: { name?: string; slug?: string; except?: string }) => Promise<SlugAnswer>
   measure?: (file: File) => Promise<{ width: number; height: number }>
+  /** False when this account's workspaces take no members (ACCOUNT_LIMITS). */
+  canInvite?: boolean
 }) {
   const [name, setName] = useState("")
   const [typed, setTyped] = useState("")
@@ -151,14 +155,16 @@ export function CreateWorkspaceForm({
           <LogoPicker file={logo} name={name} onChange={setLogo} measure={measure} />
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <span className={`${label} flex items-center justify-between`}>
-            Invite teammates
-            {optional}
-          </span>
-          <EmailChips emails={emails} onChange={setEmails} />
-          <span className="text-xs text-muted-foreground">They get an email invite and join as Members. You can change roles later.</span>
-        </div>
+        {canInvite && (
+          <div className="flex flex-col gap-1.5">
+            <span className={`${label} flex items-center justify-between`}>
+              Invite teammates
+              {optional}
+            </span>
+            <EmailChips emails={emails} onChange={setEmails} />
+            <span className="text-xs text-muted-foreground">They get an email invite and join as Members. You can change roles later.</span>
+          </div>
+        )}
 
         {(message ?? error) && (
           <p role="alert" className="rounded-lg bg-danger-subtle px-3 py-2 text-sm text-danger-subtle-foreground">
@@ -188,6 +194,7 @@ export function CreateWorkspaceDialog({ isOpen, onOpenChange }: { isOpen: boolea
   const queryClient = useQueryClient()
   const [done, setDone] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  const myLimits = useQuery(queries.myLimits())
   const close = () => {
     onOpenChange(false)
     setDone(false)
@@ -222,7 +229,14 @@ export function CreateWorkspaceDialog({ isOpen, onOpenChange }: { isOpen: boolea
 
   return (
     <Dialog isOpen={isOpen} onOpenChange={(open) => (open ? onOpenChange(true) : close())} aria-label="Create a workspace" size="lg">
-      <CreateWorkspaceForm origin={window.location.origin} done={done} message={message} onSubmit={submit} onClose={close} />
+      <CreateWorkspaceForm
+        origin={window.location.origin}
+        done={done}
+        message={message}
+        onSubmit={submit}
+        onClose={close}
+        canInvite={myLimits.data?.canAddMembers === true}
+      />
     </Dialog>
   )
 }
