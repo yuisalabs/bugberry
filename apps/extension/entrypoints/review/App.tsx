@@ -1,18 +1,19 @@
 import type { RecordingNote } from "@bugberry/capture"
 import { VideoPlayer } from "@bugberry/player/video-player"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { browser } from "wxt/browser"
 import { createBugberryApi, type Project, type Workspace } from "../../lib/api"
 import { relayFetcher } from "../../lib/api-relay"
 import { BUILD_SERVER_ORIGIN, browserSettingsStorage, includeCityStorage, lastWorkspaceStorage } from "../../lib/browser-settings"
 import { createIndexedDbDraftStore, saveAnnotations } from "../../lib/draft-store"
 import { type EditorDeps, loadEditor, loadProjects } from "../../lib/editor-load"
-import { fullWarning, limitsFor, sendBlocked, usageLine } from "../../lib/limits"
+import { limitsFor } from "../../lib/limits"
 import { currentCoordinates, locationForSend, toggleCity } from "../../lib/location"
 import type { ReviewAgainRequest } from "../../lib/messages"
 import { isSignedOut } from "../../lib/popup"
 import { reviewMarkers } from "../../lib/review-data"
 import { draftKept, draftWithNotes } from "../../lib/review-draft"
+import { createReviewLimits, type LimitNote, NO_LIMIT_NOTE, openDashboardFor } from "../../lib/review-limits"
 import { signInUrl } from "../../lib/session"
 import { loadSettings, type Settings } from "../../lib/settings"
 import { makeThumbnail } from "../../lib/thumbnail"
@@ -70,13 +71,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
   const [includeCity, setIncludeCity] = useState(false)
   const [cityNote, setCityNote] = useState<string | null>(null)
   // The selected workspace under ACCOUNT_LIMITS: its usage for this kind, and whether "Create report" waits.
-  const selected = useRef<string | null>(null)
-  const [limitNote, setLimitNote] = useState<{ usage: string | null; warning: string | null; blocked: boolean; admin: boolean }>({
-    usage: null,
-    warning: null,
-    blocked: false,
-    admin: false,
-  })
+  const [limitNote, setLimitNote] = useState<LimitNote>(NO_LIMIT_NOTE)
 
   useEffect(() => {
     let cancelled = false
@@ -120,33 +115,32 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
     [draftId, busy],
   )
 
-  const refreshLimits = useCallback(async () => {
-    const workspaceId = selected.current
-    const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
-    if (!settings || !loaded || !workspaceId) return
-    const limits = await limitsFor(apiOf(settings), workspaceId)
-    // Read again from the store: a failed send may have started this draft's own upload since it loaded.
-    const current = await store.get(draftId)
-    if (selected.current !== workspaceId) return
-    const kind = loaded.draft.captureType
-    const workspace = loaded.workspaces.find((entry) => entry.id === workspaceId)
-    const who = { isAdmin: workspace?.role === "admin", hasOtherWorkspaces: loaded.workspaces.length > 1 }
-    const blocked = sendBlocked(limits, kind, current, workspaceId)
-    // A draft resuming its own upload isn't held back, so it gets no warning either.
-    setLimitNote({ usage: usageLine(limits, kind), warning: blocked ? fullWarning(limits, kind, "review", who) : null, blocked, admin: who.isAdmin })
-  }, [draftId, loaded])
-
-  useEffect(() => {
-    if (!loaded) return
-    selected.current ??= loaded.workspaceId
-    void refreshLimits()
-  }, [loaded, refreshLimits])
+  const limits = useMemo(
+    () =>
+      loaded &&
+      createReviewLimits(
+        {
+          kind: loaded.draft.captureType,
+          workspaces: loaded.workspaces,
+          fetchLimits: async (workspaceId) => {
+            const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
+            return settings ? limitsFor(apiOf(settings), workspaceId) : null
+          },
+          currentDraft: () => store.get(draftId),
+          onChange: setLimitNote,
+        },
+        loaded.workspaceId,
+      ),
+    [draftId, loaded],
+  )
+  const refreshLimits = useCallback(() => void limits?.refresh(), [limits])
+  useEffect(refreshLimits, [refreshLimits])
 
   // Back from the dashboard after deleting a report: a slot may be free now.
   useEffect(() => {
     if (busy) return
     const again = () => {
-      if (document.visibilityState === "visible") void refreshLimits()
+      if (document.visibilityState === "visible") refreshLimits()
     }
     window.addEventListener("focus", again)
     document.addEventListener("visibilitychange", again)
@@ -158,11 +152,12 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
 
   const openDashboard = async () => {
     const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
-    const workspaceId = selected.current
+    const workspaceId = limits?.selected()
     if (!settings || !workspaceId) return
-    // The dashboard lists its current workspace's reports: make it this one first.
-    await apiOf(settings).setCurrentWorkspace(workspaceId).catch(() => {})
-    window.open(`${settings.serverUrl}/app`, "_blank", "noopener")
+    await openDashboardFor(workspaceId, settings.serverUrl, {
+      setCurrentWorkspace: (id) => apiOf(settings).setCurrentWorkspace(id),
+      openTab: (url) => browser.tabs.create({ url }),
+    })
   }
 
   const close = () => {
@@ -171,8 +166,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
   }
 
   const changeWorkspace = async (id: string) => {
-    selected.current = id
-    void refreshLimits()
+    void limits?.select(id)
     const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
     if (settings) setProjects((await loadProjects(editorDeps, settings, id)).projects)
   }
@@ -218,7 +212,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
     } catch (cause) {
       if (isSignedOut(cause)) setStatus({ signedOut: signInUrl(settings.serverUrl) })
       else setStatus({ failed: cause instanceof Error ? cause.message : String(cause) })
-      void refreshLimits()
+      refreshLimits()
     }
   }
 
