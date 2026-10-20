@@ -7,7 +7,7 @@ import { loadReportDetail } from "../../modules/reports/detail"
 import { createCommentsService } from "../../modules/comments/service"
 import { renderMentions } from "../../modules/comments/mentions"
 import { type McpContext, McpToolError, RATE_LIMITED, runTool } from "../context"
-import { loadDebuggerView, NO_DEBUGGER } from "../debugger"
+import { loadDebuggerData, NO_DEBUGGER, UNREADABLE_DEBUGGER } from "../debugger"
 import { clip, offsetLabel, reportUrl, textResult } from "../format"
 import { requireMemberAccess, resolveReportRef, type ResolvedReport } from "../refs"
 import { reportArgs } from "./args"
@@ -34,7 +34,8 @@ export async function reportSummary(ctx: McpContext, resolved: ResolvedReport) {
   const member = resolved.access === "member"
   const detail = await loadReportDetail(deps, eq(report.id, resolved.id), { forMember: member })
   if (!detail) throw new Error("report vanished")
-  const view = await loadDebuggerView(ctx, resolved)
+  const data = await loadDebuggerData(ctx, resolved)
+  const view = data === "unreadable" ? null : data
   const [projectRow] = detail.projectId
     ? await deps.db.select({ name: project.name }).from(project).where(eq(project.id, detail.projectId)).limit(1)
     : []
@@ -75,7 +76,9 @@ export async function reportSummary(ctx: McpContext, resolved: ResolvedReport) {
     "",
     view
       ? `Debugger: ${summary.logs} logs, ${summary.errors} errors, ${summary.requests} requests (${summary.failedRequests} failed), ${summary.actions} user actions`
-      : NO_DEBUGGER,
+      : data === "unreadable"
+        ? UNREADABLE_DEBUGGER
+        : NO_DEBUGGER,
     ...(summary.incomplete.length > 0 ? [`Not captured (hooks that could not be installed): ${summary.incomplete.join(", ")}`] : []),
     ...(topErrors.length > 0 ? ["", "Top errors:", ...topErrors.map((text) => `- ${text}`)] : []),
     ...(view && view.notes.length > 0

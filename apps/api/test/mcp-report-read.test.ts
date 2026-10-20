@@ -147,3 +147,14 @@ describe("getScreenshot", () => {
     expect(result.text).toContain(`Watch the video in BugBerry: http://localhost:3000/app/r/${video.id}`)
   })
 })
+
+describe("getReport with unreadable debugger data", () => {
+  test("says the data could not be read", async () => {
+    const id = crypto.randomUUID()
+    await createReadyReport(ctx.db, { id, reporterId: ana.user.id, debuggerKey: await putDebugger(ctx, id, "not json {") })
+    const { text, isError } = await callTool(client, "getReport", { report: id })
+    expect(isError).toBe(false)
+    expect(text).toContain("This report's debugger data could not be read")
+    expect(text).not.toContain("This report has no captured debugger data")
+  })
+})

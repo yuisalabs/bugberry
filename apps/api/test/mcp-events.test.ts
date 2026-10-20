@@ -98,3 +98,13 @@ describe("pagination and missing data", () => {
     }
   })
 })
+
+describe("unreadable debugger data", () => {
+  test("is reported as unreadable, not as missing", async () => {
+    const ana = await createUserWithToken(ctx.db)
+    const id = crypto.randomUUID()
+    await createReadyReport(ctx.db, { id, reporterId: ana.user.id, debuggerKey: await putDebugger(ctx, id, "not json {") })
+    const result = await callTool(await mcpClient(ctx.app, ana.headers), "getTimeline", { report: id })
+    expect(result).toMatchObject({ isError: false, text: "This report's debugger data could not be read" })
+  })
+})

@@ -4,16 +4,20 @@ import { type McpContext, McpToolError } from "./context"
 import type { ResolvedReport } from "./refs"
 
 export const NO_DEBUGGER = "This report has no captured debugger data"
+export const UNREADABLE_DEBUGGER = "This report's debugger data could not be read"
 
-/** What one read produced: the view, or null when there is none or it can't be read, and its rough size. */
+/** A report's debugger data: the view, or "unreadable" when the file is missing, broken or too large. */
+export type DebuggerData = DebuggerView | "unreadable"
+
+/** What one read produced, and its rough size. */
 export interface LoadedView {
-  view: DebuggerView | null
+  view: DebuggerData
   bytes: number
 }
 
 export interface DebuggerCache {
   /** The cached result for `key`, or the one `read` produces; parallel callers share a single read. */
-  load(key: string, read: () => Promise<LoadedView>): Promise<DebuggerView | null>
+  load(key: string, read: () => Promise<LoadedView>): Promise<DebuggerData>
 }
 
 /**
@@ -30,7 +34,7 @@ export function createDebuggerCache(
   const ttlMs = opts.ttlMs ?? 5 * 60_000
   const now = opts.now ?? Date.now
   const entries = new Map<string, LoadedView & { expiresAt: number }>()
-  const inFlight = new Map<string, Promise<DebuggerView | null>>()
+  const inFlight = new Map<string, Promise<DebuggerData>>()
   let totalBytes = 0
 
   const drop = (key: string) => {
@@ -92,26 +96,36 @@ async function withReadSlot<T>(work: () => Promise<T>): Promise<T> {
   }
 }
 
-/** The report's debugger data, validated like the dashboard does; null when there is none or it can't be read. */
-export async function loadDebuggerView(ctx: McpContext, report: ResolvedReport): Promise<DebuggerView | null> {
+/**
+ * The report's debugger data, validated like the dashboard does: null when the report has none,
+ * "unreadable" when it should have some but the file is missing, broken or too large.
+ */
+export async function loadDebuggerData(ctx: McpContext, report: ResolvedReport): Promise<DebuggerData | null> {
   const key = report.row.debuggerKey
   if (!key) return null
   return ctx.cache.load(`${report.id}:${key}`, () =>
     withReadSlot(async (): Promise<LoadedView> => {
       try {
         const blob = await ctx.deps.storage.read(key)
-        if (!blob) return { view: null, bytes: 0 }
+        if (!blob) return { view: "unreadable", bytes: 0 }
         const json = await gunzipLimited(blob)
         return { view: normalizePayload(JSON.parse(json)), bytes: json.length }
       } catch {
-        return { view: null, bytes: 0 }
+        return { view: "unreadable", bytes: 0 }
       }
     }),
   )
 }
 
+/** The view, or null when there is none or it can't be read. */
+export async function loadDebuggerView(ctx: McpContext, report: ResolvedReport): Promise<DebuggerView | null> {
+  const data = await loadDebuggerData(ctx, report)
+  return data === "unreadable" ? null : data
+}
+
 export async function requireDebuggerView(ctx: McpContext, report: ResolvedReport): Promise<DebuggerView> {
-  const view = await loadDebuggerView(ctx, report)
-  if (!view) throw new McpToolError("no_debugger", NO_DEBUGGER)
-  return view
+  const data = await loadDebuggerData(ctx, report)
+  if (data === null) throw new McpToolError("no_debugger", NO_DEBUGGER)
+  if (data === "unreadable") throw new McpToolError("debugger_unreadable", UNREADABLE_DEBUGGER)
+  return data
 }

@@ -56,8 +56,8 @@ export async function runTool(fn: () => Promise<CallToolResult>): Promise<CallTo
   try {
     return await fn()
   } catch (error) {
-    // Missing debugger data is an answer, not a failure: the report simply has none.
-    if (error instanceof McpToolError && error.code === "no_debugger") {
+    // Missing or unreadable debugger data is an answer about the report, not a failure to retry.
+    if (error instanceof McpToolError && (error.code === "no_debugger" || error.code === "debugger_unreadable")) {
       return { content: [{ type: "text", text: error.message }] }
     }
     if (error instanceof McpToolError || error instanceof AppError) {

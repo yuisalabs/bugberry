@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { MAX_EVENTS } from "@bugberry/debugger-view"
-import { createDebuggerCache, loadDebuggerView } from "../src/mcp/debugger"
+import { createDebuggerCache, loadDebuggerData, loadDebuggerView } from "../src/mcp/debugger"
 import { resolveReportRef } from "../src/mcp/refs"
 import type { LocalStorageDriver } from "../src/storage/local"
 import { createReadyReport, createUser, setupTestApp } from "./helpers"
@@ -122,5 +122,16 @@ describe("loadDebuggerView", () => {
     now = 2000
     await loadDebuggerView(mcp, resolved)
     expect(counter.reads).toBe(2)
+  })
+})
+
+describe("loadDebuggerData", () => {
+  test("tells missing data apart from data that can't be read", async () => {
+    const none = await reportWith(null)
+    expect(await loadDebuggerData(none.mcp, none.resolved)).toBeNull()
+    const broken = await reportWith("not json {")
+    expect(await loadDebuggerData(broken.mcp, broken.resolved)).toBe("unreadable")
+    const fine = await reportWith(samplePayload())
+    expect(typeof (await loadDebuggerData(fine.mcp, fine.resolved))).toBe("object")
   })
 })
