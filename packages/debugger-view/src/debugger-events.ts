@@ -344,17 +344,20 @@ export interface ConsoleEntry {
   source: string | null
 }
 
-export function consoleEntries(events: readonly ViewEvent[]): ConsoleEntry[] {
-  const entries: ConsoleEntry[] = []
-  for (const event of events) {
-    if (event.kind === "console") {
-      entries.push({ t: event.t, level: event.level, text: event.text, stack: event.stack, uncaught: false, source: event.source })
-    } else if (event.kind === "error") {
-      const message = event.source ? `${event.message} (${event.source})` : event.message
-      entries.push({ t: event.t, level: "error", text: message, stack: event.stack, uncaught: true, source: null })
-    }
+/** A console call or a page error as a console line; null for any other event. */
+export function consoleEntry(event: ViewEvent): ConsoleEntry | null {
+  if (event.kind === "console") {
+    return { t: event.t, level: event.level, text: event.text, stack: event.stack, uncaught: false, source: event.source }
   }
-  return entries
+  if (event.kind === "error") {
+    const message = event.source ? `${event.message} (${event.source})` : event.message
+    return { t: event.t, level: "error", text: message, stack: event.stack, uncaught: true, source: null }
+  }
+  return null
+}
+
+export function consoleEntries(events: readonly ViewEvent[]): ConsoleEntry[] {
+  return events.map(consoleEntry).filter((entry): entry is ConsoleEntry => entry !== null)
 }
 
 export function isFailedRequest(event: ViewNetwork): boolean {

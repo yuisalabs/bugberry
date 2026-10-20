@@ -22,8 +22,8 @@ describe("consoleRows", () => {
   test("logs, navigations and network errors in time order; activity off by default", () => {
     const rows = consoleRows(events, defaults)
     expect(kinds(rows)).toEqual(["navigation", "log", "network-error", "log", "log", "log", "network-error"])
-    expect(rows[2]).toEqual({ t: 1300, kind: "network-error", text: "POST https://shop.test/api/orders 500" })
-    expect(rows[6]).toEqual({ t: 1700, kind: "network-error", text: "GET https://shop.test/api/cart failed" })
+    expect(rows[2]).toEqual({ key: "e3", t: 1300, kind: "network-error", text: "POST https://shop.test/api/orders 500" })
+    expect(rows[6]).toEqual({ key: "e8", t: 1700, kind: "network-error", text: "GET https://shop.test/api/cart failed" })
     expect(rows[3]).toMatchObject({ kind: "log", level: "error", uncaught: true, stack: "at submit (checkout.js:1)" })
   })
 
@@ -31,17 +31,26 @@ describe("consoleRows", () => {
     expect(kinds(consoleRows(events, { ...defaults, navigations: false }))).not.toContain("navigation")
     expect(kinds(consoleRows(events, { ...defaults, networkErrors: false }))).not.toContain("network-error")
     const withActivity = consoleRows(events, { ...defaults, activity: true })
-    expect(withActivity.find((row) => row.kind === "activity")).toEqual({ t: 1200, kind: "activity", text: "Clicked button#pay" })
+    expect(withActivity.find((row) => row.kind === "activity")).toEqual({ key: "e2", t: 1200, kind: "activity", text: "Clicked button#pay" })
   })
 
   test("the level filter keeps only that level's logs", () => {
     const rows = consoleRows(events, { ...defaults, level: "warn", navigations: false, networkErrors: false })
-    expect(rows).toEqual([{ t: 1500, kind: "log", level: "warn", text: "careful", stack: null, uncaught: false, source: null }])
+    expect(rows).toEqual([{ key: "e6", t: 1500, kind: "log", level: "warn", text: "careful", stack: null, uncaught: false, source: null }])
   })
 
   test("the query filter matches any row's text, ignoring case", () => {
     const rows = consoleRows(events, { ...defaults, query: "ORDERS" })
     expect(kinds(rows)).toEqual(["network-error"])
+  })
+
+  test("a row keeps its key however the rows are filtered, and no two rows share one", () => {
+    const all = consoleRows(events, { ...defaults, activity: true }, { startedAt: 900, durationMs: 1000 })
+    expect(new Set(all.map((row) => row.key)).size).toBe(all.length)
+    const keyOf = (rows: ReturnType<typeof consoleRows>, text: string) => rows.find((row) => "text" in row && row.text === text)?.key
+    const warnings = consoleRows(events, { ...defaults, level: "warn" })
+    expect(keyOf(warnings, "careful")).toBe(keyOf(all, "careful"))
+    expect(keyOf(consoleRows(events, { ...defaults, query: "care" }), "careful")).toBe(keyOf(all, "careful"))
   })
 })
 
@@ -65,8 +74,8 @@ describe("recording markers, sources and how a page was reached", () => {
 
   test("a recording starts and stops in the timeline; without a duration it only starts", () => {
     const rows = consoleRows(richer, defaults, { startedAt: 900, durationMs: 5000 })
-    expect(rows[0]).toEqual({ t: 900, kind: "marker", text: "Recording started" })
-    expect(rows.at(-1)).toEqual({ t: 5900, kind: "marker", text: "Recording stopped" })
+    expect(rows[0]).toEqual({ key: "start", t: 900, kind: "marker", text: "Recording started" })
+    expect(rows.at(-1)).toEqual({ key: "stop", t: 5900, kind: "marker", text: "Recording stopped" })
     const open = consoleRows(richer, defaults, { startedAt: 900, durationMs: null })
     expect(open.filter((row) => row.kind === "marker").map((row) => row.kind === "marker" && row.text)).toEqual(["Recording started"])
     expect(consoleRows(richer, defaults).some((row) => row.kind === "marker")).toBe(false)
