@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs"
+import { reviewSourcesName } from "./zip-sources"
 
 /**
  * Signs the Firefox build on addons.mozilla.org's unlisted channel, so the .xpi installs for good in regular
@@ -11,7 +12,7 @@ export function missingKeys(env: Record<string, string | undefined>): string[] {
   return KEYS.filter((name) => !env[name]?.trim())
 }
 
-/** web-ext's arguments; WXT's `zip -b firefox` writes the sources zip AMO may ask for. */
+/** web-ext's arguments; the sources AMO asks for are the reviewers' zip from scripts/zip-sources.ts. */
 export function signArgs(version: string): string[] {
   return [
     "sign",
@@ -22,7 +23,7 @@ export function signArgs(version: string): string[] {
     "--artifacts-dir",
     ".output",
     "--upload-source-code",
-    `.output/bugberryextension-${version}-sources.zip`,
+    `.output/${reviewSourcesName(version)}`,
   ]
 }
 

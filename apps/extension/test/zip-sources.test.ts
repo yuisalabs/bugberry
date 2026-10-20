@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { fileURLToPath } from "node:url"
-import { archiveArgs, buildNotes, SOURCE_PATHSPECS } from "../scripts/zip-sources"
+import { archiveArgs, buildNotes, reviewSourcesName, SOURCE_PATHSPECS } from "../scripts/zip-sources"
 
 const repoRoot = fileURLToPath(new URL("../../..", import.meta.url))
 
@@ -42,6 +42,10 @@ describe("the sources zip for store reviewers", () => {
     expect(args).toContain("--add-virtual-file=bugberry-0.2.4-sources/BUILD.md:notes")
     expect(args).toContain("HEAD")
     expect(args.slice(-SOURCE_PATHSPECS.length)).toEqual([...SOURCE_PATHSPECS])
+  })
+
+  test("its own file name, so the sources zip WXT writes next to each package never replaces it", () => {
+    expect(reviewSourcesName("0.2.4")).toBe("bugberry-0.2.4-review-sources.zip")
   })
 
   test("the build notes say how to rebuild each store's package", () => {

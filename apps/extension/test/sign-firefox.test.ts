@@ -12,7 +12,7 @@ describe("sign-firefox", () => {
       "--artifacts-dir",
       ".output",
       "--upload-source-code",
-      ".output/bugberryextension-0.2.0-sources.zip",
+      ".output/bugberry-0.2.0-review-sources.zip",
     ])
   })
 

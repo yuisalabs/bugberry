@@ -51,6 +51,11 @@ export function buildNotes(version: string, envLines: string[] = [SERVER_ORIGIN]
   ].join("\n")
 }
 
+/** Not WXT's `bugberryextension-<version>-sources.zip`, which each `wxt zip` writes again. */
+export function reviewSourcesName(version: string): string {
+  return `bugberry-${version}-review-sources.zip`
+}
+
 export function archiveArgs(version: string, output: string, notes: string): string[] {
   const prefix = `bugberry-${version}-sources/`
   return [
@@ -84,7 +89,7 @@ if (import.meta.main) {
     process.exit(1)
   }
   const { version } = JSON.parse(readFileSync(`${extensionDir}package.json`, "utf8")) as { version: string }
-  const output = `${extensionDir}.output/bugberryextension-${version}-sources.zip`
+  const output = `${extensionDir}.output/${reviewSourcesName(version)}`
   const notes = buildNotes(version, publicEnvLines(`${extensionDir}.env.production`))
   const archived = Bun.spawnSync(["git", ...archiveArgs(version, output, notes)], { cwd: repoRoot, stderr: "inherit" })
   if (archived.exitCode !== 0) process.exit(archived.exitCode ?? 1)

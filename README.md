@@ -250,6 +250,8 @@ Firefox 128 or newer is needed, and Firefox only installs extensions Mozilla has
 bun run sign:firefox
 ```
 
+It also uploads the source code Mozilla asks for (the extension is bundled): `bun run zip:sources` makes `apps/extension/.output/bugberry-<version>-review-sources.zip` from the last commit, with build steps in `BUILD.md`, and never includes the `.pem` key or `.env` files. Use the same zip for Opera's moderators. Commit before signing: the zip is made from the last commit.
+
 Share the signed `.xpi` it writes to `apps/extension/.output/`. Each team member drags it into Firefox (or opens it) and confirms the install. The Firefox extension's ID is `yuisalabs@gmail.com`; it must never change.
 
 To try a build on your own Firefox without signing, run `bun run build:firefox`, open `about:debugging#/runtime/this-firefox`, and use "Load Temporary Add-on" on `.output/firefox-mv3/manifest.json` (it is gone when Firefox closes).
