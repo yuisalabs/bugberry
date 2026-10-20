@@ -50,8 +50,8 @@ const ACTIONS = ["Open /checkout with 1 item in cart", "Type in â€œCard numberâ€
 
 function ContextCard({ title, body, children }: { title: string; body: string; children: ReactNode }) {
   return (
-    <div className="flex flex-col gap-5 rounded-[20px] border border-[#3D2B46] bg-[#2A1B31] p-6">
-      <div className="min-h-[150px] rounded-xl bg-[#1C1022] p-4">{children}</div>
+    <div className="flex flex-col gap-5 rounded-[20px] border border-[#3D2B46] bg-[#2A1B31] p-5 sm:p-6">
+      <div className="min-h-[150px] rounded-xl bg-[#1C1022] p-3 sm:p-4">{children}</div>
       <div className="flex flex-col gap-2">
         <h3 className="font-heading text-2xl font-bold tracking-[-0.5px] text-white">{title}</h3>
         <p className="text-[15px] leading-[23px] text-[#B6A7BE]">{body}</p>
@@ -154,7 +154,7 @@ export function LandingView({ signedIn }: { signedIn: boolean }) {
                 has to ask.
               </p>
             </Reveal>
-            <ol className="grid gap-6 md:grid-cols-3">
+            <ol className="grid grid-cols-1 gap-6 md:grid-cols-3">
               {STEPS.map((step, index) => (
                 <Reveal as="li" key={step.number} delay={index * 120} className="flex flex-col gap-4 border-t-2 border-foreground pt-6">
                   <span className="font-mono text-sm font-semibold text-muted-foreground">{step.number}</span>
@@ -174,7 +174,7 @@ export function LandingView({ signedIn }: { signedIn: boolean }) {
                 Every question an engineer would ask, answered before they ask it.
               </h2>
             </Reveal>
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <Reveal delay={0}>
                 <ContextCard
                   title="Network requests, with payloads"
@@ -182,13 +182,13 @@ export function LandingView({ signedIn }: { signedIn: boolean }) {
                 >
                   <ul className="flex flex-col gap-2 font-mono text-xs">
                     {NETWORK.map((request) => (
-                      <li key={request.path} className="flex items-center gap-3 text-[#D9D2DF]">
-                        <span className="w-10 text-[#B6A7BE]">{request.method}</span>
-                        <span className="flex-1 truncate">{request.path}</span>
+                      <li key={request.path} className="flex items-center gap-2 text-[#D9D2DF] sm:gap-3">
+                        <span className="w-[4ch] shrink-0 text-[#B6A7BE]">{request.method}</span>
+                        <span className="min-w-0 flex-1 truncate">{request.path}</span>
                         <span className={request.status >= 500 ? "font-bold text-[#E5484D]" : "text-[#5FCB93]"}>
                           {request.status}
                         </span>
-                        <span className="w-16 text-right text-[#B6A7BE]">{request.time}</span>
+                        <span className="w-[7ch] shrink-0 text-right text-[#B6A7BE]">{request.time}</span>
                       </li>
                     ))}
                   </ul>
@@ -277,9 +277,6 @@ export function LandingView({ signedIn }: { signedIn: boolean }) {
             </Link>
             <Link href="#features" className="hover:text-foreground">
               Features
-            </Link>
-            <Link href={signedIn ? "/app" : "/login"} className="hover:text-foreground">
-              {signedIn ? "Dashboard" : "Sign in"}
             </Link>
             <Link href={DOCS_URL} className="hover:text-foreground">
               Docs
