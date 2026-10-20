@@ -1,6 +1,58 @@
 ---
 title: Introduction
-description: What BugBerry is and how it fits together.
+description: BugBerry turns a bug into a report your developers can act on, with the evidence already attached.
 ---
 
-BugBerry turns a bug into a report with the screenshot or video, the console, the network, and the steps attached.
+BugBerry is a browser extension and a server. Someone who finds a bug clicks the BugBerry icon, takes a screenshot or records the screen, and sends a report. The report already holds what a developer would otherwise have to ask for: the console, the network requests, the clicks and keys that led there, and details about the browser and the page.
+
+BugBerry is open source (AGPL-3.0). You can run it on your own server, or use the cloud at [bugberry.yuisalabs.com](https://bugberry.yuisalabs.com).
+
+## How a report travels
+
+1. **Capture.** The extension takes a screenshot or records a tab, a window, or the whole screen. While it does, it collects the console, the network requests, and the user's actions from the page.
+2. **Review.** Before anything is sent, the reporter sees the video or screenshot, the errors and failed requests that were caught, and a suggested title. They can annotate, retake, or keep the draft for later.
+3. **Send.** The report goes to your BugBerry server, into a workspace and, if you like, a project.
+4. **Work on it.** Your team opens it in the dashboard: the video plays next to a timeline of events, and comments, status, priority, and assignee keep track of it.
+5. **Pass it on.** Share it with a link, send it to GitHub Issues or ActiveCollab, or let an AI agent read it through MCP.
+
+## What's inside
+
+| | |
+| --- | --- |
+| [Screenshots](/guide/screenshots) | The visible area or a part you select, with annotations |
+| [Recordings](/guide/recordings) | A tab, a window, or the screen, with sound, a pause button, and notes on the video |
+| [Dashboard](/guide/dashboard) | The video and a timeline of console, network, and actions, side by side |
+| [Workspaces and access](/guide/workspaces-and-access) | Teams, invitations, and share links that are private, company-wide, or public |
+| [Tracker integrations](/guide/trackers) | Send reports to GitHub Issues or ActiveCollab, by hand or automatically |
+| [AI agents (MCP)](/guide/ai-agents) | Claude, Cursor, VS Code, ChatGPT, and others can read and update reports |
+
+## How the server fits together
+
+A self-hosted BugBerry is a Docker Compose project:
+
+```text
+browser / extension
+        │  https
+        ▼
+  Caddy (optional) ──── or your own reverse proxy
+        │
+        ▼
+  client  nginx: the dashboard, and /api passed on to the api
+        │
+        ▼
+  api     Bun: sign-in, reports, uploads, integrations, MCP
+        │
+        ├── Postgres  reports, users, workspaces
+        └── storage   screenshots, videos, and captured data:
+                      a local volume, or S3 / R2 / MinIO / RustFS
+```
+
+Only the `client` container opens a port, and by default only on localhost. The browser, OAuth callbacks, and the extension all see a single address.
+
+## Where to go next
+
+<Cards>
+  <Card title="Quick start" href="/quick-start" description="A server running and a first report sent, in one page." />
+  <Card title="Self-host" href="/self-host" description="Every step and setting for running BugBerry on your own server." />
+  <Card title="User guide" href="/guide/screenshots" description="Pages to share with your team: capturing, recording, and working on reports." />
+</Cards>

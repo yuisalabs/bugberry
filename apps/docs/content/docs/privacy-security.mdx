@@ -1,0 +1,50 @@
+---
+title: Privacy and security
+description: What BugBerry records, what it leaves out, and who can see a report.
+---
+
+## What the extension records
+
+Only while you capture or record, and only from the tab you started on:
+
+- the screenshot or the video, and sound if you turned it on;
+- console messages and errors;
+- network requests: address, method, status, timing, headers, and bodies, shortened when they are long;
+- your clicks, key presses, and navigation, as steps;
+- the browser, the operating system, the screen and window size, and the page's address and title.
+
+Nothing is sent until you click **Create report**.
+
+## What it leaves out
+
+- **Passwords and secrets.** Headers such as `Authorization` and `Cookie` are replaced with `[redacted]`, and so are fields and parameters named like passwords, tokens, secrets, API keys, signatures, or session IDs, in URLs and in request and response bodies.
+- **What you type into password fields**, and the text of anything inside an element marked `data-bugberry-mask`. Typed values in other fields are recorded as dots, not as the text.
+- **Anything while you pause.** **Pause** on the Recording Bar stops the video and the console, network, and action capture until you resume.
+
+Developers can mark private parts of their own pages:
+
+```html
+<div data-bugberry-mask>Account number: 1234 5678</div>
+```
+
+## Your city
+
+When reviewing a report, you can tick **Include my city**. The browser asks once for location permission. The extension sends coordinates rounded to about 1 km, and the server turns them into a city name ("Jakarta, Indonesia") with a city list bundled with BugBerry, keeping only that name. No map service is asked.
+
+The city is shown to workspace members only, never on share links or in tracker issues. City data: [GeoNames](https://www.geonames.org), CC BY 4.0.
+
+## Who can see a report
+
+Members of the report's workspace, plus whoever its access level lets in through the share link: people with the same company email domain (**Internal**) or anyone (**Public**). Only the reporter or a workspace admin can change it. See [Workspaces and access](/guide/workspaces-and-access#who-can-see-a-report).
+
+AI agents connected through MCP see exactly what their person sees, and can't change who can see a report.
+
+## On your own server
+
+When you self-host, reports and files stay on your server and in the storage you choose; BugBerry doesn't send them anywhere else, except to the trackers and AI apps you connect. Tracker tokens are stored encrypted with your `ENCRYPTION_KEY`.
+
+When someone leaves your company, remove them from your workspaces; don't rely on disabling their work email, because a verified email on a personal GitHub or GitLab account keeps working. See [When someone leaves](/self-host/sign-in#when-someone-leaves).
+
+## The BugBerry cloud
+
+The cloud at bugberry.yuisalabs.com has its own [privacy policy](https://bugberry.yuisalabs.com/privacy).

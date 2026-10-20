@@ -1,0 +1,94 @@
+---
+title: Environment variables
+description: Every setting in .env, its default, and what it does.
+---
+
+All settings go in `.env` next to `docker-compose.yml` (copied from `.env.docker.example`). After a change, run `docker compose up -d` to apply it. The server checks its settings on start and refuses to run with a message naming the wrong one.
+
+## Address and ports
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `APP_URL` | required | The dashboard's public address, for example `https://bugberry.example.com`. HTTPS outside localhost. |
+| `BUGBERRY_DOMAIN` | `localhost` | Domain Caddy gets a certificate for (profile `caddy`). |
+| `BUGBERRY_PORT` | `3000` | Host port of the `client` container. |
+| `BUGBERRY_BIND` | `127.0.0.1` | Address that port listens on. `0.0.0.0` exposes it to the network. |
+| `TRUST_PROXY` | `false` | `true` when Caddy or another reverse proxy is in front, so rate limits use the visitor's IP. |
+
+Older installations may use `FDEBAG_DOMAIN`, `FDEBAG_PORT`, `FDEBAG_BIND`, and `FDEBAG_S3_DOMAIN`; they still work.
+
+## Secrets
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `POSTGRES_PASSWORD` | required | Database password. Read by Postgres only when its volume is created. |
+| `BETTER_AUTH_SECRET` | required | Signs sessions. At least 32 characters. |
+| `ENCRYPTION_KEY` | required | Encrypts tracker tokens. 32 bytes in base64 (`openssl rand -base64 32`). |
+
+## Sign-in
+
+At least one method must be on. See [Sign-in methods](/self-host/sign-in).
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | off | Google sign-in. Set both or neither. |
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | off | GitHub sign-in. Set both or neither. |
+| `GITLAB_CLIENT_ID`, `GITLAB_CLIENT_SECRET` | off | GitLab sign-in. Set both or neither. |
+| `GITLAB_URL` | `https://gitlab.com` | Your own GitLab's address. |
+| `EMAIL_DRIVER` | off | `resend` or `smtp`: sign-in with an emailed code. |
+| `EMAIL_FROM` | — | Sender, for example `BugBerry <no-reply@example.com>`. Required with `EMAIL_DRIVER`. |
+| `RESEND_API_KEY` | — | Required with `EMAIL_DRIVER=resend`. |
+| `SMTP_HOST` | — | Required with `EMAIL_DRIVER=smtp`. |
+| `SMTP_PORT` | `587` | SMTP port. |
+| `SMTP_USER`, `SMTP_PASSWORD` | none | SMTP login, if the server needs one. |
+| `SMTP_SECURE` | `false` | `true` for TLS from the start (usually port 465). |
+| `ALLOWED_EMAIL_DOMAINS` | empty: anyone | Comma-separated domains allowed to sign in, for example `example.com`. |
+
+## Storage and uploads
+
+See [Storage](/self-host/storage).
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `STORAGE_DRIVER` | `local` | `local` (a Docker volume) or `s3` (a bucket). |
+| `LOCAL_STORAGE_DIR` | `/data/uploads` in Docker | Folder for local files, inside the `api` container. |
+| `S3_ENDPOINT` | — | Bucket service address. Required with `s3`; must be public HTTPS. |
+| `S3_REGION` | `auto` | Bucket region. |
+| `S3_BUCKET` | — | Bucket name. Required with `s3`. |
+| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | — | Bucket credentials. Required with `s3`; RustFS (profile `s3`) uses them as its admin login. |
+| `S3_VIRTUAL_HOSTED_STYLE` | `false` | `true` for `bucket.host` addresses instead of `host/bucket`. |
+| `BUGBERRY_S3_DOMAIN` | `s3.localhost` | Domain Caddy serves RustFS on (profiles `caddy` and `s3`). |
+| `MAX_UPLOAD_MB` | `300` | Largest upload, 1 to 2000. Keep it under 100 behind Cloudflare. |
+| `UPLOAD_URL_TTL_SECONDS` | `3600` | How long an upload URL stays valid, 60 to 604800. |
+| `READ_URL_TTL_SECONDS` | `3600` | How long a download URL stays valid, 60 to 604800. |
+
+## Extension
+
+See [The extension for your team](/self-host/extension).
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `EXTENSION_ID` | none | The Chrome extension ID the server trusts: the store extension's, or yours from `bun run key`. |
+| `EXTENSION_INSTALL_URL` | none: "Ask your admin" | Where **New report** sends people without the extension. An http(s) address. |
+
+## Account limits
+
+See [Account limits](/self-host/account-limits).
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `ACCOUNT_LIMITS` | off | `true` turns the limits below on. |
+| `LIMIT_SCREENSHOTS` | `5` | Screenshots per workspace. |
+| `LIMIT_RECORDINGS` | `5` | Recordings per workspace. |
+| `LIMIT_OWNED_WORKSPACES` | `1` | Workspaces one account can own. |
+
+## Set by Compose
+
+`docker-compose.yml` sets these for the `api` container; change them there, not in `.env`.
+
+| Variable | Value | What it does |
+| --- | --- | --- |
+| `DATABASE_URL` | `postgres://fdebag@postgres:5432/fdebag` | Database address, without the password. See [External Postgres](/self-host/external-postgres). |
+| `DATABASE_PASSWORD` | `POSTGRES_PASSWORD` | Added to `DATABASE_URL` by the server. |
+| `PORT` | `3000` | Port the api listens on inside the network. |
+| `PROXY_HOPS` | `1` | Proxies in front of the api; the bundled nginx counts as one, and `TRUST_PROXY=true` adds one. |

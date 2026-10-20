@@ -1,0 +1,83 @@
+---
+title: Sign-in methods
+description: Google, GitHub, GitLab, and email codes, and how to decide who may sign in.
+---
+
+The sign-in page shows only the methods you configure. Each is optional, but at least one must be on; the server refuses to start without one.
+
+The rules are the same for every method: the email must be verified, and when `ALLOWED_EMAIL_DOMAINS` is set, only those domains can sign in. The same person with the same verified email always lands in the same account, whichever method they use.
+
+A provider is on when both its client ID and secret are set. Setting only one of them is an error.
+
+## Google
+
+1. In the Google Cloud console, create an OAuth client of type **Web application**.
+2. Add the redirect URI `<APP_URL>/api/auth/callback/google`.
+3. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
+
+## GitHub
+
+1. In GitHub, go to **Settings → Developer settings → OAuth Apps** and create an app.
+2. Set the callback URL to `<APP_URL>/api/auth/callback/github`.
+3. Set `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`.
+
+BugBerry asks for `read:user user:email` and uses a verified email whose domain is allowed, so a work email added as a secondary email on GitHub still works.
+
+## GitLab
+
+Works with gitlab.com and with your own GitLab.
+
+1. In GitLab, go to **User Settings → Applications** (or **Admin → Applications** for an instance-wide app).
+2. Set the redirect URI to `<APP_URL>/api/auth/callback/gitlab` and the scopes to `openid email profile read_user`.
+3. Set `GITLAB_CLIENT_ID` and `GITLAB_CLIENT_SECRET`.
+4. For your own GitLab, also set `GITLAB_URL`, for example `https://gitlab.example.com`. Without it, gitlab.com is used.
+
+## Email and a code
+
+People type their email and receive a 6-digit code. Choose a mail service:
+
+<Tabs items={["Resend", "SMTP"]}>
+<Tab value="Resend">
+
+```bash
+EMAIL_DRIVER=resend
+EMAIL_FROM=BugBerry <no-reply@example.com>
+RESEND_API_KEY=...
+```
+
+</Tab>
+<Tab value="SMTP">
+
+```bash
+EMAIL_DRIVER=smtp
+EMAIL_FROM=BugBerry <no-reply@example.com>
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USER=...
+SMTP_PASSWORD=...
+SMTP_SECURE=false
+```
+
+`SMTP_SECURE=true` is for servers that start TLS right away, usually on port 465.
+
+</Tab>
+</Tabs>
+
+A code is valid for 10 minutes, with at most 5 attempts and at most 5 codes per address in 10 minutes; in production there is also a limit per IP. Addresses outside the allowed domains never receive a code.
+
+Without `EMAIL_DRIVER`, email sign-in is off in production. During development, codes are printed to the server log instead.
+
+## Who may sign in
+
+```bash
+ALLOWED_EMAIL_DOMAINS=example.com,example.co.id
+```
+
+- **Empty (the default):** anyone can sign up and gets a workspace of their own.
+- **Set:** only those domains can sign in. New employees still need an invitation to the company workspace; without one, they get an empty workspace of their own.
+
+## When someone leaves
+
+The "verified" mark on an email at GitHub and GitLab doesn't go away when a work mailbox is shut down. Someone who once verified their work email on a personal GitHub or GitLab account can still sign in through that button.
+
+When someone leaves, remove them from your workspaces on the **Members** page (or delete their account); don't rely on disabling their work email.

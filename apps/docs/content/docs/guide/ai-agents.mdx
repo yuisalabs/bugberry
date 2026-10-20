@@ -1,0 +1,30 @@
+---
+title: AI agents (MCP)
+description: Let Claude, Cursor, VS Code, ChatGPT, and other AI apps read and work on reports.
+---
+
+BugBerry has an MCP server, so AI apps can read reports and work on them. It works with Claude Code, Claude.ai, Cursor, VS Code, Windsurf, and ChatGPT.
+
+## Set it up
+
+Open **Account → AI agents (MCP)** in the dashboard. The page has copy-paste setup for each app. The MCP address is `<your BugBerry address>/api/mcp`.
+
+Most apps sign in with OAuth: the app opens a BugBerry page where you approve it. For apps without OAuth, create a **personal token** on the same page; the app sends it as `Authorization: Bearer <token>`.
+
+## Use it
+
+Paste a report link, or a number like `BB-123`, into the agent. It can:
+
+- read the report: details, timeline, console, network, user actions, performance, the files and lines that failed, the screenshot, and comments;
+- search reports;
+- comment (shown with a **via AI** badge);
+- change status, priority, or assignee;
+- send the report to a tracker.
+
+## What an agent can't do
+
+An agent can see and change exactly what you can in the dashboard, except that it can't delete reports, change who can see a report, or manage workspaces.
+
+## Stop an app
+
+The **AI agents (MCP)** page lists the connected apps and your tokens. Revoking either stops it immediately.

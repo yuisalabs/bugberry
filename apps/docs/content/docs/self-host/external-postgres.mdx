@@ -1,0 +1,13 @@
+---
+title: External Postgres
+description: Use a managed Postgres instead of the one Compose runs.
+---
+
+Compose always runs its own Postgres, and the `DATABASE_URL` in `docker-compose.yml` overrides any value in `.env`. To use a managed database instead:
+
+1. In `docker-compose.yml`, change the api's `DATABASE_URL` to your database, without the password, for example `postgres://bugberry@db.example.com:5432/bugberry`.
+2. Set `POSTGRES_PASSWORD` in `.env` to that database's password. Compose passes it to the api as `DATABASE_PASSWORD`, and the server adds it to the URL, so passwords with `/` or `@` work.
+3. Remove the `postgres` service, and the api's `depends_on` entry for it.
+4. Start again: `docker compose up -d --build`. The server creates its tables on the first start.
+
+Postgres 16 is what the bundled service runs; use that version or newer.

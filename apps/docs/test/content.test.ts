@@ -60,3 +60,25 @@ describe("docs content", () => {
     }
   })
 })
+
+describe("env reference", () => {
+  const ROOT = join(import.meta.dir, "..", "..", "..")
+  const reference = () => readFileSync(join(CONTENT, "self-host", "environment.mdx"), "utf8")
+  const undocumented = (names: Iterable<string>) => [...new Set(names)].filter((name) => !reference().includes(`\`${name}\``)).sort()
+
+  test("every variable in .env.docker.example is documented", () => {
+    const example = readFileSync(join(ROOT, ".env.docker.example"), "utf8")
+    const names = [...example.matchAll(/^#?\s*([A-Z][A-Z0-9_]+)=/gm)].map((match) => match[1]!)
+    expect(names.length).toBeGreaterThan(20)
+    expect(undocumented(names)).toEqual([])
+  })
+
+  test("every variable the server reads is documented", () => {
+    const config = readFileSync(join(ROOT, "apps", "api", "src", "config.ts"), "utf8")
+    const read = [...config.matchAll(/(?:optional|required|integer|list)\("([A-Z][A-Z0-9_]+)"/g)].map((match) => match[1]!)
+    const oauth = [...config.matchAll(/oauthClient\("([A-Z]+)"/g)].flatMap((match) => [`${match[1]}_CLIENT_ID`, `${match[1]}_CLIENT_SECRET`])
+    const names = [...read, ...oauth].filter((name) => name !== "NODE_ENV")
+    expect(names.length).toBeGreaterThan(20)
+    expect(undocumented(names)).toEqual([])
+  })
+})

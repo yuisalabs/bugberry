@@ -1,0 +1,17 @@
+{
+  "title": "Self-host",
+  "pages": [
+    "index",
+    "install",
+    "sign-in",
+    "storage",
+    "reverse-proxy",
+    "extension",
+    "integrations",
+    "external-postgres",
+    "account-limits",
+    "operations",
+    "environment",
+    "troubleshooting"
+  ]
+}

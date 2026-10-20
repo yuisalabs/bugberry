@@ -1,0 +1,58 @@
+---
+title: Reverse proxy
+description: Running BugBerry behind your own nginx, Traefik, or Caddy.
+---
+
+Without the `caddy` profile, BugBerry listens on `127.0.0.1:3000` and expects a reverse proxy in front for HTTPS.
+
+## Ports
+
+```bash
+BUGBERRY_PORT=3000
+BUGBERRY_BIND=127.0.0.1
+```
+
+The port is open to localhost only, on purpose. Point your proxy at `127.0.0.1:<BUGBERRY_PORT>`. Set `BUGBERRY_BIND=0.0.0.0` only if you really want to expose the port directly.
+
+## Trusting the proxy
+
+```bash
+TRUST_PROXY=true
+```
+
+Set it when Caddy or your own proxy sits in front of BugBerry, so rate limits use the visitor's IP from `X-Forwarded-For` instead of the proxy's. Your proxy must set that header. The nginx inside the `client` container is already counted; don't set `TRUST_PROXY` when nothing else is in front.
+
+Behind Cloudflare, make your proxy pass the visitor's address from `CF-Connecting-IP` as `X-Forwarded-For`, or every visitor shares Cloudflare's IP.
+
+## Paths to pass through
+
+Forward everything to BugBerry. If your proxy only forwards some paths, make sure these reach it:
+
+- `/` and everything under it: the dashboard and share links;
+- `/api/`: the API, uploads, and the MCP server at `/api/mcp`;
+- `/.well-known/oauth-*` and `/.well-known/openid-configuration`: MCP clients discover the sign-in server there.
+
+Uploads stream through to the API, and the API enforces `MAX_UPLOAD_MB` itself. Don't let your proxy cut bodies shorter than that or buffer them in memory; allow at least five minutes for a request.
+
+## Example: nginx
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name bugberry.example.com;
+    # ssl_certificate ...
+
+    client_max_body_size 0;
+    proxy_request_buffering off;
+    proxy_read_timeout 300s;
+    proxy_send_timeout 300s;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```

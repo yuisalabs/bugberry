@@ -2,3 +2,7 @@
 # under Windows' 260-character path limit; the isolated layout nests them too deep.
 [install]
 linker = "hoisted"
+
+# Only the tests: the build output (.next, out) is large and holds no tests.
+[test]
+root = "test"
