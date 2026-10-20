@@ -22,6 +22,19 @@ describe("createBugberryApi", () => {
     expect(requests[0]?.url).toBe("https://bugberry.kantor.test/api/projects?workspaceId=w1")
   })
 
+  test("reads a workspace's limits and makes it the dashboard's current one", async () => {
+    const { fetcher, requests } = fakeFetch((request) =>
+      request.method === "PUT" ? Response.json({ ok: true }) : Response.json({ limited: false }),
+    )
+    const api = createBugberryApi(settings, fetcher)
+    expect(await api.workspaceLimits("w1")).toEqual({ limited: false })
+    expect(requests[0]?.url).toBe("https://bugberry.kantor.test/api/workspaces/w1/limits")
+    await api.setCurrentWorkspace("w1")
+    expect(requests[1]?.method).toBe("PUT")
+    expect(requests[1]?.url).toBe("https://bugberry.kantor.test/api/me/workspace")
+    expect(await requests[1]?.json()).toEqual({ workspaceId: "w1" })
+  })
+
   test("lists my workspaces", async () => {
     const { fetcher, requests } = fakeFetch(() => Response.json([{ id: "w1", name: "Alpha", role: "admin", owner: false, slug: "alpha", logoUrl: null }]))
     expect(await createBugberryApi(settings, fetcher).listWorkspaces()).toEqual([{ id: "w1", name: "Alpha", role: "admin", owner: false, slug: "alpha", logoUrl: null }])

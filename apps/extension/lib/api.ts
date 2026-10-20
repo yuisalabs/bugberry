@@ -71,6 +71,10 @@ export function createBugberryApi(settings: Settings, fetcher: typeof fetch = fe
     clientConfig: () => call(() => client.api["client-config"].get()),
     listWorkspaces: () => call(() => client.api.workspaces.get()),
     listProjects: (workspaceId: string) => call(() => client.api.projects.get({ query: { workspaceId } })),
+    /** Older servers have no such endpoint and answer 404: see limitsFor. */
+    workspaceLimits: (workspaceId: string) => call(() => client.api.workspaces({ id: workspaceId }).limits.get()),
+    /** Makes it the workspace the dashboard opens, so its report list is the one shown. */
+    setCurrentWorkspace: (workspaceId: string) => call(() => client.api.me.workspace.put({ workspaceId })),
     createUpload: (body: UploadBody) => call(() => client.api.reports.uploads.post(body)),
     finalize: (reportId: string) => call(() => client.api.reports({ id: reportId }).finalize.post()),
     /** Older servers have no such endpoint and answer 404; callers ignore that. */
