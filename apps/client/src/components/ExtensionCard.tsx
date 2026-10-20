@@ -5,7 +5,7 @@ import { Button as AriaButton } from "react-aria-components"
 import { Link } from "@bugberry/ui/link"
 import { askExtension, type ExtensionAnswer, useServerInExtension } from "../lib/extension-bridge"
 import { queries } from "../lib/queries"
-import { isMacPlatform, openShortcut } from "../lib/shortcuts"
+import { isFirefox, isMacPlatform, openShortcut } from "../lib/shortcuts"
 
 /** The extension's state at the bottom of the sidebar: installed, sending elsewhere, or missing. */
 export function ExtensionCardView({
@@ -13,20 +13,23 @@ export function ExtensionCardView({
   installUrl,
   onUseServer,
   mac = isMacPlatform(),
+  firefox = isFirefox(),
 }: {
   answer: ExtensionAnswer
   installUrl: string | null
   onUseServer(): void
   /** ⌘ instead of Ctrl in the shortcut. */
   mac?: boolean
+  /** Firefox's own shortcut for opening BugBerry. */
+  firefox?: boolean
 }) {
   return (
-    <section aria-label="Chrome extension" className="rounded-xl border border-sidebar-border bg-background p-3 text-xs">
+    <section aria-label="Browser extension" className="rounded-xl border border-sidebar-border bg-background p-3 text-xs">
       <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
         <RiPuzzle2Line aria-hidden className="size-4 text-primary" />
-        Chrome extension
+        Browser extension
       </p>
-      <p className="mt-1 text-muted-foreground">Press {openShortcut(mac)} on any page to open BugBerry</p>
+      <p className="mt-1 text-muted-foreground">Press {openShortcut(mac, firefox)} on any page to open BugBerry</p>
       <div className="mt-2">
         {!answer.installed ? (
           <span className="flex items-center justify-between gap-2">
