@@ -76,7 +76,7 @@
     },
     "apps/extension": {
       "name": "@bugberry/extension",
-      "version": "0.2.3",
+      "version": "0.2.4",
       "dependencies": {
         "@bugberry/capture": "workspace:*",
         "@bugberry/player": "workspace:*",

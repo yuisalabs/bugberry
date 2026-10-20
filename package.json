@@ -2,11 +2,12 @@
   "name": "bugberry",
   "private": true,
   "type": "module",
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": ["apps/*", "!apps/docs", "packages/*"],
   "scripts": {
     "dev:db": "docker compose -f docker-compose.dev.yml up -d",
     "build:client": "bun run --filter @bugberry/client build",
-    "test": "bun run --filter '*' test",
+    "build:docs": "bun run --cwd apps/docs build",
+    "test": "bun run --filter '*' test && bun run --cwd apps/docs test",
     "typecheck": "bun run --filter '*' typecheck"
   },
   "devDependencies": {

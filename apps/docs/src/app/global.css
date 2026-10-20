@@ -1,0 +1,84 @@
+@import "tailwindcss";
+@import "fumadocs-ui/css/neutral.css";
+@import "fumadocs-ui/css/preset.css";
+/* Bundled with the site (no request to a font CDN), like the dashboard. */
+@import "@fontsource-variable/dm-sans";
+@import "@fontsource-variable/outfit";
+@import "@fontsource-variable/geist-mono";
+
+/*
+ * BugBerry's colours, copied from packages/ui/src/theme.css (test/theme.test.ts fails when they drift).
+ * Copied rather than imported: the docs are a project of their own, outside the Bun workspaces.
+ */
+:root {
+    --background: #FFFFFF;
+    --foreground: #1C1022;
+    --card: #FFFFFF;
+    --card-foreground: #1C1022;
+    --primary: #D61F69;
+    --primary-foreground: #FFFFFF;
+    --accent: #ECE8F0;
+    --accent-foreground: #1C1022;
+    --muted: #F7F6FA;
+    --muted-foreground: #635A6B;
+    --border: #E6E1EC;
+    --ring: #D61F69;
+}
+
+.dark {
+    --background: oklch(0.181 0.005 285.823);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.181 0.005 285.823);
+    --card-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.546 0.245 262.881);
+    --primary-foreground: oklch(1 0 0);
+    --accent: oklch(0.274 0.006 286.033);
+    --accent-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.21 0.006 285.885);
+    --muted-foreground: oklch(0.705 0.015 286.067);
+    --border: oklch(0.270 0.013 285.805);
+    --ring: oklch(0.546 0.245 262.881);
+}
+
+/* Fumadocs' colours and fonts follow the BugBerry theme, so the docs look like the app. */
+@theme inline {
+    --font-heading: "Outfit Variable", "Outfit", ui-sans-serif, system-ui, sans-serif;
+    --font-sans: "DM Sans Variable", "DM Sans", ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "Geist Mono Variable", "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    --color-fd-background: var(--background);
+    --color-fd-foreground: var(--foreground);
+    --color-fd-card: var(--card);
+    --color-fd-card-foreground: var(--card-foreground);
+    --color-fd-popover: var(--card);
+    --color-fd-popover-foreground: var(--card-foreground);
+    --color-fd-primary: var(--primary);
+    --color-fd-primary-foreground: var(--primary-foreground);
+    --color-fd-secondary: var(--muted);
+    --color-fd-secondary-foreground: var(--foreground);
+    --color-fd-muted: var(--muted);
+    --color-fd-muted-foreground: var(--muted-foreground);
+    --color-fd-accent: var(--accent);
+    --color-fd-accent-foreground: var(--accent-foreground);
+    --color-fd-border: var(--border);
+    --color-fd-ring: var(--ring);
+}
+
+body {
+    font-family: var(--font-sans);
+}
+
+h1,
+h2,
+h3,
+h4 {
+    font-family: var(--font-heading);
+}
+
+html {
+    scrollbar-gutter: stable;
+}
+
+html > body[data-scroll-locked] {
+    margin-right: 0px !important;
+    --removed-body-scroll-bar-size: 0px !important;
+}
