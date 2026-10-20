@@ -34,11 +34,20 @@ function tokens(css: string, selector: string): Record<string, string> {
   return values
 }
 
+/**
+ * The app never turns on dark mode, so its .dark primary is still Intent UI's blue. The docs use BugBerry's pink
+ * there, a little lighter than #D61F69 so links stay readable on the dark background (about 4.9:1 instead of 3.8:1).
+ */
+const DOCS_DARK_PRIMARY = "#E8457F"
+
 describe("docs theme", () => {
-  for (const selector of [":root", ".dark"]) {
-    test(`${selector} colours match packages/ui/src/theme.css`, () => {
-      expect(Object.keys(tokens(APP_THEME, selector))).toEqual(TOKENS)
-      expect(tokens(DOCS_THEME, selector)).toEqual(tokens(APP_THEME, selector))
-    })
-  }
+  test(":root colours match packages/ui/src/theme.css", () => {
+    expect(Object.keys(tokens(APP_THEME, ":root"))).toEqual(TOKENS)
+    expect(tokens(DOCS_THEME, ":root")).toEqual(tokens(APP_THEME, ":root"))
+  })
+
+  test(".dark colours match packages/ui/src/theme.css, except the pink primary", () => {
+    expect(Object.keys(tokens(APP_THEME, ".dark"))).toEqual(TOKENS)
+    expect(tokens(DOCS_THEME, ".dark")).toEqual({ ...tokens(APP_THEME, ".dark"), primary: DOCS_DARK_PRIMARY, ring: DOCS_DARK_PRIMARY })
+  })
 })
