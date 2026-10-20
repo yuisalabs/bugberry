@@ -164,12 +164,17 @@ describe("deploy files", () => {
 
   test("both images copy every workspace manifest, so bun install --frozen-lockfile accepts the lockfile", async () => {
     const { readdirSync } = await import("node:fs")
+    // apps/docs is a project of its own (its own bun.lock), left out of the workspaces with "!apps/docs".
+    const { workspaces } = (await Bun.file(join(ROOT, "package.json")).json()) as { workspaces: string[] }
+    const excluded = new Set(workspaces.filter((pattern) => pattern.startsWith("!")).map((pattern) => pattern.slice(1)))
     const manifests = ["apps", "packages"].flatMap((dir) =>
       readdirSync(join(ROOT, dir), { withFileTypes: true })
         .filter((entry) => entry.isDirectory() && Bun.file(join(ROOT, dir, entry.name, "package.json")).size > 0)
+        .filter((entry) => !excluded.has(`${dir}/${entry.name}`))
         .map((entry) => `${dir}/${entry.name}/package.json`),
     )
     expect(manifests).toContain("packages/player/package.json")
+    expect(manifests).not.toContain("apps/docs/package.json")
     for (const dockerfile of ["docker/api.Dockerfile", "docker/client.Dockerfile"]) {
       const text = await Bun.file(join(ROOT, dockerfile)).text()
       for (const manifest of manifests) expect(`${dockerfile}: ${text.includes(`COPY ${manifest} `)}`).toBe(`${dockerfile}: true`)
