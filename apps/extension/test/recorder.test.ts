@@ -86,6 +86,20 @@ describe("pickMimeType", () => {
     expect(pickMimeType((type) => type !== "video/webm;codecs=vp9")).toBe("video/webm;codecs=vp8")
     expect(pickMimeType(() => false)).toBe("video/webm")
   })
+
+  test("with sound the audio codec is named too: Firefox refuses to record audio into a video-only type", () => {
+    const firefox = (type: string) => !type.includes("vp9")
+    expect(pickMimeType(firefox, true)).toBe("video/webm;codecs=vp8,opus")
+    expect(pickMimeType(() => true, true)).toBe("video/webm;codecs=vp9,opus")
+    expect(pickMimeType(() => false, true)).toBe("video/webm")
+  })
+})
+
+test("a stream with an audio track records with an audio codec", () => {
+  const s = setup({ isTypeSupported: (type) => !type.includes("vp9") })
+  const audio = Object.assign(new FakeTrack(), { kind: "audio" })
+  startRecording({ getTracks: () => [s.track, audio] }, s.deps, () => {}, { maxBytes: 1_000_000 })
+  expect(s.recorders[0]?.options.mimeType).toBe("video/webm;codecs=vp8,opus")
 })
 
 describe("startRecording", () => {
