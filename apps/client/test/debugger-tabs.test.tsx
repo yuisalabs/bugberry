@@ -249,6 +249,43 @@ describe("video timeline", () => {
     expect(seek).toHaveBeenLastCalledWith(2000)
   })
 
+  test("a click anywhere on an action's row seeks there, and on its time only once", () => {
+    const seek = mock()
+    render(<ActionsTab events={events} base={1000} playback={{ currentMs: null, seek }} />)
+    expect(rowOf("button#pay")?.className).toContain("cursor-pointer")
+    fireEvent.click(screen.getByText("button#pay"))
+    expect(seek).toHaveBeenCalledTimes(1)
+    expect(seek).toHaveBeenLastCalledWith(2000)
+    fireEvent.click(screen.getByRole("button", { name: "Play video from 0:02" }))
+    expect(seek).toHaveBeenCalledTimes(2)
+  })
+
+  test("a click on a console line seeks there; its Stack toggle and a text selection do not", () => {
+    const { events: logs } = normalizePayload({
+      recordingStartedAt: 1000,
+      events: [
+        { kind: "console", t: 2000, level: "log", args: ["cart restored"] },
+        { kind: "error", t: 4000, message: "TypeError: sku", stack: "at pay (app.js:1)" },
+      ],
+    })
+    const seek = mock()
+    render(<ConsoleTab events={logs} base={1000} playback={{ currentMs: null, seek }} />)
+    fireEvent.click(screen.getByText("cart restored"))
+    expect(seek).toHaveBeenLastCalledWith(1000)
+    fireEvent.click(screen.getByRole("button", { name: /Stack/ }))
+    expect(seek).toHaveBeenCalledTimes(1)
+    const getSelection = window.getSelection
+    window.getSelection = () => ({ toString: () => "TypeError" }) as Selection
+    try {
+      fireEvent.click(screen.getByText("TypeError: sku"))
+      expect(seek).toHaveBeenCalledTimes(1)
+    } finally {
+      window.getSelection = getSelection
+    }
+    fireEvent.click(screen.getByText("TypeError: sku"))
+    expect(seek).toHaveBeenLastCalledWith(3000)
+  })
+
   test("the event just before the playhead is highlighted", () => {
     const seek = () => {}
     const { rerender } = render(<ActionsTab events={events} base={1000} playback={{ currentMs: 2500, seek }} />)
@@ -259,9 +296,10 @@ describe("video timeline", () => {
     expect(rowOf("button#pay")?.getAttribute("aria-current")).toBeNull()
   })
 
-  test("screenshots keep plain times", () => {
+  test("screenshots keep plain times, and rows that do nothing when clicked", () => {
     render(<ActionsTab events={events} base={1000} />)
     expect(screen.queryAllByRole("button", { name: /Play video/ })).toHaveLength(0)
+    expect(rowOf("button#pay")?.className).not.toContain("cursor-pointer")
   })
 })
 

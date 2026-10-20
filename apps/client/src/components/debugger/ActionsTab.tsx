@@ -3,7 +3,7 @@ import { ToggleGroup, ToggleGroupItem } from "@bugberry/ui/toggle-group"
 import { type ActionFilter, actionCounts, actionSentence, matchesActionFilter } from "@bugberry/debugger-view"
 import type { ViewAction, ViewEvent } from "@bugberry/debugger-view"
 import { type Playback, useActiveRow } from "../../lib/timeline"
-import { EventTime } from "./EventTime"
+import { EventTime, seekOnRowClick } from "./EventTime"
 import { ACTIVE_ROW, FOLLOW_STICKY_ATTRIBUTE, useVirtualRows } from "./useVirtualRows"
 
 const FILTERS: Array<[ActionFilter, string]> = [
@@ -110,6 +110,7 @@ const ActionLine = memo(function ActionLine({
   measure(element: HTMLElement | null): void
 }) {
   const { parts, masked, frustration } = actionSentence(action)
+  const seek = seekOnRowClick(action.t, base, onSeek)
   return (
     <li
       ref={measure}
@@ -117,8 +118,9 @@ const ActionLine = memo(function ActionLine({
       aria-posinset={index + 1}
       aria-setsize={count}
       aria-current={active ? "true" : undefined}
+      onClick={seek}
       style={{ transform: `translateY(${top}px)` }}
-      className={`absolute inset-x-0 top-0 flex gap-3 border-b border-border/60 px-3 py-2 text-xs ${active ? ACTIVE_ROW : ""}`}
+      className={`absolute inset-x-0 top-0 flex gap-3 border-b border-border/60 px-3 py-2 text-xs ${seek ? "cursor-pointer hover:bg-muted-foreground/8" : ""} ${active ? ACTIVE_ROW : ""}`}
     >
       <EventTime t={action.t} base={base} onSeek={onSeek} />
       <p className="min-w-0 flex-1 break-words text-foreground">

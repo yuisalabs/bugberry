@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from "@bugberry/ui/s
 import { type ConsoleOptions, type ConsoleRow, consoleCounts, consoleRows, navigationText } from "@bugberry/debugger-view"
 import type { ViewEvent } from "@bugberry/debugger-view"
 import { type Playback, useActiveRow } from "../../lib/timeline"
-import { EventTime } from "./EventTime"
+import { EventTime, seekOnRowClick } from "./EventTime"
 import { ACTIVE_ROW, FOLLOW_STICKY_ATTRIBUTE, useVirtualRows } from "./useVirtualRows"
 
 const LEVEL_OPTIONS: Array<[ConsoleOptions["level"], string]> = [
@@ -189,6 +189,10 @@ const ConsoleLine = memo(function ConsoleLine({
   onSeek?: (offsetMs: number) => void
   measure(element: HTMLElement | null): void
 }) {
+  const style = rowStyle(row)
+  const seek = seekOnRowClick(row.t, base, onSeek)
+  // Warnings and errors keep their own colour on hover; plain lines lighten like the Network table's rows.
+  const hover = style.includes("bg-") ? "" : "hover:bg-muted-foreground/8"
   return (
     <li
       ref={measure}
@@ -196,8 +200,9 @@ const ConsoleLine = memo(function ConsoleLine({
       aria-posinset={index + 1}
       aria-setsize={count}
       aria-current={active ? "true" : undefined}
+      onClick={seek}
       style={{ transform: `translateY(${top}px)` }}
-      className={`absolute inset-x-0 top-0 flex gap-2 border-b border-border/60 px-3 py-1.5 ${rowStyle(row)} ${active ? ACTIVE_ROW : ""}`}
+      className={`absolute inset-x-0 top-0 flex gap-2 border-b border-border/60 px-3 py-1.5 ${style} ${seek ? `cursor-pointer ${hover}` : ""} ${active ? ACTIVE_ROW : ""}`}
     >
       <EventTime t={row.t} base={base} onSeek={onSeek} />
       <RowIcon row={row} />
