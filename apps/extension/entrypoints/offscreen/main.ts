@@ -1,9 +1,9 @@
-import fixWebmDuration from "fix-webm-duration"
 import { browser } from "wxt/browser"
 import { createIndexedDbDraftStore } from "../../lib/draft-store"
 import { isOffscreenMessage, type OffscreenMessage, type RecordingEndedNotice } from "../../lib/messages"
 import { type Recording, type RecordingDeps, type RecordingEndReason, startRecording } from "../../lib/recorder"
 import { type OpenedStream, openRecordingStream, type StreamDeps } from "../../lib/recording-stream"
+import { withWebmDuration } from "../../lib/webm-duration"
 
 /**
  * Offscreen document: the only extension context that may call getUserMedia for a tab stream in MV3.
@@ -20,7 +20,7 @@ const deps: RecordingDeps = {
     return recorder
   },
   isTypeSupported: (type) => MediaRecorder.isTypeSupported(type),
-  fixDuration: (video, durationMs) => fixWebmDuration(video, durationMs, { logger: false }),
+  fixDuration: withWebmDuration,
   now: Date.now,
   setTimer: (callback, ms) => {
     const id = setTimeout(callback, ms)
