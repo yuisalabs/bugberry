@@ -264,6 +264,18 @@ What is different in Firefox:
 
 Compose always uses its own Postgres: `DATABASE_URL` in `docker-compose.yml` overrides the value from `.env`. For a managed database, change `DATABASE_URL` in `docker-compose.yml` (without the password), set `POSTGRES_PASSWORD` to that database's password, then remove the `postgres` service along with its `depends_on`.
 
+### Account limits (BugBerry cloud)
+
+A server open to everyone can cap what ordinary accounts keep. With `ACCOUNT_LIMITS=true` in `.env`, an account owns at most one workspace, cannot add members to it, and that workspace keeps at most 5 screenshots and 5 recordings (deleting a report frees its slot). Workspaces that are already over a limit keep everything; they just can't add more. Change the numbers with `LIMIT_SCREENSHOTS`, `LIMIT_RECORDINGS` and `LIMIT_OWNED_WORKSPACES`. Without `ACCOUNT_LIMITS` there are no limits, which is what a company's own server wants.
+
+Accounts marked **unlimited** have none of these limits, and neither does anyone working in a workspace they own:
+
+```bash
+docker compose exec api bun apps/api/scripts/set-unlimited.ts --email someone@example.com --on
+```
+
+`--off` takes it away again. Both apply immediately. To turn limits on, first deploy, then mark the accounts that must stay unlimited, and only then set `ACCOUNT_LIMITS=true` and run `docker compose up -d`.
+
 ### Upgrades and backups
 
 ```bash
