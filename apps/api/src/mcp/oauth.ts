@@ -7,7 +7,7 @@
  */
 import { cleanAppName } from "@bugberry/shared"
 import { and, eq } from "drizzle-orm"
-import { createLocalJWKSet, type JSONWebKeySet, jwtVerify } from "jose"
+import { createLocalJWKSet, decodeProtectedHeader, type JSONWebKeySet, jwtVerify } from "jose"
 import type { AppDeps } from "../app"
 import { mcpResource } from "../auth/mcp-oauth"
 import { oauthClient, oauthConsent } from "../db/schema"
@@ -22,12 +22,54 @@ export interface VerifiedOAuthToken {
 
 const MCP_SCOPE_SET = new Set<string>(["bugberry:read", "bugberry:write"])
 
+export interface KeyCache {
+  /** The signing keys, from the cache unless it is stale or `fresh` is asked for. */
+  get(load: () => Promise<JSONWebKeySet>, fresh?: boolean): Promise<JSONWebKeySet>
+  /** Puts a key set in the cache, for tests. */
+  prime(keys: JSONWebKeySet): void
+}
+
+/**
+ * The public signing keys, kept for a minute: reading them is a database query, and every MCP request
+ * with an OAuth token (including garbage ones, before any rate limit) needs them.
+ */
+export function createKeyCache(opts: { ttlMs?: number; minRefreshMs?: number; now?: () => number } = {}): KeyCache {
+  const ttlMs = opts.ttlMs ?? 60_000
+  // Forged tokens can name any key id; they may force a fresh read at most this often.
+  const minRefreshMs = opts.minRefreshMs ?? 1000
+  const now = opts.now ?? Date.now
+  let cached: { keys: JSONWebKeySet; loadedAt: number } | null = null
+  const store = (keys: JSONWebKeySet, loadedAt: number) => {
+    cached = { keys, loadedAt }
+    return keys
+  }
+  return {
+    async get(load, fresh = false) {
+      const at = now()
+      if (cached) {
+        const age = at - cached.loadedAt
+        if (age < ttlMs && (!fresh || age < minRefreshMs)) return cached.keys
+      }
+      return store(await load(), at)
+    },
+    prime(keys) {
+      // Primed keys count as old, so the first unknown key id may refresh them at once.
+      store(keys, now() - minRefreshMs)
+    },
+  }
+}
+
 export async function verifyOAuthAccessToken(
   deps: Pick<AppDeps, "betterAuth" | "db" | "config">,
   token: string,
+  keyCache: KeyCache,
 ): Promise<VerifiedOAuthToken | null> {
   try {
-    const keys = (await deps.betterAuth.api.getJwks()) as JSONWebKeySet
+    const load = async () => (await deps.betterAuth.api.getJwks()) as JSONWebKeySet
+    let keys = await keyCache.get(load)
+    // A key id the cache doesn't know means the keys rotated since the last read: read them once more.
+    const { kid } = decodeProtectedHeader(token)
+    if (kid && !keys.keys.some((key) => key.kid === kid)) keys = await keyCache.get(load, true)
     const { payload } = await jwtVerify(token, createLocalJWKSet(keys), {
       issuer: `${deps.config.appUrl}/api/auth`,
       audience: mcpResource(deps.config),

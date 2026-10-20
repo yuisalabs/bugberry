@@ -11,7 +11,7 @@ import { createDispatcher } from "../lib/trackers/dispatch"
 import { createTrackerFactory } from "../lib/trackers/providers"
 import { type McpCaller, type McpContext, RATE_LIMITED } from "./context"
 import { createDebuggerCache } from "./debugger"
-import { verifyOAuthAccessToken } from "./oauth"
+import { createKeyCache, verifyOAuthAccessToken } from "./oauth"
 import { createMcpServer } from "./server"
 
 const CALLS_PER_MINUTE = 120
@@ -34,6 +34,7 @@ export function mcpModule(deps: AppDeps, options: { limiter?: RateLimiter } = {}
   const resolveUser = createUserResolver(deps)
   const limiter = options.limiter ?? createRateLimiter({ limit: CALLS_PER_MINUTE, windowMs: 60_000 })
   const cache = createDebuggerCache()
+  const keyCache = createKeyCache()
   const screenshotLimiter = createRateLimiter({ limit: SCREENSHOTS_PER_MINUTE, windowMs: 60_000 })
   const dispatcher = createDispatcher({ ...deps, trackers: deps.trackers ?? createTrackerFactory() })
 
@@ -71,7 +72,7 @@ export function mcpModule(deps: AppDeps, options: { limiter?: RateLimiter } = {}
       const { tokenKind: _kind, ...user } = resolved
       caller = { user, scopes: BOTH_SCOPES, via: { kind: "token" } }
     } else {
-      const verified = await verifyOAuthAccessToken(deps, token)
+      const verified = await verifyOAuthAccessToken(deps, token, keyCache)
       const user = verified ? await loadUser(verified.userId) : null
       if (!verified || !user) return unauthorized()
       if (!verified.scopes.includes("bugberry:read")) {
