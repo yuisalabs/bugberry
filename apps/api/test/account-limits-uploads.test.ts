@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { eq } from "drizzle-orm"
 import { report, user, workspace } from "../src/db/schema"
-import { createReadyReport, createUserWithToken, setupTestApp, uploadBody } from "./helpers"
+import { createReadyReport, createUserWithToken, putUpload, setupTestApp, uploadBody } from "./helpers"
 
 const LIMITS = { screenshots: 5, recordings: 5, ownedWorkspaces: 1 }
 
@@ -80,6 +80,31 @@ describe("report limit on upload", () => {
     await seed(5)
     const member = await createUserWithToken(ctx.db, { role: "member" })
     expect(statusOf(await upload(member.headers))).toBe(200)
+  })
+
+  test("an upload left past its link's lifetime can't be finalized into a full workspace", async () => {
+    const { ctx, owner, seed, upload } = await setup()
+    await seed(4)
+    const late = (await upload()).data
+    if (!late) throw new Error("expected an upload session")
+    expect((await putUpload(ctx.app, late.mediaUpload, new Uint8Array([1, 2, 3, 4]))).status).toBe(200)
+    await ctx.db.update(report).set({ createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000) }).where(eq(report.id, late.reportId))
+    await seed(1)
+    const result = await ctx.api.api.reports({ id: late.reportId }).finalize.post(undefined, { headers: owner.headers })
+    expect(Number(result.error?.status)).toBe(403)
+    expect(result.error?.value).toMatchObject({ code: "report_limit_reached" })
+    const [row] = await ctx.db.select({ uploadStatus: report.uploadStatus }).from(report).where(eq(report.id, late.reportId))
+    expect(row?.uploadStatus).not.toBe("ready")
+  })
+
+  test("a normal upload at 4 of 5 still finalizes", async () => {
+    const { ctx, owner, seed, upload } = await setup()
+    await seed(4)
+    const session = (await upload()).data
+    if (!session) throw new Error("expected an upload session")
+    await putUpload(ctx.app, session.mediaUpload, new Uint8Array([1, 2, 3, 4]))
+    const result = await ctx.api.api.reports({ id: session.reportId }).finalize.post(undefined, { headers: owner.headers })
+    expect(result.data?.uploadStatus).toBe("ready")
   })
 
   test("limits off: nothing changes", async () => {

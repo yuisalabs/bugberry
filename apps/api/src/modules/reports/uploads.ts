@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm"
 import { Elysia } from "elysia"
 import type { AppDeps } from "../../app"
 import { authPlugin } from "../../auth/plugin"
-import { project, report } from "../../db/schema"
+import { project, report, workspace } from "../../db/schema"
 import {
   badRequest,
   conflict,
@@ -162,14 +162,19 @@ export function reportUploadsModule(deps: AppDeps) {
           keepThumbnail = info !== null && info.size === row.thumbnailSize
           if (!keepThumbnail) await storage.delete(row.thumbnailKey).catch(() => undefined)
         }
-        await db
-          .update(report)
-          .set({
-            uploadStatus: "ready",
-            uploadError: null,
-            ...(keepThumbnail ? {} : { thumbnailKey: null, thumbnailSize: null }),
-          })
-          .where(eq(report.id, row.id))
+        await db.transaction(async (tx) => {
+          // Locks the workspace row as an upload does, so finalizes and new uploads take turns at the count.
+          await tx.select({ id: workspace.id }).from(workspace).where(eq(workspace.id, row.workspaceId)).for("update")
+          await assertCanCreateReport(tx, config, row.workspaceId, row.captureType, row.id)
+          await tx
+            .update(report)
+            .set({
+              uploadStatus: "ready",
+              uploadError: null,
+              ...(keepThumbnail ? {} : { thumbnailKey: null, thumbnailSize: null }),
+            })
+            .where(eq(report.id, row.id))
+        })
         // In the background: a slow tracker must not delay the extension.
         deps.background?.(dispatcher.autoSend(row.id).catch((error) => console.error("auto-send failed", error)))
         return { id: row.id, uploadStatus: "ready" as const, ...linksFor(row) }

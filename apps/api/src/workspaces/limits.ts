@@ -1,5 +1,5 @@
 import type { CaptureType } from "@bugberry/shared"
-import { and, count, eq, gt, or } from "drizzle-orm"
+import { and, count, eq, gt, ne, or } from "drizzle-orm"
 import type { AccountLimits, Config } from "../config"
 import type { Db } from "../db/client"
 import { report, user, workspace } from "../db/schema"
@@ -31,6 +31,7 @@ export async function isWorkspaceLimited(db: Reader, limits: AccountLimits | nul
 /**
  * Reports of one kind the workspace keeps: ready ones, and uploads started within the upload link's
  * lifetime. An older unfinished upload can't be seen or deleted, so it stops counting once its link expires.
+ * `except` leaves one report out: the one being finalized.
  */
 export async function countReports(
   db: Reader,
@@ -38,6 +39,7 @@ export async function countReports(
   captureType: CaptureType,
   uploadTtlSeconds: number,
   now = new Date(),
+  except?: string,
 ): Promise<number> {
   const since = new Date(now.getTime() - uploadTtlSeconds * 1000)
   const [row] = await db
@@ -48,6 +50,7 @@ export async function countReports(
         eq(report.workspaceId, workspaceId),
         eq(report.captureType, captureType),
         or(eq(report.uploadStatus, "ready"), and(eq(report.uploadStatus, "uploading"), gt(report.createdAt, since))),
+        except ? ne(report.id, except) : undefined,
       ),
     )
   return row?.value ?? 0
@@ -71,11 +74,21 @@ export async function canCreateWorkspace(db: Reader, limits: AccountLimits | nul
   return (owned?.value ?? 0) < limits.ownedWorkspaces
 }
 
-export async function assertCanCreateReport(db: Reader, config: LimitsConfig, workspaceId: string, captureType: CaptureType): Promise<void> {
+/**
+ * Refuses one more report of this kind. On finalize, `except` is the report itself: an upload that outlived its
+ * link stopped counting, so it is checked again before it becomes ready.
+ */
+export async function assertCanCreateReport(
+  db: Reader,
+  config: LimitsConfig,
+  workspaceId: string,
+  captureType: CaptureType,
+  except?: string,
+): Promise<void> {
   const limits = config.accountLimits
   if (!limits || !(await isWorkspaceLimited(db, limits, workspaceId))) return
   const max = captureType === "video" ? limits.recordings : limits.screenshots
-  if ((await countReports(db, workspaceId, captureType, config.uploadUrlTtlSeconds)) < max) return
+  if ((await countReports(db, workspaceId, captureType, config.uploadUrlTtlSeconds, new Date(), except)) < max) return
   const message =
     captureType === "video"
       ? `This workspace already has ${max} ${max === 1 ? "recording" : "recordings"}, the most it can keep. Delete one in the dashboard to record a new one.`
