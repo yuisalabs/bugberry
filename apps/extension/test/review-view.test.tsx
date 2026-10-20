@@ -239,3 +239,38 @@ describe("Copy link", () => {
     expect((screen.getByLabelText("Share link") as HTMLInputElement).value).toBe("https://b.test/s/x")
   })
 })
+
+describe("a workspace under account limits", () => {
+  const warning = "This workspace already has 5 recordings. Delete one in the dashboard."
+
+  test("a full workspace: usage, warning, Open dashboard, and Create report disabled", () => {
+    const onOpenDashboard = mock()
+    const { props } = view({ usage: "Recordings 5/5", limitWarning: warning, sendBlocked: true, onOpenDashboard })
+    expect(screen.getByText("Recordings 5/5")).toBeTruthy()
+    expect(screen.getByText(warning)).toBeTruthy()
+    fireEvent.click(button("Open dashboard"))
+    expect(onOpenDashboard).toHaveBeenCalledTimes(1)
+    const create = button("Create report")
+    expect(create.hasAttribute("disabled") || create.getAttribute("data-disabled") !== null).toBe(true)
+    fireEvent.click(create)
+    expect(props.onSend).not.toHaveBeenCalled()
+  })
+
+  test("someone who can't delete gets no Open dashboard link", () => {
+    view({ limitWarning: "This workspace already has 5 recordings. Ask a workspace admin to delete one.", sendBlocked: true })
+    expect(screen.queryByRole("button", { name: "Open dashboard" })).toBeNull()
+  })
+
+  test("a failed send into a full workspace offers no Try again", () => {
+    view({ status: { failed: "x" }, sendBlocked: true })
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull()
+  })
+
+  test("with room, Create report works and no warning shows", () => {
+    const { props } = view({ usage: "Recordings 3/5" })
+    expect(screen.getByText("Recordings 3/5")).toBeTruthy()
+    expect(screen.queryByText(/already has/)).toBeNull()
+    fireEvent.click(button("Create report"))
+    expect(props.onSend).toHaveBeenCalledTimes(1)
+  })
+})

@@ -47,6 +47,14 @@ export interface ReviewViewProps {
   /** `kept`: save these into the draft before closing; null after sending. */
   onClose(kept: { form: ReportForm; notes: RecordingNote[] } | null): void
   onWorkspaceChange(id: string): void
+  /** The selected workspace's usage for this kind under ACCOUNT_LIMITS ("Recordings 5/5"); null without limits. */
+  usage?: string | null
+  /** Set when the selected workspace is full for this kind. */
+  limitWarning?: string | null
+  /** "Create report" waits for a free slot (never while resuming this draft's own upload). */
+  sendBlocked?: boolean
+  /** Admins only: opens the dashboard on this workspace to delete a report. */
+  onOpenDashboard?(): void
   onIncludeCityChange(on: boolean): void
   /** Every edit, so the draft keeps it even when the tab closes without "Keep". */
   onChange(form: ReportForm, notes: RecordingNote[]): void
@@ -102,6 +110,7 @@ export function ReviewView(props: ReviewViewProps) {
   const sent = typeof props.status === "object" && "sent" in props.status ? props.status.sent : null
 
   const send = () => {
+    if (props.sendBlocked) return
     const values = { ...form, workspaceId: form.workspaceId ?? props.workspaceId ?? undefined }
     const found = formProblem(values)
     setProblem(found)
@@ -228,6 +237,7 @@ export function ReviewView(props: ReviewViewProps) {
                   >
                     {`${workspace?.name ?? "No workspace"} · ${visibilityLabel(form.visibility, props.email)}`}
                   </AriaButton>
+                  {props.usage && <p className="text-xs text-muted-foreground">{props.usage}</p>}
                   {settings && (
                     <div className="flex flex-col gap-3 rounded-xl border border-border p-3 text-sm">
                       {props.workspaces.length > 1 && (
@@ -303,12 +313,27 @@ export function ReviewView(props: ReviewViewProps) {
                   <RiShieldCheckLine size={14} aria-hidden />
                   Passwords and card numbers were masked in the logs
                 </p>
+                {props.limitWarning && (
+                  <p role="status" className="flex flex-wrap items-center gap-2 rounded-lg bg-warning-subtle px-3 py-2 text-sm text-warning-subtle-foreground">
+                    {props.limitWarning}
+                    {props.onOpenDashboard && (
+                      <AriaButton
+                        className="rounded-sm font-semibold underline outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                        onPress={props.onOpenDashboard}
+                      >
+                        Open dashboard
+                      </AriaButton>
+                    )}
+                  </p>
+                )}
                 {typeof props.status === "object" && "failed" in props.status && (
                   <p role="alert" className="flex items-center gap-2 rounded-lg bg-danger-subtle px-3 py-2 text-sm text-danger-subtle-foreground">
                     {props.status.failed}
-                    <AriaButton className="rounded-sm font-semibold underline outline-hidden focus-visible:ring-2 focus-visible:ring-ring" onPress={send}>
-                      Try again
-                    </AriaButton>
+                    {!props.sendBlocked && (
+                      <AriaButton className="rounded-sm font-semibold underline outline-hidden focus-visible:ring-2 focus-visible:ring-ring" onPress={send}>
+                        Try again
+                      </AriaButton>
+                    )}
                   </p>
                 )}
                 {typeof props.status === "object" && "signedOut" in props.status && (
@@ -342,7 +367,7 @@ export function ReviewView(props: ReviewViewProps) {
                 <Button intent="outline" size="sm" onPress={() => setConfirm("again")}>
                   {isVideo ? "Record again" : "Retake"}
                 </Button>
-                <Button size="sm" isDisabled={sending} onPress={send}>
+                <Button size="sm" isDisabled={sending || props.sendBlocked} onPress={send}>
                   {sending ? "Creating…" : "Create report"}
                 </Button>
               </span>

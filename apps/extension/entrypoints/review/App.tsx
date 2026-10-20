@@ -7,6 +7,7 @@ import { relayFetcher } from "../../lib/api-relay"
 import { BUILD_SERVER_ORIGIN, browserSettingsStorage, includeCityStorage, lastWorkspaceStorage } from "../../lib/browser-settings"
 import { createIndexedDbDraftStore, saveAnnotations } from "../../lib/draft-store"
 import { type EditorDeps, loadEditor, loadProjects } from "../../lib/editor-load"
+import { fullWarning, limitsFor, sendBlocked, usageLine } from "../../lib/limits"
 import { currentCoordinates, locationForSend, toggleCity } from "../../lib/location"
 import type { ReviewAgainRequest } from "../../lib/messages"
 import { isSignedOut } from "../../lib/popup"
@@ -68,6 +69,14 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
   const [projects, setProjects] = useState<Project[]>([])
   const [includeCity, setIncludeCity] = useState(false)
   const [cityNote, setCityNote] = useState<string | null>(null)
+  // The selected workspace under ACCOUNT_LIMITS: its usage for this kind, and whether "Create report" waits.
+  const selected = useRef<string | null>(null)
+  const [limitNote, setLimitNote] = useState<{ usage: string | null; warning: string | null; blocked: boolean; admin: boolean }>({
+    usage: null,
+    warning: null,
+    blocked: false,
+    admin: false,
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -111,12 +120,59 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
     [draftId, busy],
   )
 
+  const refreshLimits = useCallback(async () => {
+    const workspaceId = selected.current
+    const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
+    if (!settings || !loaded || !workspaceId) return
+    const limits = await limitsFor(apiOf(settings), workspaceId)
+    // Read again from the store: a failed send may have started this draft's own upload since it loaded.
+    const current = await store.get(draftId)
+    if (selected.current !== workspaceId) return
+    const kind = loaded.draft.captureType
+    const workspace = loaded.workspaces.find((entry) => entry.id === workspaceId)
+    const who = { isAdmin: workspace?.role === "admin", hasOtherWorkspaces: loaded.workspaces.length > 1 }
+    const blocked = sendBlocked(limits, kind, current, workspaceId)
+    // A draft resuming its own upload isn't held back, so it gets no warning either.
+    setLimitNote({ usage: usageLine(limits, kind), warning: blocked ? fullWarning(limits, kind, "review", who) : null, blocked, admin: who.isAdmin })
+  }, [draftId, loaded])
+
+  useEffect(() => {
+    if (!loaded) return
+    selected.current ??= loaded.workspaceId
+    void refreshLimits()
+  }, [loaded, refreshLimits])
+
+  // Back from the dashboard after deleting a report: a slot may be free now.
+  useEffect(() => {
+    if (busy) return
+    const again = () => {
+      if (document.visibilityState === "visible") void refreshLimits()
+    }
+    window.addEventListener("focus", again)
+    document.addEventListener("visibilitychange", again)
+    return () => {
+      window.removeEventListener("focus", again)
+      document.removeEventListener("visibilitychange", again)
+    }
+  }, [busy, refreshLimits])
+
+  const openDashboard = async () => {
+    const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
+    const workspaceId = selected.current
+    if (!settings || !workspaceId) return
+    // The dashboard lists its current workspace's reports: make it this one first.
+    await apiOf(settings).setCurrentWorkspace(workspaceId).catch(() => {})
+    window.open(`${settings.serverUrl}/app`, "_blank", "noopener")
+  }
+
   const close = () => {
     if (embedded) window.parent.postMessage({ bugberry: "review-close" }, "*")
     else window.close()
   }
 
   const changeWorkspace = async (id: string) => {
+    selected.current = id
+    void refreshLimits()
     const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
     if (settings) setProjects((await loadProjects(editorDeps, settings, id)).projects)
   }
@@ -162,6 +218,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
     } catch (cause) {
       if (isSignedOut(cause)) setStatus({ signedOut: signInUrl(settings.serverUrl) })
       else setStatus({ failed: cause instanceof Error ? cause.message : String(cause) })
+      void refreshLimits()
     }
   }
 
@@ -215,6 +272,10 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       }}
       onChange={keepEdits}
       onWorkspaceChange={(id) => void changeWorkspace(id)}
+      usage={limitNote.usage}
+      limitWarning={limitNote.warning}
+      sendBlocked={limitNote.blocked}
+      onOpenDashboard={limitNote.admin ? () => void openDashboard() : undefined}
       onIncludeCityChange={(on) => void changeIncludeCity(on)}
     />
   )
