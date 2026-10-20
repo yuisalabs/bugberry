@@ -19,6 +19,7 @@ import { createDispatcher } from "../../lib/trackers/dispatch"
 import { createTrackerFactory } from "../../lib/trackers/providers"
 import { debuggerKeyFor, mediaKeyFor, thumbnailKeyFor } from "../../storage/keys"
 import { requireReportMember, resolveWorkspace } from "../../workspaces/access"
+import { assertCanCreateReport } from "../../workspaces/limits"
 import { createUploadBody } from "./model"
 import { claimReportNumber } from "./numbers"
 
@@ -67,6 +68,8 @@ export function reportUploadsModule(deps: AppDeps) {
 
         const created = await db.transaction(async (tx) => {
           const number = await claimReportNumber(tx, workspaceId)
+          // Counted after the claim, which locks the workspace row: uploads at the same time take turns here.
+          await assertCanCreateReport(tx, config, workspaceId, body.captureType)
           const [row] = await tx
             .insert(report)
             .values({
