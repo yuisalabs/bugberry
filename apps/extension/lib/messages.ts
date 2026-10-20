@@ -185,6 +185,15 @@ export function isBridgeUseServerRequest(message: unknown): message is BridgeUse
   return typeOf(message) === "bugberry:bridge-use-server"
 }
 
+/** Firefox's recorder window → background: it listens now, so the background may send it `offscreen-*` messages. */
+export interface RecorderReadyNotice {
+  type: "bugberry:recorder-ready"
+}
+
+export function isRecorderReadyNotice(message: unknown): message is RecorderReadyNotice {
+  return typeOf(message) === "bugberry:recorder-ready"
+}
+
 /** Background → the page layer of a tab (recording-ui.content.ts). */
 export type PageUiMessage =
   | { type: "bugberry:ui-recording"; on: boolean; session: string }

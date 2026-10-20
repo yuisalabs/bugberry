@@ -71,6 +71,8 @@ export interface RecordingFlowDeps {
   setActionPopup(on: boolean): Promise<void>
   /** The signed-in name written on notes; "" when unknown. */
   author(): Promise<string>
+  /** Brings the recorded tab's window to the front once the source is open (Firefox's recorder window took focus). */
+  focusTab?(tab: ActiveTab): Promise<void>
   /** The microphone was asked for but couldn't be opened: the recording runs without it, so "Mic on" would be wrong. */
   micUnavailable(): Promise<void>
   state: RecordingStateStore
@@ -242,6 +244,7 @@ export async function startVideoRecording(
     return { ok: false, error: `Couldn't start recording: ${opened.error}` }
   }
 
+  await deps.focusTab?.(tab).catch(() => {})
   if (options.countdown && (await deps.countdown(tab.id)) === "cancel") {
     await abandon(draft.id, deps)
     return { ok: false, code: "cancelled", error: "Cancelled" }

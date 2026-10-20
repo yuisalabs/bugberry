@@ -8,8 +8,7 @@ import {
   isRecordStatusRequest,
   isBarRequest,
   isReviewAgainRequest,
-  isScreenshotRequest,
-} from "../lib/messages"
+  isScreenshotRequest, isRecorderReadyNotice } from "../lib/messages"
 
 describe("messages", () => {
   test("background requests are recognised by type and shape", () => {
@@ -69,4 +68,10 @@ test("the bar's and the drawing layer's requests name their recording", () => {
 test("Record again names its draft", () => {
   expect(isReviewAgainRequest({ type: "bugberry:review-again", draftId: "d1" })).toBe(true)
   expect(isReviewAgainRequest({ type: "bugberry:review-again" })).toBe(false)
+})
+
+test("the recorder window's ready notice", () => {
+  expect(isRecorderReadyNotice({ type: "bugberry:recorder-ready" })).toBe(true)
+  expect(isRecorderReadyNotice({ type: "bugberry:recorder-gone" })).toBe(false)
+  expect(isRecorderReadyNotice(null)).toBe(false)
 })

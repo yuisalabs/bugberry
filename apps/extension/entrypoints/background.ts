@@ -16,6 +16,7 @@ import {
   isBridgeUseServerRequest,
   isPageFlush,
   isPageStart,
+  isRecorderReadyNotice,
   isRecordingEndedNotice,
   isRecordStartRequest,
   isRecordStatusRequest,
@@ -26,6 +27,7 @@ import {
   type RecordOptions,
 } from "../lib/messages"
 import { createRecordingController, type RecordingFlowDeps } from "../lib/recording-flow"
+import { createWindowRecorderHost, onRecorderClosed } from "../lib/recorder-window"
 import { createReviewOpener } from "../lib/review-opener"
 import { fromExtensionPage, ofThisRecording } from "../lib/sender-rules"
 import { createTakeAgain } from "../lib/take-again"
@@ -37,6 +39,8 @@ import { DEFAULT_MAX_UPLOAD_MB, recordingByteBudget, uploadLimitMb } from "../li
 /** Casts keep these valid before WXT has generated the path types for the pages. */
 const REVIEW_PAGE = "/review.html" as Parameters<typeof browser.runtime.getURL>[0]
 const OFFSCREEN_PAGE = "/offscreen.html" as Parameters<typeof browser.runtime.getURL>[0]
+/** Session storage key of Firefox's recorder window id. */
+const RECORDER_WINDOW_KEY = "recorderWindow"
 const CONFIRM_PAGE = "/confirm-server.html" as Parameters<typeof browser.runtime.getURL>[0]
 
 function toActiveTab(tab: Browser.tabs.Tab | undefined): ActiveTab | null {
@@ -161,6 +165,48 @@ export default defineBackground(() => {
   /** Chrome and Opera record a tab through an offscreen document; Firefox records in a window of its own. */
   const tabRecorder = hasTabRecorder(browser)
 
+  const windowHost = tabRecorder
+    ? null
+    : createWindowRecorderHost({
+        createWindow: async (url) => {
+          const created = await browser.windows.create({
+            url: browser.runtime.getURL(url as Parameters<typeof browser.runtime.getURL>[0]),
+            type: "popup",
+            width: 380,
+            height: 240,
+          })
+          if (created?.id === undefined) throw new Error("The recorder window didn't open")
+          return created.id
+        },
+        windowExists: (id) => browser.windows.get(id).then(
+          () => true,
+          () => false,
+        ),
+        focusWindow: async (id) => void (await browser.windows.update(id, { focused: true })),
+        removeWindow: (id) => browser.windows.remove(id),
+        sendMessage: (message) => browser.runtime.sendMessage(message),
+        windowId: {
+          get: async () => {
+            const stored = (await browser.storage.session.get(RECORDER_WINDOW_KEY))[RECORDER_WINDOW_KEY]
+            return typeof stored === "number" ? stored : null
+          },
+          set: (id) => browser.storage.session.set({ [RECORDER_WINDOW_KEY]: id }),
+        },
+      })
+
+  /** The offscreen document's place in Firefox: the recorder window, which the reporter brings back to the tab from. */
+  const windowRecorder: Partial<RecordingFlowDeps> = windowHost
+    ? {
+        getStreamId: async () => {
+          throw new Error("Tab capture isn't available in this browser")
+        },
+        ensureOffscreen: () => windowHost.ensure(),
+        closeOffscreen: () => windowHost.close(),
+        sendToOffscreen: (message) => windowHost.send(message),
+        focusTab: async (tab) => void (await browser.windows.update(tab.windowId, { focused: true })),
+      }
+    : {}
+
   const recordingDeps: RecordingFlowDeps = {
     getStreamId: (tabId) => browser.tabCapture.getMediaStreamId({ targetTabId: tabId }),
     ensureOffscreen: async () => {
@@ -209,6 +255,7 @@ export default defineBackground(() => {
     userAgent: navigator.userAgent,
     now: Date.now,
     newId,
+    ...windowRecorder,
   }
 
   const flagFailure = createFailureFlag({
@@ -309,12 +356,25 @@ export default defineBackground(() => {
     }
   }
 
+  // Firefox: the reporter closed the recorder window. Before a source was picked the open is cancelled (the
+  // host answers it); mid-recording the take is gone, and the recorded tab says so.
+  if (windowHost) {
+    browser.windows.onRemoved.addListener(async (windowId) => {
+      if (!(await windowHost.windowRemoved(windowId))) return
+      await onRecorderClosed({ status: () => recordings.status(), discard: () => recordings.discard(), flag: flagFailure })
+    })
+  }
+
   const extensionOrigin = browser.runtime.getURL("")
 
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const reply = (work: Promise<unknown>) => {
       work.then(sendResponse, (error: unknown) => sendResponse({ ok: false, error: String(error) }))
       return true // keeps the channel open for the async response
+    }
+    if (isRecorderReadyNotice(message)) {
+      if (fromExtensionPage(sender, browser.runtime.id, extensionOrigin)) windowHost?.ready()
+      return undefined
     }
     if (isBridgeHelloRequest(message) || isBridgeUseServerRequest(message) || isBridgeOpenPopupRequest(message)) {
       const origin = bridgeSenderOrigin(sender, browser.runtime.id)
