@@ -1,4 +1,4 @@
-import { RiArrowLeftLine, RiFileCopyLine, RiPlayFill } from "@remixicon/react"
+import { RiCloseLine, RiFileCopyLine, RiPlayFill } from "@remixicon/react"
 import { Fragment, useState } from "react"
 import { Button } from "@bugberry/ui/button"
 import { Tab, TabList, Tabs } from "@bugberry/ui/tabs"
@@ -52,17 +52,20 @@ function asRequest(row: NetworkRow): ViewNetwork {
   )
 }
 
-/** One row of the Network tab, Chrome DevTools style: headers, payload, response and timing, with copy and jump. */
+/**
+ * One row of the Network tab, Chrome DevTools style: headers, payload, response and timing, with copy and jump.
+ * The address and the section tabs stay at the top while the rest scrolls under them.
+ */
 export function RequestDetail({
   row,
   base,
   playback,
-  onBack,
+  onClose,
 }: {
   row: NetworkRow
   base: number | null
   playback: Playback | null
-  onBack(): void
+  onClose(): void
 }) {
   const request = row.request
   const state = request ? requestState(request) : "ok"
@@ -91,30 +94,32 @@ export function RequestDetail({
 
   return (
     <div className="flex flex-col text-xs">
-      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-        <Button intent="plain" size="sq-xs" aria-label="All requests" onPress={onBack}>
-          <RiArrowLeftLine aria-hidden />
-        </Button>
-        <p className="min-w-0 flex-1 truncate font-mono font-medium text-foreground">
-          {row.method} {requestPath(row.url)}
-        </p>
-        {request && (
-          <span
-            className={`shrink-0 rounded px-1.5 py-0.5 font-mono ${state === "failed" ? "bg-danger-subtle text-danger-subtle-foreground" : state === "canceled" ? "bg-warning-subtle text-warning-subtle-foreground" : "bg-muted text-muted-foreground"}`}
-          >
-            {statusLabel(request.status)}
-          </span>
-        )}
+      <div className="sticky top-0 z-10 bg-background">
+        <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+          <p className="min-w-0 flex-1 truncate font-mono font-medium text-foreground">
+            {row.method} {requestPath(row.url)}
+          </p>
+          {request && (
+            <span
+              className={`shrink-0 rounded px-1.5 py-0.5 font-mono ${state === "failed" ? "bg-danger-subtle text-danger-subtle-foreground" : state === "canceled" ? "bg-warning-subtle text-warning-subtle-foreground" : "bg-muted text-muted-foreground"}`}
+            >
+              {statusLabel(request.status)}
+            </span>
+          )}
+          <Button intent="plain" size="sq-xs" aria-label="Close request" onPress={onClose}>
+            <RiCloseLine aria-hidden />
+          </Button>
+        </div>
+        <Tabs selectedKey={section} onSelectionChange={(key) => setSection(key as Section)} className="gap-0 self-stretch">
+          <TabList aria-label="Request" className="px-3">
+            {sections.map(([id, label]) => (
+              <Tab key={id} id={id} className="text-xs/6">
+                {label}
+              </Tab>
+            ))}
+          </TabList>
+        </Tabs>
       </div>
-      <Tabs selectedKey={section} onSelectionChange={(key) => setSection(key as Section)} className="gap-0 self-stretch">
-        <TabList aria-label="Request" className="px-3">
-          {sections.map(([id, label]) => (
-            <Tab key={id} id={id} className="text-xs/6">
-              {label}
-            </Tab>
-          ))}
-        </TabList>
-      </Tabs>
       <dl className="grid grid-cols-3 gap-2 border-b border-border px-3 py-2">
         {facts
           .filter(([, value]) => value !== "")
@@ -217,8 +222,9 @@ function Code({ label, text, empty }: { label: "payload" | "response"; text: str
   }
   return (
     // The button sits outside the scrolling box, so it stays in the corner however far the body is scrolled.
+    // The box is never shorter than the button, so a one-line body like `[]` still holds it.
     <div className="relative">
-      <pre className="max-h-80 overflow-auto rounded-md border border-border bg-muted/50 py-2 pr-9 font-mono">
+      <pre className="max-h-80 min-h-11 overflow-auto rounded-md border border-border bg-muted/50 py-2 pr-9 font-mono">
         {lines.map((line, index) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: lines have no identity besides their position
           <div key={index} className="flex">

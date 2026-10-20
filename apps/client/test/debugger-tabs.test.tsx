@@ -84,7 +84,7 @@ describe("NetworkTab with page resources", () => {
     fireEvent.click(screen.getByRole("button", { name: /^app\.js/ }))
     fireEvent.click(screen.getByRole("tab", { name: "Timing" }))
     expect(screen.getByText("Waiting for server (TTFB)")).toBeTruthy()
-    fireEvent.click(screen.getByRole("button", { name: "All requests" }))
+    fireEvent.click(screen.getByRole("button", { name: "Close request" }))
     fireEvent.click(screen.getByRole("button", { name: /^lib\.js/ }))
     expect(screen.queryByRole("tab", { name: "Timing" })).toBeNull()
   })
@@ -142,20 +142,34 @@ describe("NetworkTab", () => {
     expect(screen.getByText("3 requests · 1 failed · 1 canceled")).toBeTruthy()
   })
 
-  test("a row opens the request in place of the table, as plain text", () => {
+  test("a row opens the request under the table, as plain text", () => {
     const seek = mock()
     render(<NetworkTab events={events} base={1000} playback={{ currentMs: null, seek }} />)
     fireEvent.click(screen.getByRole("button", { name: /^pay/ }))
     expect(screen.getByText("POST /api/pay")).toBeTruthy()
     expect(screen.getByText("500 Internal Server Error")).toBeTruthy()
+    // The table stays, with the opened row marked.
+    expect(screen.getByRole("button", { name: /^user/ })).toBeTruthy()
+    expect(screen.getByRole("button", { name: /^pay/ }).closest("tr")?.dataset.selected).toBe("true")
     fireEvent.click(screen.getByRole("tab", { name: "Response" }))
     expect(screen.getByText('"error": "boom"')).toBeTruthy()
     expect(screen.getByText("content-type")).toBeTruthy()
     expect(screen.queryAllByRole("link")).toHaveLength(0)
     fireEvent.click(screen.getByRole("button", { name: "Jump to 0:00" }))
     expect(seek).toHaveBeenCalledWith(1)
-    fireEvent.click(screen.getByRole("button", { name: "All requests" }))
-    expect(screen.getByRole("button", { name: /^user/ })).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: "Close request" }))
+    expect(screen.queryByText("POST /api/pay")).toBeNull()
+    expect(screen.getByRole("button", { name: /^pay/ }).closest("tr")?.dataset.selected).toBeUndefined()
+  })
+
+  test("another row swaps the detail, and filtering keeps it open", () => {
+    render(<NetworkTab events={events} base={1000} />)
+    fireEvent.click(screen.getByRole("button", { name: /^pay/ }))
+    fireEvent.click(screen.getByRole("button", { name: /^user/ }))
+    expect(screen.queryByText("POST /api/pay")).toBeNull()
+    expect(screen.getByText("GET /api/user")).toBeTruthy()
+    fireEvent.change(screen.getByRole("searchbox", { name: "Filter requests" }), { target: { value: "pay" } })
+    expect(screen.getByText("GET /api/user")).toBeTruthy()
   })
 })
 
@@ -337,7 +351,7 @@ describe("pointing the DevTools panel at something", () => {
 
   test("the same focus again re-opens after the person moved away", () => {
     const { rerender } = render(tabs({ tab: "network", rowKey: payKey, nonce: 1 }))
-    fireEvent.click(screen.getByRole("button", { name: "All requests" }))
+    fireEvent.click(screen.getByRole("button", { name: "Close request" }))
     fireEvent.click(screen.getByRole("tab", { name: /Info/ }))
     rerender(tabs({ tab: "network", rowKey: payKey, nonce: 2 }))
     expect(screen.getByText("POST /api/pay")).toBeTruthy()
@@ -346,7 +360,7 @@ describe("pointing the DevTools panel at something", () => {
   test("coming back to the Network tab shows the table, not the request opened earlier", () => {
     render(tabs({ tab: "network", rowKey: payKey, nonce: 1 }))
     expect(screen.getByText("POST /api/pay")).toBeTruthy()
-    fireEvent.click(screen.getByRole("button", { name: "All requests" }))
+    fireEvent.click(screen.getByRole("button", { name: "Close request" }))
     fireEvent.click(screen.getByRole("tab", { name: /Console/ }))
     fireEvent.click(screen.getByRole("tab", { name: /Network/ }))
     expect(screen.queryByText("POST /api/pay")).toBeNull()

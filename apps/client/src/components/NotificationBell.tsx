@@ -80,8 +80,11 @@ export function NotificationBellView({
   )
 }
 
-/** The bell for @mentions: polls for new ones, and opening one lands on that comment. */
-export function NotificationBell() {
+/**
+ * The bell for @mentions: polls for new ones, and opening one lands on that comment. `placement` says which edge of
+ * the bell the list lines up with: its right edge by default, its left where the bell sits on the left of the page.
+ */
+export function NotificationBell({ placement = "bottom end" }: { placement?: "bottom start" | "bottom end" }) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const now = useNow()
@@ -104,7 +107,7 @@ export function NotificationBell() {
         <RiNotification3Line aria-hidden />
         <NotificationBadge count={count} />
       </Button>
-      <Popover placement="bottom end" className="max-w-none">
+      <Popover placement={placement} className="max-w-none">
         <Dialog aria-label="Notifications" className="outline-hidden">
           {notifications.data ? (
             <NotificationBellView data={notifications.data} now={now} onOpen={openItem} onReadAll={() => readAll.mutate()} />

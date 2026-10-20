@@ -44,7 +44,7 @@ const row = () => {
 
 describe("RequestDetail bodies", () => {
   test("the response is shown pretty-printed, one line per row", () => {
-    render(<RequestDetail row={row()} base={1000} playback={null} onBack={() => {}} />)
+    render(<RequestDetail row={row()} base={1000} playback={null} onClose={() => {}} />)
     fireEvent.click(screen.getByRole("tab", { name: "Response" }))
     expect(screen.getByText('"id": "p1",')).toBeTruthy()
     expect(screen.getByText('"name": "Test"')).toBeTruthy()
@@ -53,7 +53,7 @@ describe("RequestDetail bodies", () => {
   test("Copy puts the body on the clipboard, pretty-printed as shown", async () => {
     const writeText = mock(async (_text: string) => {})
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true })
-    render(<RequestDetail row={row()} base={1000} playback={null} onBack={() => {}} />)
+    render(<RequestDetail row={row()} base={1000} playback={null} onClose={() => {}} />)
     fireEvent.click(screen.getByRole("tab", { name: "Payload" }))
     fireEvent.click(screen.getByRole("button", { name: "Copy payload" }))
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('{\n  "name": "Test"\n}'))
@@ -64,7 +64,7 @@ describe("RequestDetail bodies", () => {
 
   test("no Copy button when there is no body", () => {
     const empty = { ...row(), request: { ...row().request!, requestBody: null } }
-    render(<RequestDetail row={empty} base={1000} playback={null} onBack={() => {}} />)
+    render(<RequestDetail row={empty} base={1000} playback={null} onClose={() => {}} />)
     fireEvent.click(screen.getByRole("tab", { name: "Payload" }))
     expect(screen.getByText("This request sent no body.")).toBeTruthy()
     expect(screen.queryByRole("button", { name: "Copy payload" })).toBeNull()

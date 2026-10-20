@@ -6,7 +6,7 @@ import { SearchField } from "@bugberry/ui/search-field"
 import { Switch, SwitchField } from "@bugberry/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@bugberry/ui/toggle-group"
 import type { ViewEvent } from "@bugberry/debugger-view"
-import { startHorizontalDrag } from "../../lib/drag"
+import { startHorizontalDrag, startVerticalDrag } from "../../lib/drag"
 import { formatDuration } from "../../lib/format"
 import {
   formatBytes,
@@ -32,6 +32,7 @@ import {
   saveColumnWidths,
   WATERFALL_MIN_WIDTH,
 } from "../../lib/network-columns"
+import { clampDetailHeight, DEFAULT_DETAIL_HEIGHT, readDetailHeight, saveDetailHeight } from "../../lib/network-detail"
 import { activeRow, type Playback } from "../../lib/timeline"
 import { RequestDetail } from "./RequestDetail"
 import { ACTIVE_ROW, FOLLOW_SCROLL_ATTRIBUTE, FOLLOW_STICKY_ATTRIBUTE, useFollow } from "./useFollow"
@@ -41,6 +42,13 @@ const ROW_STYLES = {
   ok: "text-foreground even:bg-muted-foreground/6 hover:bg-muted-foreground/12",
   failed: "bg-danger-subtle text-danger-subtle-foreground",
   canceled: "bg-warning-subtle text-warning-subtle-foreground",
+} as const
+
+/** The opened row: a bar down its left edge, and a tint where the row has no colour of its own. */
+const SELECTED_STYLES = {
+  ok: "bg-primary-subtle text-primary-subtle-foreground shadow-[inset_3px_0_0_var(--color-primary)]",
+  failed: `${ROW_STYLES.failed} shadow-[inset_3px_0_0_var(--color-primary)]`,
+  canceled: `${ROW_STYLES.canceled} shadow-[inset_3px_0_0_var(--color-primary)]`,
 } as const
 
 const stateOf = (row: NetworkRow) => (row.request ? requestState(row.request) : "ok")
@@ -93,7 +101,41 @@ function ColumnResizer({
   )
 }
 
-/** The recorded requests and page files as a Chrome-like table; a row opens its detail in place of the table. */
+/**
+ * The edge between the table and the request opened under it: it drags up to make the detail taller, down to make
+ * it shorter. Arrow keys move it in steps; a double click goes back to the default height.
+ */
+function DetailResizer({ height, onResize }: { height: number; onResize(height: number): void }) {
+  const stopDrag = useRef<() => void>(() => {})
+  useEffect(() => () => stopDrag.current(), [])
+  return (
+    <div
+      role="separator"
+      aria-label="Resize request details"
+      aria-orientation="horizontal"
+      aria-valuenow={height}
+      tabIndex={0}
+      title="Drag to resize. Double-click for the default height."
+      onPointerDown={(down) => {
+        down.preventDefault()
+        const startHeight = height
+        stopDrag.current = startVerticalDrag(down.clientY, (deltaY) => onResize(startHeight - deltaY))
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "ArrowUp") onResize(height + KEY_STEP)
+        else if (event.key === "ArrowDown") onResize(height - KEY_STEP)
+        else return
+        event.preventDefault()
+      }}
+      onDoubleClick={() => onResize(DEFAULT_DETAIL_HEIGHT)}
+      className="group/edge relative z-20 -my-1 h-2 shrink-0 cursor-row-resize outline-hidden"
+    >
+      <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-border transition-colors group-hover/edge:h-0.5 group-hover/edge:bg-primary group-focus-visible/edge:h-0.5 group-focus-visible/edge:bg-primary" />
+    </div>
+  )
+}
+
+/** The recorded requests and page files as a Chrome-like table; a row opens its detail under the table. */
 export function NetworkTab({
   events,
   base,
@@ -114,6 +156,13 @@ export function NetworkTab({
   const [query, setQuery] = useState("")
   const [open, setOpen] = useState<string | null>(null)
   const [widths, setWidths] = useState<ColumnWidths>(readColumnWidths)
+  const [detailHeight, setDetailHeight] = useState(readDetailHeight)
+  const split = useRef<HTMLDivElement>(null)
+  const resizeDetail = (height: number) => {
+    const next = clampDetailHeight(height, split.current?.clientHeight ?? Number.POSITIVE_INFINITY)
+    setDetailHeight(next)
+    saveDetailHeight(next)
+  }
   const resize = (column: SizedColumn, width: number) => {
     setWidths((current) => {
       const next = { ...current, [column]: clampColumnWidth(width) }
@@ -123,7 +172,7 @@ export function NetworkTab({
   }
   useEffect(() => {
     if (!openKey) return
-    // Filters that would hide the row are cleared, so Back shows it in the full list.
+    // Filters that would hide the row are cleared, so it shows in the list above its detail.
     setErrorsOnly(false)
     setTypeFilter("All")
     setQuery("")
@@ -150,15 +199,6 @@ export function NetworkTab({
   const canceled = all.filter((row) => stateOf(row) === "canceled").length
   const opened = open === null ? undefined : all.find((row) => row.key === open)
 
-  if (opened) {
-    return (
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <RequestDetail row={opened} base={base} playback={playback} onBack={() => setOpen(null)} />
-      </div>
-    )
-  }
-
-  const changed = () => setOpen(null)
   const timings = [
     totals.transferredBytes > 0 ? `${formatBytes(totals.transferredBytes)} transferred` : null,
     totals.resourceBytes > 0 ? `${formatBytes(totals.resourceBytes)} resources` : null,
@@ -169,6 +209,7 @@ export function NetworkTab({
 
   return (
     // The filters above and the totals below stay put; the table scrolls on its own, under a header that sticks.
+    // An opened request shows under the table, as tall as its edge was dragged; the table keeps the rest.
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex shrink-0 flex-col gap-2 border-b border-border px-3 py-2">
         <div className="flex flex-wrap items-center gap-3">
@@ -177,7 +218,6 @@ export function NetworkTab({
             value={query}
             onChange={(value) => {
               setQuery(value)
-              changed()
             }}
             className="min-w-40 flex-1"
           >
@@ -190,7 +230,6 @@ export function NetworkTab({
             isSelected={errorsOnly}
             onChange={(value) => {
               setErrorsOnly(value)
-              changed()
             }}
             className="w-auto"
           >
@@ -209,7 +248,6 @@ export function NetworkTab({
             const [key] = keys
             if (!key) return
             setTypeFilter(key as typeof typeFilter)
-            changed()
           }}
           className="flex-wrap self-start"
         >
@@ -220,84 +258,99 @@ export function NetworkTab({
           ))}
         </ToggleGroup>
       </div>
-      {visible.length === 0 ? (
-        <p className="p-4 text-sm text-muted-foreground">{all.length === 0 ? "No requests were recorded." : "No requests match."}</p>
-      ) : (
-        <div {...{ [FOLLOW_SCROLL_ATTRIBUTE]: "" }} className="min-h-0 flex-1 overflow-auto">
-          {/*
-            A plain <table>, not Intent's Table: React Aria's grid keeps the arrow keys for moving between cells,
-            which takes them from the column edges below, and its own resizer drags, steps and resets differently.
-          */}
-          <table
-            className="w-full table-fixed border-separate border-spacing-0 text-left text-xs"
-            style={{ minWidth: Object.values(widths).reduce((sum, width) => sum + width, WATERFALL_MIN_WIDTH) }}
-          >
-            <colgroup>
-              {NETWORK_COLUMNS.map((column) => (
-                <col key={column} data-column={column} style={column === "Waterfall" ? undefined : { width: widths[column] }} />
-              ))}
-            </colgroup>
-            <thead {...{ [FOLLOW_STICKY_ATTRIBUTE]: "" }} className="sticky top-0 z-10 bg-background text-muted-foreground">
-              <tr>
+      <div ref={split} className="flex min-h-0 flex-1 flex-col">
+        {visible.length === 0 ? (
+          <p className="min-h-24 flex-1 p-4 text-sm text-muted-foreground">
+            {all.length === 0 ? "No requests were recorded." : "No requests match."}
+          </p>
+        ) : (
+          <div {...{ [FOLLOW_SCROLL_ATTRIBUTE]: "" }} className="min-h-24 flex-1 overflow-auto">
+            {/*
+              A plain <table>, not Intent's Table: React Aria's grid keeps the arrow keys for moving between cells,
+              which takes them from the column edges below, and its own resizer drags, steps and resets differently.
+            */}
+            <table
+              className="w-full table-fixed border-separate border-spacing-0 text-left text-xs"
+              style={{ minWidth: Object.values(widths).reduce((sum, width) => sum + width, WATERFALL_MIN_WIDTH) }}
+            >
+              <colgroup>
                 {NETWORK_COLUMNS.map((column) => (
-                  <th
-                    key={column}
-                    scope="col"
-                    // Named on its own: otherwise the resize edge's label becomes part of the header's name.
-                    aria-label={column}
-                    className={`relative border-b border-b-border font-medium first:pl-3 ${column === "Waterfall" ? "px-2 py-1.5" : `${CELL} py-1.5`}`}
-                  >
-                    {column}
-                    {column !== "Waterfall" && <ColumnResizer column={column} width={widths[column]} onResize={(width) => resize(column, width)} />}
-                  </th>
+                  <col key={column} data-column={column} style={column === "Waterfall" ? undefined : { width: widths[column] }} />
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {visible.map((row, index) => {
-                const state = stateOf(row)
-                const bar = bars.get(row.key)
-                return (
-                  <tr
-                    key={row.key}
-                    ref={follow(index)}
-                    aria-current={index === active ? "true" : undefined}
-                    // The whole row opens the request; the name is a button too, so the keyboard can reach it.
-                    onClick={() => setOpen(row.key)}
-                    className={`cursor-pointer ${ROW_STYLES[state]} ${row.page ? "font-semibold" : ""} ${index === active ? ACTIVE_ROW : ""} [&>td]:border-b [&>td]:border-b-border/60`}
-                  >
-                    <td className={`${CELL} pl-3 font-mono text-muted-foreground`}>{index + 1}</td>
-                    <td className={CELL}>
-                      <AriaButton onPress={() => setOpen(row.key)} className="block w-full cursor-pointer truncate text-left font-medium">
-                        <span title={row.url}>{requestName(row.url)}</span>
-                      </AriaButton>
-                    </td>
-                    <td className={`${CELL} font-mono`}>{state === "canceled" ? "(canceled)" : (row.status ?? "")}</td>
-                    <td className={`${CELL} font-mono`}>{row.method}</td>
-                    <td className={CELL}>{row.type}</td>
-                    <td className={`${CELL} text-muted-foreground`}>{sizeLabel(row)}</td>
-                    <td className={`${CELL} font-mono`}>{row.durationMs === null ? "" : formatDuration(row.durationMs)}</td>
-                    <td className={`${CELL} text-muted-foreground`}>
-                      {row.request?.initiator ?? row.resource?.initiatorType ?? (row.page ? row.page.via : "")}
-                    </td>
-                    <td className={`${CELL} text-muted-foreground`}>{requestDomain(row.url)}</td>
-                    <td className="px-2 py-1">
-                      {bar && (
-                        <div className="relative h-2 rounded bg-muted">
-                          <div
-                            className={`absolute inset-y-0 rounded ${state === "ok" ? "bg-primary/70" : "bg-danger"}`}
-                            style={{ left: `${Math.min(bar.leftPercent, 99.5)}%`, width: `${bar.widthPercent}%` }}
-                          />
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </colgroup>
+              <thead {...{ [FOLLOW_STICKY_ATTRIBUTE]: "" }} className="sticky top-0 z-10 bg-background text-muted-foreground">
+                <tr>
+                  {NETWORK_COLUMNS.map((column) => (
+                    <th
+                      key={column}
+                      scope="col"
+                      // Named on its own: otherwise the resize edge's label becomes part of the header's name.
+                      aria-label={column}
+                      className={`relative border-b border-b-border font-medium first:pl-3 ${column === "Waterfall" ? "px-2 py-1.5" : `${CELL} py-1.5`}`}
+                    >
+                      {column}
+                      {column !== "Waterfall" && <ColumnResizer column={column} width={widths[column]} onResize={(width) => resize(column, width)} />}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map((row, index) => {
+                  const state = stateOf(row)
+                  const bar = bars.get(row.key)
+                  const selected = row.key === open
+                  return (
+                    <tr
+                      key={row.key}
+                      ref={follow(index)}
+                      aria-current={index === active ? "true" : undefined}
+                      data-selected={selected || undefined}
+                      // The whole row opens the request; the name is a button too, so the keyboard can reach it.
+                      onClick={() => setOpen(row.key)}
+                      className={`cursor-pointer ${selected ? SELECTED_STYLES[state] : ROW_STYLES[state]} ${row.page ? "font-semibold" : ""} ${index === active ? ACTIVE_ROW : ""} [&>td]:border-b [&>td]:border-b-border/60`}
+                    >
+                      <td className={`${CELL} pl-3 font-mono text-muted-foreground`}>{index + 1}</td>
+                      <td className={CELL}>
+                        <AriaButton onPress={() => setOpen(row.key)} className="block w-full cursor-pointer truncate text-left font-medium">
+                          <span title={row.url}>{requestName(row.url)}</span>
+                        </AriaButton>
+                      </td>
+                      <td className={`${CELL} font-mono`}>{state === "canceled" ? "(canceled)" : (row.status ?? "")}</td>
+                      <td className={`${CELL} font-mono`}>{row.method}</td>
+                      <td className={CELL}>{row.type}</td>
+                      <td className={`${CELL} text-muted-foreground`}>{sizeLabel(row)}</td>
+                      <td className={`${CELL} font-mono`}>{row.durationMs === null ? "" : formatDuration(row.durationMs)}</td>
+                      <td className={`${CELL} text-muted-foreground`}>
+                        {row.request?.initiator ?? row.resource?.initiatorType ?? (row.page ? row.page.via : "")}
+                      </td>
+                      <td className={`${CELL} text-muted-foreground`}>{requestDomain(row.url)}</td>
+                      <td className="px-2 py-1">
+                        {bar && (
+                          <div className="relative h-2 rounded bg-muted">
+                            <div
+                              className={`absolute inset-y-0 rounded ${state === "ok" ? "bg-primary/70" : "bg-danger"}`}
+                              style={{ left: `${Math.min(bar.leftPercent, 99.5)}%`, width: `${bar.widthPercent}%` }}
+                            />
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {opened && (
+          <>
+            <DetailResizer height={detailHeight} onResize={resizeDetail} />
+            {/* Shrinks before the table does when the panel gets short, so the table keeps a few rows. */}
+            <div className="min-h-0 shrink overflow-y-auto" style={{ flexBasis: detailHeight }}>
+              <RequestDetail key={opened.key} row={opened} base={base} playback={playback} onClose={() => setOpen(null)} />
+            </div>
+          </>
+        )}
+      </div>
       <div className="shrink-0 border-t border-border px-3 py-1.5 text-xs text-muted-foreground">
         <p>
           {all.length} requests · {failed} failed · {canceled} canceled

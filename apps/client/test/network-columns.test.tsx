@@ -80,7 +80,7 @@ describe("NetworkTab layout", () => {
     render(<NetworkTab events={events} base={1000} />)
     fireEvent.click(screen.getByRole("cell", { name: "POST" }))
     expect(screen.getByText("POST /api/pay")).toBeTruthy()
-    fireEvent.click(screen.getByRole("button", { name: "All requests" }))
+    fireEvent.click(screen.getByRole("button", { name: "Close request" }))
     expect(screen.getByRole("columnheader", { name: "Name" })).toBeTruthy()
   })
 

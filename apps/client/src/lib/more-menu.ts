@@ -3,6 +3,11 @@ import type { ReportTrackers } from "./api"
 import { linkState } from "./tracker-links"
 import { safeHttpUrl } from "./urls"
 
+/** What a person pastes into their AI agent to have it debug this report through the MCP server. */
+export function copyForAiText(origin: string, reportId: string): string {
+  return `Use the BugBerry MCP server to debug this report: ${origin}/app/r/${reportId}`
+}
+
 export interface TrackerItem {
   integrationId: string
   label: string

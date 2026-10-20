@@ -17,3 +17,5 @@ AGENTS.md
 .superpowers
 docs
 .claude
+
+.env.production

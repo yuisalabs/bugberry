@@ -14,6 +14,8 @@ function view(overrides: Partial<Parameters<typeof MoreMenuView>[0]> = {}) {
     trackers: [{ integrationId: "gh", label: "Send to GitHub · kantor/web", action: "send" as const, href: null, note: null }],
     needsProject: false,
     canDelete: true,
+    onCopyForAi: mock(),
+    onSetUpAi: mock(),
     onMove: mock(),
     onNewProject: mock(),
     onSend: mock(),
@@ -39,6 +41,15 @@ describe("MoreMenuView", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: /Move to project/ }))
     fireEvent.click(screen.getByRole("menuitemradio", { name: "No project" }))
     expect(props.onMove).toHaveBeenCalledWith(null)
+  })
+
+  test("Copy for AI and its setup live in the menu", () => {
+    const props = view()
+    fireEvent.click(screen.getByRole("menuitem", { name: /^Copy for AI/ }))
+    expect(props.onCopyForAi).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }))
+    fireEvent.click(screen.getByRole("menuitem", { name: "Set up AI agents" }))
+    expect(props.onSetUpAi).toHaveBeenCalledTimes(1)
   })
 
   test("tracker items send", () => {
