@@ -2,7 +2,8 @@ import type { WorkspaceRole } from "@bugberry/shared"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@bugberry/ui/button"
 import { InviteForm } from "../../components/InviteDialog"
-import { ErrorState, Loading, PageHeader } from "../../components/ui"
+import { SettingsRowsSkeleton } from "../../components/Skeletons"
+import { ErrorState, PageHeader } from "../../components/ui"
 import { errorMessage, type InviteResult, type JoinRequest, type Member, type PendingInvitation } from "../../lib/api"
 import { api } from "../../lib/client"
 import { formatDateTime } from "../../lib/format"
@@ -185,7 +186,7 @@ export function MembersPage() {
         </p>
       )}
       {members.isPending || me.isPending || limits.isPending ? (
-        <Loading />
+        <SettingsRowsSkeleton />
       ) : members.isError ? (
         <ErrorState error={members.error} onRetry={() => void members.refetch()} />
       ) : (

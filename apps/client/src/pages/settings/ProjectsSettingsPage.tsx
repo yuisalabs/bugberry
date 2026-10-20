@@ -6,7 +6,8 @@ import { Label } from "@bugberry/ui/field"
 import { Input } from "@bugberry/ui/input"
 import { TextField } from "@bugberry/ui/text-field"
 import { Textarea } from "@bugberry/ui/textarea"
-import { EmptyState, ErrorState, Loading, PageHeader } from "../../components/ui"
+import { SettingsRowsSkeleton } from "../../components/Skeletons"
+import { EmptyState, ErrorState, PageHeader } from "../../components/ui"
 import { errorMessage, type Project, type ProjectInput } from "../../lib/api"
 import { api } from "../../lib/client"
 import { queries } from "../../lib/queries"
@@ -37,7 +38,7 @@ export function ProjectsSettingsPage() {
         </p>
       )}
       {projects.isPending ? (
-        <Loading />
+        <SettingsRowsSkeleton />
       ) : projects.isError ? (
         <ErrorState error={projects.error} onRetry={() => void projects.refetch()} />
       ) : projects.data.length === 0 ? (

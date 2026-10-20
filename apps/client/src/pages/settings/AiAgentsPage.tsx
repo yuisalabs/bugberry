@@ -5,7 +5,8 @@ import { Input } from "@bugberry/ui/input"
 import { Tab, TabList, TabPanel, Tabs } from "@bugberry/ui/tabs"
 import { TextField } from "@bugberry/ui/text-field"
 import { useState } from "react"
-import { CopyButton, ErrorState, Loading } from "../../components/ui"
+import { SettingsPageSkeleton } from "../../components/Skeletons"
+import { CopyButton, ErrorState } from "../../components/ui"
 import { errorMessage } from "../../lib/api"
 import { api } from "../../lib/client"
 import { formatDateTime } from "../../lib/format"
@@ -231,7 +232,7 @@ export function AiAgentsPage() {
   const revokeToken = useMutation({ mutationFn: (id: string) => api.revokeMcpToken(id), onSuccess: refresh })
   const revokeApp = useMutation({ mutationFn: (clientId: string) => api.revokeOAuthApp(clientId), onSuccess: refresh })
 
-  if (tokens.isPending || apps.isPending) return <Loading />
+  if (tokens.isPending || apps.isPending) return <SettingsPageSkeleton />
   if (tokens.isError || apps.isError) {
     return (
       <ErrorState

@@ -4,7 +4,8 @@ import { getRouteApi, Link } from "@tanstack/react-router"
 import { useReducer } from "react"
 import { Button } from "@bugberry/ui/button"
 import { IntegrationForm, type IntegrationSubmit } from "../../components/IntegrationForm"
-import { Badge, EmptyState, ErrorState, Loading, PageHeader } from "../../components/ui"
+import { SettingsRowsSkeleton } from "../../components/Skeletons"
+import { Badge, EmptyState, ErrorState, PageHeader } from "../../components/ui"
 import { errorMessage, type IntegrationInput } from "../../lib/api"
 import { api } from "../../lib/client"
 import { INITIAL_INTEGRATIONS_UI, integrationsUi } from "../../lib/integrations-ui"
@@ -81,7 +82,7 @@ export function IntegrationsPage() {
         </p>
       )}
       {integrations.isPending ? (
-        <Loading />
+        <SettingsRowsSkeleton />
       ) : integrations.isError ? (
         <ErrorState error={integrations.error} onRetry={() => void integrations.refetch()} />
       ) : integrations.data.length === 0 ? (

@@ -6,7 +6,8 @@ import { api } from "../lib/client"
 import { queries } from "../lib/queries"
 import { roleIn } from "../lib/workspace"
 import { CommentList } from "./CommentList"
-import { ErrorState, Loading } from "./ui"
+import { PeopleRowsSkeleton } from "./Skeletons"
+import { ErrorState } from "./ui"
 
 export function ReportComments({ reportId, workspaceId }: { reportId: string; workspaceId: string }) {
   const queryClient = useQueryClient()
@@ -29,7 +30,7 @@ export function ReportComments({ reportId, workspaceId }: { reportId: string; wo
   })
   const remove = useMutation({ mutationFn: (id: string) => api.deleteComment(id), onSuccess: refresh })
 
-  if (comments.isPending || me.isPending) return <Loading label="Loading comments…" />
+  if (comments.isPending || me.isPending) return <PeopleRowsSkeleton label="Loading comments…" />
   if (comments.isError) return <ErrorState error={comments.error} onRetry={() => void comments.refetch()} />
   if (me.isError) return <ErrorState error={me.error} />
   const error = add.error ?? edit.error ?? remove.error

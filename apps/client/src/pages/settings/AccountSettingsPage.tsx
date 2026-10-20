@@ -6,7 +6,8 @@ import { Description, Label } from "@bugberry/ui/field"
 import { FileTrigger } from "@bugberry/ui/file-trigger"
 import { Input } from "@bugberry/ui/input"
 import { TextField } from "@bugberry/ui/text-field"
-import { ErrorState, Loading } from "../../components/ui"
+import { SettingsPageSkeleton } from "../../components/Skeletons"
+import { ErrorState } from "../../components/ui"
 import { errorMessage, type SignInMethod } from "../../lib/api"
 import { api } from "../../lib/client"
 import { initialsOf } from "../../lib/people"
@@ -129,7 +130,7 @@ export function AccountSettingsPage() {
   })
   const remove = useMutation({ mutationFn: () => api.removeAvatar(), onSuccess: refresh })
 
-  if (me.isPending) return <Loading />
+  if (me.isPending) return <SettingsPageSkeleton />
   if (me.isError) return <ErrorState error={me.error} onRetry={() => void me.refetch()} />
   const error = saveName.error ?? upload.error ?? remove.error
   return (

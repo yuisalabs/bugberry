@@ -10,7 +10,8 @@ import { ReportCard } from "./ReportCard"
 import { LayoutToggle, ReportFilters, SortMenu } from "./ReportFilters"
 import { ReportSearchBox } from "./ReportSearchBox"
 import { ReportTable } from "./ReportTable"
-import { EmptyState, ErrorState, Loading } from "./ui"
+import { LoadingSkeleton, ReportListSkeleton } from "./Skeletons"
+import { EmptyState, ErrorState } from "./ui"
 
 export type ReportListState = ReportFeed | "loading" | { error: unknown; retry: () => void }
 
@@ -111,7 +112,9 @@ export function ReportsView({
       </div>
 
       {list === "loading" ? (
-        <Loading />
+        <LoadingSkeleton>
+          <ReportListSkeleton layout={layout} />
+        </LoadingSkeleton>
       ) : !loaded ? (
         <ErrorState error={(list as { error: unknown }).error} onRetry={(list as { retry: () => void }).retry} />
       ) : loaded.items.length === 0 ? (
@@ -130,6 +133,11 @@ export function ReportsView({
                 <li key={item.id}>{renderCard(item)}</li>
               ))}
             </ul>
+          )}
+          {loaded.loadingMore && (
+            <div className="mt-6">
+              <ReportListSkeleton layout={layout} count={3} />
+            </div>
           )}
           <LoadMore
             shown={loaded.items.length}

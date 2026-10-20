@@ -10,6 +10,7 @@ import type { Notifications } from "../lib/api"
 import { api } from "../lib/client"
 import { formatRelative } from "../lib/format"
 import { queries } from "../lib/queries"
+import { PeopleRowsSkeleton } from "./Skeletons"
 
 type Item = Notifications["items"][number]
 
@@ -111,10 +112,10 @@ export function NotificationBell({ placement = "bottom end" }: { placement?: "bo
         <Dialog aria-label="Notifications" className="outline-hidden">
           {notifications.data ? (
             <NotificationBellView data={notifications.data} now={now} onOpen={openItem} onReadAll={() => readAll.mutate()} />
+          ) : notifications.isError ? (
+            <p className="px-4 py-6 text-sm text-muted-foreground">Couldn't load notifications</p>
           ) : (
-            <p className="px-4 py-6 text-sm text-muted-foreground">
-              {notifications.isError ? "Couldn't load notifications" : "Loading…"}
-            </p>
+            <PeopleRowsSkeleton label="Loading notifications…" count={3} className="w-[min(22rem,calc(100vw-24px))] p-4" />
           )}
         </Dialog>
       </Popover>

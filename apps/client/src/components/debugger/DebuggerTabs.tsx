@@ -5,7 +5,7 @@ import { Tab, TabList, TabPanel, Tabs } from "@bugberry/ui/tabs"
 import type { ReportDetail } from "../../lib/api"
 import { type DebuggerView, eventBase } from "@bugberry/debugger-view"
 import type { Playback } from "../../lib/timeline"
-import { Loading } from "../ui"
+import { EventRowsSkeleton } from "../Skeletons"
 import { ActionsTab } from "./ActionsTab"
 import { ConsoleTab } from "./ConsoleTab"
 import { InfoTab } from "./InfoTab"
@@ -137,7 +137,7 @@ function EventsPanel({
   if (state.status === "none") {
     return <p className="p-4 text-sm text-muted-foreground">This report has no console, network or action data.</p>
   }
-  if (state.status === "loading") return <Loading label="Loading debugger data…" />
+  if (state.status === "loading") return <EventRowsSkeleton />
   if (state.status === "error") {
     return (
       <div className="flex flex-col items-start gap-2 p-4 text-sm">

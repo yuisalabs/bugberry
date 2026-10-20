@@ -9,7 +9,8 @@ import { ReportHeader } from "../components/report/ReportHeader"
 import { ReportTitle } from "../components/report/ReportTitle"
 import { ReportComments } from "../components/ReportComments"
 import { ReportView } from "../components/ReportView"
-import { ErrorState, Loading } from "../components/ui"
+import { ReportDetailSkeleton } from "../components/Skeletons"
+import { ErrorState } from "../components/ui"
 import { ApiError, errorMessage, type ReportPatch } from "../lib/api"
 import { api } from "../lib/client"
 import { queries } from "../lib/queries"
@@ -63,7 +64,7 @@ export function ReportPage() {
     }
   }, [workspaceId, workspace, workspaces, switchTo])
 
-  if (report.isPending || typeof shareSlug === "string") return <Loading />
+  if (report.isPending || typeof shareSlug === "string") return <ReportDetailSkeleton />
   if (report.isError) return <ReportUnavailable error={report.error} onRetry={() => void report.refetch()} />
 
   return (

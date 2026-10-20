@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query"
 import { getRouteApi, Link, useNavigate } from "@tanstack/react-router"
 import { ReportsBrowser } from "../components/ReportsBrowser"
-import { EmptyState, ErrorState, Loading } from "../components/ui"
+import { ReportsPageSkeleton } from "../components/Skeletons"
+import { EmptyState, ErrorState } from "../components/ui"
 import { buttonStyles } from "@bugberry/ui/button"
 import { queries } from "../lib/queries"
 import { useCurrentWorkspace } from "../lib/workspace"
@@ -16,7 +17,7 @@ export function ProjectReportsPage() {
   const projects = useQuery({ ...queries.projects(workspace?.id ?? ""), enabled: Boolean(workspace) })
   const project = projects.data?.find((item) => item.slug === projectSlug)
 
-  if (projects.isPending) return <Loading />
+  if (projects.isPending) return <ReportsPageSkeleton />
   if (projects.isError) return <ErrorState error={projects.error} onRetry={() => void projects.refetch()} />
   if (!project) return <EmptyState title="Project not found">No project has the slug “{projectSlug}”.</EmptyState>
 

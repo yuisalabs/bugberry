@@ -29,7 +29,7 @@ import { CreateWorkspaceDialog } from "./CreateWorkspaceDialog"
 import { ExtensionCard } from "./ExtensionCard"
 import { JoinWorkspaceDialog } from "./JoinWorkspaceDialog"
 import { NotificationBell } from "./NotificationBell"
-import { Loading } from "./ui"
+import { ReportDetailSkeleton, ReportsPageSkeleton } from "./Skeletons"
 import { WorkspaceMenu } from "./WorkspaceMenu"
 
 const sectionTitle = "flex items-center justify-between px-2 pb-1 text-xs font-medium text-muted-foreground"
@@ -68,7 +68,9 @@ export function AppShell() {
     await navigate({ to: "/app" })
   }
 
-  const content = isPending ? <Loading /> : workspace ? <Outlet /> : <WorkspaceHome onCreateWorkspace={() => setCreating(true)} />
+  const content = isPending ? (
+    fullWidth ? <ReportDetailSkeleton /> : <ReportsPageSkeleton />
+  ) : workspace ? <Outlet /> : <WorkspaceHome onCreateWorkspace={() => setCreating(true)} />
   if (fullWidth) return <div className="min-h-screen bg-background">{content}</div>
   const isAdmin = workspace?.role === "admin"
 

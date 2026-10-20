@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react"
 import { Button } from "@bugberry/ui/button"
-import { Loading } from "./ui"
 
 /**
  * The end of a report list. When it scrolls into view the next part is asked for, once: nothing more is asked
@@ -45,7 +44,10 @@ export function LoadMore({
   return (
     <div ref={end} className="flex min-h-12 items-center justify-center py-4 text-sm text-muted-foreground">
       {loading ? (
-        <Loading label="Loading more reports…" />
+        // The list shows placeholder cards above; this only tells screen readers.
+        <span role="status" className="sr-only">
+          Loading more reports…
+        </span>
       ) : failed ? (
         <div className="flex items-center gap-3">
           <span>Couldn't load more reports.</span>
