@@ -1,6 +1,7 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { LoginView } from "../src/components/LoginView"
+import { DOCS_URL } from "../src/lib/docs-url"
 
 const all = { github: true, gitlab: true, google: true, emailOtp: true }
 const handlers = () => ({ onProvider: mock(), onSendCode: mock(async () => {}), onVerifyCode: mock(async () => {}) })
@@ -72,6 +73,11 @@ describe("LoginView", () => {
     expect(screen.getByText(/^By continuing, you agree to BugBerry's Terms of Service and/)).toBeTruthy()
     expect(screen.getByRole("link", { name: "Privacy Policy" }).getAttribute("href")).toBe("/privacy")
     expect(screen.getByText(`© ${new Date().getFullYear()} BugBerry`)).toBeTruthy()
+  })
+
+  test("the footer links the docs by their full address", () => {
+    render(<LoginView methods={all} message={null} {...handlers()} />)
+    expect(screen.getByRole("link", { name: "Documentation" }).getAttribute("href")).toBe(DOCS_URL)
   })
 
   test("the showcase: its headline is read out, its decoration is not", () => {

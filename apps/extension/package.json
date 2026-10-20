@@ -2,6 +2,7 @@
   "name": "@bugberry/extension",
   "version": "0.2.4",
   "private": true,
+  "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
     "dev": "wxt",
