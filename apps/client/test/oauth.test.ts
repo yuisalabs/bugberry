@@ -33,6 +33,21 @@ describe("scopeLines", () => {
   })
 })
 
+describe("scopeLines when the app names no BugBerry scope", () => {
+  test("no scope at all means the app gets its registered default, read and change", () => {
+    const both = [
+      "Read reports, comments and debugger data in your workspaces",
+      "Comment, change status, priority and assignee, and send reports to trackers",
+    ]
+    expect(scopeLines("")).toEqual(both)
+    expect(scopeLines("   ")).toEqual(both)
+  })
+
+  test("only sign-in scopes means no access to reports", () => {
+    expect(scopeLines("openid profile")).toEqual(["See your name and email on BugBerry, but no reports"])
+  })
+})
+
 describe("consent calls", () => {
   test("fetchOAuthClient reads the public client", async () => {
     const fetch = mock(async () => Response.json({ client_id: "abc", client_name: "Claude Code", client_uri: "https://claude.ai" }))

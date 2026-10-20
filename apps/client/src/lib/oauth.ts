@@ -43,12 +43,17 @@ const SCOPE_TEXT: Record<string, string> = {
   "bugberry:write": "Comment, change status, priority and assignee, and send reports to trackers",
 }
 
-/** What the app may do, in words; openid, profile and offline_access are plumbing, not permissions. */
+/**
+ * What the app may do, in words; openid, profile and offline_access are plumbing, not permissions. An
+ * app that names no scope gets what it registered with, which is read and change unless it chose less.
+ */
 export function scopeLines(scope: string): string[] {
-  const asked = new Set(scope.split(/\s+/))
-  return Object.entries(SCOPE_TEXT)
+  const asked = new Set(scope.split(/\s+/).filter(Boolean))
+  if (asked.size === 0) return Object.values(SCOPE_TEXT)
+  const lines = Object.entries(SCOPE_TEXT)
     .filter(([name]) => asked.has(name))
     .map(([, text]) => text)
+  return lines.length > 0 ? lines : ["See your name and email on BugBerry, but no reports"]
 }
 
 export interface OAuthClientInfo {
