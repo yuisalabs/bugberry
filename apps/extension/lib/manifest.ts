@@ -26,6 +26,43 @@ export const MANIFEST_COMMANDS = {
   },
 }
 
+/** Firefox has neither tabCapture nor offscreen documents: it records through a window of its own. */
+export const FIREFOX_PERMISSIONS = ["activeTab", "scripting", "storage", "tabs"]
+
+/** Pinned for good: Firefox identifies the extension (and its signed updates) by this id. */
+export const FIREFOX_GECKO = {
+  id: "yuisalabs@gmail.com",
+  // `world: "MAIN"` content scripts (capture.content.ts) need Firefox 128.
+  strict_min_version: "128.0",
+  data_collection_permissions: { required: ["websiteContent", "websiteActivity"] },
+}
+
+/** Ctrl+Shift+K opens Firefox's Web Console. */
+export const FIREFOX_OPEN_SHORTCUT = "Alt+Shift+B"
+
+/** The manifest for one target browser. Chrome and Opera share it; Firefox gets its own permissions and id. */
+export function manifestFor(target: string, key: string | undefined): Record<string, unknown> {
+  const common = {
+    name: "BugBerry",
+    description: "Report bugs with a screenshot or recording, plus console, network and the steps that led there.",
+    host_permissions: ["<all_urls>"],
+    web_accessible_resources: WEB_ACCESSIBLE_RESOURCES,
+    action: { default_title: "BugBerry" },
+  }
+  if (target === "firefox") {
+    return {
+      ...common,
+      permissions: FIREFOX_PERMISSIONS,
+      commands: {
+        ...MANIFEST_COMMANDS,
+        _execute_action: { ...MANIFEST_COMMANDS._execute_action, suggested_key: { default: FIREFOX_OPEN_SHORTCUT } },
+      },
+      browser_specific_settings: { gecko: FIREFOX_GECKO },
+    }
+  }
+  return { ...common, permissions: MANIFEST_PERMISSIONS, commands: MANIFEST_COMMANDS, ...(key ? { key } : {}) }
+}
+
 /** Chrome's extension ID for a public key: SHA-256 of the DER key, first 32 hex digits written as a–p. */
 export function extensionIdFromPublicKey(publicKeyBase64: string): string {
   const hex = createHash("sha256").update(Buffer.from(publicKeyBase64, "base64")).digest("hex").slice(0, 32)

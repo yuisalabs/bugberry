@@ -6,13 +6,18 @@
   "scripts": {
     "dev": "wxt",
     "build": "wxt build",
+    "build:firefox": "wxt build -b firefox --mv3",
+    "build:opera": "wxt build -b opera",
     "build:e2e": "VITE_SERVER_ORIGIN=http://127.0.0.1:3999 wxt build",
     "zip": "wxt zip",
+    "zip:firefox": "wxt zip -b firefox --mv3",
+    "zip:opera": "wxt zip -b opera",
     "key": "bun scripts/extension-key.ts",
     "postinstall": "wxt prepare",
     "test": "bun test",
     "typecheck": "tsc --noEmit -p .",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "lint:firefox": "web-ext lint --source-dir .output/firefox-mv3"
   },
   "dependencies": {
     "@elysiajs/eden": "1.4.9",
@@ -43,6 +48,7 @@
     "elysia": "1.4.30",
     "fake-indexeddb": "6.2.5",
     "tailwindcss": "4.3.3",
+    "web-ext": "10.8.0",
     "wxt": "0.21.4"
   }
 }

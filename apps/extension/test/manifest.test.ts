@@ -4,6 +4,7 @@ import { EXTENSION_ID_PATTERN } from "@bugberry/shared"
 import {
   extensionIdFromPublicKey,
   MANIFEST_COMMANDS,
+  manifestFor,
   MANIFEST_PERMISSIONS,
   manifestKey,
   WEB_ACCESSIBLE_RESOURCES,
@@ -51,5 +52,44 @@ describe("manifest pages and permissions", () => {
     expect(WEB_ACCESSIBLE_RESOURCES).toEqual([
       { resources: ["recorder-bar.html", "draw.html", "review.html"], matches: ["<all_urls>"] },
     ])
+  })
+})
+
+describe("manifestFor", () => {
+  const chrome = {
+    name: "BugBerry",
+    description: "Report bugs with a screenshot or recording, plus console, network and the steps that led there.",
+    permissions: MANIFEST_PERMISSIONS,
+    host_permissions: ["<all_urls>"],
+    web_accessible_resources: WEB_ACCESSIBLE_RESOURCES,
+    action: { default_title: "BugBerry" },
+    commands: MANIFEST_COMMANDS,
+  }
+
+  test("chrome and opera get today's manifest", () => {
+    expect(manifestFor("chrome", "KEY")).toEqual({ ...chrome, key: "KEY" })
+    expect(manifestFor("opera", "KEY")).toEqual(manifestFor("chrome", "KEY"))
+    expect("key" in manifestFor("chrome", undefined)).toBe(false)
+  })
+
+  test("firefox drops Chrome-only permissions and the key, and adds the gecko block", () => {
+    const manifest = manifestFor("firefox", "KEY") as Record<string, unknown> & {
+      browser_specific_settings: { gecko: unknown }
+    }
+    expect(manifest.permissions).toEqual(["activeTab", "scripting", "storage", "tabs"])
+    expect("key" in manifest).toBe(false)
+    expect(manifest.browser_specific_settings.gecko).toEqual({
+      id: "yuisalabs@gmail.com",
+      strict_min_version: "128.0",
+      data_collection_permissions: { required: ["websiteContent", "websiteActivity"] },
+    })
+  })
+
+  test("firefox opens BugBerry with Alt+Shift+B and keeps the other shortcuts", () => {
+    const commands = (manifestFor("firefox", undefined) as { commands: typeof MANIFEST_COMMANDS }).commands
+    expect(commands._execute_action.suggested_key).toEqual({ default: "Alt+Shift+B" })
+    expect(commands["take-screenshot"]).toEqual(MANIFEST_COMMANDS["take-screenshot"])
+    expect(commands["start-recording"]).toEqual(MANIFEST_COMMANDS["start-recording"])
+    expect(commands["stop-recording"]).toEqual(MANIFEST_COMMANDS["stop-recording"])
   })
 })
