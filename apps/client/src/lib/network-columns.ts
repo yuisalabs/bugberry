@@ -19,6 +19,16 @@ export const DEFAULT_COLUMN_WIDTHS: ColumnWidths = {
 /** The waterfall keeps at least this much before the table starts scrolling sideways. */
 export const WATERFALL_MIN_WIDTH = 120
 
+/**
+ * The columns as a CSS grid template, left to right: each row is its own grid, so the browser can skip laying
+ * out the rows scrolled out of view (a table lays out every row whenever its width changes).
+ */
+export function gridColumns(widths: ColumnWidths): string {
+  return NETWORK_COLUMNS.map((column) =>
+    column === "Waterfall" ? `minmax(${WATERFALL_MIN_WIDTH}px,1fr)` : `${widths[column]}px`,
+  ).join(" ")
+}
+
 const KEY = "bugberry:network-columns"
 const MIN_WIDTH = 40
 

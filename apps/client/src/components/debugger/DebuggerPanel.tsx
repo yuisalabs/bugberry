@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { useRef } from "react"
+import { memo, useRef } from "react"
 import type { ReportDetail } from "../../lib/api"
 import { loadDebuggerWithRefresh } from "../../lib/debugger"
 import type { Playback } from "../../lib/timeline"
@@ -24,8 +24,11 @@ export function useDebuggerView(report: ReportDetail, refreshReport: () => Promi
   return query
 }
 
-/** The event tabs beside the media. The report page and the video timeline share one download. */
-export function DebuggerPanel({
+/**
+ * The event tabs beside the media. The report page and the video timeline share one download. Memoized: it
+ * re-renders for a new video position or new data, not for the rest of the report page.
+ */
+export const DebuggerPanel = memo(function DebuggerPanel({
   report,
   refreshReport,
   playback = null,
@@ -47,4 +50,4 @@ export function DebuggerPanel({
           : { status: "ready", view: query.data }
 
   return <DebuggerTabs report={report} state={state} onRetry={() => void query.refetch()} playback={playback} focus={focus} />
-}
+})

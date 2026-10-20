@@ -30,6 +30,11 @@ export function saveDevtools(layout: DevtoolsLayout): void {
   }
 }
 
+/** The panel's column in the page grid: 42% by default, and a chosen width never crowds the report out. */
+export function devtoolsColumn(width: number | null): string {
+  return width === null ? "max(420px,42%)" : `min(${width}px, calc(100% - ${REPORT_MIN}px))`
+}
+
 /** A width the panel can be dragged to: never narrower than 360 px, never crowding the report out. */
 export function clampDevtoolsWidth(width: number, viewport: number): number {
   return Math.round(Math.min(Math.max(width, MIN_WIDTH), Math.max(MIN_WIDTH, viewport - REPORT_MIN)))

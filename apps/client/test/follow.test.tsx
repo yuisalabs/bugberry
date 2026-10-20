@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test"
 import { render } from "@testing-library/react"
 import { ActionsTab } from "../src/components/debugger/ActionsTab"
-import { nextScrollTop } from "../src/components/debugger/useFollow"
+import { nextScrollTop, useFollow } from "../src/components/debugger/useFollow"
 import { normalizePayload } from "@bugberry/debugger-view"
 
 describe("nextScrollTop", () => {
@@ -43,5 +43,20 @@ describe("following the playhead", () => {
     } finally {
       HTMLElement.prototype.scrollIntoView = original
     }
+  })
+})
+
+describe("useFollow refs", () => {
+  test("each row keeps one ref across renders, so memoized rows are not redrawn for a new one", () => {
+    const seen: Array<(element: HTMLElement | null) => void> = []
+    function List({ active }: { active: number }) {
+      const follow = useFollow(active)
+      seen.push(follow(0))
+      return <li ref={follow(0)}>row</li>
+    }
+    const { rerender } = render(<List active={-1} />)
+    rerender(<List active={0} />)
+    expect(seen).toHaveLength(2)
+    expect(seen[0]).toBe(seen[1])
   })
 })

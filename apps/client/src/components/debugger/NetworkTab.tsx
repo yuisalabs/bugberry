@@ -1,5 +1,5 @@
 import { RiFilter3Line } from "@remixicon/react"
-import { useEffect, useRef, useState } from "react"
+import { type CSSProperties, memo, useEffect, useMemo, useRef, useState } from "react"
 import { Button as AriaButton } from "react-aria-components"
 import { Input, InputGroup } from "@bugberry/ui/input"
 import { SearchField } from "@bugberry/ui/search-field"
@@ -26,6 +26,7 @@ import {
   clampColumnWidth,
   type ColumnWidths,
   DEFAULT_COLUMN_WIDTHS,
+  gridColumns,
   NETWORK_COLUMNS,
   readColumnWidths,
   type SizedColumn,
@@ -33,9 +34,9 @@ import {
   WATERFALL_MIN_WIDTH,
 } from "../../lib/network-columns"
 import { clampDetailHeight, DEFAULT_DETAIL_HEIGHT, readDetailHeight, saveDetailHeight } from "../../lib/network-detail"
-import { activeRow, type Playback } from "../../lib/timeline"
+import { type Playback, useActiveRow } from "../../lib/timeline"
 import { RequestDetail } from "./RequestDetail"
-import { ACTIVE_ROW, FOLLOW_SCROLL_ATTRIBUTE, FOLLOW_STICKY_ATTRIBUTE, useFollow } from "./useFollow"
+import { ACTIVE_ROW, FOLLOW_SCROLL_ATTRIBUTE, FOLLOW_STICKY_ATTRIBUTE, OFFSCREEN_ROW, useFollow } from "./useFollow"
 
 const ROW_STYLES = {
   // Zebra stripes for ordinary rows; failed and canceled ones keep their own colour.
@@ -57,6 +58,9 @@ const KEY_STEP = 16
 
 /** Every cell keeps to its column: what does not fit ends in an ellipsis, and a line rules it off from the next, as in Chrome. */
 const CELL = "overflow-hidden text-ellipsis whitespace-nowrap border-r border-border/60 px-2 py-1"
+
+/** A header or body row: a grid on the table's column template. */
+const GRID_ROW = "grid grid-cols-(--network-columns)"
 
 /**
  * A column's right edge in the header: it lights up on hover and drags to make the column wider or narrower.
@@ -179,24 +183,26 @@ export function NetworkTab({
     setOpen(openKey.key)
     onOpened?.(openKey.nonce)
   }, [openKey?.nonce])
-  const all = networkRows(events)
+  // Worked out again only when the events or the filters change, not for each video frame.
+  const all = useMemo(() => networkRows(events), [events])
   const needle = query.trim().toLowerCase()
-  const visible = all.filter(
-    (row) =>
-      matchesFilter(row, typeFilter) &&
-      (!errorsOnly || stateOf(row) !== "ok") &&
-      (!needle || row.url.toLowerCase().includes(needle)),
+  const visible = useMemo(
+    () =>
+      all.filter(
+        (row) =>
+          matchesFilter(row, typeFilter) &&
+          (!errorsOnly || stateOf(row) !== "ok") &&
+          (!needle || row.url.toLowerCase().includes(needle)),
+      ),
+    [all, typeFilter, errorsOnly, needle],
   )
-  const active = activeRow(
-    visible.map((row) => row.t),
-    base,
-    playback,
-  )
+  const times = useMemo(() => visible.map((row) => row.t), [visible])
+  const active = useActiveRow(times, base, playback)
   const follow = useFollow(active)
-  const bars = waterfall(all)
-  const totals = networkTotals(events)
-  const failed = all.filter((row) => stateOf(row) === "failed").length
-  const canceled = all.filter((row) => stateOf(row) === "canceled").length
+  const bars = useMemo(() => waterfall(all), [all])
+  const totals = useMemo(() => networkTotals(events), [events])
+  const failed = useMemo(() => all.filter((row) => stateOf(row) === "failed").length, [all])
+  const canceled = useMemo(() => all.filter((row) => stateOf(row) === "canceled").length, [all])
   const opened = open === null ? undefined : all.find((row) => row.key === open)
 
   const timings = [
@@ -268,22 +274,30 @@ export function NetworkTab({
             {/*
               A plain <table>, not Intent's Table: React Aria's grid keeps the arrow keys for moving between cells,
               which takes them from the column edges below, and its own resizer drags, steps and resets differently.
+              Its rows are grids rather than table rows, so the ones out of view skip layout when DevTools is
+              resized; the roles keep it a table for screen readers.
             */}
             <table
-              className="w-full table-fixed border-separate border-spacing-0 text-left text-xs"
-              style={{ minWidth: Object.values(widths).reduce((sum, width) => sum + width, WATERFALL_MIN_WIDTH) }}
+              role="table"
+              className="block text-left text-xs"
+              style={
+                {
+                  minWidth: Object.values(widths).reduce((sum, width) => sum + width, WATERFALL_MIN_WIDTH),
+                  "--network-columns": gridColumns(widths),
+                } as CSSProperties
+              }
             >
-              <colgroup>
-                {NETWORK_COLUMNS.map((column) => (
-                  <col key={column} data-column={column} style={column === "Waterfall" ? undefined : { width: widths[column] }} />
-                ))}
-              </colgroup>
-              <thead {...{ [FOLLOW_STICKY_ATTRIBUTE]: "" }} className="sticky top-0 z-10 bg-background text-muted-foreground">
-                <tr>
+              <thead
+                {...{ [FOLLOW_STICKY_ATTRIBUTE]: "" }}
+                role="rowgroup"
+                className="sticky top-0 z-10 block bg-background text-muted-foreground"
+              >
+                <tr role="row" className={GRID_ROW}>
                   {NETWORK_COLUMNS.map((column) => (
                     <th
                       key={column}
                       scope="col"
+                      role="columnheader"
                       // Named on its own: otherwise the resize edge's label becomes part of the header's name.
                       aria-label={column}
                       className={`relative border-b border-b-border font-medium first:pl-3 ${column === "Waterfall" ? "px-2 py-1.5" : `${CELL} py-1.5`}`}
@@ -294,49 +308,19 @@ export function NetworkTab({
                   ))}
                 </tr>
               </thead>
-              <tbody>
-                {visible.map((row, index) => {
-                  const state = stateOf(row)
-                  const bar = bars.get(row.key)
-                  const selected = row.key === open
-                  return (
-                    <tr
-                      key={row.key}
-                      ref={follow(index)}
-                      aria-current={index === active ? "true" : undefined}
-                      data-selected={selected || undefined}
-                      // The whole row opens the request; the name is a button too, so the keyboard can reach it.
-                      onClick={() => setOpen(row.key)}
-                      className={`cursor-pointer ${selected ? SELECTED_STYLES[state] : ROW_STYLES[state]} ${row.page ? "font-semibold" : ""} ${index === active ? ACTIVE_ROW : ""} [&>td]:border-b [&>td]:border-b-border/60`}
-                    >
-                      <td className={`${CELL} pl-3 font-mono text-muted-foreground`}>{index + 1}</td>
-                      <td className={CELL}>
-                        <AriaButton onPress={() => setOpen(row.key)} className="block w-full cursor-pointer truncate text-left font-medium">
-                          <span title={row.url}>{requestName(row.url)}</span>
-                        </AriaButton>
-                      </td>
-                      <td className={`${CELL} font-mono`}>{state === "canceled" ? "(canceled)" : (row.status ?? "")}</td>
-                      <td className={`${CELL} font-mono`}>{row.method}</td>
-                      <td className={CELL}>{row.type}</td>
-                      <td className={`${CELL} text-muted-foreground`}>{sizeLabel(row)}</td>
-                      <td className={`${CELL} font-mono`}>{row.durationMs === null ? "" : formatDuration(row.durationMs)}</td>
-                      <td className={`${CELL} text-muted-foreground`}>
-                        {row.request?.initiator ?? row.resource?.initiatorType ?? (row.page ? row.page.via : "")}
-                      </td>
-                      <td className={`${CELL} text-muted-foreground`}>{requestDomain(row.url)}</td>
-                      <td className="px-2 py-1">
-                        {bar && (
-                          <div className="relative h-2 rounded bg-muted">
-                            <div
-                              className={`absolute inset-y-0 rounded ${state === "ok" ? "bg-primary/70" : "bg-danger"}`}
-                              style={{ left: `${Math.min(bar.leftPercent, 99.5)}%`, width: `${bar.widthPercent}%` }}
-                            />
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
+              <tbody role="rowgroup" className="block">
+                {visible.map((row, index) => (
+                  <RequestRow
+                    key={row.key}
+                    row={row}
+                    index={index}
+                    bar={bars.get(row.key)}
+                    selected={row.key === open}
+                    active={index === active}
+                    onOpen={setOpen}
+                    rowRef={follow(index)}
+                  />
+                ))}
               </tbody>
             </table>
           </div>
@@ -360,3 +344,61 @@ export function NetworkTab({
     </div>
   )
 }
+
+/** One request in the table; memoized, so a new video position re-renders only the rows it moves between. */
+const RequestRow = memo(function RequestRow({
+  row,
+  index,
+  bar,
+  selected,
+  active,
+  onOpen,
+  rowRef,
+}: {
+  row: NetworkRow
+  index: number
+  bar: { leftPercent: number; widthPercent: number } | undefined
+  selected: boolean
+  active: boolean
+  onOpen(key: string): void
+  rowRef(element: HTMLElement | null): void
+}) {
+  const state = stateOf(row)
+  return (
+    <tr
+      ref={rowRef}
+      role="row"
+      aria-current={active ? "true" : undefined}
+      data-selected={selected || undefined}
+      // The whole row opens the request; the name is a button too, so the keyboard can reach it.
+      onClick={() => onOpen(row.key)}
+      className={`${GRID_ROW} ${OFFSCREEN_ROW} cursor-pointer ${selected ? SELECTED_STYLES[state] : ROW_STYLES[state]} ${row.page ? "font-semibold" : ""} ${active ? ACTIVE_ROW : ""} [&>td]:border-b [&>td]:border-b-border/60`}
+    >
+      <td role="cell" className={`${CELL} pl-3 font-mono text-muted-foreground`}>{index + 1}</td>
+      <td role="cell" className={CELL}>
+        <AriaButton onPress={() => onOpen(row.key)} className="block w-full cursor-pointer truncate text-left font-medium">
+          <span title={row.url}>{requestName(row.url)}</span>
+        </AriaButton>
+      </td>
+      <td role="cell" className={`${CELL} font-mono`}>{state === "canceled" ? "(canceled)" : (row.status ?? "")}</td>
+      <td role="cell" className={`${CELL} font-mono`}>{row.method}</td>
+      <td role="cell" className={CELL}>{row.type}</td>
+      <td role="cell" className={`${CELL} text-muted-foreground`}>{sizeLabel(row)}</td>
+      <td role="cell" className={`${CELL} font-mono`}>{row.durationMs === null ? "" : formatDuration(row.durationMs)}</td>
+      <td role="cell" className={`${CELL} text-muted-foreground`}>
+        {row.request?.initiator ?? row.resource?.initiatorType ?? (row.page ? row.page.via : "")}
+      </td>
+      <td role="cell" className={`${CELL} text-muted-foreground`}>{requestDomain(row.url)}</td>
+      <td role="cell" className="flex items-center px-2 py-1">
+        {bar && (
+          <div className="relative h-2 w-full rounded bg-muted">
+            <div
+              className={`absolute inset-y-0 rounded ${state === "ok" ? "bg-primary/70" : "bg-danger"}`}
+              style={{ left: `${Math.min(bar.leftPercent, 99.5)}%`, width: `${bar.widthPercent}%` }}
+            />
+          </div>
+        )}
+      </td>
+    </tr>
+  )
+})

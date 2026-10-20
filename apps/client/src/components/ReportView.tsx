@@ -1,6 +1,6 @@
-import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from "react"
+import { type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { ReportDetail } from "../lib/api"
-import { clampDevtoolsWidth, type DevtoolsLayout, readDevtools, saveDevtools } from "../lib/devtools-layout"
+import { clampDevtoolsWidth, type DevtoolsLayout, devtoolsColumn, readDevtools, saveDevtools } from "../lib/devtools-layout"
 import { PRIORITY_LABELS, PRIORITY_STYLES } from "../lib/labels"
 import { flaggedIssues } from "@bugberry/debugger-view"
 import type { SentIssue } from "../lib/report-page"
@@ -43,12 +43,17 @@ export function ReportView({
   children?: ReactNode
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const debuggerView = useDebuggerView(report, refreshReport)
+  // The pages pass a new function on every render; the media and the panel get one that stays the same.
+  const latestRefresh = useRef(refreshReport)
+  latestRefresh.current = refreshReport
+  const refresh = useCallback(() => latestRefresh.current(), [])
+  const debuggerView = useDebuggerView(report, refresh)
   const markers = useMemo(() => (debuggerView.data ? timelineMarkers(debuggerView.data) : []), [debuggerView.data])
   const [currentMs, setCurrentMs] = useState<number | null>(null)
   const [focus, setFocus] = useState<DebuggerFocus | null>(null)
   const [devtools, setDevtools] = useState<DevtoolsLayout>(readDevtools)
   const aside = useRef<HTMLElement>(null)
+  const grid = useRef<HTMLDivElement>(null)
   const changeDevtools = (next: DevtoolsLayout) => {
     setDevtools(next)
     saveDevtools(next)
@@ -61,16 +66,24 @@ export function ReportView({
         : null
     return flaggedIssues(debuggerView.data, video)
   }, [debuggerView.data, report.captureType, report.durationMs])
-  const playback: Playback | null =
-    report.captureType === "video"
-      ? {
-          currentMs,
-          seek: (offsetMs) => {
-            const video = videoRef.current
-            if (video) video.currentTime = seekSeconds(offsetMs, report.durationMs)
-          },
-        }
-      : null
+  const seek = useCallback(
+    (offsetMs: number) => {
+      const video = videoRef.current
+      if (video) video.currentTime = seekSeconds(offsetMs, report.durationMs)
+    },
+    [report.durationMs],
+  )
+  // Only a new position makes a new value, so the panel re-renders for the video and nothing else.
+  const playback: Playback | null = useMemo(
+    () => (report.captureType === "video" ? { currentMs, seek } : null),
+    [report.captureType, currentMs, seek],
+  )
+  const onExpired = useCallback(() => void latestRefresh.current(), [])
+  const reporter = useMemo(() => <VideoReporter reporter={report.reporter} />, [report.reporter])
+  const shareActions = useCallback(
+    (seconds: number) => <VideoShareActions shareSlug={report.shareSlug} seconds={seconds} mediaUrl={report.mediaUrl} />,
+    [report.shareSlug, report.mediaUrl],
+  )
 
   useEffect(() => {
     const previous = document.title
@@ -81,12 +94,11 @@ export function ReportView({
   }, [report.number, report.title])
 
   // A width chosen on a wider window never crowds the report out on a narrower one.
-  const columns = {
-    "--devtools-width": devtools.width === null ? "max(420px,42%)" : `min(${devtools.width}px, calc(100% - 560px))`,
-  } as CSSProperties
+  const columns = { "--devtools-width": devtoolsColumn(devtools.width) } as CSSProperties
 
   return (
     <div
+      ref={grid}
       style={columns}
       className={`min-h-screen ${devtools.open ? "xl:grid xl:grid-cols-[minmax(0,1fr)_max(360px,var(--devtools-width))]" : ""}`}
     >
@@ -101,13 +113,13 @@ export function ReportView({
           {fields}
           <MediaViewer
             report={report}
-            onExpired={() => void refreshReport()}
+            onExpired={onExpired}
             videoRef={videoRef}
             onTime={setCurrentMs}
             markers={markers}
             startAtSeconds={startAtSeconds}
-            topLeft={<VideoReporter reporter={report.reporter} />}
-            topRight={(seconds) => <VideoShareActions shareSlug={report.shareSlug} seconds={seconds} mediaUrl={report.mediaUrl} />}
+            topLeft={reporter}
+            topRight={shareActions}
           />
           <section className="flex flex-col gap-2">
             <div className="flex items-start gap-3">
@@ -135,12 +147,17 @@ export function ReportView({
         className={`relative min-w-0 border-t border-border xl:sticky xl:top-0 xl:h-screen xl:border-t-0 xl:border-l ${devtools.open ? "" : "xl:hidden"}`}
       >
         <DevtoolsResizer
-          width={devtools.width ?? aside.current?.offsetWidth ?? 600}
+          width={devtools.width}
+          measure={() => aside.current?.offsetWidth ?? 600}
+          // While dragging only the column moves; React and storage hear about it once, on release.
+          onDrag={(width) =>
+            grid.current?.style.setProperty("--devtools-width", devtoolsColumn(clampDevtoolsWidth(width, window.innerWidth)))
+          }
           onResize={(width) => changeDevtools({ ...devtools, width: clampDevtoolsWidth(width, window.innerWidth) })}
           onReset={() => changeDevtools({ ...devtools, width: null })}
         />
         <div className="h-full min-w-0 xl:overflow-hidden">
-          <DebuggerPanel report={report} refreshReport={refreshReport} playback={playback} focus={focus} />
+          <DebuggerPanel report={report} refreshReport={refresh} playback={playback} focus={focus} />
         </div>
       </aside>
     </div>

@@ -30,13 +30,22 @@ export function DevtoolsToggle({ open, onToggle }: { open: boolean; onToggle(ope
 /**
  * The panel's left edge: it lights up on hover and drags to make DevTools wider or narrower. Arrow keys move
  * it in steps; a double click goes back to the default width.
+ *
+ * A drag only previews (`onDrag`) and settles once, on release (`onResize`): re-rendering the report and the
+ * panel's long lists on every pointer move is what made dragging stall.
  */
 export function DevtoolsResizer({
   width,
+  measure,
+  onDrag,
   onResize,
   onReset,
 }: {
-  width: number
+  /** The width chosen, or null for the default. */
+  width: number | null
+  /** How wide the panel is on screen; read only when a drag or key press starts from the default. */
+  measure(): number
+  onDrag(width: number): void
   onResize(width: number): void
   onReset(): void
 }) {
@@ -48,18 +57,22 @@ export function DevtoolsResizer({
       role="separator"
       aria-label="Resize DevTools"
       aria-orientation="vertical"
-      aria-valuenow={Math.round(width)}
+      aria-valuenow={width === null ? undefined : Math.round(width)}
       tabIndex={0}
       title="Drag to resize. Double-click for the default width."
       onPointerDown={(down) => {
         down.preventDefault()
-        const startWidth = width
+        const startWidth = width ?? measure()
         // The panel is on the right: moving the edge left widens it.
-        stopDrag.current = startHorizontalDrag(down.clientX, (deltaX) => onResize(startWidth - deltaX))
+        stopDrag.current = startHorizontalDrag(
+          down.clientX,
+          (deltaX) => onDrag(startWidth - deltaX),
+          (deltaX) => onResize(startWidth - deltaX),
+        )
       }}
       onKeyDown={(event) => {
-        if (event.key === "ArrowLeft") onResize(width + KEY_STEP)
-        else if (event.key === "ArrowRight") onResize(width - KEY_STEP)
+        if (event.key === "ArrowLeft") onResize((width ?? measure()) + KEY_STEP)
+        else if (event.key === "ArrowRight") onResize((width ?? measure()) - KEY_STEP)
         else return
         event.preventDefault()
       }}

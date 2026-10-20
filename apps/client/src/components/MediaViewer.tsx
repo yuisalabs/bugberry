@@ -1,5 +1,5 @@
 import type { VideoPlayerProps } from "@bugberry/player"
-import { type ComponentType, lazy, type Ref, Suspense, useState } from "react"
+import { type ComponentType, lazy, memo, type Ref, Suspense, useState } from "react"
 import { Button as AriaButton } from "react-aria-components"
 import { Button } from "@bugberry/ui/button"
 import type { ReportDetail } from "../lib/api"
@@ -13,11 +13,12 @@ const VideoJsPlayer = lazy(() => import("@bugberry/player/video-player"))
 /**
  * The screenshot (click to open it in the image viewer) or the video. Read URLs expire, so the first load error asks for
  * a fresh URL. A second error in a row stops and offers a manual retry, so a broken file cannot loop.
+ * Memoized: the report page re-renders on every player time update, and the player need not.
  *
  * Every detail fetch returns newly signed URLs; the viewer keeps the one it is showing and only takes
  * a new one when it asked for it (or the report changed), so a status edit does not restart a video.
  */
-export function MediaViewer({
+export const MediaViewer = memo(function MediaViewer({
   report,
   onExpired,
   videoRef,
@@ -131,4 +132,4 @@ export function MediaViewer({
       <ImageViewer src={shown.url} alt="Report screenshot" isOpen={viewing} onOpenChange={setViewing} />
     </div>
   )
-}
+})

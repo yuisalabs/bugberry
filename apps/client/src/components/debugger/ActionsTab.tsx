@@ -1,10 +1,10 @@
-import { useState } from "react"
+import { memo, useMemo, useState } from "react"
 import { ToggleGroup, ToggleGroupItem } from "@bugberry/ui/toggle-group"
 import { type ActionFilter, actionCounts, actionSentence, matchesActionFilter } from "@bugberry/debugger-view"
 import type { ViewAction, ViewEvent } from "@bugberry/debugger-view"
-import { activeRow, type Playback } from "../../lib/timeline"
+import { type Playback, useActiveRow } from "../../lib/timeline"
 import { EventTime } from "./EventTime"
-import { ACTIVE_ROW, FOLLOW_STICKY_ATTRIBUTE, useFollow } from "./useFollow"
+import { ACTIVE_ROW, FOLLOW_STICKY_ATTRIBUTE, OFFSCREEN_ROW, useFollow } from "./useFollow"
 
 const FILTERS: Array<[ActionFilter, string]> = [
   ["all", "All"],
@@ -27,16 +27,15 @@ export function ActionsTab({
   playback?: Playback | null
 }) {
   const [filter, setFilter] = useState<ActionFilter>("all")
-  const all = events.filter((event): event is ViewAction => event.kind === "action")
-  const actions = all.filter((action) => matchesActionFilter(action, filter))
-  const active = activeRow(
-    actions.map((action) => action.t),
-    base,
-    playback,
-  )
+  // Worked out again only when the events or the filter change, not for each video frame.
+  const all = useMemo(() => events.filter((event): event is ViewAction => event.kind === "action"), [events])
+  const actions = useMemo(() => all.filter((action) => matchesActionFilter(action, filter)), [all, filter])
+  const counts = useMemo(() => actionCounts(all), [all])
+  const times = useMemo(() => actions.map((action) => action.t), [actions])
+  const active = useActiveRow(times, base, playback)
   const follow = useFollow(active)
+  const onSeek = playback?.seek
   if (all.length === 0) return <p className="p-4 text-sm text-muted-foreground">No actions were recorded.</p>
-  const counts = actionCounts(all)
   return (
     <div className="flex flex-col">
       {/* The filters stay at the top of the panel; only the actions below scroll. */}
@@ -60,42 +59,65 @@ export function ActionsTab({
         </ToggleGroup>
       </div>
       <ol className="divide-y divide-border/60">
-        {actions.map((action, index) => {
-          const { parts, masked, frustration } = actionSentence(action)
-          return (
-            <li
-              key={`${action.t}-${index}`}
-              ref={follow(index)}
-              aria-current={index === active ? "true" : undefined}
-              className={`flex gap-3 px-3 py-2 text-xs ${index === active ? ACTIVE_ROW : ""}`}
-            >
-              <EventTime t={action.t} base={base} onSeek={playback?.seek} />
-              <p className="min-w-0 flex-1 break-words text-foreground">
-                {parts.before}
-                {parts.target && (
-                  <>
-                    {" "}
-                    <span className="break-all font-mono text-muted-foreground">{parts.target}</span>
-                  </>
-                )}
-                {parts.after && ` ${parts.after}`}
-                {masked && (
-                  <>
-                    {" "}
-                    <span className={`${tag} bg-muted text-muted-foreground`}>Masked</span>
-                  </>
-                )}
-                {frustration && (
-                  <>
-                    {" "}
-                    <span className={`${tag} bg-danger-subtle text-danger-subtle-foreground`}>Frustration signal</span>
-                  </>
-                )}
-              </p>
-            </li>
-          )
-        })}
+        {actions.map((action, index) => (
+          <ActionLine
+            key={`${action.t}-${index}`}
+            action={action}
+            active={index === active}
+            base={base}
+            onSeek={onSeek}
+            rowRef={follow(index)}
+          />
+        ))}
       </ol>
     </div>
   )
 }
+
+/** One action as a sentence; memoized, so a new video position re-renders only the lines it moves between. */
+const ActionLine = memo(function ActionLine({
+  action,
+  active,
+  base,
+  onSeek,
+  rowRef,
+}: {
+  action: ViewAction
+  active: boolean
+  base: number | null
+  onSeek?: (offsetMs: number) => void
+  rowRef(element: HTMLElement | null): void
+}) {
+  const { parts, masked, frustration } = actionSentence(action)
+  return (
+    <li
+      ref={rowRef}
+      aria-current={active ? "true" : undefined}
+      className={`flex gap-3 px-3 py-2 text-xs ${OFFSCREEN_ROW} ${active ? ACTIVE_ROW : ""}`}
+    >
+      <EventTime t={action.t} base={base} onSeek={onSeek} />
+      <p className="min-w-0 flex-1 break-words text-foreground">
+        {parts.before}
+        {parts.target && (
+          <>
+            {" "}
+            <span className="break-all font-mono text-muted-foreground">{parts.target}</span>
+          </>
+        )}
+        {parts.after && ` ${parts.after}`}
+        {masked && (
+          <>
+            {" "}
+            <span className={`${tag} bg-muted text-muted-foreground`}>Masked</span>
+          </>
+        )}
+        {frustration && (
+          <>
+            {" "}
+            <span className={`${tag} bg-danger-subtle text-danger-subtle-foreground`}>Frustration signal</span>
+          </>
+        )}
+      </p>
+    </li>
+  )
+})

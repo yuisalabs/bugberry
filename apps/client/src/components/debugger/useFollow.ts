@@ -26,11 +26,27 @@ export function useFollow(active: number) {
     )
     if (target !== null) panel.scrollTop = target
   }, [active])
-  return (index: number) => (element: HTMLElement | null) => {
-    if (element) rows.current.set(index, element)
-    else rows.current.delete(index)
+  // One callback per index for the life of the list, so a memoized row is not re-rendered for a new ref.
+  const refs = useRef(new Map<number, (element: HTMLElement | null) => void>())
+  return (index: number) => {
+    let ref = refs.current.get(index)
+    if (!ref) {
+      ref = (element: HTMLElement | null) => {
+        if (element) rows.current.set(index, element)
+        else rows.current.delete(index)
+      }
+      refs.current.set(index, ref)
+    }
+    return ref
   }
 }
+
+/**
+ * For each row of a long list: the browser skips laying out rows scrolled out of view, so widening the DevTools
+ * panel does not re-flow thousands of wrapped lines. 28 px is a one-line row; once shown, a row's real height is
+ * remembered.
+ */
+export const OFFSCREEN_ROW = "[content-visibility:auto] [contain-intrinsic-size:auto_28px]"
 
 /**
  * New scrollTop for a scroll panel so that `row` (its top and bottom measured from the panel's top

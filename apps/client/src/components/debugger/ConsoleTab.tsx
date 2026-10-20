@@ -1,6 +1,6 @@
 import type { ConsoleLevel } from "@bugberry/capture"
 import { RiAlertLine, RiCloseCircleLine, RiCursorLine, RiExternalLinkLine, RiFilter3Line } from "@remixicon/react"
-import { type ReactNode, useState } from "react"
+import { memo, type ReactNode, useMemo, useState } from "react"
 import { Checkbox, CheckboxField } from "@bugberry/ui/checkbox"
 import { Disclosure, DisclosurePanel, DisclosureTrigger } from "@bugberry/ui/disclosure-group"
 import { Input, InputGroup } from "@bugberry/ui/input"
@@ -8,9 +8,9 @@ import { SearchField } from "@bugberry/ui/search-field"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@bugberry/ui/select"
 import { type ConsoleOptions, type ConsoleRow, consoleCounts, consoleRows, navigationText } from "@bugberry/debugger-view"
 import type { ViewEvent } from "@bugberry/debugger-view"
-import { activeRow, type Playback } from "../../lib/timeline"
+import { type Playback, useActiveRow } from "../../lib/timeline"
 import { EventTime } from "./EventTime"
-import { ACTIVE_ROW, FOLLOW_STICKY_ATTRIBUTE, useFollow } from "./useFollow"
+import { ACTIVE_ROW, FOLLOW_STICKY_ATTRIBUTE, OFFSCREEN_ROW, useFollow } from "./useFollow"
 
 const LEVEL_OPTIONS: Array<[ConsoleOptions["level"], string]> = [
   ["all", "All levels"],
@@ -77,15 +77,19 @@ export function ConsoleTab({
     activity: false,
   })
   const set = (patch: Partial<ConsoleOptions>) => setOptions((current) => ({ ...current, ...patch }))
-  const rows = consoleRows(events, options, recording)
-  const counts = consoleCounts(events)
-  const active = activeRow(
-    rows.map((row) => row.t),
-    base,
-    playback,
+  // Worked out again only when the events, the filters or the recording change, not for each video frame.
+  const startedAt = recording?.startedAt
+  const durationMs = recording?.durationMs
+  const rows = useMemo(
+    () => consoleRows(events, options, startedAt === undefined ? undefined : { startedAt, durationMs: durationMs ?? null }),
+    [events, options, startedAt, durationMs],
   )
+  const counts = useMemo(() => consoleCounts(events), [events])
+  const times = useMemo(() => rows.map((row) => row.t), [rows])
+  const active = useActiveRow(times, base, playback)
   const follow = useFollow(active)
-  const empty = consoleRows(events, { ...options, level: "all", query: "" }).length === 0
+  const empty = useMemo(() => consoleRows(events, { ...options, level: "all", query: "" }).length === 0, [events, options])
+  const onSeek = playback?.seek
 
   return (
     <div className="flex flex-col">
@@ -139,43 +143,68 @@ export function ConsoleTab({
       ) : (
         <ol className="divide-y divide-border/60 font-mono text-xs">
           {rows.map((row, index) => (
-            <li
+            <ConsoleLine
               key={`${row.t}-${row.kind}-${index}`}
-              ref={follow(index)}
-              aria-current={index === active ? "true" : undefined}
-              className={`flex gap-2 px-3 py-1.5 ${rowStyle(row)} ${index === active ? ACTIVE_ROW : ""}`}
-            >
-              <EventTime t={row.t} base={base} onSeek={playback?.seek} />
-              <RowIcon row={row} />
-              <div className="min-w-0 flex-1">
-                {row.kind === "log" ? (
-                  <>
-                    <p className="flex gap-2">
-                      <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">
-                        {row.uncaught && <span className="mr-1 font-semibold">Uncaught</span>}
-                        {row.text}
-                      </span>
-                      {row.source && <span className="shrink-0 text-muted-foreground">{row.source}</span>}
-                    </p>
-                    {row.stack && (
-                      <Disclosure className="rounded-none bg-transparent inset-ring-0">
-                        <DisclosureTrigger className="w-auto justify-start gap-1 text-xs font-normal opacity-70 [&_[data-slot=disclosure-indicator]]:ms-0">
-                          Stack
-                        </DisclosureTrigger>
-                        <DisclosurePanel className="*:pt-1 *:text-current">
-                          <pre className="overflow-x-auto whitespace-pre-wrap text-xs opacity-80">{row.stack}</pre>
-                        </DisclosurePanel>
-                      </Disclosure>
-                    )}
-                  </>
-                ) : (
-                  <p className="break-all">{row.kind === "navigation" ? navigationText(row) : row.text}</p>
-                )}
-              </div>
-            </li>
+              row={row}
+              active={index === active}
+              base={base}
+              onSeek={onSeek}
+              rowRef={follow(index)}
+            />
           ))}
         </ol>
       )}
     </div>
   )
 }
+
+/** One line of the console; memoized, so a new video position re-renders only the lines it moves between. */
+const ConsoleLine = memo(function ConsoleLine({
+  row,
+  active,
+  base,
+  onSeek,
+  rowRef,
+}: {
+  row: ConsoleRow
+  active: boolean
+  base: number | null
+  onSeek?: (offsetMs: number) => void
+  rowRef(element: HTMLElement | null): void
+}) {
+  return (
+    <li
+      ref={rowRef}
+      aria-current={active ? "true" : undefined}
+      className={`flex gap-2 px-3 py-1.5 ${OFFSCREEN_ROW} ${rowStyle(row)} ${active ? ACTIVE_ROW : ""}`}
+    >
+      <EventTime t={row.t} base={base} onSeek={onSeek} />
+      <RowIcon row={row} />
+      <div className="min-w-0 flex-1">
+        {row.kind === "log" ? (
+          <>
+            <p className="flex gap-2">
+              <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">
+                {row.uncaught && <span className="mr-1 font-semibold">Uncaught</span>}
+                {row.text}
+              </span>
+              {row.source && <span className="shrink-0 text-muted-foreground">{row.source}</span>}
+            </p>
+            {row.stack && (
+              <Disclosure className="rounded-none bg-transparent inset-ring-0">
+                <DisclosureTrigger className="w-auto justify-start gap-1 text-xs font-normal opacity-70 [&_[data-slot=disclosure-indicator]]:ms-0">
+                  Stack
+                </DisclosureTrigger>
+                <DisclosurePanel className="*:pt-1 *:text-current">
+                  <pre className="overflow-x-auto whitespace-pre-wrap text-xs opacity-80">{row.stack}</pre>
+                </DisclosurePanel>
+              </Disclosure>
+            )}
+          </>
+        ) : (
+          <p className="break-all">{row.kind === "navigation" ? navigationText(row) : row.text}</p>
+        )}
+      </div>
+    </li>
+  )
+})

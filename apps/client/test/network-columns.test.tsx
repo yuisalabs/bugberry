@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { NetworkTab } from "../src/components/debugger/NetworkTab"
-import { clampColumnWidth, DEFAULT_COLUMN_WIDTHS, readColumnWidths, saveColumnWidths } from "../src/lib/network-columns"
+import { clampColumnWidth, DEFAULT_COLUMN_WIDTHS, NETWORK_COLUMNS, readColumnWidths, saveColumnWidths } from "../src/lib/network-columns"
 import { normalizePayload } from "@bugberry/debugger-view"
 
 afterEach(() => window.localStorage.clear())
@@ -13,7 +13,11 @@ const { events } = normalizePayload({
   ],
 })
 
-const widthOf = (column: string) => (document.querySelector(`col[data-column="${column}"]`) as HTMLElement | null)?.style.width
+/** A column's track in the grid template the table's rows share. */
+const widthOf = (column: string) =>
+  (document.querySelector("table") as HTMLElement | null)?.style.getPropertyValue("--network-columns").split(" ")[
+    NETWORK_COLUMNS.indexOf(column as (typeof NETWORK_COLUMNS)[number])
+  ]
 
 describe("the Network table's column widths this browser remembers", () => {
   test("the defaults when nothing is stored, or the stored value is damaged", () => {
@@ -110,6 +114,6 @@ describe("NetworkTab layout", () => {
   test("the waterfall takes whatever room is left, so it has no edge of its own", () => {
     render(<NetworkTab events={events} base={1000} />)
     expect(screen.queryByRole("separator", { name: "Resize Waterfall column" })).toBeNull()
-    expect(widthOf("Waterfall")).toBe("")
+    expect(widthOf("Waterfall")).toBe("minmax(120px,1fr)")
   })
 })
