@@ -17,7 +17,8 @@
     "test": "bun test",
     "typecheck": "tsc --noEmit -p .",
     "e2e": "playwright test",
-    "lint:firefox": "web-ext lint --source-dir .output/firefox-mv3"
+    "lint:firefox": "web-ext lint --source-dir .output/firefox-mv3",
+    "sign:firefox": "bun scripts/sign-firefox.ts"
   },
   "dependencies": {
     "@elysiajs/eden": "1.4.9",
