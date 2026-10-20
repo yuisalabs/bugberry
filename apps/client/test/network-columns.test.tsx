@@ -94,11 +94,41 @@ describe("NetworkTab layout", () => {
   })
 
   test("ordinary rows alternate their background; failed ones keep their colour", () => {
-    render(<NetworkTab events={events} base={1000} />)
-    const [ok, failed] = screen.getAllByRole("row").slice(1)
-    expect(ok?.className).toContain("even:bg-muted-foreground/6")
-    expect(failed?.className).not.toContain("even:")
-    expect(failed?.className).toContain("bg-danger-subtle")
+    const { events: mixed } = normalizePayload({
+      events: [
+        { kind: "network", t: 1000, method: "GET", url: "https://app.kantor.test/api/a", status: 200 },
+        { kind: "network", t: 1100, method: "GET", url: "https://app.kantor.test/api/b", status: 200 },
+        { kind: "network", t: 1200, method: "GET", url: "https://app.kantor.test/api/c", status: 500 },
+        { kind: "network", t: 1300, method: "GET", url: "https://app.kantor.test/api/d", status: 404 },
+      ],
+    })
+    render(<NetworkTab events={mixed} base={1000} />)
+    const [first, second, third, fourth] = screen.getAllByRole("row").slice(1).map((row) => row.className.split(" "))
+    expect(first).not.toContain("bg-muted-foreground/6")
+    expect(second).toContain("bg-muted-foreground/6")
+    // The stripe goes by the row's place in the list, not its place in the page, which only holds the rows in view.
+    expect(third).toContain("bg-danger-subtle")
+    expect(fourth).toContain("bg-danger-subtle")
+    expect(fourth).not.toContain("bg-muted-foreground/6")
+  })
+
+  test("only the rows near the view are in the page, each telling screen readers where it sits", () => {
+    const { events: many } = normalizePayload({
+      events: Array.from({ length: 500 }, (_, i) => ({
+        kind: "network",
+        t: 1000 + i,
+        method: "GET",
+        url: `https://app.kantor.test/api/item-${i}`,
+        status: 200,
+      })),
+    })
+    render(<NetworkTab events={many} base={1000} />)
+    const rows = screen.getAllByRole("row").slice(1)
+    expect(rows.length).toBeGreaterThan(10)
+    expect(rows.length).toBeLessThan(100)
+    expect(screen.getByRole("table").getAttribute("aria-rowcount")).toBe("501")
+    expect(rows[0]?.getAttribute("aria-rowindex")).toBe("2")
+    expect(screen.getByText("500 requests · 0 failed · 0 canceled")).toBeTruthy()
   })
 
   test("every column but the last is ruled off from the next, in the header and the rows", () => {

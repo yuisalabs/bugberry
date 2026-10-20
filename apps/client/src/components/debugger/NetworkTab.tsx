@@ -36,11 +36,10 @@ import {
 import { clampDetailHeight, DEFAULT_DETAIL_HEIGHT, readDetailHeight, saveDetailHeight } from "../../lib/network-detail"
 import { type Playback, useActiveRow } from "../../lib/timeline"
 import { RequestDetail } from "./RequestDetail"
-import { ACTIVE_ROW, FOLLOW_SCROLL_ATTRIBUTE, FOLLOW_STICKY_ATTRIBUTE, OFFSCREEN_ROW, useFollow } from "./useFollow"
+import { ACTIVE_ROW, FOLLOW_SCROLL_ATTRIBUTE, FOLLOW_STICKY_ATTRIBUTE, useVirtualRows } from "./useVirtualRows"
 
 const ROW_STYLES = {
-  // Zebra stripes for ordinary rows; failed and canceled ones keep their own colour.
-  ok: "text-foreground even:bg-muted-foreground/6 hover:bg-muted-foreground/12",
+  ok: "text-foreground hover:bg-muted-foreground/12",
   failed: "bg-danger-subtle text-danger-subtle-foreground",
   canceled: "bg-warning-subtle text-warning-subtle-foreground",
 } as const
@@ -61,6 +60,12 @@ const CELL = "overflow-hidden text-ellipsis whitespace-nowrap border-r border-bo
 
 /** A header or body row: a grid on the table's column template. */
 const GRID_ROW = "grid grid-cols-(--network-columns)"
+
+/** Zebra stripes for every other ordinary row; failed, canceled and opened ones keep their own colour. */
+const STRIPE = "bg-muted-foreground/6"
+
+/** A body row: one line of text and its cell padding, and the rule under it. */
+const ROW_HEIGHT = 25
 
 /**
  * A column's right edge in the header: it lights up on hover and drags to make the column wider or narrower.
@@ -218,7 +223,8 @@ export function NetworkTab({
   )
   const times = useMemo(() => visible.map((row) => row.t), [visible])
   const active = useActiveRow(times, base, playback)
-  const follow = useFollow(active)
+  const keys = useMemo(() => visible.map((row) => row.key), [visible])
+  const virtual = useVirtualRows<HTMLTableSectionElement>({ keys, estimate: ROW_HEIGHT, active })
   const bars = useMemo(() => waterfall(all), [all])
   const totals = useMemo(() => networkTotals(events), [events])
   const failed = useMemo(() => all.filter((row) => stateOf(row) === "failed").length, [all])
@@ -294,11 +300,12 @@ export function NetworkTab({
             {/*
               A plain <table>, not Intent's Table: React Aria's grid keeps the arrow keys for moving between cells,
               which takes them from the column edges below, and its own resizer drags, steps and resets differently.
-              Its rows are grids rather than table rows, so the ones out of view skip layout when DevTools is
-              resized; the roles keep it a table for screen readers.
+              Its rows are grids rather than table rows, so only those in view need be in the page (useVirtualRows);
+              the roles and row indexes keep it a table for screen readers.
             */}
             <table
               role="table"
+              aria-rowcount={visible.length + 1}
               className="block text-left text-xs"
               style={
                 {
@@ -312,7 +319,7 @@ export function NetworkTab({
                 role="rowgroup"
                 className="sticky top-0 z-10 block bg-background text-muted-foreground"
               >
-                <tr role="row" className={GRID_ROW}>
+                <tr role="row" aria-rowindex={1} className={GRID_ROW}>
                   {NETWORK_COLUMNS.map((column) => (
                     <th
                       key={column}
@@ -328,19 +335,23 @@ export function NetworkTab({
                   ))}
                 </tr>
               </thead>
-              <tbody role="rowgroup" className="block">
-                {visible.map((row, index) => (
-                  <RequestRow
-                    key={row.key}
-                    row={row}
-                    index={index}
-                    bar={bars.get(row.key)}
-                    selected={row.key === open}
-                    active={index === active}
-                    onOpen={setOpen}
-                    rowRef={follow(index)}
-                  />
-                ))}
+              <tbody ref={virtual.list} role="rowgroup" className="relative block" style={{ height: virtual.height }}>
+                {virtual.rows.map(({ index, key, top }) => {
+                  const row = visible[index] as NetworkRow
+                  return (
+                    <RequestRow
+                      key={key}
+                      row={row}
+                      index={index}
+                      top={top}
+                      bar={bars.get(row.key)}
+                      selected={row.key === open}
+                      active={index === active}
+                      onOpen={setOpen}
+                      measure={virtual.measure}
+                    />
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -365,34 +376,43 @@ export function NetworkTab({
   )
 }
 
-/** One request in the table; memoized, so a new video position re-renders only the rows it moves between. */
+/**
+ * One request in the table, placed `top` pixels down the table body; memoized, so a new video position re-renders
+ * only the rows it moves between.
+ */
 const RequestRow = memo(function RequestRow({
   row,
   index,
+  top,
   bar,
   selected,
   active,
   onOpen,
-  rowRef,
+  measure,
 }: {
   row: NetworkRow
   index: number
+  top: number
   bar: { leftPercent: number; widthPercent: number } | undefined
   selected: boolean
   active: boolean
   onOpen(key: string): void
-  rowRef(element: HTMLElement | null): void
+  measure(element: HTMLElement | null): void
 }) {
   const state = stateOf(row)
+  const stripe = state === "ok" && !selected && index % 2 === 1 ? STRIPE : ""
   return (
     <tr
-      ref={rowRef}
+      ref={measure}
+      data-index={index}
       role="row"
+      aria-rowindex={index + 2}
       aria-current={active ? "true" : undefined}
       data-selected={selected || undefined}
       // The whole row opens the request; the name is a button too, so the keyboard can reach it.
       onClick={() => onOpen(row.key)}
-      className={`${GRID_ROW} ${OFFSCREEN_ROW} cursor-pointer ${selected ? SELECTED_STYLES[state] : ROW_STYLES[state]} ${row.page ? "font-semibold" : ""} ${active ? ACTIVE_ROW : ""} [&>td]:border-b [&>td]:border-b-border/60`}
+      style={{ transform: `translateY(${top}px)` }}
+      className={`${GRID_ROW} absolute inset-x-0 top-0 cursor-pointer ${selected ? SELECTED_STYLES[state] : ROW_STYLES[state]} ${stripe} ${row.page ? "font-semibold" : ""} ${active ? ACTIVE_ROW : ""} [&>td]:border-b [&>td]:border-b-border/60`}
     >
       <td role="cell" className={`${CELL} pl-3 font-mono text-muted-foreground`}>{index + 1}</td>
       <td role="cell" className={CELL}>

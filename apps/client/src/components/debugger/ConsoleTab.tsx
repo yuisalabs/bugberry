@@ -10,7 +10,7 @@ import { type ConsoleOptions, type ConsoleRow, consoleCounts, consoleRows, navig
 import type { ViewEvent } from "@bugberry/debugger-view"
 import { type Playback, useActiveRow } from "../../lib/timeline"
 import { EventTime } from "./EventTime"
-import { ACTIVE_ROW, FOLLOW_STICKY_ATTRIBUTE, OFFSCREEN_ROW, useFollow } from "./useFollow"
+import { ACTIVE_ROW, FOLLOW_STICKY_ATTRIBUTE, useVirtualRows } from "./useVirtualRows"
 
 const LEVEL_OPTIONS: Array<[ConsoleOptions["level"], string]> = [
   ["all", "All levels"],
@@ -28,6 +28,9 @@ const LEVEL_STYLES: Record<ConsoleLevel, string> = {
   error: "bg-danger-subtle text-danger-subtle-foreground",
   debug: "text-muted-foreground",
 }
+
+/** A one-line row: its text and padding, and the rule under it. Longer ones are measured as they are drawn. */
+const LINE_HEIGHT = 29
 
 function rowStyle(row: ConsoleRow): string {
   if (row.kind === "log") return LEVEL_STYLES[row.level]
@@ -87,7 +90,8 @@ export function ConsoleTab({
   const counts = useMemo(() => consoleCounts(events), [events])
   const times = useMemo(() => rows.map((row) => row.t), [rows])
   const active = useActiveRow(times, base, playback)
-  const follow = useFollow(active)
+  const keys = useMemo(() => rows.map((row) => row.key), [rows])
+  const virtual = useVirtualRows<HTMLOListElement>({ keys, estimate: LINE_HEIGHT, active })
   const empty = useMemo(() => consoleRows(events, { ...options, level: "all", query: "" }).length === 0, [events, options])
   const onSeek = playback?.seek
 
@@ -141,15 +145,19 @@ export function ConsoleTab({
       {rows.length === 0 ? (
         <p className="p-4 text-sm text-muted-foreground">{empty ? "No console logs." : "No logs match."}</p>
       ) : (
-        <ol className="divide-y divide-border/60 font-mono text-xs">
-          {rows.map((row, index) => (
+        // Only the lines near the view are in the page (useVirtualRows); each says where it sits in the whole list.
+        <ol ref={virtual.list} className="relative font-mono text-xs" style={{ height: virtual.height }}>
+          {virtual.rows.map(({ index, key, top }) => (
             <ConsoleLine
-              key={`${row.t}-${row.kind}-${index}`}
-              row={row}
+              key={key}
+              row={rows[index] as ConsoleRow}
+              index={index}
+              count={rows.length}
+              top={top}
               active={index === active}
               base={base}
               onSeek={onSeek}
-              rowRef={follow(index)}
+              measure={virtual.measure}
             />
           ))}
         </ol>
@@ -158,25 +166,38 @@ export function ConsoleTab({
   )
 }
 
-/** One line of the console; memoized, so a new video position re-renders only the lines it moves between. */
+/**
+ * One line of the console, placed `top` pixels down the list; memoized, so a new video position re-renders only
+ * the lines it moves between.
+ */
 const ConsoleLine = memo(function ConsoleLine({
   row,
+  index,
+  count,
+  top,
   active,
   base,
   onSeek,
-  rowRef,
+  measure,
 }: {
   row: ConsoleRow
+  index: number
+  count: number
+  top: number
   active: boolean
   base: number | null
   onSeek?: (offsetMs: number) => void
-  rowRef(element: HTMLElement | null): void
+  measure(element: HTMLElement | null): void
 }) {
   return (
     <li
-      ref={rowRef}
+      ref={measure}
+      data-index={index}
+      aria-posinset={index + 1}
+      aria-setsize={count}
       aria-current={active ? "true" : undefined}
-      className={`flex gap-2 px-3 py-1.5 ${OFFSCREEN_ROW} ${rowStyle(row)} ${active ? ACTIVE_ROW : ""}`}
+      style={{ transform: `translateY(${top}px)` }}
+      className={`absolute inset-x-0 top-0 flex gap-2 border-b border-border/60 px-3 py-1.5 ${rowStyle(row)} ${active ? ACTIVE_ROW : ""}`}
     >
       <EventTime t={row.t} base={base} onSeek={onSeek} />
       <RowIcon row={row} />

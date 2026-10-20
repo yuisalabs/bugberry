@@ -4,7 +4,7 @@ import { type ActionFilter, actionCounts, actionSentence, matchesActionFilter } 
 import type { ViewAction, ViewEvent } from "@bugberry/debugger-view"
 import { type Playback, useActiveRow } from "../../lib/timeline"
 import { EventTime } from "./EventTime"
-import { ACTIVE_ROW, FOLLOW_STICKY_ATTRIBUTE, OFFSCREEN_ROW, useFollow } from "./useFollow"
+import { ACTIVE_ROW, FOLLOW_STICKY_ATTRIBUTE, useVirtualRows } from "./useVirtualRows"
 
 const FILTERS: Array<[ActionFilter, string]> = [
   ["all", "All"],
@@ -15,6 +15,9 @@ const FILTERS: Array<[ActionFilter, string]> = [
 ]
 
 const tag = "ml-1 rounded px-1.5 py-0.5 text-[11px] font-medium"
+
+/** A one-line action: its text and padding, and the rule under it. Longer ones are measured as they are drawn. */
+const LINE_HEIGHT = 33
 
 /** What the person did, as sentences, with filter chips that count clicks, inputs, navigations and tab changes. */
 export function ActionsTab({
@@ -33,7 +36,12 @@ export function ActionsTab({
   const counts = useMemo(() => actionCounts(all), [all])
   const times = useMemo(() => actions.map((action) => action.t), [actions])
   const active = useActiveRow(times, base, playback)
-  const follow = useFollow(active)
+  // Several actions can share a millisecond; the place in the whole recording tells them apart, however filtered.
+  const keys = useMemo(() => {
+    const place = new Map(all.map((action, index) => [action, index]))
+    return actions.map((action) => `${action.t}-${place.get(action)}`)
+  }, [actions, all])
+  const virtual = useVirtualRows<HTMLOListElement>({ keys, estimate: LINE_HEIGHT, active })
   const onSeek = playback?.seek
   if (all.length === 0) return <p className="p-4 text-sm text-muted-foreground">No actions were recorded.</p>
   return (
@@ -58,15 +66,19 @@ export function ActionsTab({
           ))}
         </ToggleGroup>
       </div>
-      <ol className="divide-y divide-border/60">
-        {actions.map((action, index) => (
+      {/* Only the actions near the view are in the page (useVirtualRows); each says where it sits in the list. */}
+      <ol ref={virtual.list} className="relative" style={{ height: virtual.height }}>
+        {virtual.rows.map(({ index, key, top }) => (
           <ActionLine
-            key={`${action.t}-${index}`}
-            action={action}
+            key={key}
+            action={actions[index] as ViewAction}
+            index={index}
+            count={actions.length}
+            top={top}
             active={index === active}
             base={base}
             onSeek={onSeek}
-            rowRef={follow(index)}
+            measure={virtual.measure}
           />
         ))}
       </ol>
@@ -74,26 +86,39 @@ export function ActionsTab({
   )
 }
 
-/** One action as a sentence; memoized, so a new video position re-renders only the lines it moves between. */
+/**
+ * One action as a sentence, placed `top` pixels down the list; memoized, so a new video position re-renders only
+ * the lines it moves between.
+ */
 const ActionLine = memo(function ActionLine({
   action,
+  index,
+  count,
+  top,
   active,
   base,
   onSeek,
-  rowRef,
+  measure,
 }: {
   action: ViewAction
+  index: number
+  count: number
+  top: number
   active: boolean
   base: number | null
   onSeek?: (offsetMs: number) => void
-  rowRef(element: HTMLElement | null): void
+  measure(element: HTMLElement | null): void
 }) {
   const { parts, masked, frustration } = actionSentence(action)
   return (
     <li
-      ref={rowRef}
+      ref={measure}
+      data-index={index}
+      aria-posinset={index + 1}
+      aria-setsize={count}
       aria-current={active ? "true" : undefined}
-      className={`flex gap-3 px-3 py-2 text-xs ${OFFSCREEN_ROW} ${active ? ACTIVE_ROW : ""}`}
+      style={{ transform: `translateY(${top}px)` }}
+      className={`absolute inset-x-0 top-0 flex gap-3 border-b border-border/60 px-3 py-2 text-xs ${active ? ACTIVE_ROW : ""}`}
     >
       <EventTime t={action.t} base={base} onSeek={onSeek} />
       <p className="min-w-0 flex-1 break-words text-foreground">

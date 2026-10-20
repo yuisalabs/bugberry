@@ -10,7 +10,7 @@ import { ActionsTab } from "./ActionsTab"
 import { ConsoleTab } from "./ConsoleTab"
 import { InfoTab } from "./InfoTab"
 import { NetworkTab } from "./NetworkTab"
-import { FOLLOW_SCROLL_ATTRIBUTE } from "./useFollow"
+import { FOLLOW_SCROLL_ATTRIBUTE } from "./useVirtualRows"
 
 export type DebuggerState =
   | { status: "none" }
