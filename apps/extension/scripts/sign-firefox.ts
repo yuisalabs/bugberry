@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs"
+import { reviewSourcesName } from "./zip-sources"
 
 /**
  * Signs the Firefox build on addons.mozilla.org's unlisted channel, so the .xpi installs for good in regular
@@ -11,7 +12,7 @@ export function missingKeys(env: Record<string, string | undefined>): string[] {
   return KEYS.filter((name) => !env[name]?.trim())
 }
 
-/** web-ext's arguments; WXT's `zip -b firefox` writes the sources zip AMO may ask for. */
+/** web-ext's arguments; the sources AMO asks for are the reviewers' zip from scripts/zip-sources.ts. */
 export function signArgs(version: string): string[] {
   return [
     "sign",
@@ -22,9 +23,18 @@ export function signArgs(version: string): string[] {
     "--artifacts-dir",
     ".output",
     "--upload-source-code",
-    `.output/bugberryextension-${version}-sources.zip`,
+    `.output/${reviewSourcesName(version)}`,
   ]
 }
+
+/**
+ * The Firefox package, then the reviewers' sources zip (scripts/zip-sources.ts). That one comes last: it
+ * replaces the sources zip WXT writes next to the package, which would carry the private key.
+ */
+export const PREPARE_COMMANDS = [
+  ["bun", "run", "zip:firefox"],
+  ["bun", "run", "zip:sources"],
+]
 
 async function run(command: string[]): Promise<void> {
   const code = await Bun.spawn(command, { stdio: ["inherit", "inherit", "inherit"] }).exited
@@ -37,6 +47,6 @@ if (import.meta.main) {
     process.exit(1)
   }
   const { version } = JSON.parse(readFileSync("package.json", "utf8")) as { version: string }
-  await run(["bun", "run", "zip:firefox"])
+  for (const command of PREPARE_COMMANDS) await run(command)
   await run(["bun", "x", "web-ext", ...signArgs(version)])
 }

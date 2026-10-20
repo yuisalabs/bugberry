@@ -1,6 +1,6 @@
 {
   "name": "@bugberry/extension",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,6 +12,7 @@
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox --mv3",
     "zip:opera": "wxt zip -b opera",
+    "zip:sources": "bun scripts/zip-sources.ts",
     "key": "bun scripts/extension-key.ts",
     "postinstall": "wxt prepare",
     "test": "bun test",
