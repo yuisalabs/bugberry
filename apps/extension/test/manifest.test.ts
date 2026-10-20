@@ -86,8 +86,8 @@ describe("manifestFor", () => {
   })
 
   test("firefox opens BugBerry with Alt+Shift+B and keeps the other shortcuts", () => {
-    const commands = (manifestFor("firefox", undefined) as { commands: typeof MANIFEST_COMMANDS }).commands
-    expect(commands._execute_action.suggested_key).toEqual({ default: "Alt+Shift+B" })
+    const commands = (manifestFor("firefox", undefined) as { commands: Record<string, { suggested_key: unknown }> }).commands
+    expect(commands._execute_action?.suggested_key).toEqual({ default: "Alt+Shift+B" })
     expect(commands["take-screenshot"]).toEqual(MANIFEST_COMMANDS["take-screenshot"])
     expect(commands["start-recording"]).toEqual(MANIFEST_COMMANDS["start-recording"])
     expect(commands["stop-recording"]).toEqual(MANIFEST_COMMANDS["stop-recording"])
