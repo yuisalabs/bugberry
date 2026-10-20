@@ -58,6 +58,11 @@ export interface PopupViewProps {
   onOpenDraft(id: string): void
   onDeleteDraft(id: string): void
   onAllowHosts(): void
+  /** The default workspace's usage under ACCOUNT_LIMITS ("Screenshots 3/5 · Recordings 5/5"); null without limits. */
+  usage?: string | null
+  /** Shown under a kind that is full; its button still works (the report may go to another workspace). */
+  screenshotWarning?: string | null
+  recordWarning?: string | null
 }
 
 /** Each source's icon: the line variant, or the fill variant for the chosen one. */
@@ -144,6 +149,7 @@ export function PopupView(props: PopupViewProps) {
 
       {!blocked && (
         <>
+          {props.usage && <p className="text-xs text-muted-foreground">{props.usage}</p>}
           <Row
             icon={<CameraIcon />}
             label="Capture screenshot"
@@ -156,6 +162,7 @@ export function PopupView(props: PopupViewProps) {
           >
             <ScreenshotPanel {...props} />
           </Row>
+          {props.screenshotWarning && <LimitWarning>{props.screenshotWarning}</LimitWarning>}
           <Row
             icon={SOURCES.find((source) => source.id === recordSource)?.icon(false)}
             label={RECORD_LABEL[recordSource]}
@@ -168,6 +175,7 @@ export function PopupView(props: PopupViewProps) {
           >
             <RecordPanel {...props} />
           </Row>
+          {props.recordWarning && <LimitWarning>{props.recordWarning}</LimitWarning>}
         </>
       )}
 
@@ -360,6 +368,10 @@ function DraftList(props: PopupViewProps & { onBack(): void }) {
       </ul>
     </main>
   )
+}
+
+function LimitWarning({ children }: { children: ReactNode }) {
+  return <p className="-mt-1 rounded-lg bg-warning-subtle px-3 py-2 text-xs text-warning-subtle-foreground">{children}</p>
 }
 
 function Note({ children }: { children: ReactNode }) {

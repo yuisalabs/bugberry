@@ -71,6 +71,23 @@ describe("signed in", () => {
     expect(button(/Capture screenshot/)).toBeTruthy()
   })
 
+  test("shows the default workspace's usage and a warning under a full kind, without disabling it", () => {
+    const props = view({
+      usage: "Screenshots 3/5 · Recordings 5/5",
+      recordWarning: "This workspace is full for recordings. Delete one in the dashboard.",
+    })
+    expect(screen.getByText("Screenshots 3/5 · Recordings 5/5")).toBeTruthy()
+    expect(screen.getByText("This workspace is full for recordings. Delete one in the dashboard.")).toBeTruthy()
+    fireEvent.click(button(/^Record tab/))
+    expect(props.onRecord).toHaveBeenCalledTimes(1)
+  })
+
+  test("nothing about limits when there are none", () => {
+    view()
+    expect(screen.queryByText(/Screenshots \d+\/\d+/)).toBeNull()
+    expect(screen.queryByText(/is full for/)).toBeNull()
+  })
+
   test("the grid icon opens the dashboard", () => {
     const props = view()
     fireEvent.click(button("Open dashboard"))

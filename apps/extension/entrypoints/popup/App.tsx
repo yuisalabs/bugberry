@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react"
 import { browser } from "wxt/browser"
 import { createBugberryApi } from "../../lib/api"
-import { BUILD_SERVER_ORIGIN, browserSettingsStorage, capturePrefsStorage } from "../../lib/browser-settings"
+import { BUILD_SERVER_ORIGIN, browserSettingsStorage, capturePrefsStorage, lastWorkspaceStorage } from "../../lib/browser-settings"
 import { capturable } from "../../lib/capture-flow"
 import { hasTabRecorder } from "../../lib/browser-support"
 import { type CapturePrefs, DEFAULT_CAPTURE_PREFS, recordOptionsFor } from "../../lib/capture-prefs"
 import { createIndexedDbDraftStore } from "../../lib/draft-store"
+import { fullWarning, limitsFor, usageLine } from "../../lib/limits"
 import type { RecordStartRequest, RecordStatusRequest, ScreenshotRequest } from "../../lib/messages"
 import { micAccess, micChoiceAfterCheck, micDeviceLabel } from "../../lib/microphone"
 import { recordStartNote, replyResult, uncapturableNote } from "../../lib/popup"
+import { pickEditorWorkspace } from "../../lib/report-form"
 import type { RecordingStatus } from "../../lib/recording-flow"
 import { checkSession, type SessionState, serverLabel, signInUrl } from "../../lib/session"
 import { loadSettings, type Settings } from "../../lib/settings"
@@ -33,6 +35,11 @@ export function App() {
   const [shortcut, setShortcut] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [limitNotes, setLimitNotes] = useState<{ usage: string | null; screenshot: string | null; record: string | null }>({
+    usage: null,
+    screenshot: null,
+    record: null,
+  })
   // Firefox lets the reporter take website access away; Chrome grants it with the install.
   const [hostAccess, setHostAccess] = useState(true)
   const readHostAccess = () =>
@@ -65,6 +72,25 @@ export function App() {
       .then((value) => setRecording((value as RecordingStatus | undefined) ?? { recording: false }))
       .catch(() => setRecording({ recording: false }))
   }, [])
+
+  // The default workspace's usage under ACCOUNT_LIMITS: the one the review will pre-select. Silent on any failure.
+  useEffect(() => {
+    if (!settings || session?.kind !== "signed-in") return
+    const api = createBugberryApi(settings)
+    void Promise.all([api.listWorkspaces(), lastWorkspaceStorage.get()])
+      .then(async ([workspaces, lastUsed]) => {
+        const workspace = workspaces.find((entry) => entry.id === pickEditorWorkspace(workspaces, lastUsed))
+        if (!workspace) return
+        const limits = await limitsFor(api, workspace.id)
+        const who = { isAdmin: workspace.role === "admin", hasOtherWorkspaces: workspaces.length > 1 }
+        setLimitNotes({
+          usage: usageLine(limits),
+          screenshot: fullWarning(limits, "screenshot", "popup", who),
+          record: fullWarning(limits, "video", "popup", who),
+        })
+      })
+      .catch(() => {})
+  }, [settings, session])
 
   /** Asks the background to act; the popup closes once it has, or once the reporter backed out. */
   const send = async (request: ScreenshotRequest | RecordStartRequest) => {
@@ -151,6 +177,9 @@ export function App() {
       onOpenDraft={(id) => void browser.tabs.create({ url: `${browser.runtime.getURL("/review.html")}?draft=${encodeURIComponent(id)}` })}
       onDeleteDraft={(id) => void remove(id)}
       onAllowHosts={() => void browser.permissions.request(ALL_SITES).finally(readHostAccess)}
+      usage={limitNotes.usage}
+      screenshotWarning={limitNotes.screenshot}
+      recordWarning={limitNotes.record}
     />
   )
 }
