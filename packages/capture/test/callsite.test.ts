@@ -13,6 +13,15 @@ describe("callSite", () => {
     expect(callSite(STACK)).toBe("checkout.js:88")
   })
 
+  test("skips Firefox and Safari extension frames too", () => {
+    const stack = [
+      "log@moz-extension://3f2a9c1e-0000-4000-8000-000000000001/content-scripts/capture.js:1:1",
+      "x@safari-web-extension://ABCD/capture.js:2:3",
+      "pay@https://shop.test/js/checkout.js:88:12",
+    ].join("\n")
+    expect(callSite(stack)).toBe("checkout.js:88")
+  })
+
   test("an anonymous frame on the page's root names the host", () => {
     expect(callSite("Error\n    at https://shop.test/:12:5")).toBe("shop.test:12")
   })

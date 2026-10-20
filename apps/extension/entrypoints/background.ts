@@ -308,6 +308,8 @@ export default defineBackground(() => {
     }
   }
 
+  const extensionOrigin = browser.runtime.getURL("")
+
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const reply = (work: Promise<unknown>) => {
       work.then(sendResponse, (error: unknown) => sendResponse({ ok: false, error: String(error) }))
@@ -336,13 +338,13 @@ export default defineBackground(() => {
     // Only the extension's own pages drive a recording: the review from anywhere, the bar and the drawing
     // layer only from inside the recorded tab (another site can embed those pages, but not in that tab).
     if (isReviewAgainRequest(message)) {
-      return fromExtensionPage(sender, browser.runtime.id) ? reply(takeAgain(message.draftId)) : undefined
+      return fromExtensionPage(sender, browser.runtime.id, extensionOrigin) ? reply(takeAgain(message.draftId)) : undefined
     }
     if (isBarRequest(message)) {
-      if (message.type === "bugberry:me-name") return fromExtensionPage(sender, browser.runtime.id) ? reply(author()) : undefined
+      if (message.type === "bugberry:me-name") return fromExtensionPage(sender, browser.runtime.id, extensionOrigin) ? reply(author()) : undefined
       return reply(
         browserRecordingState.get().then((state) =>
-          ofThisRecording(sender, browser.runtime.id, state, message.session) ? barAction(message) : { ok: false, error: "Not the recorded tab" },
+          ofThisRecording(sender, browser.runtime.id, extensionOrigin, state, message.session) ? barAction(message) : { ok: false, error: "Not the recorded tab" },
         ),
       )
     }

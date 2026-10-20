@@ -79,7 +79,7 @@ describe("startScreenshotReport", () => {
   })
 
   test("refuses pages the extension cannot capture, without creating a draft", async () => {
-    for (const url of ["chrome://settings", "https://chromewebstore.google.com/detail/x", "file:///C:/a.pdf", undefined]) {
+    for (const url of ["chrome://settings", "https://chromewebstore.google.com/detail/x", "https://addons.mozilla.org/firefox/addon/x", "https://addons.opera.com/extensions/details/x", "file:///C:/a.pdf", undefined]) {
       const result = await startScreenshotReport({ ...tab, url }, deps)
       expect(result.ok).toBe(false)
     }

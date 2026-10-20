@@ -18,7 +18,7 @@ export interface ResourceHost {
   setTimeout(run: () => void, ms: number): unknown
 }
 
-const SKIPPED = /^(?:data|blob|chrome-extension|about|javascript):/i
+const SKIPPED = /^(?:data|blob|chrome-extension|moz-extension|safari-web-extension|about|javascript):/i
 
 const num = (entry: TimingEntry, key: string): number => {
   const value = entry[key]
