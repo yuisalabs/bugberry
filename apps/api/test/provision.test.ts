@@ -43,7 +43,7 @@ describe("defaultWorkspaceName", () => {
 describe("provisionNewUser", () => {
   test("a new person gets their own workspace as admin, and it becomes their current one", async () => {
     const person = await createUser(ctx.db, { name: "Budi Santoso", email: "budi@ptmaju.com", workspaceId: null })
-    await provisionNewUser(ctx.db, person)
+    await provisionNewUser(ctx.db, person, null)
     expect(await workspacesOf(person.id)).toEqual([{ name: "Budi's workspace", role: "admin" }])
     const [row] = await ctx.db.select({ last: user.lastWorkspaceId }).from(user).where(eq(user.id, person.id))
     expect(row?.last).toBeTruthy()
@@ -52,7 +52,7 @@ describe("provisionNewUser", () => {
   test("someone with a live invitation gets no workspace of their own", async () => {
     await invite("sari@ptmaju.com")
     const person = await createUser(ctx.db, { name: "Sari", email: "sari@ptmaju.com", workspaceId: null })
-    await provisionNewUser(ctx.db, person)
+    await provisionNewUser(ctx.db, person, null)
     expect(await workspacesOf(person.id)).toEqual([])
   })
 
@@ -62,7 +62,7 @@ describe("provisionNewUser", () => {
     await invite("c@x.co", { acceptedAt: new Date() })
     for (const email of ["a@x.co", "b@x.co", "c@x.co"]) {
       const person = await createUser(ctx.db, { name: "X", email, workspaceId: null })
-      await provisionNewUser(ctx.db, person)
+      await provisionNewUser(ctx.db, person, null)
       expect(await workspacesOf(person.id)).toHaveLength(1)
     }
   })

@@ -26,7 +26,7 @@ export interface IssuedToken {
  */
 export async function issueExtensionToken(
   db: Db,
-  config: Pick<Config, "allowedEmailDomains">,
+  config: Pick<Config, "allowedEmailDomains" | "accountLimits">,
   input: IssueTokenInput,
 ): Promise<IssuedToken> {
   const email = input.email.trim().toLowerCase()
@@ -55,6 +55,6 @@ export async function issueExtensionToken(
     tokenHash: hashToken(token),
     label: input.label?.trim() || "Chrome extension (CLI)",
   })
-  if (!existing) await provisionNewUser(db, { id: userId, name: input.name?.trim() || email.split("@")[0] || email, email })
+  if (!existing) await provisionNewUser(db, { id: userId, name: input.name?.trim() || email.split("@")[0] || email, email }, config.accountLimits)
   return { userId, email, token, createdUser: !existing }
 }

@@ -1,8 +1,10 @@
 import { and, eq, gt, isNull } from "drizzle-orm"
+import type { AccountLimits } from "../config"
 import type { Db } from "../db/client"
 import { user, workspace, workspaceInvitation, workspaceMember } from "../db/schema"
 import { conflict, unprocessable } from "../lib/errors"
 import { newId } from "../lib/ids"
+import { isWorkspaceLimited } from "./limits"
 import { freeSlug, isUniqueViolation, slugProblem } from "./slug"
 
 /** A suggested slug can lose a race with another new workspace; it is picked again this many times. */
@@ -48,11 +50,16 @@ export async function createWorkspace(
 
 /**
  * Runs once for every new account. Someone who was invited joins through the invitation instead,
- * so they get no workspace of their own; everyone else starts with one.
+ * so they get no workspace of their own; everyone else starts with one. An invitation into a workspace
+ * under ACCOUNT_LIMITS doesn't count: accepting it would be refused.
  */
-export async function provisionNewUser(db: Db, person: { id: string; name: string; email: string }): Promise<void> {
-  const [invited] = await db
-    .select({ id: workspaceInvitation.id })
+export async function provisionNewUser(
+  db: Db,
+  person: { id: string; name: string; email: string },
+  limits: AccountLimits | null,
+): Promise<void> {
+  const invitations = await db
+    .select({ workspaceId: workspaceInvitation.workspaceId })
     .from(workspaceInvitation)
     .where(
       and(
@@ -62,7 +69,8 @@ export async function provisionNewUser(db: Db, person: { id: string; name: strin
         gt(workspaceInvitation.expiresAt, new Date()),
       ),
     )
-    .limit(1)
-  if (invited) return
+  for (const invitation of invitations) {
+    if (!(await isWorkspaceLimited(db, limits, invitation.workspaceId))) return
+  }
   await createWorkspace(db, person.id, defaultWorkspaceName(person.name, person.email))
 }

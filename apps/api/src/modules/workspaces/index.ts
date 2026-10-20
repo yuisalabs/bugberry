@@ -9,6 +9,7 @@ import { conflict, forbidden, notFound, tooManyRequests, unprocessable } from ".
 import { createRateLimiter } from "../../lib/rate-limit"
 import { oneOf } from "../../lib/schema"
 import { requireMember } from "../../workspaces/access"
+import { assertCanCreateWorkspace } from "../../workspaces/limits"
 import { createWorkspace } from "../../workspaces/provision"
 import { freeSlug, isUniqueViolation, slugProblem, slugTaken } from "../../workspaces/slug"
 
@@ -44,7 +45,7 @@ async function ownerOf(db: Db | Tx, workspaceId: string): Promise<string | null>
 const WORKSPACES_PER_PERSON_PER_HOUR = 10
 
 export function workspacesModule(deps: AppDeps) {
-  const { db } = deps
+  const { db, config } = deps
   const creations = createRateLimiter({ limit: WORKSPACES_PER_PERSON_PER_HOUR, windowMs: 60 * 60 * 1000 })
 
   const memberRow = (workspaceId: string, userId: string) =>
@@ -81,6 +82,7 @@ export function workspacesModule(deps: AppDeps) {
       "/workspaces",
       async ({ user: current, body }) => {
         if (!creations.consume(current.id)) throw tooManyRequests()
+        await assertCanCreateWorkspace(db, config.accountLimits, current.id)
         const created = await createWorkspace(db, current.id, body.name.trim(), body.slug?.trim())
         return { ...created, role: "admin" as const, owner: true }
       },

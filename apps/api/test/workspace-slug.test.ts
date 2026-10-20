@@ -98,7 +98,7 @@ describe("workspace slugs", () => {
 
   test("auto-created workspaces get a slug", async () => {
     const budi = await createUser(ctx.db, { name: "Budi", workspaceId: null })
-    await provisionNewUser(ctx.db, { id: budi.id, name: "Budi", email: budi.email })
+    await provisionNewUser(ctx.db, { id: budi.id, name: "Budi", email: budi.email }, null)
     const [row] = await ctx.db.select({ slug: workspace.slug }).from(workspace).where(eq(workspace.ownerId, budi.id))
     expect(row?.slug).toBe("budi-s-workspace")
   })
