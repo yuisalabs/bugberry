@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { eq } from "drizzle-orm"
-import { comment } from "../src/db/schema"
+import { comment, oauthConsent } from "../src/db/schema"
 import { createReadyReport, createUser, sessionHeaders, setupTestApp } from "./helpers"
 import { callTool, grantOAuth, mcpClient, refreshOAuth } from "./mcp-helpers"
 
@@ -38,6 +38,17 @@ describe("OAuth on the MCP server", () => {
 
   test("a read-only grant cannot use write tools", async () => {
     const grant = await grantOAuth(ctx, ana.id, { scopes: ["openid", "bugberry:read"] })
+    const client = await mcpClient(ctx.app, bearer(grant.accessToken))
+    expect((await callTool(client, "getReport", { report: reportId })).isError).toBe(false)
+    expect(await callTool(client, "addComment", { report: reportId, body: "x" })).toMatchObject({
+      isError: true,
+      text: "This connection can only read. Reconnect BugBerry and allow changes to use this tool.",
+    })
+  })
+
+  test("narrowing an app's consent narrows tokens it already holds", async () => {
+    const grant = await grantOAuth(ctx, ana.id)
+    await ctx.db.update(oauthConsent).set({ scopes: ["openid", "bugberry:read"] }).where(eq(oauthConsent.userId, ana.id))
     const client = await mcpClient(ctx.app, bearer(grant.accessToken))
     expect((await callTool(client, "getReport", { report: reportId })).isError).toBe(false)
     expect(await callTool(client, "addComment", { report: reportId, body: "x" })).toMatchObject({

@@ -37,15 +37,17 @@ export async function verifyOAuthAccessToken(
     if (!userId || !clientId) return null
 
     const [consent] = await deps.db
-      .select({ id: oauthConsent.id, clientName: oauthClient.name, disabled: oauthClient.disabled })
+      .select({ id: oauthConsent.id, scopes: oauthConsent.scopes, clientName: oauthClient.name, disabled: oauthClient.disabled })
       .from(oauthConsent)
       .innerJoin(oauthClient, eq(oauthClient.clientId, oauthConsent.clientId))
       .where(and(eq(oauthConsent.clientId, clientId), eq(oauthConsent.userId, userId)))
       .limit(1)
     if (!consent || consent.disabled) return null
 
+    // What the token says, but never more than the person allows now: narrowing a consent applies at once.
+    const allowed = new Set(consent.scopes)
     const granted = typeof payload.scope === "string" ? payload.scope.split(" ") : []
-    const scopes = granted.filter((scope): scope is McpScope => MCP_SCOPE_SET.has(scope))
+    const scopes = granted.filter((scope): scope is McpScope => MCP_SCOPE_SET.has(scope) && allowed.has(scope))
     return { userId, clientId, clientName: consent.clientName?.trim() || "AI app", scopes }
   } catch {
     return null
