@@ -8,6 +8,11 @@ data/
 .output/
 .wxt/
 test-results/
+.next/
+out/
+.source/
+next-env.d.ts
+*.tsbuildinfo
 playwright-report/
 apps/extension/e2e/.state.json
 *.pem
@@ -15,7 +20,7 @@ apps/extension/e2e/.state.json
 .mcp.json
 AGENTS.md
 .superpowers
-docs
+/docs
 .claude
 
 .env.production

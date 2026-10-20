@@ -1,13 +1,15 @@
 {
   "name": "bugberry",
   "private": true,
+  "license": "AGPL-3.0-only",
   "type": "module",
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": ["apps/*", "!apps/docs", "packages/*"],
   "scripts": {
     "dev:db": "docker compose -f docker-compose.dev.yml up -d",
     "build:client": "bun run --filter @bugberry/client build",
-    "test": "bun run --filter '*' test",
-    "typecheck": "bun run --filter '*' typecheck"
+    "build:docs": "bun run --cwd apps/docs build",
+    "test": "bun run --filter '*' --filter '!@bugberry/docs' test && bun run --cwd apps/docs test",
+    "typecheck": "bun run --filter '*' --filter '!@bugberry/docs' typecheck"
   },
   "devDependencies": {
     "@types/bun": "1.4.3",

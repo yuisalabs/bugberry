@@ -1,0 +1,38 @@
+---
+title: Integrations
+description: Send reports to GitHub Issues or ActiveCollab, and let AI agents work on them through MCP.
+---
+
+## Tracker integrations
+
+Workspace admins connect each project to GitHub Issues or ActiveCollab under **Projects** in the sidebar → **Integrations**. A report can then be sent from its page, or automatically when a new report that belongs to the project finishes uploading.
+
+Tokens are stored encrypted with `ENCRYPTION_KEY`, so it must be set (see [Install](/self-host/install#generate-the-secrets)). If it ever changes, the saved tokens can't be read anymore: save the token again in each integration.
+
+### GitHub Issues
+
+Create a **fine-grained personal access token** with access to the target repository and the **Issues: Read and write** permission, and paste it into the integration.
+
+### ActiveCollab (self-hosted)
+
+Use the API token of an account that can create tasks in the target project. The project ID and task list ID are in the ActiveCollab address of that project and list.
+
+### How sending works
+
+- A report without a project is never sent to a tracker; add it to a project first, from its page.
+- Moving a report into a project doesn't send it automatically; send it from the report's **More** menu.
+- Tracker issues include the report's link and its captured details, but never the reporter's city.
+
+## AI agents (MCP)
+
+BugBerry runs an MCP server at `<APP_URL>/api/mcp`. AI apps such as Claude Code, Claude.ai, Cursor, VS Code, Windsurf, and ChatGPT connect to it, read reports, and work on them. Each person sets it up for themselves under **Account → AI agents (MCP)**; see [AI agents](/guide/ai-agents).
+
+What the server side needs:
+
+- **Nothing to turn on.** The MCP server is part of the API.
+- **The discovery paths.** MCP clients find the sign-in server at `/.well-known/oauth-*` and `/.well-known/openid-configuration` on your domain. The bundled nginx forwards them; behind your own proxy, make sure they reach BugBerry too (see [Reverse proxy](/self-host/reverse-proxy#paths-to-pass-through)).
+- **HTTPS.** Apps connect from the internet or from people's laptops.
+
+Apps sign in with OAuth: the person approves the app on a BugBerry consent page, and access tokens last one hour. For apps without OAuth, people can create personal tokens on the same page and send `Authorization: Bearer <token>`; those tokens only work on `/api/mcp`. Revoking an app or a token stops it immediately.
+
+An agent can see and change exactly what its person can in the dashboard, with three exceptions: it can't delete reports, change who can see a report, or manage workspaces.

@@ -1,0 +1,110 @@
+---
+title: Quick start
+description: Run BugBerry on your own server, then send the first report.
+---
+
+This page takes the shortest path: Docker Compose with Caddy for HTTPS, files kept on the server, and Google sign-in. Each step links to the full page when you want another option.
+
+## For the admin: start the server
+
+You need a Linux server with Docker Compose v2, a domain pointing at it, ports 80 and 443 open, and a [Google OAuth client](/self-host/sign-in#google).
+
+<Steps>
+<Step>
+
+### Get the code
+
+```bash
+git clone https://github.com/yuisalabs/bugberry.git
+cd bugberry
+cp .env.docker.example .env
+```
+
+</Step>
+<Step>
+
+### Fill in `.env`
+
+Generate three secrets, one at a time:
+
+```bash
+openssl rand -base64 32
+```
+
+Then set:
+
+```bash
+APP_URL=https://bugberry.example.com
+BUGBERRY_DOMAIN=bugberry.example.com
+TRUST_PROXY=true
+
+POSTGRES_PASSWORD=<secret 1>
+BETTER_AUTH_SECRET=<secret 2>
+ENCRYPTION_KEY=<secret 3>
+
+GOOGLE_CLIENT_ID=<from Google>
+GOOGLE_CLIENT_SECRET=<from Google>
+```
+
+In Google, the redirect URI is `https://bugberry.example.com/api/auth/callback/google`. Keep `ENCRYPTION_KEY` somewhere safe: without it, saved tracker tokens can't be read. Set `POSTGRES_PASSWORD` once and don't change it afterwards; Postgres only reads it when its volume is first created.
+
+</Step>
+<Step>
+
+### Start it
+
+```bash
+docker compose --profile caddy up -d --build
+```
+
+Caddy gets the HTTPS certificate by itself. The server runs its database migrations on start.
+
+</Step>
+<Step>
+
+### Check it
+
+```bash
+bash docker/smoke-test.sh https://bugberry.example.com
+```
+
+Every line should say `ok`. Then open your address, sign in with Google, and you are the admin of your own workspace.
+
+</Step>
+</Steps>
+
+Want local files somewhere else, another sign-in method, or your own reverse proxy? See [Install](/self-host/install), [Storage](/self-host/storage), [Sign-in methods](/self-host/sign-in), and [Reverse proxy](/self-host/reverse-proxy).
+
+## For your team: send the first report
+
+<Steps>
+<Step>
+
+### Install the extension
+
+<StoreLinks />
+
+The admin sets `EXTENSION_ID` in `.env` to the store extension's ID and runs `docker compose --profile caddy up -d`, once; see [The extension for your team](/self-host/extension#the-store-extension).
+
+</Step>
+<Step>
+
+### Connect it to your server
+
+Sign in to your BugBerry dashboard in the same browser, then click **Use the extension with this server** in the sidebar and confirm. You can also open the extension's settings and choose **Change server**.
+
+</Step>
+<Step>
+
+### Capture a bug
+
+Open the page with the bug, click the BugBerry icon (or press <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>K</kbd>, <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>K</kbd> on a Mac), and choose **Capture screenshot** or **Record**. Review the report, then click **Create report**. It shows up in the dashboard right away.
+
+</Step>
+</Steps>
+
+<Callout title="Until the extension is in the stores">
+  Teams on Chrome or Opera can use an extension you build for your server: see [The extension for your team](/self-host/extension). Firefox only installs extensions signed by Mozilla, so on Firefox, wait for the Firefox Add-ons listing.
+</Callout>
+
+To invite people into your workspace, open **Members** in the dashboard's sidebar. See [Workspaces and access](/guide/workspaces-and-access).

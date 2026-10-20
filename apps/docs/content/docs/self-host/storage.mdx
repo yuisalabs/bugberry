@@ -1,0 +1,77 @@
+---
+title: Storage
+description: Where screenshots, videos, and captured data are kept, and the CORS rule a bucket needs.
+---
+
+BugBerry stores screenshots, recordings, thumbnails, avatars, workspace logos, and each report's captured console and network data as files. The database only holds their names.
+
+## Local files (the default)
+
+```bash
+STORAGE_DRIVER=local
+```
+
+Files go into the `uploads` Docker volume. Nothing else to set up; remember to [back it up](/self-host/operations#backups).
+
+## Cloudflare R2, AWS S3, or MinIO
+
+```bash
+STORAGE_DRIVER=s3
+S3_ENDPOINT=https://<account_id>.r2.cloudflarestorage.com
+S3_REGION=auto
+S3_BUCKET=bugberry
+S3_ACCESS_KEY_ID=...
+S3_SECRET_ACCESS_KEY=...
+```
+
+- **R2:** the endpoint is `https://<account_id>.r2.cloudflarestorage.com` and the region `auto`.
+- **AWS S3:** the endpoint is `https://s3.<region>.amazonaws.com` and the region your bucket's.
+- **MinIO:** your MinIO address. Older MinIO versions don't support virtual-hosted style; leave `S3_VIRTUAL_HOSTED_STYLE=false` (the default).
+
+Browsers upload and download directly from the bucket with short-lived signed URLs (`UPLOAD_URL_TTL_SECONDS` and `READ_URL_TTL_SECONDS`, one hour by default), so `S3_ENDPOINT` must be reachable from your users' browsers over HTTPS.
+
+## S3 on the same server (RustFS)
+
+The `s3` profile runs [RustFS](https://rustfs.com), an S3-compatible store, and creates the bucket named in `S3_BUCKET`. Because browsers fetch from it directly, give it a public HTTPS address; with the `caddy` profile:
+
+```bash
+STORAGE_DRIVER=s3
+BUGBERRY_S3_DOMAIN=s3.bugberry.example.com
+S3_ENDPOINT=https://s3.bugberry.example.com
+S3_REGION=us-east-1
+S3_BUCKET=bugberry
+S3_ACCESS_KEY_ID=<choose one>
+S3_SECRET_ACCESS_KEY=<choose one>
+```
+
+RustFS uses the access key and secret you choose as its admin credentials. Point a DNS record for `BUGBERRY_S3_DOMAIN` at the server, then start both profiles:
+
+```bash
+docker compose --profile caddy --profile s3 up -d --build
+```
+
+## The CORS rule
+
+The dashboard reads each report's console and network data straight from the bucket, and uploads avatars and logos to it, so the bucket needs a CORS rule for your `APP_URL` allowing `GET`, `HEAD`, and `PUT`. Local storage doesn't need one.
+
+Replace the origin in `deploy/bucket-cors.json` with your `APP_URL`, then apply it with the AWS CLI through Docker, using the `S3_*` values from `.env`:
+
+```bash
+set -a; . ./.env; set +a
+docker run --rm -v "$PWD/deploy:/deploy:ro" \
+  -e AWS_ACCESS_KEY_ID="$S3_ACCESS_KEY_ID" -e AWS_SECRET_ACCESS_KEY="$S3_SECRET_ACCESS_KEY" -e AWS_DEFAULT_REGION="${S3_REGION:-auto}" \
+  amazon/aws-cli s3api put-bucket-cors --endpoint-url "$S3_ENDPOINT" --bucket "$S3_BUCKET" \
+  --cors-configuration file:///deploy/bucket-cors.json
+```
+
+On Cloudflare R2 you can instead open the bucket's **Settings → CORS policy** and paste the `CORSRules` array from that file.
+
+The extension doesn't need CORS: extension pages have their own host permissions.
+
+## A bucket behind Cloudflare
+
+If the bucket's address is proxied by Cloudflare (an orange-cloud DNS record in front of RustFS or MinIO):
+
+- Add a **Cache Rule** that bypasses the cache for that hostname. Cached responses break the signed checks the server makes right after an upload, and uploads then fail.
+- Don't put that hostname behind Cloudflare Access: browsers can't sign in to it.
+- Cloudflare limits request bodies to 100 MB on most plans. If uploads go through Cloudflare, set `MAX_UPLOAD_MB` below that, for example `95`; a 20-minute recording is about 245 MB, so long recordings stop early.

@@ -1,0 +1,55 @@
+---
+title: Recordings
+description: Record a tab, a window, or the screen, with sound, pauses, drawings, and notes.
+---
+
+A recording shows the bug happening, and the report lines up the console, the network, and your actions with the video.
+
+## Start a recording
+
+Click the BugBerry icon and choose **Record**. The arrow next to it holds what to record:
+
+- **This tab:** includes the tab's sound.
+- **A window** or **the whole screen:** Chrome asks which one. The console, network, and actions come from the tab you started on. Started from a page that isn't a web page (a new tab, `chrome://…`), the recording has none of them.
+
+Turn on **Microphone** to add your voice (the browser asks for permission once), and **System audio** to add sound from other apps when you record a screen.
+
+Recording starts after a 3-second countdown. <kbd>Esc</kbd> cancels it; you can turn the countdown off in the popup. The popup remembers your choices for next time and for the shortcuts.
+
+## While it records
+
+A **Recording Bar** sits on the page. Drag it by its left edge; it stays where you put it, even after the page reloads. It shows the time and how many errors and failed requests were caught so far, and has:
+
+- **Pause:** nothing is recorded meanwhile, not the video and not the console, network, or actions, so you can type private data.
+- **Microphone:** on or off.
+- **Draw:** pen, arrow, and circle marks that fade after 3 seconds, and numbered **notes** that stay and go into the report with their time in the video.
+- **Restart** and **Discard**, each after a confirmation.
+- **Stop.**
+
+A "REC" badge shows on the BugBerry icon while recording.
+
+## Stop
+
+Any of these stops the recording:
+
+- **Stop** on the Recording Bar;
+- a click on the BugBerry icon;
+- <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>K</kbd> (<kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>K</kbd> on a Mac) or <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>S</kbd>;
+- the browser's own **Stop sharing**.
+
+A recording also stops by itself after 20 minutes of recording time (pauses don't count), before it would pass the server's upload limit, or when the recorded tab is closed.
+
+Recording carries on when the tab goes to another page. The report then notes that the console, network, and actions from the earlier page aren't included.
+
+## Shortcuts
+
+| Shortcut | Does |
+| --- | --- |
+| <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>K</kbd> (<kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>K</kbd>) | Open BugBerry, or stop a recording |
+| <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>C</kbd> | Screenshot, with your last choice |
+| <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>R</kbd> | Record, with your last choice |
+| <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>S</kbd> | Stop recording |
+
+On Firefox, opening BugBerry is <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>B</kbd>; see [BugBerry on Firefox](/guide/firefox).
+
+Next: [Review and send](/guide/review-and-send).

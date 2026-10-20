@@ -1,0 +1,138 @@
+---
+title: Install
+description: From an empty server to signing in to your own BugBerry.
+---
+
+This page installs BugBerry with Docker Compose. It assumes the [requirements](/self-host) are in place: Docker Compose v2, a domain pointing at the server, and one sign-in method.
+
+<Steps>
+<Step>
+
+### Get the code and the settings file
+
+```bash
+git clone https://github.com/yuisalabs/bugberry.git
+cd bugberry
+cp .env.docker.example .env
+```
+
+All settings live in `.env`. The [environment reference](/self-host/environment) lists every one.
+
+</Step>
+<Step>
+
+### Set the address
+
+```bash
+APP_URL=https://bugberry.example.com
+```
+
+`APP_URL` is the dashboard's public address. OAuth redirect URIs, share links, and the extension are all built from it.
+
+</Step>
+<Step>
+
+### Generate the secrets
+
+Run this three times and paste each result into its own variable:
+
+```bash
+openssl rand -base64 32
+```
+
+```bash
+POSTGRES_PASSWORD=...
+BETTER_AUTH_SECRET=...
+ENCRYPTION_KEY=...
+```
+
+- `BETTER_AUTH_SECRET` signs sessions; it must be at least 32 characters.
+- `ENCRYPTION_KEY` encrypts the tracker tokens admins save; it must be exactly 32 bytes in base64, which is what the command prints. Keep a copy somewhere safe: if it changes, saved tokens can no longer be read and have to be entered again.
+- `POSTGRES_PASSWORD` is read by Postgres only when its volume is first created. Don't change it afterwards.
+
+</Step>
+<Step>
+
+### Turn on a sign-in method
+
+For Google, create an OAuth client of type "Web application" with the redirect URI `https://bugberry.example.com/api/auth/callback/google`, then:
+
+```bash
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+```
+
+GitHub, GitLab, and email codes work the same way; see [Sign-in methods](/self-host/sign-in). For a company server, also set `ALLOWED_EMAIL_DOMAINS=example.com` so only your domain can sign in.
+
+</Step>
+<Step>
+
+### Choose storage
+
+The default, `STORAGE_DRIVER=local`, keeps files in the `uploads` volume and needs nothing else. For a bucket, see [Storage](/self-host/storage).
+
+</Step>
+<Step>
+
+### Start BugBerry
+
+<Tabs items={["With Caddy (automatic HTTPS)", "Behind your own proxy"]}>
+<Tab value="With Caddy (automatic HTTPS)">
+
+Ports 80 and 443 must reach the server. In `.env`:
+
+```bash
+BUGBERRY_DOMAIN=bugberry.example.com
+TRUST_PROXY=true
+```
+
+```bash
+docker compose --profile caddy up -d --build
+```
+
+</Tab>
+<Tab value="Behind your own proxy">
+
+```bash
+docker compose up -d --build
+```
+
+Point your proxy at `127.0.0.1:3000` (`BUGBERRY_PORT`) and set `TRUST_PROXY=true`. See [Reverse proxy](/self-host/reverse-proxy) for the paths it must pass through.
+
+</Tab>
+</Tabs>
+
+The first build takes a few minutes. The `api` container runs the database migrations each time it starts.
+
+</Step>
+<Step>
+
+### Check the installation
+
+Run the smoke test against the address people will use:
+
+```bash
+bash docker/smoke-test.sh https://bugberry.example.com
+```
+
+It checks the API, the dashboard, caching headers, OAuth callbacks, a 5 MB upload, and the rate limits, and prints `ok` or `FAIL` for each. It only needs `curl`, so it also runs from a laptop.
+
+<Callout type="warn">
+  With `TRUST_PROXY=true`, test the public address, not `http://localhost:3000`. The localhost port goes around your proxy, so the "forged X-Forwarded-For" check fails there even though nothing is wrong. That check also uses up the share-link allowance (60 views a minute) for your IP for one minute.
+</Callout>
+
+</Step>
+<Step>
+
+### Sign in
+
+Open `https://bugberry.example.com` and sign in. Someone who signs up without an invitation gets a workspace of their own and becomes its admin. Invite your team from **Members** in the sidebar.
+
+</Step>
+</Steps>
+
+## Next
+
+- Give your team the extension: [The extension for your team](/self-host/extension).
+- Connect GitHub Issues or ActiveCollab: [Integrations](/self-host/integrations).
+- Set up backups: [Operations](/self-host/operations).

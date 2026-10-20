@@ -1,0 +1,49 @@
+---
+title: Operations
+description: Upgrades, backups, restores, and API tokens for automation.
+---
+
+## Upgrades
+
+```bash
+git pull && docker compose up -d --build --remove-orphans
+docker image prune -f
+```
+
+New database migrations run when the `api` container starts. `docker stop` gives requests in progress 60 seconds to finish, so a large upload isn't cut off.
+
+If you build the extension yourself, update the server first, then share the new extension zip.
+
+## Backups
+
+Data lives in two volumes: `fdebag-prod_pgdata` (the database) and, with local storage, `fdebag-prod_uploads` (the files). Back up both:
+
+```bash
+docker compose exec -T postgres pg_dump -U fdebag fdebag > fdebag-$(date +%F).sql
+docker run --rm -v fdebag-prod_uploads:/data:ro -v "$PWD":/backup alpine tar czf /backup/uploads-$(date +%F).tar.gz -C /data .
+```
+
+With a bucket, back up the bucket with your provider's tools instead of the `uploads` volume. Keep a copy of `.env` too: without `ENCRYPTION_KEY`, the saved tracker tokens can't be read.
+
+## Restore
+
+Into a new installation, while its database is still empty (before anyone creates a report):
+
+```bash
+docker compose exec -T postgres psql -U fdebag -d fdebag < fdebag-<date>.sql
+docker run --rm -v fdebag-prod_uploads:/data -v "$PWD":/backup alpine tar xzf /backup/uploads-<date>.tar.gz -C /data
+```
+
+## API tokens for automation
+
+For scripts and bot accounts. The extension doesn't use tokens, and the dashboard doesn't create or show them:
+
+```bash
+docker compose exec api bun apps/api/scripts/create-token.ts --email bot@example.com --name "Bot"
+```
+
+## Notes for older installations
+
+- **From the single-container version:** `--remove-orphans` removes the old `fdebag` container, which still holds port 3000. Volumes and data are not touched.
+- **Upgrading to workspaces:** existing data moves into one workspace named after the most common email domain, and existing admins become its admins. Reports that were "internal" become the **Workspace** level; public reports stay public. `ADMIN_EMAILS` is no longer used: admins are set per workspace on the **Members** page, and new employees are invited from there.
+- **Upgrading to the token-free extension:** this update revokes all existing API tokens. Replace the extension on your team's computers at the same time as the server; old extensions are rejected. Create new tokens for automation with `create-token.ts`.

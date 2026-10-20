@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { render, screen } from "@testing-library/react"
+import { DOCS_URL } from "../src/lib/docs-url"
 import { LandingView } from "../src/pages/landing/LandingView"
 import { HeroMockup } from "../src/pages/landing/HeroMockup"
 
@@ -23,6 +24,16 @@ describe("LandingView", () => {
     const footer = screen.getByRole("navigation", { name: "Footer" })
     const privacy = Array.from(footer.querySelectorAll("a")).find((link) => link.textContent === "Privacy Policy")
     expect(privacy?.getAttribute("href")).toBe("/privacy")
+  })
+
+  test("the header and the footer link the docs by their full address, which self-hosted servers don't serve", () => {
+    render(<LandingView signedIn={false} />)
+    for (const name of ["Main", "Footer"]) {
+      const nav = screen.getByRole("navigation", { name })
+      const docs = Array.from(nav.querySelectorAll("a")).find((link) => link.textContent === "Docs")
+      expect(docs?.getAttribute("href")).toBe(DOCS_URL)
+    }
+    expect(DOCS_URL).toBe("https://bugberry.yuisalabs.com/docs")
   })
 
   test("a signed-in visitor gets a way back to the dashboard instead of sign-up", () => {

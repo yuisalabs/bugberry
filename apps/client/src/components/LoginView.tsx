@@ -16,6 +16,7 @@ import { Input, InputGroup } from "@bugberry/ui/input"
 import { TextField } from "@bugberry/ui/text-field"
 import type { AuthMethods } from "../lib/api"
 import type { SocialProvider } from "../lib/auth"
+import { DOCS_URL } from "../lib/docs-url"
 
 const RESEND_AFTER_SECONDS = 30
 
@@ -230,7 +231,12 @@ export function LoginView({
           </p>
         </div>
 
-        <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} BugBerry</p>
+        <div className="flex items-center justify-between gap-4 text-xs text-muted-foreground">
+          <p>© {new Date().getFullYear()} BugBerry</p>
+          <Link href={DOCS_URL} className="hover:text-foreground">
+            Documentation
+          </Link>
+        </div>
       </div>
 
       <Showcase />

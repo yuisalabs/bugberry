@@ -1,0 +1,33 @@
+---
+title: Account limits
+description: Cap what ordinary accounts keep on a server that's open to everyone.
+---
+
+A company's own server usually wants no limits, which is the default. A server open to anyone can cap what each account keeps.
+
+```bash
+ACCOUNT_LIMITS=true
+LIMIT_SCREENSHOTS=5
+LIMIT_RECORDINGS=5
+LIMIT_OWNED_WORKSPACES=1
+```
+
+With `ACCOUNT_LIMITS=true`, an account owns at most `LIMIT_OWNED_WORKSPACES` workspaces, can't add members to them, and each workspace keeps at most `LIMIT_SCREENSHOTS` screenshots and `LIMIT_RECORDINGS` recordings. Deleting a report frees its slot. Workspaces that are already over a limit keep everything; they just can't add more.
+
+## Unlimited accounts
+
+Accounts marked **unlimited** have none of these limits, and neither does anyone working in a workspace they own:
+
+```bash
+docker compose exec api bun apps/api/scripts/set-unlimited.ts --email someone@example.com --on
+```
+
+`--off` takes it away again. Both apply immediately.
+
+## Turning limits on
+
+In this order, so nobody who should stay unlimited is limited in between:
+
+1. Deploy the current version.
+2. Mark the accounts that must stay unlimited.
+3. Set `ACCOUNT_LIMITS=true` in `.env` and run `docker compose up -d`.

@@ -4,6 +4,8 @@
 **/*.pem
 **/node_modules
 **/dist
+**/.next
+apps/docs/out
 **/.output
 **/.wxt
 **/test-results

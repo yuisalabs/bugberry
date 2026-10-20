@@ -1,0 +1,97 @@
+---
+title: The extension for your team
+description: Use the BugBerry extension from the stores, or build one for your server.
+---
+
+There are two ways to give your team the extension. Most servers use the store extension. Build your own only when you need it.
+
+<Callout type="warn" title="One Chrome extension per server">
+  Your server trusts one Chrome extension ID, set in `EXTENSION_ID`. Choose either the store extension or your own build for Chrome and Opera; a server set up for one rejects the other. Firefox is not affected.
+</Callout>
+
+## The store extension
+
+<StoreLinks />
+
+1. In `.env`, set `EXTENSION_ID` to the store extension's ID (the long string of letters in its Chrome Web Store address).
+2. Optionally set `EXTENSION_INSTALL_URL` to the store page. The dashboard's **New report** button then sends people there when the extension isn't installed; without it, they see "Ask your admin".
+3. Restart: `docker compose up -d`.
+
+Each person installs it, signs in to your dashboard in the same browser, and clicks **Use the extension with this server** in the sidebar (or opens the extension's settings and chooses **Change server**). Signing out of the dashboard signs the extension out too: there are no tokens to paste.
+
+## Build your own (Chrome and Opera)
+
+Build your own when the extension should already know your server's address, or when your company doesn't allow extensions from the store. You need [Bun](https://bun.sh) 1.4 or newer on the computer that builds it.
+
+<Steps>
+<Step>
+
+### Create the extension key
+
+From the repo root:
+
+```bash
+bun install
+cd apps/extension
+bun run key
+```
+
+This creates `apps/extension/bugberry-extension.pem` and prints `VITE_EXTENSION_KEY` and `EXTENSION_ID`. The key keeps the extension's ID the same on every laptop. Keep a copy of the `.pem` file somewhere safe (git ignores it); running `bun run key` again with that file prints the same values.
+
+</Step>
+<Step>
+
+### Tell the server and the build
+
+Set `EXTENSION_ID` in the server's `.env` and restart it. Then create `apps/extension/.env.production`; neither value is secret, so you may commit it:
+
+```bash
+VITE_SERVER_ORIGIN=https://bugberry.example.com
+VITE_EXTENSION_KEY=<value from bun run key>
+```
+
+</Step>
+<Step>
+
+### Build the zip
+
+From `apps/extension` (the same on Windows, macOS, and Linux):
+
+<Tabs items={["Chrome", "Opera"]}>
+<Tab value="Chrome">
+
+```bash
+bun run zip
+```
+
+Share `apps/extension/.output/bugberryextension-<version>-chrome.zip`.
+
+</Tab>
+<Tab value="Opera">
+
+```bash
+bun run zip:opera
+```
+
+Share `apps/extension/.output/bugberryextension-<version>-opera.zip`.
+
+</Tab>
+</Tabs>
+
+</Step>
+<Step>
+
+### Install it
+
+Each person extracts the zip, opens `chrome://extensions` (or `opera://extensions`), turns on **Developer mode**, and chooses **Load unpacked** on the extracted folder. The extension already knows your server; anyone signed in to the dashboard can send reports right away.
+
+</Step>
+</Steps>
+
+When you update the server and the extension together, update the server first, then share the new zip. Older extensions can still send to a newer server.
+
+## Firefox
+
+Firefox only installs extensions that Mozilla has signed, and the BugBerry extension's Firefox ID belongs to the BugBerry project. A build of your own can't be signed under it, so Firefox users install BugBerry from Firefox Add-ons and connect it to your server as above. Until that listing is live, Firefox can't be used with a self-hosted server.
+
+Firefox 128 or newer is needed. See [BugBerry on Firefox](/guide/firefox) for what works differently there.

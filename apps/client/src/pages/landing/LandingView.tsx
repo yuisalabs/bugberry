@@ -2,6 +2,7 @@ import { RiArrowRightLine } from "@remixicon/react"
 import type { ReactNode } from "react"
 import { Link } from "@bugberry/ui/link"
 import { BugBerryLogo } from "../../components/BugBerryLogo"
+import { DOCS_URL } from "../../lib/docs-url"
 import { HeroMockup } from "./HeroMockup"
 import { Reveal } from "./Reveal"
 
@@ -82,6 +83,9 @@ export function LandingView({ signedIn }: { signedIn: boolean }) {
           </Link>
           <Link href="#features" className="hidden whitespace-nowrap text-muted-foreground hover:text-foreground md:inline">
             Features
+          </Link>
+          <Link href={DOCS_URL} className="hidden whitespace-nowrap text-muted-foreground hover:text-foreground md:inline">
+            Docs
           </Link>
           {!signedIn && (
             <Link href="/login" className="hidden whitespace-nowrap text-foreground hover:text-primary sm:inline">
@@ -276,6 +280,9 @@ export function LandingView({ signedIn }: { signedIn: boolean }) {
             </Link>
             <Link href={signedIn ? "/app" : "/login"} className="hover:text-foreground">
               {signedIn ? "Dashboard" : "Sign in"}
+            </Link>
+            <Link href={DOCS_URL} className="hover:text-foreground">
+              Docs
             </Link>
             <Link href="/privacy" className="hover:text-foreground">
               Privacy Policy

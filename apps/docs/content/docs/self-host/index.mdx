@@ -1,0 +1,38 @@
+---
+title: Self-host
+description: What you need to run BugBerry on your own server, and what runs where.
+---
+
+A self-hosted BugBerry is one Docker Compose project. Your reports, recordings, and accounts stay on your server (or in a bucket you choose), and you decide who can sign in.
+
+## What you need
+
+- **A Linux server with Docker Compose v2.** Recordings are uploaded through it, so give it enough disk for them when files are kept locally; 2 GB of memory is plenty for a team.
+- **A domain** pointing at the server, for example `bugberry.example.com`. Outside `localhost`, HTTPS is required: Google sign-in and the extension won't work over plain HTTP. The bundled Caddy gets a certificate for you.
+- **At least one sign-in method:** Google, GitHub, GitLab (also self-hosted), or email with a code. See [Sign-in methods](/self-host/sign-in).
+- **Optionally, object storage** (Cloudflare R2, AWS S3, MinIO, or RustFS on the same server). Without it, files go into a Docker volume. See [Storage](/self-host/storage).
+
+## What runs where
+
+| Container | What it does | Reachable from |
+| --- | --- | --- |
+| `client` | nginx: serves the dashboard and passes `/api` and the OAuth discovery paths to `api` | `127.0.0.1:BUGBERRY_PORT` (3000 by default), or through Caddy |
+| `api` | Bun: sign-in, reports, uploads, tracker integrations, the MCP server; runs migrations on start | the Compose network only |
+| `postgres` | Postgres 16: accounts, workspaces, reports, comments | the Compose network only |
+| `caddy` | HTTPS in front of `client` (profile `caddy`) | ports 80 and 443 |
+| `s3`, `s3-init` | RustFS, S3-compatible storage, and a one-off job that creates the bucket (profile `s3`) | `127.0.0.1:9000`, or through Caddy |
+
+Data lives in the volumes `pgdata` (database), `uploads` (files, with local storage), and `s3data` (with the `s3` profile). The Compose project is named `fdebag-prod`, so the volumes show up as `fdebag-prod_pgdata` and so on.
+
+## The pages in this section
+
+<Cards>
+  <Card title="Install" href="/self-host/install" description="From an empty server to signing in, step by step." />
+  <Card title="Sign-in methods" href="/self-host/sign-in" description="Google, GitHub, GitLab, email codes, and who may sign in." />
+  <Card title="Storage" href="/self-host/storage" description="Local files, R2, S3, MinIO, or RustFS, and the CORS rule." />
+  <Card title="Reverse proxy" href="/self-host/reverse-proxy" description="Running behind your own nginx, Traefik, or Caddy." />
+  <Card title="The extension for your team" href="/self-host/extension" description="The store extension, or one you build for your server." />
+  <Card title="Integrations" href="/self-host/integrations" description="GitHub Issues, ActiveCollab, and the MCP server for AI agents." />
+  <Card title="Operations" href="/self-host/operations" description="Upgrades, backups, restores, and API tokens." />
+  <Card title="Environment variables" href="/self-host/environment" description="Every setting, its default, and what it does." />
+</Cards>

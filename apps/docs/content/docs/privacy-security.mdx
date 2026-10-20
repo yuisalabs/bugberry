@@ -1,0 +1,52 @@
+---
+title: Privacy and security
+description: What BugBerry records, what it leaves out, and who can see a report.
+---
+
+## What the extension records
+
+So that a screenshot can carry what happened just before it, the extension listens on every web page you open: it keeps the last 5 minutes (at most 1,000 events) of the page's console, network requests, and your actions **in that page's memory**. Older events drop out, and everything is gone when the page closes. Nothing leaves the page until you capture or record, and nothing reaches the server until you click **Create report**.
+
+A report holds:
+
+- the screenshot or the video, and sound if you turned it on;
+- console messages and errors;
+- network requests: address, method, status, timing, headers, and bodies up to 10 KB each;
+- your clicks, key presses, and navigation, as steps;
+- the browser, the operating system, the screen and window size, and the page's address and title.
+
+## What it leaves out
+
+- **Credentials in requests.** The `Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie`, and `X-Api-Key` headers are replaced with `[redacted]`. So are headers, JSON fields, and `key=value` pairs whose name contains `password`, `token`, `secret`, `apikey` (or `api_key`, `api-key`), or `authorization`, in URLs, request and response bodies, and objects logged to the console. Plain text in a console message is kept as written. URL parameters named exactly `code`, `key`, `sig`, `signature`, `session`, `sid`, or `credential` (and the AWS and Google signing parameters) are redacted too. Other names, such as `sessionId` or `account_number`, are **not**.
+- **What's typed into form fields.** Steps record typed values as dots, never the text. Labels of password fields, editable areas, and anything inside an element marked `data-bugberry-mask` are left out of the steps too.
+- **Anything while you pause.** **Pause** on the Recording Bar stops the video and the console, network, and action capture until you resume.
+
+`data-bugberry-mask` only affects the steps. Developers can use it on their own pages for text that shouldn't appear in step descriptions:
+
+```html
+<div data-bugberry-mask>Account number: 1234 5678</div>
+```
+
+It does **not** hide anything in the screenshot or the video, or in console and network data. To keep something private on screen, blur it on the screenshot before sending, or pause the recording while it's visible.
+
+## Your city
+
+When reviewing a report, you can tick **Include my city**. The browser asks once for location permission. The extension sends coordinates rounded to about 1 km, and the server turns them into a city name ("Jakarta, Indonesia") with a city list bundled with BugBerry, keeping only that name. No map service is asked.
+
+The city is shown to workspace members only, never on share links or in tracker issues. City data: [GeoNames](https://www.geonames.org), CC BY 4.0.
+
+## Who can see a report
+
+Members of the report's workspace, plus whoever its access level lets in through the share link: people with the same company email domain (**Internal**) or anyone (**Public**). Only the reporter or a workspace admin can change it. See [Workspaces and access](/guide/workspaces-and-access#who-can-see-a-report).
+
+AI agents connected through MCP see exactly what their person sees, and can't change who can see a report.
+
+## On your own server
+
+When you self-host, reports and files stay on your server and in the storage you choose; BugBerry doesn't send them anywhere else, except to the trackers and AI apps you connect. Tracker tokens are stored encrypted with your `ENCRYPTION_KEY`.
+
+When someone leaves your company, removing them from your workspaces doesn't shut every door: a work email they verified on a personal GitHub or GitLab account keeps letting them sign in, and **Internal** reports stay open to anyone signed in with your domain. See [When someone leaves](/self-host/sign-in#when-someone-leaves).
+
+## The BugBerry cloud
+
+The cloud at bugberry.yuisalabs.com has its own [privacy policy](https://bugberry.yuisalabs.com/privacy).
