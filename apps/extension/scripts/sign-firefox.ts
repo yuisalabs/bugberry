@@ -26,6 +26,15 @@ export function signArgs(version: string): string[] {
   ]
 }
 
+/**
+ * The Firefox package, then the reviewers' sources zip (scripts/zip-sources.ts). That one comes last: it
+ * replaces the sources zip WXT writes next to the package, which would carry the private key.
+ */
+export const PREPARE_COMMANDS = [
+  ["bun", "run", "zip:firefox"],
+  ["bun", "run", "zip:sources"],
+]
+
 async function run(command: string[]): Promise<void> {
   const code = await Bun.spawn(command, { stdio: ["inherit", "inherit", "inherit"] }).exited
   if (code !== 0) process.exit(code)
@@ -37,6 +46,6 @@ if (import.meta.main) {
     process.exit(1)
   }
   const { version } = JSON.parse(readFileSync("package.json", "utf8")) as { version: string }
-  await run(["bun", "run", "zip:firefox"])
+  for (const command of PREPARE_COMMANDS) await run(command)
   await run(["bun", "x", "web-ext", ...signArgs(version)])
 }

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { missingKeys, signArgs } from "../scripts/sign-firefox"
+import { missingKeys, PREPARE_COMMANDS, signArgs } from "../scripts/sign-firefox"
 
 describe("sign-firefox", () => {
   test("signs the Firefox build on AMO's unlisted channel, with its sources", () => {
@@ -21,4 +21,11 @@ describe("sign-firefox", () => {
     expect(missingKeys({ WEB_EXT_API_KEY: "user:1:2", WEB_EXT_API_SECRET: "  " })).toEqual(["WEB_EXT_API_SECRET"])
     expect(missingKeys({ WEB_EXT_API_KEY: "user:1:2", WEB_EXT_API_SECRET: "s3cret" })).toEqual([])
   })
+})
+
+test("the sources zip uploaded is the reviewed one, made after WXT's (which would carry the private key)", () => {
+  expect(PREPARE_COMMANDS).toEqual([
+    ["bun", "run", "zip:firefox"],
+    ["bun", "run", "zip:sources"],
+  ])
 })
