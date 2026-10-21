@@ -152,6 +152,7 @@ describe("startVideoRecording", () => {
         draftId: "video-1",
         capture: { kind: "tab", streamId: "stream-7" },
         mic: false,
+        micDeviceId: null,
         maxBytes: 199_229_440,
       },
       { type: "bugberry:offscreen-begin" },
@@ -185,6 +186,11 @@ describe("startVideoRecording", () => {
     expect(await recordingStatus(deps)).toEqual({ recording: true, draftId: "video-1", tabId: 7, startedAt: 1500 })
   })
 
+  test("the chosen microphone goes to the recorder", async () => {
+    await startVideoRecording(tab, { ...TAB_OPTIONS, micDeviceId: "abc" }, deps)
+    expect(sent[0]).toMatchObject({ type: "bugberry:offscreen-open", micDeviceId: "abc" })
+  })
+
   test("a screen recorded from a page that isn't a web page has no logs", async () => {
     const newTab = { ...tab, url: "chrome://newtab/" }
     let streamIds = 0
@@ -198,6 +204,7 @@ describe("startVideoRecording", () => {
       draftId: "video-1",
       capture: { kind: "display", surface: "monitor", systemAudio: true },
       mic: true,
+      micDeviceId: null,
       maxBytes: 1234,
     })
     expect(streamIds).toBe(0)

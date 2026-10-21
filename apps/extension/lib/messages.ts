@@ -12,6 +12,8 @@ export interface ScreenshotRequest {
 export interface RecordOptions {
   source: RecordSource
   mic: boolean
+  /** The microphone to record from; null or absent is the system's default one. */
+  micDeviceId?: string | null
   systemAudio: boolean
   countdown: boolean
 }
@@ -56,7 +58,7 @@ export type CaptureSource =
  * recording after the countdown. `maxBytes`: the recording ends by itself once the video reaches it.
  */
 export type OffscreenMessage =
-  | { type: "bugberry:offscreen-open"; draftId: string; capture: CaptureSource; mic: boolean; maxBytes: number }
+  | { type: "bugberry:offscreen-open"; draftId: string; capture: CaptureSource; mic: boolean; micDeviceId: string | null; maxBytes: number }
   | { type: "bugberry:offscreen-begin" }
   | { type: "bugberry:offscreen-pause" }
   | { type: "bugberry:offscreen-resume" }
@@ -110,6 +112,7 @@ function isRecordOptions(value: unknown): value is RecordOptions {
   return (
     (options.source === "tab" || options.source === "screen" || options.source === "window") &&
     typeof options.mic === "boolean" &&
+    (options.micDeviceId === undefined || options.micDeviceId === null || typeof options.micDeviceId === "string") &&
     typeof options.systemAudio === "boolean" &&
     typeof options.countdown === "boolean"
   )
@@ -147,6 +150,7 @@ export function isOffscreenMessage(message: unknown): message is OffscreenMessag
     typeof field(message, "draftId") === "string" &&
     isCaptureSource(field(message, "capture")) &&
     typeof field(message, "mic") === "boolean" &&
+    (field(message, "micDeviceId") === null || typeof field(message, "micDeviceId") === "string") &&
     typeof maxBytes === "number" &&
     Number.isFinite(maxBytes) &&
     maxBytes > 0

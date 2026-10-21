@@ -233,7 +233,7 @@ export async function startVideoRecording(
   let opened: OffscreenReply
   try {
     await deps.ensureOffscreen()
-    opened = await ask(deps, { type: "bugberry:offscreen-open", draftId: draft.id, capture, mic: options.mic, maxBytes: options.maxBytes })
+    opened = await ask(deps, { type: "bugberry:offscreen-open", draftId: draft.id, capture, mic: options.mic, micDeviceId: options.micDeviceId ?? null, maxBytes: options.maxBytes })
   } catch (error) {
     opened = { ok: false, error: messageOf(error) }
   }

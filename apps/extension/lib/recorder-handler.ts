@@ -31,7 +31,7 @@ export function createRecorderHandler(deps: RecorderHandlerDeps) {
     switch (message.type) {
       case "bugberry:offscreen-open": {
         if (opened) return { ok: false, error: "Another recording is still running" }
-        const stream = await openRecordingStream(message.capture, message.mic, deps.stream)
+        const stream = await openRecordingStream(message.capture, message.mic, deps.stream, message.micDeviceId)
         if (stream.kind === "cancelled") return { ok: false, error: "Cancelled", code: "cancelled" }
         opened = { draftId: message.draftId, stream, maxBytes: message.maxBytes, recording: null }
         return { ok: true, micOn: stream.micOn, micAvailable: stream.micAvailable }
@@ -117,7 +117,8 @@ export function createMediaDeps(): { recording: RecordingDeps; stream: StreamDep
         systemAudio: systemAudio ? "include" : "exclude",
         selfBrowserSurface: "include",
       } as DisplayMediaStreamOptions),
-    micStream: () => navigator.mediaDevices.getUserMedia({ audio: true }),
+    // `ideal`: a microphone unplugged since it was chosen falls back to another one instead of failing.
+    micStream: (deviceId) => navigator.mediaDevices.getUserMedia({ audio: deviceId ? { deviceId: { ideal: deviceId } } : true }),
     playBack: (source) => {
       const context = new AudioContext()
       context.createMediaStreamSource(source).connect(context.destination)

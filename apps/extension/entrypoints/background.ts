@@ -285,7 +285,7 @@ export default defineBackground(() => {
   /** Without options (the shortcut) the popup's stored choices apply. */
   const record = async (tab: ActiveTab | null, options?: RecordOptions): Promise<CaptureResult> => {
     if (!tab) return { ok: false, error: "No active tab" }
-    const picked = options ? { ...options, recordSource: options.source } : await capturePrefsStorage.get()
+    const picked = options ? { ...options, recordSource: options.source, micDeviceId: options.micDeviceId ?? null } : await capturePrefsStorage.get()
     const chosen = recordOptionsFor(picked, tabRecorder)
     return flagFailure(tab.id, await recordings.start(tab, { ...chosen, maxBytes: await recordingBudget() }))
   }

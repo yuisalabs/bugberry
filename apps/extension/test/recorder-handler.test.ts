@@ -71,6 +71,7 @@ const open: OffscreenMessage = {
   draftId: "d1",
   capture: { kind: "display", surface: "window", systemAudio: false },
   mic: false,
+  micDeviceId: null,
   maxBytes: 1_000_000,
 }
 

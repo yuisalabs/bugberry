@@ -90,6 +90,25 @@ describe("openRecordingStream", () => {
     expect(opened).toMatchObject({ kind: "ok", micOn: false })
   })
 
+  test("the chosen microphone is asked for by id", async () => {
+    const s = setup()
+    await openRecordingStream({ kind: "tab", streamId: "s1" }, true, s.deps, "abc")
+    expect(s.deps.micStream).toHaveBeenCalledWith("abc")
+    const t = setup()
+    await openRecordingStream({ kind: "tab", streamId: "s1" }, true, t.deps)
+    expect(t.deps.micStream).toHaveBeenCalledWith(null)
+  })
+
+  test("a chosen microphone that fails still records", async () => {
+    const s = setup({
+      micStream: mock(async () => {
+        throw new DOMException("Requested device not found", "NotFoundError")
+      }),
+    })
+    const opened = await openRecordingStream({ kind: "tab", streamId: "s1" }, true, s.deps, "gone")
+    expect(opened).toMatchObject({ kind: "ok", micAvailable: false })
+  })
+
   test("with no sound at all the stream is the video alone", async () => {
     const s = setup({
       micStream: mock(async () => {
