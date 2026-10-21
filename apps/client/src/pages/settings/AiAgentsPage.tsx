@@ -163,7 +163,7 @@ export function AiAgentsView({
                     <Tab
                       key={item.id}
                       id={item.id}
-                      className="cursor-default rounded-lg px-2 py-2 text-center text-sm whitespace-nowrap text-muted-foreground outline-hidden transition hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring selected:bg-background selected:font-medium selected:text-foreground selected:shadow-xs"
+                      className="rounded-lg px-2 py-2 text-center text-sm whitespace-nowrap text-muted-foreground outline-hidden transition hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring selected:bg-background selected:font-medium selected:text-foreground selected:shadow-xs"
                     >
                       {item.label}
                     </Tab>

@@ -302,7 +302,7 @@ export function TableColumn({ isResizable = false, className, ...props }: TableC
       className={cx(
         [
           "text-start font-medium text-muted-foreground",
-          "relative allows-sorting:cursor-default dragging:cursor-grabbing outline-hidden",
+          "relative allows-sorting:cursor-pointer dragging:cursor-grabbing outline-hidden",
           "px-4 py-(--gutter-y)",
           "first:ps-(--gutter,--spacing(2)) last:pe-(--gutter,--spacing(2))",
           !bleed && "sm:last:pe-1 sm:first:ps-1",

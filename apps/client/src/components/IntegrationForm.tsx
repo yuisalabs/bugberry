@@ -240,7 +240,7 @@ export function IntegrationForm({
                 <Radio
                   key={item}
                   value={item}
-                  className="flex cursor-default items-center gap-3 rounded-xl border border-border bg-background px-4 py-3 outline-hidden transition hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60 selected:border-primary selected:ring-2 selected:ring-primary/20"
+                  className="flex items-center gap-3 rounded-xl border border-border bg-background px-4 py-3 outline-hidden transition hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60 selected:border-primary selected:ring-2 selected:ring-primary/20"
                 >
                   {({ isSelected }) => (
                     <>
