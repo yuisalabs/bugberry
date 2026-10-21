@@ -100,3 +100,31 @@ export function renderHtml(content: IssueContent): string {
   parts.push(`<p><a href="${escapeHtml(content.reportUrl)}">Open the report in BugBerry</a></p>`)
   return parts.join("")
 }
+
+type AdfNode = Record<string, unknown>
+const text = (value: string, marks?: AdfNode[]): AdfNode => ({ type: "text", text: value || " ", ...(marks ? { marks } : {}) })
+const paragraph = (...content: AdfNode[]): AdfNode => ({ type: "paragraph", content })
+
+/**
+ * Jira Cloud's description format (Atlassian Document Format). Everything from the report and the page goes in as
+ * text nodes, so nothing in it is ever read as markup.
+ */
+export function renderAtlassianDocument(content: IssueContent): AdfNode {
+  const nodes: AdfNode[] = []
+  const description = content.description.trim()
+  if (description) {
+    for (const line of description.split(/\r?\n/)) nodes.push(line ? paragraph(text(line)) : { type: "paragraph" })
+  }
+  nodes.push({
+    type: "bulletList",
+    content: content.facts
+      .filter(([, value]) => value)
+      .map(([label, value]) => ({ type: "listItem", content: [paragraph(text(`${label}: `, [{ type: "strong" }]), text(value, [{ type: "code" }]))] })),
+  })
+  if (content.errors.length > 0) {
+    nodes.push(paragraph(text("Errors", [{ type: "strong" }])))
+    nodes.push({ type: "codeBlock", content: [text(content.errors.join("\n\n"))] })
+  }
+  nodes.push(paragraph(text("Open in BugBerry", [{ type: "link", attrs: { href: content.reportUrl } }])))
+  return { version: 1, type: "doc", content: nodes }
+}

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { buildIssueContent, renderHtml, renderMarkdown } from "../src/lib/trackers/content"
+import { buildIssueContent, renderAtlassianDocument, renderHtml, renderMarkdown } from "../src/lib/trackers/content"
 import { gunzipLimited, topErrors } from "../src/lib/trackers/debugger-errors"
 
 const HOSTILE_TITLE = "@octocat [x](https://evil.test) ![i](https://evil.test/p.png) a`b"
@@ -76,5 +76,23 @@ describe("a careless description", () => {
     // Every description line sits inside a blockquote, so any block it opens ends with the quote.
     expect(descriptionPart?.split("\n")).toEqual(["> Langkah:", "> ```", "> klik bayar", "> <!--"])
     expect(markdown).toContain("````\n```\n@octocat ![i](https://evil.test/p.png)\n````")
+  })
+})
+
+describe("Atlassian document", () => {
+  test("keeps page text as text, never markup", () => {
+    const doc = renderAtlassianDocument({
+      title: "<b>Pay</b> *now*",
+      description: "Clicked *Pay* <script>x</script>",
+      facts: [["Page", "https://shop.test/?q=<b>"]],
+      errors: ["TypeError: x is undefined"],
+      reportUrl: "https://bugberry.kantor.test/app/r/r1",
+    }) as { version: number; type: string; content: unknown[] }
+    expect(doc).toMatchObject({ version: 1, type: "doc" })
+    const json = JSON.stringify(doc)
+    expect(json).toContain("Clicked *Pay* <script>x</script>")
+    expect(json).toContain("https://shop.test/?q=<b>")
+    expect(json).toContain('"type":"codeBlock"')
+    expect(json).toContain('"href":"https://bugberry.kantor.test/app/r/r1"')
   })
 })

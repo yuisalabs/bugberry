@@ -1,5 +1,5 @@
 import type { ActiveCollabConfig, GithubConfig, GitlabConfig, JiraConfig, LinearConfig, TrackerConfig, TrackerProvider } from "@bugberry/shared"
-import { type IssueContent, renderHtml, renderMarkdown } from "./content"
+import { type IssueContent, renderAtlassianDocument, renderHtml, renderMarkdown } from "./content"
 import { type HostGuard, HostGuardError, NO_GUARD } from "../net/host-guard"
 
 /** A failure whose message is safe to show to people (never contains the token). */
@@ -268,6 +268,65 @@ function linearClient(config: LinearConfig, apiKey: string, http: Http): Tracker
   }
 }
 
+function jiraClient(config: JiraConfig, apiToken: string, http: Http): TrackerClient {
+  const site = config.siteUrl.replace(/\/+$/, "")
+  const headers = {
+    authorization: `Basic ${btoa(`${config.email}:${apiToken}`)}`,
+    accept: "application/json",
+    "user-agent": "BugBerry",
+  }
+  const fail = async (response: Response): Promise<never> => {
+    if (response.status === 401) throw new TrackerError("The Jira email or API token is wrong")
+    if (response.status === 403 || response.status === 404) {
+      throw new TrackerError("The Jira project was not found or the account cannot create issues in it")
+    }
+    if (response.status === 429) throw new TrackerError("Jira is limiting requests, try again later")
+    const body = (await response.json().catch(() => ({}))) as { errorMessages?: unknown; errors?: unknown }
+    const messages = [
+      ...(Array.isArray(body.errorMessages) ? body.errorMessages : []),
+      ...(body.errors && typeof body.errors === "object" ? Object.values(body.errors) : []),
+    ].filter((message): message is string => typeof message === "string")
+    throw new TrackerError(
+      messages.length > 0
+        ? `Jira: ${messages.join("; ").slice(0, 200)}`
+        : `Jira rejected the request (HTTP ${response.status})`,
+    )
+  }
+
+  return {
+    /** The project must exist for this account and offer the chosen issue type. */
+    async test() {
+      const response = await guardedSend(http, "Jira", `${site}/rest/api/3/project/${encodeURIComponent(config.projectKey)}`, { headers })
+      if (!response.ok) await fail(response)
+      const project = (await response.json().catch(() => ({}))) as { issueTypes?: Array<{ name?: unknown }> }
+      const wanted = config.issueType.toLowerCase()
+      if (!project.issueTypes?.some((type) => typeof type.name === "string" && type.name.toLowerCase() === wanted)) {
+        throw new TrackerError(`Jira project ${config.projectKey} has no issue type ${config.issueType}`)
+      }
+    },
+    async createIssue(content) {
+      const response = await guardedSend(http, "Jira", `${site}/rest/api/3/issue`, {
+        method: "POST",
+        headers: { ...headers, "content-type": "application/json" },
+        body: JSON.stringify({
+          fields: {
+            project: { key: config.projectKey },
+            summary: content.title.slice(0, 255),
+            issuetype: { name: config.issueType },
+            description: renderAtlassianDocument(content),
+            // Jira labels cannot hold spaces.
+            labels: config.labels.map((label) => label.replace(/\s+/g, "-")),
+          },
+        }),
+      })
+      if (!response.ok) await fail(response)
+      const issue = (await response.json()) as { key?: unknown }
+      if (typeof issue.key !== "string") throw new TrackerError("Jira's response was not recognized")
+      return { externalId: issue.key, url: `${site}/browse/${issue.key}` }
+    },
+  }
+}
+
 export function createTrackerFactory(
   fetcher: typeof fetch = fetch,
   timeoutMs = DEFAULT_TIMEOUT_MS,
@@ -279,6 +338,7 @@ export function createTrackerFactory(
     if (provider === "activecollab" && "projectId" in config) return activeCollabClient(config, secret, http)
     if (provider === "gitlab" && "projectPath" in config) return gitlabClient(config, secret, http)
     if (provider === "linear" && "teamKey" in config) return linearClient(config, secret, http)
+    if (provider === "jira" && "projectKey" in config) return jiraClient(config, secret, http)
     throw new TrackerError("The integration settings don't match its provider")
   }
 }

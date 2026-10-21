@@ -284,3 +284,39 @@ describe("Linear client", () => {
     await expect(createTrackerFactory(unauthorized.fetcher)("linear", linear, "bad").test()).rejects.toThrow("The Linear API key is invalid")
   })
 })
+
+const jira = { siteUrl: "https://kantor.atlassian.net", email: "dev@kantor.test", projectKey: "BUG", issueType: "Bug", labels: ["from bugberry"] }
+
+describe("Jira client", () => {
+  test("creates an issue with basic auth and an Atlassian document description", async () => {
+    const { fetcher, requests } = fakeFetch(() => Response.json({ id: "10001", key: "BUG-12" }, { status: 201 }))
+    const issue = await createTrackerFactory(fetcher)("jira", jira, "atl-token").createIssue(content)
+    expect(issue).toEqual({ externalId: "BUG-12", url: "https://kantor.atlassian.net/browse/BUG-12" })
+    const request = requests[0] as Request
+    expect(request.url).toBe("https://kantor.atlassian.net/rest/api/3/issue")
+    expect(request.headers.get("authorization")).toBe(`Basic ${btoa("dev@kantor.test:atl-token")}`)
+    const body = (await request.json()) as { fields: Record<string, unknown> }
+    expect(body.fields).toMatchObject({
+      project: { key: "BUG" },
+      summary: "Pay button fails",
+      issuetype: { name: "Bug" },
+      labels: ["from-bugberry"],
+    })
+    expect(body.fields.description).toMatchObject({ version: 1, type: "doc" })
+  })
+
+  test("the connection test needs the issue type in the project", async () => {
+    const { fetcher, requests } = fakeFetch(() => Response.json({ key: "BUG", issueTypes: [{ name: "Task" }, { name: "Story" }] }))
+    await expect(createTrackerFactory(fetcher)("jira", jira, "atl-token").test()).rejects.toThrow("Jira project BUG has no issue type Bug")
+    expect((requests[0] as Request).url).toBe("https://kantor.atlassian.net/rest/api/3/project/BUG")
+    const ok = fakeFetch(() => Response.json({ key: "BUG", issueTypes: [{ name: "bug" }] }))
+    await expect(createTrackerFactory(ok.fetcher)("jira", jira, "atl-token").test()).resolves.toBeUndefined()
+  })
+
+  test("Jira's own error messages are passed on, and auth failures are plain", async () => {
+    const bad = fakeFetch(() => Response.json({ errorMessages: [], errors: { summary: "Summary is required" } }, { status: 400 }))
+    await expect(createTrackerFactory(bad.fetcher)("jira", jira, "atl").createIssue(content)).rejects.toThrow("Summary is required")
+    const unauthorized = fakeFetch(() => new Response("", { status: 401 }))
+    await expect(createTrackerFactory(unauthorized.fetcher)("jira", jira, "atl").test()).rejects.toThrow("The Jira email or API token is wrong")
+  })
+})
