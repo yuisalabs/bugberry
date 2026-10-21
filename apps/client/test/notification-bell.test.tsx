@@ -7,6 +7,7 @@ const NOW = new Date("2026-10-18T10:00:00Z").getTime()
 
 const item = (index: number, overrides: Partial<Notifications["items"][number]> = {}): Notifications["items"][number] => ({
   id: `n${index}`,
+  kind: "mention",
   read: false,
   createdAt: new Date(NOW - 5 * 60_000),
   actor: { id: "u1", name: "Ana", image: null },

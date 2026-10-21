@@ -86,6 +86,8 @@ export const queries = {
       refetchOnWindowFocus: true,
     }),
   comments: (reportId: string) => queryOptions({ queryKey: ["comments", reportId], queryFn: () => api.comments(reportId) }),
+  /** The report's activity lines; fetched only while "All activity" is on. */
+  activity: (reportId: string) => queryOptions({ queryKey: ["activity", reportId], queryFn: () => api.activity(reportId) }),
   reportTrackers: (reportId: string) =>
     queryOptions({ queryKey: ["report-trackers", reportId], queryFn: () => api.reportTrackers(reportId) }),
   integrations: (projectId: string) =>

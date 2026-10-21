@@ -2,26 +2,25 @@ import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { CommentList } from "../src/components/CommentList"
 import type { Comment } from "../src/lib/api"
+import { commentFixture } from "./fixtures"
 
 const comments: Comment[] = [
-  {
+  commentFixture({
     id: "c1",
     body: "<b>bukan html</b>\nbaris kedua",
     createdAt: new Date("2026-10-16T08:00:00Z"),
-    updatedAt: new Date("2026-10-16T08:00:00Z"),
     author: { id: "u1", name: "Ana", image: null },
     mentions: [],
     viaAgent: null,
-  },
-  {
+  }),
+  commentFixture({
     id: "c2",
     body: "Saya cek",
     createdAt: new Date("2026-10-16T09:00:00Z"),
-    updatedAt: new Date("2026-10-16T09:00:00Z"),
     author: { id: "u2", name: "Budi", image: null },
     mentions: [],
     viaAgent: null,
-  },
+  }),
 ]
 
 const handlers = () => ({ onAdd: mock(async () => {}), onEdit: mock(async () => {}), onDelete: mock() })
@@ -88,15 +87,14 @@ describe("CommentList", () => {
       { id: "u1", name: "Ana", email: "ana@kantor.test" },
       { id: "u2", name: "Budi", email: "budi@kantor.test" },
     ]
-    const tagged: Comment = {
+    const tagged: Comment = commentFixture({
       id: "c3",
       body: "@[user:u1] cek, @[user:gone] juga",
       createdAt: new Date("2026-10-16T10:00:00Z"),
-      updatedAt: new Date("2026-10-16T10:00:00Z"),
       author: { id: "u2", name: "Budi", image: null },
       mentions: [{ id: "u1", name: "Ana" }],
       viaAgent: null,
-    }
+    })
 
     test("typing @ suggests members, and sending stores the mention", async () => {
       const props = handlers()

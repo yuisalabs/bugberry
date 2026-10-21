@@ -59,7 +59,7 @@ function CommentItem({
 }: { comment: Comment; people: Mentionable[] } & Omit<Props, "comments" | "onAdd" | "people">) {
   const [draft, setDraft] = useState<string | null>(null)
   const [picked, setPicked] = useState<Picked[]>([])
-  const mine = comment.author.id === me.id
+  const mine = comment.author?.id === me.id
   const startEditing = () => {
     const editable = toEditable(comment.body, new Map(comment.mentions.map((person) => [person.id, person.name])), people)
     setPicked(editable.picked)
@@ -79,10 +79,10 @@ function CommentItem({
     <li id={`comment-${comment.id}`} className="scroll-mt-24 rounded-lg border border-border bg-background p-3">
       <div className="flex items-start justify-between gap-2">
         <p className="min-w-0 text-sm">
-          <span className="font-medium">{comment.author.name}</span>
+          <span className="font-medium">{comment.author?.name}</span>
           {comment.viaAgent && (
             <span
-              title={`Written by ${comment.viaAgent} for ${comment.author.name}`}
+              title={`Written by ${comment.viaAgent} for ${comment.author?.name}`}
               className="ml-2 inline-block rounded-full bg-primary-subtle px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap text-primary-subtle-foreground"
             >
               via AI
