@@ -22,6 +22,7 @@ import {
 let ctx: Awaited<ReturnType<typeof setupTestApp>>
 let b: {
   workspaceId: string
+  connectionId: string
   adminId: string
   projectId: string
   integrationId: string
@@ -40,7 +41,7 @@ beforeEach(async () => {
   const bWorkspace = await createWorkspaceRow(ctx.db, "B")
   const bAdmin = await createUserWithToken(ctx.db, { email: "b@b.test", workspaceId: bWorkspace.id, workspaceRole: "admin" })
   const bProject = await createProject(ctx.db, { workspaceId: bWorkspace.id, slug: "secret" })
-  const { id: integrationId } = await createIntegration(ctx.db, {
+  const { id: integrationId, connectionId } = await createIntegration(ctx.db, {
     projectId: bProject.id,
     provider: "github",
     target: { owner: "b", repo: "secret", labels: [] },
@@ -69,6 +70,7 @@ beforeEach(async () => {
     adminId: bAdmin.user.id,
     projectId: bProject.id,
     integrationId,
+    connectionId,
     reportId: bReport.id,
     shareSlug: bReport.shareSlug,
     commentId,
@@ -138,7 +140,30 @@ const cases: Case[] = [
     name: "add an integration to B",
     method: "POST",
     path: () => `/projects/${b.projectId}/integrations`,
-    body: () => ({ provider: "github", config: { owner: "a", repo: "a", labels: [] }, secret: "x" }),
+    body: () => ({ connectionId: b.connectionId, target: { owner: "a", repo: "a", labels: [] } }),
+    expect: NOT_FOUND,
+  },
+  { name: "B's connections", method: "GET", path: () => `/workspaces/${b.workspaceId}/connections`, expect: NOT_FOUND },
+  {
+    name: "add a connection to B",
+    method: "POST",
+    path: () => `/workspaces/${b.workspaceId}/connections`,
+    body: () => ({ provider: "github", name: "Mine", settings: {}, secret: "x" }),
+    expect: NOT_FOUND,
+  },
+  {
+    name: "rename B's connection",
+    method: "PATCH",
+    path: () => `/workspaces/${b.workspaceId}/connections/${b.connectionId}`,
+    body: () => ({ name: "Taken" }),
+    expect: NOT_FOUND,
+  },
+  { name: "delete B's connection", method: "DELETE", path: () => `/workspaces/${b.workspaceId}/connections/${b.connectionId}`, expect: NOT_FOUND },
+  { name: "test B's connection", method: "POST", path: () => `/workspaces/${b.workspaceId}/connections/${b.connectionId}/test`, expect: NOT_FOUND },
+  {
+    name: "list B's repositories",
+    method: "GET",
+    path: () => `/workspaces/${b.workspaceId}/connections/${b.connectionId}/options?list=targets`,
     expect: NOT_FOUND,
   },
   {

@@ -1,207 +1,142 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { eq } from "drizzle-orm"
-import { integration } from "../src/db/schema"
-import { createSecretBox } from "../src/lib/secret-box"
-import { TrackerError } from "../src/lib/trackers/providers"
-import { createProject, createUserWithToken, type FakeTrackers, fakeTrackers, setupTestApp, TEST_ENCRYPTION_KEY } from "./helpers"
+import { integration, reportExternalLink } from "../src/db/schema"
+import type { NotifierFactory } from "../src/lib/notifiers/channels"
+import {
+  createIntegration,
+  createProject,
+  createReadyReport,
+  createUserWithToken,
+  createWorkspaceRow,
+  type FakeTrackers,
+  fakeTrackers,
+  setupTestApp,
+} from "./helpers"
 
 let ctx: Awaited<ReturnType<typeof setupTestApp>>
 let trackers: FakeTrackers
-let admin: Awaited<ReturnType<typeof createUserWithToken>>
+let posted: string[]
+let member: Awaited<ReturnType<typeof createUserWithToken>>
 let projectId: string
+let github: { id: string; connectionId: string }
 
-const github = { owner: "kantor", repo: "web", labels: ["bug"] }
-const activecollab = { baseUrl: "https://ac.kantor.test/", projectId: 12, taskListId: 3 }
+const notifiers: NotifierFactory = (_provider, _config, secret) => ({
+  async send() {
+    posted.push(secret)
+  },
+})
 
 beforeEach(async () => {
   trackers = fakeTrackers()
-  ctx = await setupTestApp({}, { trackers: trackers.factory })
-  admin = await createUserWithToken(ctx.db, { role: "admin" })
-  projectId = (await createProject(ctx.db)).id
-})
-
-const integrations = () => ctx.api.api.projects({ id: projectId }).integrations
-
-async function createGithub() {
-  const { data } = await integrations().post(
-    { provider: "github", config: github, secret: "ghp_super-secret", autoSend: true },
-    { headers: admin.headers },
-  )
-  if (!data) throw new Error("integration not created")
-  return data
-}
-
-describe("integrations", () => {
-  test("admins create integrations; the token is encrypted and never returned", async () => {
-    const created = await createGithub()
-    expect(created).toMatchObject({ provider: "github", config: github, autoSend: true, label: "kantor/web" })
-    expect(JSON.stringify(created)).not.toContain("ghp_super-secret")
-
-    const { data: list } = await integrations().get({ headers: admin.headers })
-    expect(JSON.stringify(list)).not.toContain("ghp_super-secret")
-    expect(JSON.stringify(list)).not.toContain("secretEncrypted")
-
-    const [row] = await ctx.db.select().from(integration).where(eq(integration.id, created.id))
-    expect(row?.secretEncrypted).not.toContain("ghp_super-secret")
-    expect(createSecretBox(TEST_ENCRYPTION_KEY).open(row?.secretEncrypted ?? "")).toBe("ghp_super-secret")
-  })
-
-  test("members cannot manage integrations", async () => {
-    const member = await createUserWithToken(ctx.db)
-    const { error } = await integrations().get({ headers: member.headers })
-    expect(error?.status as number | undefined).toBe(403)
-  })
-
-  test("normalises ActiveCollab URLs and rejects unsafe or malformed settings", async () => {
-    const { data } = await integrations().post(
-      { provider: "activecollab", config: activecollab, secret: "ac-token" },
-      { headers: admin.headers },
-    )
-    expect(data?.config).toEqual({ baseUrl: "https://ac.kantor.test", projectId: 12, taskListId: 3 })
-    expect(data?.autoSend).toBe(false)
-
-    const plainHttp = await integrations().post(
-      { provider: "activecollab", config: { ...activecollab, baseUrl: "http://ac.kantor.test" }, secret: "x" },
-      { headers: admin.headers },
-    )
-    expect(plainHttp.error?.value).toMatchObject({ code: "invalid_base_url" })
-
-    const badOwner = await integrations().post(
-      { provider: "github", config: { ...github, owner: "-bad owner" }, secret: "x" },
-      { headers: admin.headers },
-    )
-    expect(badOwner.error?.status as number | undefined).toBe(422)
-
-    const missingProject = await ctx.api.api.projects({ id: "missing" }).integrations.post(
-      { provider: "github", config: github, secret: "x" },
-      { headers: admin.headers },
-    )
-    expect(missingProject.error?.status as number | undefined).toBe(404)
-  })
-
-  test("updates keep the old token unless a new one is given, and refuse another provider's config", async () => {
-    const created = await createGithub()
-    const item = () => integrations()({ integrationId: created.id })
-    const { data } = await item().patch({ autoSend: false, config: { ...github, labels: ["bugberry"] } }, { headers: admin.headers })
-    expect(data).toMatchObject({ autoSend: false, config: { labels: ["bugberry"] } })
-    const [kept] = await ctx.db.select().from(integration).where(eq(integration.id, created.id))
-    expect(createSecretBox(TEST_ENCRYPTION_KEY).open(kept?.secretEncrypted ?? "")).toBe("ghp_super-secret")
-
-    await item().patch({ secret: "ghp_rotated" }, { headers: admin.headers })
-    const [rotated] = await ctx.db.select().from(integration).where(eq(integration.id, created.id))
-    expect(createSecretBox(TEST_ENCRYPTION_KEY).open(rotated?.secretEncrypted ?? "")).toBe("ghp_rotated")
-
-    const wrong = await item().patch({ config: activecollab }, { headers: admin.headers })
-    expect(wrong.error?.value).toMatchObject({ code: "invalid_config" })
-  })
-
-  test("blank GitHub labels are dropped instead of failing every send", async () => {
-    const { data } = await integrations().post(
-      { provider: "github", config: { ...github, labels: ["bug", "  ", " bugberry "] }, secret: "x" },
-      { headers: admin.headers },
-    )
-    expect(data?.config).toMatchObject({ labels: ["bug", "bugberry"] })
-  })
-
-  test("deletes integrations", async () => {
-    const created = await createGithub()
-    const { data } = await integrations()({ integrationId: created.id }).delete(undefined, { headers: admin.headers })
-    expect(data).toEqual({ ok: true })
-    expect((await integrations().get({ headers: admin.headers })).data).toEqual([])
-  })
-
-  test("tests the connection with the decrypted token", async () => {
-    const created = await createGithub()
-    const check = () => integrations()({ integrationId: created.id }).test.post(undefined, { headers: admin.headers })
-    expect((await check()).data).toEqual({ ok: true })
-    expect(trackers.tests[0]).toMatchObject({ provider: "github", secret: "ghp_super-secret" })
-
-    trackers.behaviour.test = async () => {
-      throw new TrackerError("The repo was not found or the token lacks Issues permission")
-    }
-    const failed = await check()
-    expect(failed.error?.status as number | undefined).toBe(422)
-    expect(failed.error?.value).toMatchObject({
-      code: "integration_test_failed",
-      message: "The repo was not found or the token lacks Issues permission",
-    })
-  })
-
-  test("a token that can no longer be decrypted asks for it to be saved again", async () => {
-    const created = await createGithub()
-    await ctx.db.update(integration).set({ secretEncrypted: "v1.aaa.bbb.ccc" }).where(eq(integration.id, created.id))
-    const { error } = await integrations()({ integrationId: created.id }).test.post(undefined, { headers: admin.headers })
-    expect(error?.status as number | undefined).toBe(409)
-    expect(error?.value).toMatchObject({ code: "secret_unreadable" })
+  posted = []
+  ctx = await setupTestApp({}, { trackers: trackers.factory, notifiers })
+  member = await createUserWithToken(ctx.db)
+  projectId = (await createProject(ctx.db, { name: "Checkout Web" })).id
+  // A connection the workspace already has, used by another project.
+  const other = await createProject(ctx.db)
+  github = await createIntegration(ctx.db, {
+    projectId: other.id,
+    provider: "github",
+    name: "GitHub Kantor",
+    secret: "ghp_secret",
+    target: { owner: "kantor", repo: "admin", labels: [] },
   })
 })
 
-describe("every integration provider", () => {
-  const post = (body: Record<string, unknown>) =>
-    integrations().post(body as Parameters<ReturnType<typeof integrations>["post"]>[0], { headers: admin.headers })
+const uses = () => ctx.api.api.projects({ id: projectId }).integrations
+const use = (integrationId: string) => ctx.api.api.projects({ id: projectId }).integrations({ integrationId })
+const addGithub = (repo: string, labels: string[] = []) =>
+  uses().post({ connectionId: github.connectionId, target: { owner: "kantor", repo, labels } }, { headers: member.headers })
 
-  test("each tracker provider saves with its settings", async () => {
-    const gitlab = await post({ provider: "gitlab", config: { baseUrl: "https://gitlab.kantor.test/", projectPath: "web/shop", labels: ["bug"] }, secret: "glpat" })
-    expect(gitlab.data).toMatchObject({ provider: "gitlab", kind: "tracker", config: { baseUrl: "https://gitlab.kantor.test", projectPath: "web/shop" }, label: "web/shop" })
-    const linear = await post({ provider: "linear", config: { teamKey: "eng", labels: [] }, secret: "lin_api" })
-    expect(linear.data).toMatchObject({ provider: "linear", config: { teamKey: "ENG" }, label: "Team ENG" })
-    const jira = await post({
-      provider: "jira",
-      config: { siteUrl: "https://kantor.atlassian.net", email: "dev@kantor.test", projectKey: "BUG", issueType: "Bug", labels: [] },
-      secret: "atl",
+describe("project uses of workspace connections", () => {
+  test("a member uses a workspace connection in a project", async () => {
+    const added = await addGithub("checkout", ["bug", " bug "])
+    expect(added.data).toMatchObject({
+      provider: "github",
+      kind: "tracker",
+      connection: { id: github.connectionId, name: "GitHub Kantor" },
+      target: { owner: "kantor", repo: "checkout", labels: ["bug"] },
+      label: "kantor/checkout",
+      autoSend: false,
     })
-    expect(jira.data).toMatchObject({ provider: "jira", config: { siteUrl: "https://kantor.atlassian.net", projectKey: "BUG" } })
-    const elsewhere = await post({
-      provider: "jira",
-      config: { siteUrl: "https://jira.kantor.test", email: "dev@kantor.test", projectKey: "BUG", issueType: "Bug", labels: [] },
-      secret: "atl",
-    })
-    expect(elsewhere.error?.value).toMatchObject({ code: "invalid_config" })
+    const { data } = await uses().get({ headers: member.headers })
+    expect(data?.map((item) => item.label)).toEqual(["kantor/checkout"])
+    expect(JSON.stringify(data)).not.toContain("ghp_secret")
+    expect(JSON.stringify(data)).not.toContain("settings")
   })
 
-  test("Slack and Discord accept only their own webhook hosts, and the URL is never returned", async () => {
-    const slack = await post({ provider: "slack", config: {}, secret: "https://hooks.slack.com/services/T0/B0/xyz" })
-    expect(slack.data).toMatchObject({ provider: "slack", kind: "notifier", autoSend: false, label: "Slack channel" })
-    expect(JSON.stringify(slack.data)).not.toContain("hooks.slack.com")
-    const discord = await post({ provider: "discord", config: {}, secret: "https://discord.com/api/webhooks/1/abc" })
-    expect(discord.data).toMatchObject({ provider: "discord", kind: "notifier" })
-    for (const [provider, secret] of [
-      ["slack", "https://hooks.slack.com.evil.test/services/x"],
-      ["slack", "http://hooks.slack.com/services/x"],
-      ["discord", "https://evil.test/api/webhooks/1/x"],
-    ]) {
-      const { error } = await post({ provider, config: {}, secret })
-      expect(error?.value).toMatchObject({ code: "invalid_webhook_url" })
-    }
+  test("the same connection and target twice is refused", async () => {
+    expect((await addGithub("checkout")).data?.label).toBe("kantor/checkout")
+    const again = await addGithub("Checkout", ["other"])
+    expect(again.error?.status as number | undefined).toBe(409)
+    expect(again.error?.value).toMatchObject({ code: "already_used" })
+    expect((await addGithub("web")).data?.label).toBe("kantor/web")
+    const [one, two] = await Promise.all([addGithub("shop"), addGithub("shop")])
+    const statuses = [one, two].map((answer) => (answer.error ? (answer.error.status as number) : 200)).sort()
+    expect(statuses).toEqual([200, 409])
   })
 
-  test("Telegram needs a chat id; a webhook's signing secret is optional", async () => {
-    const telegram = await post({ provider: "telegram", config: { chatId: "-1001234567" }, secret: "123:bot-token" })
-    expect(telegram.data).toMatchObject({ provider: "telegram", label: "Chat -1001234567" })
-    const webhook = await post({ provider: "webhook", config: { url: "https://hooks.kantor.test/bugs" } })
-    expect(webhook.data).toMatchObject({ provider: "webhook", label: "hooks.kantor.test", lastError: null, lastDeliveredAt: null })
+  test("Slack is used once per project", async () => {
+    const slack = await createIntegration(ctx.db, { projectId: (await createProject(ctx.db)).id, provider: "slack" })
+    const first = await uses().post({ connectionId: slack.connectionId, target: {} }, { headers: member.headers })
+    expect(first.data).toMatchObject({ kind: "notifier", label: "slack", autoSend: false })
+    const second = await uses().post({ connectionId: slack.connectionId, target: {} }, { headers: member.headers })
+    expect(second.error?.value).toMatchObject({ code: "already_used" })
+  })
+
+  test("another workspace's connection cannot be used", async () => {
+    const elsewhere = await createProject(ctx.db, { workspaceId: (await createWorkspaceRow(ctx.db, "Other")).id })
+    const foreign = await createIntegration(ctx.db, { projectId: elsewhere.id, provider: "slack" })
+    const { error } = await uses().post({ connectionId: foreign.connectionId, target: {} }, { headers: member.headers })
+    expect(error?.value).toMatchObject({ code: "connection_not_found" })
+  })
+
+  test("a target of another provider is refused", async () => {
+    const { error } = await uses().post({ connectionId: github.connectionId, target: { chatId: "-100" } }, { headers: member.headers })
+    expect(error?.value).toMatchObject({ code: "invalid_target" })
   })
 
   test("a notifier never sends every report as an issue", async () => {
-    const { data } = await post({ provider: "webhook", config: { url: "https://hooks.kantor.test/bugs" }, autoSend: true })
+    const slack = await createIntegration(ctx.db, { projectId: (await createProject(ctx.db)).id, provider: "slack" })
+    const { data } = await uses().post({ connectionId: slack.connectionId, target: {}, autoSend: true }, { headers: member.headers })
     expect(data?.autoSend).toBe(false)
   })
-})
 
-describe("private addresses", () => {
-  test("an integration pointing into a private network is refused unless the server allows it", async () => {
-    const strict = await setupTestApp({ allowPrivateIntegrationHosts: false }, { trackers: fakeTrackers().factory })
-    const owner = await createUserWithToken(strict.db, { role: "admin" })
-    const project = (await createProject(strict.db)).id
-    const { error } = await strict.api.api.projects({ id: project }).integrations.post(
-      { provider: "webhook", config: { url: "https://10.0.0.5/hook" } } as never,
-      { headers: owner.headers },
-    )
-    expect(error?.value).toMatchObject({ code: "private_address" })
-    const gitlab = await strict.api.api.projects({ id: project }).integrations.post(
-      { provider: "gitlab", config: { baseUrl: "https://192.168.1.20", projectPath: "web/shop", labels: [] }, secret: "glpat" } as never,
-      { headers: owner.headers },
-    )
-    expect(gitlab.error?.value).toMatchObject({ code: "private_address" })
+  test("editing a use changes labels and auto-send only", async () => {
+    const id = (await addGithub("checkout")).data?.id ?? ""
+    const edited = await use(id).patch({ labels: ["from-qa"], autoSend: true }, { headers: member.headers })
+    expect(edited.data).toMatchObject({ target: { owner: "kantor", repo: "checkout", labels: ["from-qa"] }, autoSend: true })
+    const moved = await use(id).patch({ target: { owner: "kantor", repo: "web", labels: [] } } as never, { headers: member.headers })
+    expect(moved.error?.status as number | undefined).toBe(422)
+  })
+
+  test("removing a use keeps its sent issues", async () => {
+    const id = (await addGithub("checkout")).data?.id ?? ""
+    const report = await createReadyReport(ctx.db, { projectId, reporterId: member.user.id })
+    await ctx.api.api.reports({ id: report.id }).trackers({ integrationId: id }).send.post(undefined, { headers: member.headers })
+    expect((await use(id).delete(undefined, { headers: member.headers })).data).toEqual({ ok: true })
+    const [link] = await ctx.db.select().from(reportExternalLink).where(eq(reportExternalLink.reportId, report.id))
+    expect(link).toMatchObject({ integrationId: null, provider: "github", externalId: "1" })
+  })
+
+  test("a tracker use is tested against its target", async () => {
+    const id = (await addGithub("checkout")).data?.id ?? ""
+    expect((await use(id).test.post(undefined, { headers: member.headers })).data).toEqual({ ok: true })
+    expect(trackers.tests[0]).toMatchObject({ config: { owner: "kantor", repo: "checkout", labels: [] }, secret: "ghp_secret" })
+  })
+
+  test("a member sends a test message and clears the last error", async () => {
+    const slack = await createIntegration(ctx.db, { projectId, provider: "slack", secret: "https://hooks.slack.com/services/x" })
+    await ctx.db.update(integration).set({ lastError: "Slack rejected the message (HTTP 404)" }).where(eq(integration.id, slack.id))
+    expect((await use(slack.id).test.post(undefined, { headers: member.headers })).data).toEqual({ ok: true })
+    expect(posted).toEqual(["https://hooks.slack.com/services/x"])
+    const [row] = await ctx.db.select().from(integration).where(eq(integration.id, slack.id))
+    expect(row?.lastError).toBeNull()
+    expect(row?.lastDeliveredAt).toBeInstanceOf(Date)
+  })
+
+  test("a use of another project is not found", async () => {
+    const { error } = await use(github.id).delete(undefined, { headers: member.headers })
+    expect(error?.value).toMatchObject({ code: "integration_not_found" })
   })
 })
