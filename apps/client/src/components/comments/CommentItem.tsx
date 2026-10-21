@@ -2,6 +2,7 @@ import type { WorkspaceRole } from "@bugberry/shared"
 import { RiMoreLine, RiPlayFill } from "@remixicon/react"
 import { useContext, useState } from "react"
 import { Avatar } from "@bugberry/ui/avatar"
+import { useConfirm } from "@bugberry/ui/confirm-dialog"
 import { Button } from "@bugberry/ui/button"
 import { Menu, MenuItem, MenuTrigger } from "@bugberry/ui/menu"
 import { useNow } from "../../hooks/useNow"
@@ -95,6 +96,7 @@ export function CommentItem({
   onReply(comment: Comment): void
 }) {
   const now = useNow()
+  const { confirm, dialog } = useConfirm()
   const [draft, setDraft] = useState<string | null>(null)
   const [picked, setPicked] = useState<Picked[]>([])
   const author = comment.author
@@ -166,8 +168,13 @@ export function CommentItem({
                 <MenuItem
                   intent="danger"
                   textValue="Delete"
-                  onAction={() => {
-                    if (window.confirm("Delete this comment?")) onDelete(comment.id)
+                  onAction={async () => {
+                    const yes = await confirm({
+                      title: "Delete this comment?",
+                      description: "It's removed for everyone in the workspace.",
+                      confirmLabel: "Delete",
+                    })
+                    if (yes) onDelete(comment.id)
                   }}
                 >
                   Delete
@@ -207,6 +214,7 @@ export function CommentItem({
           </div>
         )}
       </div>
+      {dialog}
     </div>
   )
 }

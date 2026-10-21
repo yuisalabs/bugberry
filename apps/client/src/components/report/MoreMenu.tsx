@@ -14,6 +14,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { type ReactNode, useState } from "react"
 import { Button } from "@bugberry/ui/button"
+import { useConfirm } from "@bugberry/ui/confirm-dialog"
 import { Sheet } from "@bugberry/ui/sheet"
 import { PHONE_QUERY, useMediaQuery } from "../../hooks/useMediaQuery"
 import {
@@ -315,6 +316,7 @@ function MoreSheet({
 export function MoreMenu({ report }: { report: ReportDetail }) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const { confirm, dialog } = useConfirm()
   const workspaces = useQuery(queries.workspaces())
   const projects = useQuery(queries.projects(report.workspaceId))
   const trackers = useQuery({
@@ -365,20 +367,28 @@ export function MoreMenu({ report }: { report: ReportDetail }) {
   })
 
   return (
-    <MoreMenuView
-      projectId={report.projectId}
-      projects={projects.data ?? []}
-      trackers={trackers.data ? trackerItems(trackers.data, Date.now(), send.isPending ? (send.variables ?? null) : null) : []}
-      needsProject={trackers.data?.needsProject ?? false}
-      canDelete={roleIn(workspaces.data ?? [], report.workspaceId) === "admin"}
-      onCopyForAi={() => void copyForAi()}
-      onSetUpAi={() => void navigate({ to: "/app/settings/ai" })}
-      onMove={(projectId) => move.mutate(projectId)}
-      onNewProject={() => void navigate({ to: "/app/settings/projects" })}
-      onSend={(integrationId) => send.mutate(integrationId)}
-      onDelete={() => {
-        if (window.confirm("Delete this report and its files? This can't be undone.")) remove.mutate()
-      }}
-    />
+    <>
+      {dialog}
+      <MoreMenuView
+        projectId={report.projectId}
+        projects={projects.data ?? []}
+        trackers={trackers.data ? trackerItems(trackers.data, Date.now(), send.isPending ? (send.variables ?? null) : null) : []}
+        needsProject={trackers.data?.needsProject ?? false}
+        canDelete={roleIn(workspaces.data ?? [], report.workspaceId) === "admin"}
+        onCopyForAi={() => void copyForAi()}
+        onSetUpAi={() => void navigate({ to: "/app/settings/ai" })}
+        onMove={(projectId) => move.mutate(projectId)}
+        onNewProject={() => void navigate({ to: "/app/settings/projects" })}
+        onSend={(integrationId) => send.mutate(integrationId)}
+        onDelete={async () => {
+          const yes = await confirm({
+            title: "Delete this report?",
+            description: "Its screenshot or video and everything it captured are deleted. This can't be undone.",
+            confirmLabel: "Delete report",
+          })
+          if (yes) remove.mutate()
+        }}
+      />
+    </>
   )
 }

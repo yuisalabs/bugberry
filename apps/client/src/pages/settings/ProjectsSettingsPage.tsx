@@ -20,6 +20,7 @@ import { errorMessage, type Project } from "../../lib/api"
 import { api } from "../../lib/client"
 import { queries } from "../../lib/queries"
 import { useCurrentWorkspace, workspaceColor } from "../../lib/workspace"
+import { useConfirm } from "@bugberry/ui/confirm-dialog"
 
 /** "No integrations connected", "1 integration connected"; nothing while the count is loading. */
 export function integrationsText(count: number | null): string {
@@ -139,6 +140,7 @@ function ProjectCard({ project, ...actions }: { project: Project; onEditPatterns
 }
 
 export function ProjectsSettingsPage() {
+  const { confirm, dialog } = useConfirm()
   const queryClient = useQueryClient()
   const { workspace } = useCurrentWorkspace()
   const projects = useQuery({ ...queries.projects(workspace?.id ?? ""), enabled: Boolean(workspace) })
@@ -181,8 +183,13 @@ export function ProjectsSettingsPage() {
               project={project}
               onEditPatterns={() => setPatternsOf(project)}
               onEdit={() => setEditing(project)}
-              onDelete={() => {
-                if (window.confirm(`Delete project “${project.name}”?`)) remove.mutate(project.id)
+              onDelete={async () => {
+                const yes = await confirm({
+                  title: `Delete project “${project.name}”?`,
+                  description: "Its URL patterns and integrations are deleted with it.",
+                  confirmLabel: "Delete project",
+                })
+                if (yes) remove.mutate(project.id)
               }}
             />
           ))}
@@ -190,6 +197,7 @@ export function ProjectsSettingsPage() {
       )}
       <ProjectDialog project={editing === "new" ? undefined : (editing ?? undefined)} isOpen={editing !== null} onClose={() => setEditing(null)} />
       <UrlPatternsDialog project={patternsOf} onClose={() => setPatternsOf(null)} />
+      {dialog}
     </section>
   )
 }

@@ -22,6 +22,7 @@ import { api } from "../../lib/client"
 import { INITIAL_INTEGRATIONS_UI, integrationsUi, type TestResult } from "../../lib/integrations-ui"
 import { queries } from "../../lib/queries"
 import { useCurrentWorkspace } from "../../lib/workspace"
+import { useConfirm } from "@bugberry/ui/confirm-dialog"
 
 const routeApi = getRouteApi("/_authed/_admin/app/settings/projects/$projectId/integrations")
 
@@ -137,6 +138,7 @@ export function IntegrationRow({
 }
 
 export function IntegrationsPage() {
+  const { confirm, dialog } = useConfirm()
   const { projectId } = routeApi.useParams()
   const queryClient = useQueryClient()
   const { workspace } = useCurrentWorkspace()
@@ -255,15 +257,19 @@ export function IntegrationsPage() {
               removing={remove.isPending}
               onTest={() => check.mutate(item.id)}
               onEdit={() => dispatch({ type: "edit", id: item.id })}
-              onDelete={() => {
-                if (window.confirm("Delete this integration? Links to issues it already created are removed from BugBerry too.")) {
-                  remove.mutate(item.id)
-                }
+              onDelete={async () => {
+                const yes = await confirm({
+                  title: "Delete this integration?",
+                  description: "Links to issues it already created are removed from BugBerry too.",
+                  confirmLabel: "Delete integration",
+                })
+                if (yes) remove.mutate(item.id)
               }}
             />
           ))}
         </ul>
       )}
+      {dialog}
     </section>
   )
 }

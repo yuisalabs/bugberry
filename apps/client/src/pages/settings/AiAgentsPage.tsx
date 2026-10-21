@@ -11,6 +11,7 @@ import { errorMessage } from "../../lib/api"
 import { api } from "../../lib/client"
 import { DOCS_URL } from "../../lib/docs-url"
 import { formatDateTime } from "../../lib/format"
+import { useConfirm } from "@bugberry/ui/confirm-dialog"
 
 export interface TokenRow {
   id: string
@@ -115,6 +116,7 @@ export function AiAgentsView({
   const url = `${origin}/api/mcp`
   const snippets = connectSnippets(url)
   const [label, setLabel] = useState("")
+  const { confirm, dialog } = useConfirm()
   const trimmed = label.trim()
 
   return (
@@ -245,8 +247,13 @@ export function AiAgentsView({
                         size="sm"
                         intent="outline"
                         isDisabled={busy}
-                        onPress={() => {
-                          if (window.confirm(`Disconnect ${app.name}? It loses access right away.`)) onRevokeApp(app.clientId)
+                        onPress={async () => {
+                          const yes = await confirm({
+                            title: `Disconnect ${app.name}?`,
+                            description: "It loses access right away.",
+                            confirmLabel: "Disconnect",
+                          })
+                          if (yes) onRevokeApp(app.clientId)
                         }}
                       >
                         Disconnect
@@ -311,8 +318,13 @@ export function AiAgentsView({
                         size="sm"
                         intent="outline"
                         isDisabled={busy}
-                        onPress={() => {
-                          if (window.confirm(`Revoke "${token.label}"? Apps using it stop working.`)) onRevokeToken(token.id)
+                        onPress={async () => {
+                          const yes = await confirm({
+                            title: `Revoke "${token.label}"?`,
+                            description: "Apps using it stop working.",
+                            confirmLabel: "Revoke",
+                          })
+                          if (yes) onRevokeToken(token.id)
                         }}
                       >
                         Revoke
@@ -325,6 +337,7 @@ export function AiAgentsView({
           </div>
         </div>
       </div>
+      {dialog}
     </section>
   )
 }

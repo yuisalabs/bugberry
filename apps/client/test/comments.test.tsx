@@ -119,7 +119,7 @@ describe("the comments section", () => {
     expect(within(item).getByText("via AI")).toBeTruthy()
   })
 
-  test("only the author can edit; the author or an admin can delete, from the ⋯ menu", () => {
+  test("only the author can edit; the author or an admin can delete, from the ⋯ menu", async () => {
     const { props, unmount } = setup()
     openActions("c1")
     fireEvent.click(screen.getByRole("menuitem", { name: "Edit" }))
@@ -129,11 +129,13 @@ describe("the comments section", () => {
     expect(within(commentEl("c2")).queryByRole("button", { name: "Comment actions" })).toBeNull()
     unmount()
 
-    window.confirm = () => true
     const admin = setup({ me: { id: "u9", role: "admin", name: "Admin", image: null } })
     openActions("c2")
     expect(screen.queryByRole("menuitem", { name: "Edit" })).toBeNull()
     fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }))
+    const dialog = screen.getByRole("alertdialog", { name: "Delete this comment?" })
+    expect(admin.props.onDelete).not.toHaveBeenCalled()
+    await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Delete" })))
     expect(admin.props.onDelete).toHaveBeenCalledWith("c2")
   })
 

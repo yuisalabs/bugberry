@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, mock, spyOn, test } from "bun:test"
-import { fireEvent, render, screen, within } from "@testing-library/react"
+import { afterEach, describe, expect, mock, test } from "bun:test"
+import { act, fireEvent, render, screen, within } from "@testing-library/react"
 import { AGENT_PROMPT, AiAgentsView, connectSnippets, reportLinkForms } from "../src/pages/settings/AiAgentsPage"
 
 const ORIGIN = "https://bugberry.kantor.test"
@@ -84,25 +84,28 @@ describe("AiAgentsView", () => {
     expect(screen.getByText("Authorization: Bearer <token>")).toBeTruthy()
   })
 
-  test("revoking a token asks first", () => {
+  test("revoking a token asks first, in the app's dialog", async () => {
     const onRevokeToken = mock()
-    const confirm = spyOn(window, "confirm").mockReturnValue(true)
     render(<AiAgentsView {...base} onRevokeToken={onRevokeToken} />)
     const row = screen.getByText("CI bot").closest("li") as HTMLElement
     fireEvent.click(within(row).getByRole("button", { name: "Revoke" }))
-    expect(confirm).toHaveBeenCalledWith('Revoke "CI bot"? Apps using it stop working.')
+    const dialog = screen.getByRole("alertdialog", { name: 'Revoke "CI bot"?' })
+    expect(dialog.textContent).toContain("Apps using it stop working.")
+    expect(onRevokeToken).not.toHaveBeenCalled()
+    await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Revoke" })))
     expect(onRevokeToken).toHaveBeenCalledWith("t1")
   })
 
-  test("connected apps render and revoke", () => {
+  test("connected apps render and revoke", async () => {
     const onRevokeApp = mock()
-    spyOn(window, "confirm").mockReturnValue(true)
     render(<AiAgentsView {...base} onRevokeApp={onRevokeApp} />)
     // The setup steps are a list too (their tabs name Claude Code), so the row is found through its own button.
     const row = screen.getByRole("button", { name: "Disconnect" }).closest("li") as HTMLElement
     expect(within(row).getByText("Claude Code")).toBeTruthy()
     expect(within(row).getByText(/Can read and change/)).toBeTruthy()
     fireEvent.click(within(row).getByRole("button", { name: "Disconnect" }))
+    const dialog = screen.getByRole("alertdialog", { name: "Disconnect Claude Code?" })
+    await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Disconnect" })))
     expect(onRevokeApp).toHaveBeenCalledWith("c1")
   })
 
