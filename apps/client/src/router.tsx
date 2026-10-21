@@ -135,10 +135,18 @@ const connectionsRoute = createRoute({
   component: lazyRouteComponent(() => import("./pages/settings/ConnectionsPage"), "ConnectionsPage"),
 })
 
+/** The old address of a project's integrations; leads to the project's own page. */
 const integrationsRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "/app/settings/projects/$projectId/integrations",
-  component: lazyRouteComponent(() => import("./pages/settings/IntegrationsPage"), "IntegrationsPage"),
+  component: lazyRouteComponent(() => import("./pages/ProjectIntegrationsPage"), "LegacyProjectIntegrations"),
+})
+
+/** A project's integrations: everyone in the workspace uses the workspace's connections here. */
+const projectIntegrationsRoute = createRoute({
+  getParentRoute: () => authedRoute,
+  path: "/app/p/$projectSlug/integrations",
+  component: lazyRouteComponent(() => import("./pages/ProjectIntegrationsPage"), "ProjectIntegrationsPage"),
 })
 
 /** Everyone in the workspace sees its members; admins also invite and manage them. */
@@ -190,6 +198,7 @@ const routeTree = rootRoute.addChildren([
   authedRoute.addChildren([
     homeRoute,
     projectRoute,
+    projectIntegrationsRoute,
     reportRoute,
     membersRoute,
     accountRoute,

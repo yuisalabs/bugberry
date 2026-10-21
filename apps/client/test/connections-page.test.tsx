@@ -1,6 +1,7 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { ConnectionForm } from "../src/components/ConnectionForm"
+import { GITHUB_TOKEN_URL, IssuePreview } from "../src/components/IntegrationForm"
 import type { Connection } from "../src/lib/api"
 import { ConnectionRow, ConnectionsEmpty, deleteDescription } from "../src/pages/settings/ConnectionsPage"
 
@@ -66,6 +67,22 @@ describe("the workspace Integrations page", () => {
     expect((screen.getByRole("radio", { name: "Slack" }) as HTMLInputElement).disabled).toBe(true)
     save()
     expect(onSubmit).toHaveBeenCalledWith({ provider: "slack", name: "Slack #qa", settings: {}, secret: "" })
+  })
+
+  test("the token can be shown, and GitHub's token page is one click away", () => {
+    render(<ConnectionForm busy={false} onSubmit={mock()} onCancel={() => {}} />)
+    const token = screen.getByLabelText("Personal access token") as HTMLInputElement
+    expect(token.type).toBe("password")
+    fireEvent.click(screen.getByRole("button", { name: "Show token" }))
+    expect(token.type).toBe("text")
+    expect(screen.getByRole("link", { name: /Create one on GitHub/ }).getAttribute("href")).toBe(GITHUB_TOKEN_URL)
+  })
+
+  test("the preview shows a GitHub issue's labels and only what the issue really holds", () => {
+    const { container } = render(<IssuePreview provider="github" labels={["bug", "bugberry"]} />)
+    expect(screen.getByText("How a report shows up in GitHub")).toBeTruthy()
+    expect(container.textContent).toContain("bugberry")
+    expect(container.textContent).toContain("Open the report in BugBerry")
   })
 
   test("a row shows how many projects use it and where messages fail", () => {

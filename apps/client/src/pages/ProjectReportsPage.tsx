@@ -1,4 +1,4 @@
-import { RiSettings3Line } from "@remixicon/react"
+import { RiApps2Line, RiSettings3Line } from "@remixicon/react"
 import { useQuery } from "@tanstack/react-query"
 import { getRouteApi, Link, useNavigate } from "@tanstack/react-router"
 import { buttonStyles } from "@bugberry/ui/button"
@@ -32,12 +32,22 @@ export function ProjectReportsPage() {
       search={search}
       setSearch={(update) => void navigate({ search: update })}
       actions={
-        isAdmin ? (
-          <Link to="/app/settings/projects" className={buttonStyles({ intent: "outline", size: "sm", className: "bg-background" })}>
-            <RiSettings3Line aria-hidden />
-            <span className="hidden sm:inline">Project settings</span>
+        <>
+          <Link
+            to="/app/p/$projectSlug/integrations"
+            params={{ projectSlug }}
+            className={buttonStyles({ intent: "outline", size: "sm", className: "bg-background" })}
+          >
+            <RiApps2Line aria-hidden />
+            <span className="hidden sm:inline">Integrations</span>
           </Link>
-        ) : undefined
+          {isAdmin && (
+            <Link to="/app/settings/projects" className={buttonStyles({ intent: "outline", size: "sm", className: "bg-background" })}>
+              <RiSettings3Line aria-hidden />
+              <span className="hidden sm:inline">Project settings</span>
+            </Link>
+          )}
+        </>
       }
     />
   )

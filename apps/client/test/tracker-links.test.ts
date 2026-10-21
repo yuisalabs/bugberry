@@ -5,6 +5,7 @@ import { linkState, trackersRefetchInterval } from "../src/lib/tracker-links"
 const NOW = new Date("2026-10-16T08:10:00Z").getTime()
 const link = (overrides: Partial<TrackerLink>): TrackerLink => ({
   integrationId: "gh",
+  provider: "github",
   externalId: null,
   externalUrl: null,
   error: null,
