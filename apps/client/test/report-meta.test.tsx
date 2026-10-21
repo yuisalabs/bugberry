@@ -43,6 +43,20 @@ describe("ReportMeta", () => {
     expect(screen.queryByText(/ENG-3/)).toBeNull()
   })
 
+  test("each tracker's issue reads the way that tracker names it", () => {
+    render(
+      <ReportMeta
+        report={reportFixture()}
+        issues={[
+          { provider: "linear", externalId: "ENG-142", externalUrl: "https://linear.app/kantor/issue/ENG-142" },
+          { provider: "gitlab", externalId: "42", externalUrl: "https://gitlab.com/kantor/web/-/issues/42" },
+        ]}
+      />,
+    )
+    expect(screen.getByRole("link", { name: "Linear ENG-142" })).toBeTruthy()
+    expect(screen.getByRole("link", { name: "GitLab #42" })).toBeTruthy()
+  })
+
   test("an issue from a tracker the project no longer has reads Issue #id", () => {
     render(<ReportMeta report={reportFixture()} issues={[{ provider: null, externalId: "42", externalUrl: "https://github.com/a/b/issues/42" }]} />)
     expect(screen.getByRole("link", { name: "Issue #42" })).toBeTruthy()

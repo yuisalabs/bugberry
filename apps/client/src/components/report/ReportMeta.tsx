@@ -1,4 +1,4 @@
-import { PROVIDER_LABELS } from "@bugberry/shared"
+import { issueReference, PROVIDER_LABELS } from "@bugberry/shared"
 import { RiComputerLine, RiGlobalLine, RiMacbookLine } from "@remixicon/react"
 import { Avatar } from "@bugberry/ui/avatar"
 import { Link } from "@bugberry/ui/link"
@@ -60,7 +60,7 @@ export function ReportMeta({ report, issues }: { report: ReportDetail; issues: S
               rel="noreferrer"
               className={`${chip} hover:bg-muted`}
             >
-              {issue.provider ? PROVIDER_LABELS[issue.provider] : "Issue"} #{issue.externalId}
+              {issue.provider ? PROVIDER_LABELS[issue.provider] : "Issue"} {issueReference(issue.provider, issue.externalId)}
             </Link>
           )
         })}

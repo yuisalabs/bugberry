@@ -1,4 +1,4 @@
-import { PROVIDER_LABELS } from "@bugberry/shared"
+import { issueReference, PROVIDER_LABELS } from "@bugberry/shared"
 import type { ReportTrackers } from "./api"
 import { linkState } from "./tracker-links"
 import { safeHttpUrl } from "./urls"
@@ -41,7 +41,7 @@ export function trackerItems(data: ReportTrackers, now: number, sendingId: strin
       case "sent":
         return {
           ...item,
-          label: `Open in ${provider} #${link?.externalId}`,
+          label: `Open in ${provider} ${issueReference(integration.provider, link?.externalId ?? "")}`,
           action: "open",
           href: link?.externalUrl ? safeHttpUrl(link.externalUrl) : null,
         }

@@ -219,6 +219,55 @@ describe("Integrations page parts", () => {
     expect(onPick).toHaveBeenCalledWith("activecollab")
   })
 
+  test("the empty page offers trackers and notification channels in two groups", () => {
+    const onPick = mock()
+    render(<IntegrationsEmpty onPick={onPick} />)
+    expect(screen.getByRole("heading", { name: "Issue trackers" })).toBeTruthy()
+    expect(screen.getByRole("heading", { name: "Notifications" })).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: /Slack/ }))
+    expect(onPick).toHaveBeenCalledWith("slack")
+  })
+
+  const slack: Integration = {
+    ...existing,
+    id: "n1",
+    provider: "slack",
+    kind: "notifier",
+    config: {},
+    label: "Slack channel",
+    lastError: "Slack rejected the message (HTTP 404)",
+  }
+  const rowActions = () => ({ onTest: mock(), onEdit: mock(), onDelete: mock() })
+
+  test("a notification channel sends a test message and shows its last error", () => {
+    const actions = rowActions()
+    render(
+      <ul>
+        <IntegrationRow integration={slack} testResult={null} testing={false} removing={false} {...actions} />
+      </ul>,
+    )
+    expect(screen.getByText(/Posts new reports/)).toBeTruthy()
+    expect(screen.queryByRole("button", { name: "Test connection" })).toBeNull()
+    expect(screen.getByText("Last message failed: Slack rejected the message (HTTP 404)")).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: "Send test message" }))
+    expect(actions.onTest).toHaveBeenCalled()
+  })
+
+  test("a channel that delivered says when its last message went out", () => {
+    render(
+      <ul>
+        <IntegrationRow
+          integration={{ ...slack, lastError: null, lastDeliveredAt: new Date() }}
+          testResult={null}
+          testing={false}
+          removing={false}
+          {...rowActions()}
+        />
+      </ul>,
+    )
+    expect(screen.getByText("Last message just now")).toBeTruthy()
+  })
+
   test("a saved integration can be tested, edited and deleted", () => {
     const actions = { onTest: mock(), onEdit: mock(), onDelete: mock() }
     render(

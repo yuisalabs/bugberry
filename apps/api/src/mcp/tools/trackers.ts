@@ -1,4 +1,4 @@
-import { integrationLabel, TRACKER_PROVIDERS } from "@bugberry/shared"
+import { integrationLabel, issueReference, TRACKER_PROVIDERS } from "@bugberry/shared"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { and, asc, eq, inArray } from "drizzle-orm"
 import { z } from "zod"
@@ -35,7 +35,9 @@ export function registerTrackerTools(server: McpServer, ctx: McpContext): void {
         const links = new Map((await ctx.dispatcher.linksFor(resolved.id)).map((link) => [link.integrationId, link]))
         const lines = rows.map((row) => {
           const link = links.get(row.id)
-          const state = link?.externalUrl ? `sent: ${link.externalUrl}` : link?.error ? `failed: ${link.error}` : link ? "sending" : "Not sent yet"
+          const state = link?.externalUrl
+            ? `sent as ${issueReference(row.provider, link.externalId ?? "")}: ${link.externalUrl}`
+            : link?.error ? `failed: ${link.error}` : link ? "sending" : "Not sent yet"
           return `${row.id} · ${row.provider} · ${integrationLabel(row.provider, row.config)}${row.autoSend ? " · auto-send" : ""} · ${state}`
         })
         return textResult(lines.join("\n"))

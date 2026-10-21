@@ -83,6 +83,11 @@ describe("activitySentence", () => {
     expect(activitySentence(activityFixture({ kind: "tracker", actor: null, detail }))).toBe("sent this to GitHub as #142")
   })
 
+  test("a Jira send names the issue by its key", () => {
+    const detail = { provider: "jira", externalId: "BUG-12", externalUrl: "https://kantor.atlassian.net/browse/BUG-12" }
+    expect(activitySentence(activityFixture({ kind: "tracker", detail }))).toBe("sent this to Jira as BUG-12")
+  })
+
   test("agent reads list what was read", () => {
     expect(activitySentence(activityFixture({ kind: "agent_read", detail: { parts: ["report"] } }))).toBe("read this report")
     expect(activitySentence(activityFixture({ kind: "agent_read", detail: { parts: ["report", "network"] } }))).toBe(
