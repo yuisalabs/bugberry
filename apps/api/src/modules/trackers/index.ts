@@ -48,7 +48,7 @@ export function trackersModule(deps: AppDeps) {
       "/reports/:id/trackers/:integrationId/send",
       async ({ user, params }) => {
         await requireReportMember(db, user.id, params.id)
-        return dispatcher.send(params.id, params.integrationId)
+        return dispatcher.send(params.id, params.integrationId, { actorId: user.id, viaAgent: null })
       },
       { auth: true },
     )

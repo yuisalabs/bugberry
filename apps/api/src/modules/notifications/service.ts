@@ -15,7 +15,7 @@ const callerMember = alias(workspaceMember, "caller")
 const visible = (userId: string) =>
   and(eq(notification.userId, userId), eq(callerMember.userId, userId), eq(callerMember.workspaceId, report.workspaceId))
 
-/** The bell: mentions of the caller, only in workspaces they still belong to. */
+/** The bell: mentions of the caller and replies in their threads, only in workspaces they still belong to. */
 export async function listNotifications(
   { db }: Pick<AppDeps, "db">,
   current: CurrentUser,
@@ -24,6 +24,7 @@ export async function listNotifications(
   const rows = await db
     .select({
       id: notification.id,
+      kind: notification.kind,
       readAt: notification.readAt,
       createdAt: notification.createdAt,
       commentId: notification.commentId,
@@ -68,6 +69,7 @@ export async function listNotifications(
   return {
     items: rows.map((row) => ({
       id: row.id,
+      kind: row.kind,
       read: row.readAt !== null,
       createdAt: row.createdAt,
       actor: row.actorId ? { id: row.actorId, name: row.actorName ?? "", image: row.actorImage ?? null } : null,

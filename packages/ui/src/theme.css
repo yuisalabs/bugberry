@@ -235,6 +235,37 @@
     }
 }
 
+/*
+ * Everything that can be clicked shows the hand, so people can tell it from what can't: buttons, links, tabs, menu
+ * and list choices, switches, checkboxes and radios (and the labels that wrap them). Disabled ones keep the arrow.
+ * Zero specificity, so a component's own cursor class (a text field, a drag handle) still wins.
+ */
+@layer base {
+    :where(
+            button,
+            a[href],
+            summary,
+            select,
+            [role="button"],
+            [role="link"],
+            [role="tab"],
+            [role="menuitem"],
+            [role="menuitemradio"],
+            [role="menuitemcheckbox"],
+            [role="option"],
+            [role="switch"],
+            [role="checkbox"],
+            [role="radio"],
+            label:has(input:is([type="checkbox"], [type="radio"])),
+            input:is([type="checkbox"], [type="radio"], [type="file"], [type="color"], [type="range"], [type="submit"], [type="button"], [type="reset"])
+        ) {
+        cursor: pointer;
+    }
+    :where(:disabled, [aria-disabled="true"], [data-disabled]) {
+        cursor: default;
+    }
+}
+
 /* Intent's Sheet: its backdrop fades and the page behind scales back while it is swiped open. */
 @keyframes sheet-backdrop {
     from {

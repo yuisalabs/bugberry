@@ -18,6 +18,7 @@ import { requireDebuggerView } from "../debugger"
 import { clip, moreLine, offsetLabel, paginate, textResult } from "../format"
 import { resolveReportRef } from "../refs"
 import { pageArgs, reportArgs } from "./args"
+import { noteAgentRead } from "../activity"
 
 const SLOW_REQUEST_MS = 1000
 const TIMELINE_KINDS = ["action", "navigation", "console", "error", "network", "note", "pause"] as const
@@ -111,7 +112,9 @@ export function registerEventTools(server: McpServer, ctx: McpContext): void {
     },
     (args) =>
       runTool(async () => {
-        const view = await requireDebuggerView(ctx, await resolveReportRef(ctx, args.report, args.workspace))
+        const resolved = await resolveReportRef(ctx, args.report, args.workspace)
+        await noteAgentRead(ctx, resolved, "timeline")
+        const view = await requireDebuggerView(ctx, resolved)
         const base = eventBase(view) ?? view.events[0]?.t ?? 0
         const offset = offsetOf(view)
         const entries = timelineEntries(view, args.includeAll ?? false).filter(
@@ -149,7 +152,9 @@ export function registerEventTools(server: McpServer, ctx: McpContext): void {
     },
     (args) =>
       runTool(async () => {
-        const view = await requireDebuggerView(ctx, await resolveReportRef(ctx, args.report, args.workspace))
+        const resolved = await resolveReportRef(ctx, args.report, args.workspace)
+        await noteAgentRead(ctx, resolved, "console")
+        const view = await requireDebuggerView(ctx, resolved)
         const offset = offsetOf(view)
         const search = args.search?.trim().toLowerCase()
         const entries = consoleEntries(view.events).filter(
@@ -185,7 +190,9 @@ export function registerEventTools(server: McpServer, ctx: McpContext): void {
     },
     (args) =>
       runTool(async () => {
-        const view = await requireDebuggerView(ctx, await resolveReportRef(ctx, args.report, args.workspace))
+        const resolved = await resolveReportRef(ctx, args.report, args.workspace)
+        await noteAgentRead(ctx, resolved, "actions")
+        const view = await requireDebuggerView(ctx, resolved)
         const offset = offsetOf(view)
         const actions = view.events.filter(
           (event): event is ViewAction => event.kind === "action" && (!args.types || args.types.includes(event.type as never)),

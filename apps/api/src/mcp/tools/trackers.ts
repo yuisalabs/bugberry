@@ -3,7 +3,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { asc, eq } from "drizzle-orm"
 import { z } from "zod"
 import { integration } from "../../db/schema"
-import { type McpContext, McpToolError, requireWrite, runTool } from "../context"
+import { agentLabel, type McpContext, McpToolError, requireWrite, runTool } from "../context"
 import { textResult } from "../format"
 import { requireMemberAccess, resolveReportRef } from "../refs"
 import { reportArgs } from "./args"
@@ -55,7 +55,10 @@ export function registerTrackerTools(server: McpServer, ctx: McpContext): void {
         const resolved = await resolveReportRef(ctx, args.report, args.workspace)
         requireMemberAccess(resolved)
         if (!resolved.row.projectId) throw new McpToolError("report_has_no_project", NO_PROJECT_TRACKERS)
-        const link = await ctx.dispatcher.send(resolved.id, args.integrationId)
+        const link = await ctx.dispatcher.send(resolved.id, args.integrationId, {
+          actorId: ctx.caller.user.id,
+          viaAgent: agentLabel(ctx.caller),
+        })
         if (!link.externalUrl) throw new McpToolError("tracker_failed", `The tracker refused the issue: ${link.error ?? "unknown error"}`)
         return textResult(`Issue: ${link.externalUrl}`, { url: link.externalUrl })
       }),

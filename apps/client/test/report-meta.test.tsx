@@ -7,15 +7,16 @@ describe("ReportMeta", () => {
   test("says who reported it, when, and on what", () => {
     const report = reportFixture({ createdAt: new Date(Date.now() - 5 * 60_000) })
     render(<ReportMeta report={report} issues={[]} />)
-    expect(screen.getByText("Ana reported via Chrome extension, 5 minutes ago")).toBeTruthy()
-    expect(screen.getByText("Chrome 140, Windows 11")).toBeTruthy()
+    expect(screen.getByText("Ana via Chrome extension · 5 minutes ago")).toBeTruthy()
+    expect(screen.getByText("Chrome 140")).toBeTruthy()
+    expect(screen.getByText("Windows 11")).toBeTruthy()
     expect(screen.getByText("1440 × 900")).toBeTruthy()
   })
 
   test("names the browser the report came from", () => {
     const report = reportFixture({ createdAt: new Date(Date.now() - 5 * 60_000) })
     render(<ReportMeta report={{ ...report, device: { ...report.device, browser: "Firefox 131" } }} issues={[]} />)
-    expect(screen.getByText("Ana reported via Firefox extension, 5 minutes ago")).toBeTruthy()
+    expect(screen.getByText("Ana via Firefox extension · 5 minutes ago")).toBeTruthy()
   })
 
   test("reportedVia drops the version, and an unknown browser reads as the BugBerry extension", () => {

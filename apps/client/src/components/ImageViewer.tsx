@@ -7,7 +7,12 @@ import { Link } from "@bugberry/ui/link"
 import { Toggle } from "@bugberry/ui/toggle"
 
 /** Light controls on the dark viewer; their hover tint follows the white text. */
-const onDark = "text-white hover:bg-current/10 pressed:bg-current/15 *:[svg]:text-white"
+/**
+ * Controls on the dark backdrop: white, also when hovered or (the zoom toggle) selected. Intent colours a Toggle's
+ * and a Button's icon through these variables in those states, so a plain icon colour alone loses there.
+ */
+const onDark =
+  "text-white hover:bg-current/10 pressed:bg-current/15 *:[svg]:text-white [--toggle-icon:var(--color-white)] [--toggle-icon-active:var(--color-white)] [--btn-icon:var(--color-white)] [--btn-icon-active:var(--color-white)]"
 
 /**
  * A screenshot on its own, over a dark backdrop: it fits the window, or shows at its actual size to scroll

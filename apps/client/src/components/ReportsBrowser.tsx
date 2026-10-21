@@ -1,10 +1,11 @@
+import { RiRecordCircleLine } from "@remixicon/react"
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query"
 import { type ReactNode, useState } from "react"
 import { useNow } from "../hooks/useNow"
 import { queries } from "../lib/queries"
 import { invitesAllowed, usageText } from "../lib/usage"
 import { feedItems } from "../lib/report-feed"
-import { type ReportSearch, toReportsQuery } from "../lib/report-search"
+import { hasFilters, type ReportSearch, toReportsQuery } from "../lib/report-search"
 import { readLayout, type ReportLayout, saveLayout } from "../lib/report-layout"
 import { useCurrentWorkspace } from "../lib/workspace"
 import { InviteDialog } from "./InviteDialog"
@@ -24,6 +25,7 @@ export function ReportsBrowser({
   setSearch,
   showProjectFilter = false,
   actions,
+  showCount,
 }: {
   title: string
   scope: { projectId?: string }
@@ -31,6 +33,8 @@ export function ReportsBrowser({
   setSearch: SearchUpdater
   showProjectFilter?: boolean
   actions?: ReactNode
+  /** "12 reports" under the title (a project's page). */
+  showCount?: boolean
 }) {
   const now = useNow()
   const { workspace } = useCurrentWorkspace()
@@ -46,6 +50,14 @@ export function ReportsBrowser({
 
   const update = (patch: Partial<ReportSearch>) => setSearch((prev) => ({ ...prev, ...patch }))
   const pages = reports.data?.pages ?? []
+  // Filters left nothing: count the whole list, so the page can say how much was searched.
+  // The phone's status chips: each status's count under the other filters.
+  const statusCounts = useQuery({
+    ...queries.reportStatusCounts(workspaceId, toReportsQuery(scope, search)),
+    enabled: Boolean(workspace),
+  })
+  const nothingMatches = hasFilters(search) && pages.length > 0 && (pages.at(-1)?.total ?? 0) === 0
+  const everything = useQuery({ ...queries.reportCount(workspaceId, scope.projectId), enabled: Boolean(workspace) && nothingMatches })
 
   return (
     <>
@@ -75,6 +87,25 @@ export function ReportsBrowser({
       onInvite={() => setInviting(true)}
       usage={limits.data ? usageText(limits.data) : null}
       newReport={<NewReportButton installUrl={config.data?.extensionInstallUrl ?? null} />}
+      showCount={showCount}
+      subtitle={showCount ? undefined : workspace?.name}
+      statusCounts={statusCounts.data ?? null}
+      fab={
+        <NewReportButton
+          installUrl={config.data?.extensionInstallUrl ?? null}
+          prominent
+          className="rounded-full px-5 shadow-lg shadow-primary/30"
+        />
+      }
+      checkedTotal={everything.data ?? null}
+      recordButton={
+        <NewReportButton
+          installUrl={config.data?.extensionInstallUrl ?? null}
+          label="Record your first bug"
+          icon={<RiRecordCircleLine aria-hidden />}
+          prominent
+        />
+      }
       layout={layout}
       onLayout={(next) => {
         setLayout(next)

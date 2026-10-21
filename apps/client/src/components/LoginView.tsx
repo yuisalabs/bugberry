@@ -28,7 +28,8 @@ const continueButton = "h-12 w-full gap-2 rounded-xl text-[15px] font-semibold t
 const field = "[&>[data-slot=label]+[data-slot=control]]:mt-2"
 const input = "h-12 rounded-xl bg-background text-[15px] placeholder:text-muted-foreground/80 sm:text-[15px]"
 
-function GithubIcon() {
+/** The sign-in providers' own marks, also shown under Account → Sign-in methods. */
+export function GithubIcon() {
   return (
     <svg aria-hidden viewBox="0 0 24 24" className="size-5" fill="currentColor">
       <path d="M12 .5C5.65.5.5 5.65.5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56v-2c-3.2.7-3.87-1.37-3.87-1.37-.53-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.42-2.7 5.39-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z" />
@@ -36,7 +37,7 @@ function GithubIcon() {
   )
 }
 
-function GitlabIcon() {
+export function GitlabIcon() {
   return (
     <svg aria-hidden viewBox="0 0 24 24" className="size-5">
       <path fill="#E24329" d="m12 22.1 4.04-12.44H7.96L12 22.1Z" />
@@ -50,7 +51,7 @@ function GitlabIcon() {
   )
 }
 
-function GoogleIcon() {
+export function GoogleIcon() {
   return (
     <svg aria-hidden viewBox="0 0 24 24" className="size-5">
       <path fill="#4285F4" d="M23.5 12.27c0-.82-.07-1.6-.2-2.36H12v4.47h6.45a5.5 5.5 0 0 1-2.39 3.62v3h3.87c2.26-2.09 3.57-5.16 3.57-8.73Z" />

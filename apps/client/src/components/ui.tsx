@@ -1,7 +1,15 @@
+import { RiCheckLine, RiFileCopyLine } from "@remixicon/react"
 import { type ReactNode, useState } from "react"
 import { Button } from "@bugberry/ui/button"
 import { Loader } from "@bugberry/ui/loader"
 import { errorMessage } from "../lib/api"
+
+/**
+ * A plain button for a destructive action (Remove, Revoke, Delete): red text and a red icon. Intent's button colours
+ * its icon on its own (--btn-icon, and --btn-icon-active on hover), so the text colour alone left the icon grey.
+ */
+export const dangerText =
+  "text-danger hover:bg-danger-subtle [--btn-icon:var(--color-danger)] [--btn-icon-active:var(--color-danger)]"
 
 export function Badge({ className, children }: { className: string; children: ReactNode }) {
   return (
@@ -58,7 +66,7 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
   )
 }
 
-export function CopyButton({ text, label }: { text: string; label: string }) {
+export function CopyButton({ text, label, className }: { text: string; label: string; className?: string }) {
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle")
   const copy = async () => {
     try {
@@ -70,7 +78,8 @@ export function CopyButton({ text, label }: { text: string; label: string }) {
     setTimeout(() => setState("idle"), 2000)
   }
   return (
-    <Button intent="outline" size="sm" onPress={() => void copy()}>
+    <Button intent="outline" size="sm" onPress={() => void copy()} className={className}>
+      {state === "copied" ? <RiCheckLine aria-hidden /> : <RiFileCopyLine aria-hidden />}
       {state === "copied" ? "Copied" : state === "failed" ? "Couldn't copy" : label}
     </Button>
   )

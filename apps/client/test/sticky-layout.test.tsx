@@ -4,6 +4,7 @@ import { render, screen } from "@testing-library/react"
 import type { ComponentProps } from "react"
 import { ReportsView } from "../src/components/ReportsView"
 import { APP_MAIN_ID } from "../src/lib/app-scroll"
+import { listItemFixture } from "./fixtures"
 import { createAppRouter } from "../src/router"
 
 function props(): ComponentProps<typeof ReportsView> {
@@ -11,7 +12,7 @@ function props(): ComponentProps<typeof ReportsView> {
     title: "All reports",
     members: [],
     search: {},
-    list: { items: [], total: 0, hasMore: false, loadingMore: false, moreFailed: false },
+    list: { items: [listItemFixture({ id: "a" })], total: 1, hasMore: false, loadingMore: false, moreFailed: false },
     now: 0,
     canInvite: false,
     onInvite: () => {},
@@ -20,6 +21,8 @@ function props(): ComponentProps<typeof ReportsView> {
     onLayout: () => {},
     onSearch: () => {},
     onLoadMore: () => {},
+    // The real card links into the router; this test has none.
+    renderCard: (item) => <p>{item.title}</p>,
   }
 }
 

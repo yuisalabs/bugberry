@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { parsePatterns, slugify } from "../src/lib/slug"
+import { slugify } from "../src/lib/slug"
 
 describe("slugify", () => {
   test("makes a URL-safe slug the server accepts", () => {
@@ -13,14 +13,5 @@ describe("slugify", () => {
       expect(serverPattern.test(slugify(name))).toBe(true)
     }
     expect(slugify("!!!")).toBe("")
-  })
-})
-
-describe("parsePatterns", () => {
-  test("one pattern per line, trimmed, without blanks or duplicates", () => {
-    expect(parsePatterns(" *.kantor.com/*\r\n\n staging.kantor.com \n*.kantor.com/*")).toEqual([
-      "*.kantor.com/*",
-      "staging.kantor.com",
-    ])
   })
 })

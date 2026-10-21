@@ -7,6 +7,7 @@ import { AppError, conflict, notFound, unprocessable } from "../errors"
 import { newId } from "../ids"
 import { createSecretBox, SECRET_UNREADABLE } from "../secret-box"
 import { buildIssueContent } from "./content"
+import { type ActivityActor, recordActivity } from "../../modules/activity/service"
 import { readTopErrors } from "./debugger-errors"
 import { type TrackerFactory, TrackerError } from "./providers"
 
@@ -57,7 +58,8 @@ export function createDispatcher(deps: { config: Config; db: Db; storage: Storag
     return claimed?.updatedAt ?? null
   }
 
-  async function send(reportId: string, integrationId: string): Promise<TrackerLink> {
+  /** `by` is who pressed Send, for the report's activity; null for an automatic send. */
+  async function send(reportId: string, integrationId: string, by: ActivityActor | null = null): Promise<TrackerLink> {
     const [row] = await db
       .select()
       .from(report)
@@ -115,7 +117,16 @@ export function createDispatcher(deps: { config: Config; db: Db; storage: Storag
     }
     try {
       const issue = await deps.trackers(target.provider, target.config, secret).createIssue(content)
-      return finish({ externalId: issue.externalId, externalUrl: issue.url, error: null })
+      const link = await finish({ externalId: issue.externalId, externalUrl: issue.url, error: null })
+      await recordActivity(db, {
+        reportId,
+        kind: "tracker",
+        // Marked rather than inferred from a missing person: older sends were never stored with who sent them.
+        detail: { provider: target.provider, externalId: issue.externalId, externalUrl: issue.url, ...(by ? {} : { automatic: true }) },
+        actorId: by?.actorId ?? null,
+        viaAgent: by?.viaAgent ?? null,
+      }).catch((error) => console.error("tracker activity failed", error))
+      return link
     } catch (error) {
       return finish({ error: error instanceof TrackerError ? error.message : "Could not send to the tracker" })
     }

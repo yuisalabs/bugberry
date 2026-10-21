@@ -1,7 +1,8 @@
 import { type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { ReportDetail } from "../lib/api"
 import { clampDevtoolsWidth, type DevtoolsLayout, devtoolsColumn, readDevtools, saveDevtools } from "../lib/devtools-layout"
-import { PRIORITY_LABELS, PRIORITY_STYLES } from "../lib/labels"
+import { RiFlag2Line, RiHashtag } from "@remixicon/react"
+import { PRIORITY_LABELS, PRIORITY_STYLES, STATUS_LABELS, STATUS_STYLES } from "../lib/labels"
 import { flaggedIssues } from "@bugberry/debugger-view"
 import type { SentIssue } from "../lib/report-page"
 import { type Playback, seekSeconds } from "../lib/timeline"
@@ -12,6 +13,7 @@ import type { DebuggerFocus } from "./debugger/DebuggerTabs"
 import { MediaViewer } from "./MediaViewer"
 import { FlaggedIssues } from "./report/FlaggedIssues"
 import { ReportMeta } from "./report/ReportMeta"
+import { playAt, ReportVideoContext } from "./report/video-context"
 import { Badge } from "./ui"
 import { VideoReporter, VideoShareActions } from "./VideoOverlay"
 
@@ -28,6 +30,8 @@ export function ReportView({
   issues = [],
   refreshReport,
   startAtSeconds,
+  project = null,
+  footer,
   children,
 }: {
   report: ReportDetail
@@ -39,7 +43,11 @@ export function ReportView({
   refreshReport: () => Promise<ReportDetail | undefined>
   /** Where the video starts, from a shared "at 0:03" link. */
   startAtSeconds?: number
-  /** Below the report: the comments. */
+  /** The report's project name, for the phone's chips above the title. */
+  project?: string | null
+  /** The phone's bar pinned to the bottom (Copy link); from tablet width up it sits in the header instead. */
+  footer?: ReactNode
+  /** Below the report and its captured data: the comments. */
   children?: ReactNode
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -79,6 +87,15 @@ export function ReportView({
     [report.captureType, currentMs, seek],
   )
   const onExpired = useCallback(() => void latestRefresh.current(), [])
+  // A "0:52" in a comment seeks the video; only a video report with a known length offers it.
+  const video = useMemo(
+    () => {
+      const durationMs = report.durationMs
+      if (report.captureType !== "video" || durationMs === null) return null
+      return { seek: (ms: number) => playAt(videoRef.current, ms, durationMs), durationMs }
+    },
+    [report.captureType, report.durationMs],
+  )
   const reporter = useMemo(() => <VideoReporter reporter={report.reporter} />, [report.reporter])
   const shareActions = useCallback(
     (seconds: number) => <VideoShareActions shareSlug={report.shareSlug} seconds={seconds} mediaUrl={report.mediaUrl} />,
@@ -100,9 +117,9 @@ export function ReportView({
     <div
       ref={grid}
       style={columns}
-      className={`min-h-screen ${devtools.open ? "xl:grid xl:grid-cols-[minmax(0,1fr)_max(360px,var(--devtools-width))]" : ""}`}
+      className={`min-h-screen ${footer ? "pb-24 md:pb-0" : ""} ${devtools.open ? "xl:grid xl:grid-cols-[minmax(0,1fr)_max(360px,var(--devtools-width))] xl:grid-rows-[auto_1fr]" : ""}`}
     >
-      <article className="flex min-w-0 flex-col gap-5 px-4 py-4 sm:px-6">
+      <article className="flex min-w-0 flex-col gap-5 px-4 py-4 sm:px-6 xl:col-start-1 xl:row-start-1">
         <header className="flex items-center gap-2">
           <div className="min-w-0 flex-1">{header}</div>
           <span className="hidden xl:block">
@@ -110,7 +127,8 @@ export function ReportView({
           </span>
         </header>
         <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
-          {fields}
+          {/* Phones: the fields come after what the report is about; from tablet width up, above the media. */}
+          {fields && <div className="order-last md:order-none">{fields}</div>}
           <MediaViewer
             report={report}
             onExpired={onExpired}
@@ -122,10 +140,13 @@ export function ReportView({
             topRight={shareActions}
           />
           <section className="flex flex-col gap-2">
+            <ReportChips report={report} project={project} />
             <div className="flex items-start gap-3">
               <div className="min-w-0 flex-1">{title}</div>
               {report.priority !== "none" && (
-                <Badge className={`mt-1.5 shrink-0 ${PRIORITY_STYLES[report.priority]}`}>{PRIORITY_LABELS[report.priority]}</Badge>
+                <span className="hidden md:block">
+                  <Badge className={`mt-1.5 shrink-0 ${PRIORITY_STYLES[report.priority]}`}>{PRIORITY_LABELS[report.priority]}</Badge>
+                </span>
               )}
             </div>
             {report.description && (
@@ -138,13 +159,12 @@ export function ReportView({
             onJump={(offsetMs) => playback?.seek(offsetMs)}
             onOpen={(target) => setFocus({ ...target, nonce: Date.now() })}
           />
-          {children}
         </div>
       </article>
       <aside
         ref={aside}
         aria-label="DevTools"
-        className={`relative min-w-0 border-t border-border xl:sticky xl:top-0 xl:h-screen xl:border-t-0 xl:border-l ${devtools.open ? "" : "xl:hidden"}`}
+        className={`relative min-w-0 px-4 sm:px-6 xl:sticky xl:top-0 xl:col-start-2 xl:row-span-2 xl:row-start-1 xl:h-screen xl:self-start xl:border-l xl:border-border xl:px-0 ${devtools.open ? "" : "xl:hidden"}`}
       >
         <DevtoolsResizer
           width={devtools.width}
@@ -156,10 +176,45 @@ export function ReportView({
           onResize={(width) => changeDevtools({ ...devtools, width: clampDevtoolsWidth(width, window.innerWidth) })}
           onReset={() => changeDevtools({ ...devtools, width: null })}
         />
-        <div className="h-full min-w-0 xl:overflow-hidden">
+        <div className="mx-auto h-full w-full max-w-4xl min-w-0 xl:max-w-none xl:overflow-hidden">
           <DebuggerPanel report={report} refreshReport={refresh} playback={playback} focus={focus} />
         </div>
       </aside>
+      {children && (
+        <div className="min-w-0 px-4 pt-8 pb-6 sm:px-6 xl:col-start-1 xl:row-start-2 xl:pt-0">
+          <div className="mx-auto w-full max-w-4xl">
+            <ReportVideoContext.Provider value={video}>{children}</ReportVideoContext.Provider>
+          </div>
+        </div>
+      )}
+      {footer && (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background px-4 py-3 md:hidden">{footer}</div>
+      )}
+    </div>
+  )
+}
+
+/** The phone's chips above the title: status, a priority that is set, and the project. */
+function ReportChips({ report, project }: { report: Pick<ReportDetail, "status" | "priority">; project: string | null }) {
+  const chip = "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium"
+  return (
+    <div className="flex flex-wrap gap-2 md:hidden">
+      <span className={`${chip} ${STATUS_STYLES[report.status]}`}>
+        <span aria-hidden className="size-1.5 rounded-full bg-current" />
+        {STATUS_LABELS[report.status]}
+      </span>
+      {report.priority !== "none" && (
+        <span className={`${chip} ${PRIORITY_STYLES[report.priority]}`}>
+          <RiFlag2Line aria-hidden className="size-4" />
+          {PRIORITY_LABELS[report.priority]}
+        </span>
+      )}
+      {project && (
+        <span className={`${chip} min-w-0 bg-muted text-muted-foreground`}>
+          <RiHashtag aria-hidden className="size-4 shrink-0" />
+          <span className="truncate">{project}</span>
+        </span>
+      )}
     </div>
   )
 }

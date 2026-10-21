@@ -18,13 +18,13 @@ beforeEach(async () => {
 const comments = () => ctx.api.api.reports({ id: reportId }).comments
 
 describe("comments", () => {
-  test("members add comments and read them oldest first, with the author", async () => {
+  test("members add comments and read them newest first, with the author", async () => {
     await comments().post({ body: "  Bisa direproduksi di Chrome  " }, { headers: ana.headers })
     await comments().post({ body: "Saya cek" }, { headers: budi.headers })
     const { data } = await comments().get({ headers: ana.headers })
-    expect(data?.map((item) => [item.author.name, item.body])).toEqual([
-      ["Ana", "Bisa direproduksi di Chrome"],
+    expect(data?.map((item) => [item.author?.name, item.body])).toEqual([
       ["Budi", "Saya cek"],
+      ["Ana", "Bisa direproduksi di Chrome"],
     ])
   })
 

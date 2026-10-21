@@ -32,27 +32,45 @@ function subjectFor(pattern: string, url: URL): string {
   return pattern.includes("://") ? `${url.protocol}//${rest}` : rest
 }
 
+/** The pattern that catches `url` and how specific it is (literal characters), if any does. */
+function bestPattern(patterns: readonly string[], url: URL): { pattern: string; score: number } | null {
+  let best: { pattern: string; score: number } | null = null
+  for (const raw of patterns) {
+    if (!raw.trim()) continue
+    const pattern = normalizePattern(raw)
+    if (!globToRegExp(pattern).test(subjectFor(pattern, url))) continue
+    const score = pattern.replaceAll("*", "").length
+    if (!best || score > best.score) best = { pattern: raw.trim(), score }
+  }
+  return best
+}
+
+function parseUrl(pageUrl: string): URL | null {
+  try {
+    return new URL(pageUrl)
+  } catch {
+    return null
+  }
+}
+
 /**
  * Picks the project whose URL pattern matches the page. Patterns are globs (`*` = anything) matched
  * against `host/path?query`, or against the full URL when they include a scheme. The most specific
  * pattern (most literal characters) wins.
  */
 export function matchProject<T extends ProjectWithPatterns>(projects: readonly T[], pageUrl: string): T | null {
-  let url: URL
-  try {
-    url = new URL(pageUrl)
-  } catch {
-    return null
-  }
+  const url = parseUrl(pageUrl)
+  if (!url) return null
   let best: { project: T; score: number } | null = null
   for (const project of projects) {
-    for (const raw of project.urlPatterns) {
-      if (!raw.trim()) continue
-      const pattern = normalizePattern(raw)
-      if (!globToRegExp(pattern).test(subjectFor(pattern, url))) continue
-      const score = pattern.replaceAll("*", "").length
-      if (!best || score > best.score) best = { project, score }
-    }
+    const found = bestPattern(project.urlPatterns, url)
+    if (found && (!best || found.score > best.score)) best = { project, score: found.score }
   }
   return best?.project ?? null
+}
+
+/** Which of these patterns catches the page, by the same rules as matchProject; null for none or a bad URL. */
+export function matchingPattern(patterns: readonly string[], pageUrl: string): string | null {
+  const url = parseUrl(pageUrl)
+  return url ? (bestPattern(patterns, url)?.pattern ?? null) : null
 }

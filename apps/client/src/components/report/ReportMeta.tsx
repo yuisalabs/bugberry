@@ -1,5 +1,5 @@
 import { PROVIDER_LABELS } from "@bugberry/shared"
-import { RiAspectRatioLine, RiComputerLine } from "@remixicon/react"
+import { RiComputerLine, RiGlobalLine, RiMacbookLine } from "@remixicon/react"
 import { Avatar } from "@bugberry/ui/avatar"
 import { Link } from "@bugberry/ui/link"
 import { useNow } from "../../hooks/useNow"
@@ -15,50 +15,56 @@ export function reportedVia(browser: string): string {
   return !name || name === "Unknown browser" ? "the BugBerry extension" : `${name} extension`
 }
 
-/** Who reported it and when, the browser it came from, and the issues it already has. */
+const chip = "inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground"
+
+/** Who reported it and when; then the browser, system and screen it came from, and the issues it already has, as chips. */
 export function ReportMeta({ report, issues }: { report: ReportDetail; issues: SentIssue[] }) {
   const now = useNow()
   const { browser, os, viewport } = report.device
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
-      <span className="flex items-center gap-1.5">
+    <div className="flex flex-col gap-3">
+      <p className="flex items-center gap-2 text-sm text-muted-foreground">
         <Avatar
           src={report.reporter.image}
           initials={initialsOf(report.reporter.name)}
           size="xs"
-          className="bg-secondary text-secondary-foreground"
+          className="shrink-0 bg-primary-subtle text-primary-subtle-foreground"
         />
         <span>
-          {report.reporter.name} reported via {reportedVia(browser)}, {formatRelative(report.createdAt, now)}
+          {report.reporter.name} via {reportedVia(browser)} · {formatRelative(report.createdAt, now)}
         </span>
-      </span>
-      <span className="flex items-center gap-1.5">
-        <RiComputerLine aria-hidden className="size-3.5" />
-        <span>
-          {browser}, {os}
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={chip}>
+          <RiGlobalLine aria-hidden className="size-3.5 text-muted-foreground" />
+          {browser}
         </span>
-      </span>
-      {viewport && (
-        <span className="flex items-center gap-1.5">
-          <RiAspectRatioLine aria-hidden className="size-3.5" />
-          <span>{viewport.replace(/\s*x\s*/i, " × ")}</span>
+        <span className={chip}>
+          <RiMacbookLine aria-hidden className="size-3.5 text-muted-foreground" />
+          {os}
         </span>
-      )}
-      {issues.map((issue) => {
-        const href = issue.externalUrl ? safeHttpUrl(issue.externalUrl) : null
-        if (!href) return null
-        return (
-          <Link
-            key={`${issue.provider}-${issue.externalId}`}
-            href={href}
-            target="_blank"
-            rel="noreferrer"
-            className="rounded-md border border-border px-2 py-0.5 font-medium text-foreground hover:bg-muted"
-          >
-            {issue.provider ? PROVIDER_LABELS[issue.provider] : "Issue"} #{issue.externalId}
-          </Link>
-        )
-      })}
+        {viewport && (
+          <span className={chip}>
+            <RiComputerLine aria-hidden className="size-3.5 text-muted-foreground" />
+            {viewport.replace(/\s*x\s*/i, " × ")}
+          </span>
+        )}
+        {issues.map((issue) => {
+          const href = issue.externalUrl ? safeHttpUrl(issue.externalUrl) : null
+          if (!href) return null
+          return (
+            <Link
+              key={`${issue.provider}-${issue.externalId}`}
+              href={href}
+              target="_blank"
+              rel="noreferrer"
+              className={`${chip} hover:bg-muted`}
+            >
+              {issue.provider ? PROVIDER_LABELS[issue.provider] : "Issue"} #{issue.externalId}
+            </Link>
+          )
+        })}
+      </div>
     </div>
   )
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { RiCloseCircleFill } from "@remixicon/react"
+import { RiCloseLine } from "@remixicon/react"
 import { Button } from "react-aria-components/Button"
 import type { TagGroupProps, TagListProps, TagProps } from "react-aria-components/TagGroup"
 import {
@@ -31,12 +31,13 @@ export function Tag({ children, className, ...props }: TagProps) {
   return (
     <PrimitiveTag
       textValue={textValue}
+      // BugBerry's chips: the primary colour on its subtle tint, as on the Members page's invite field.
       className={cx(
-        "inset-ring inset-ring-input outline-hidden dark:bg-input/30",
-        "inline-flex items-center gap-x-1.5 py-0.5 font-medium text-xs/5 forced-colors:outline",
+        "bg-primary-subtle text-primary-subtle-foreground outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
+        "inline-flex items-center gap-x-1 py-0.5 font-medium text-sm/6 forced-colors:outline",
         "*:[svg]:size-3 *:[svg]:shrink-0",
-        "cursor-default rounded-full px-2",
-        "selected:inset-ring-ring/70 selected:bg-primary-subtle selected:text-primary-subtle-foreground",
+        "cursor-default rounded-md ps-2.5 pe-1.5",
+        "selected:bg-primary selected:text-primary-foreground",
         "disabled:opacity-50 disabled:forced-colors:text-[GrayText]",
         props.href && "cursor-pointer hover:inset-ring-muted-foreground",
         className
@@ -47,8 +48,8 @@ export function Tag({ children, className, ...props }: TagProps) {
         <>
           {children}
           {allowsRemoving && (
-            <Button slot="remove" className="">
-              <RiCloseCircleFill className="-me-1 size-4" />
+            <Button slot="remove" className="grid size-5 place-content-center rounded outline-hidden hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring">
+              <RiCloseLine className="size-3.5" />
             </Button>
           )}
         </>

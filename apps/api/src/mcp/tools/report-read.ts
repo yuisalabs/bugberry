@@ -10,6 +10,7 @@ import { type McpContext, McpToolError, RATE_LIMITED, runTool } from "../context
 import { loadDebuggerData, NO_DEBUGGER, UNREADABLE_DEBUGGER } from "../debugger"
 import { clip, offsetLabel, reportUrl, textResult } from "../format"
 import { requireMemberAccess, resolveReportRef, type ResolvedReport } from "../refs"
+import { noteAgentRead } from "../activity"
 import { reportArgs } from "./args"
 
 const MAX_IMAGE_BYTES = 1024 * 1024
@@ -136,6 +137,7 @@ export function registerReportReadTools(server: McpServer, ctx: McpContext): voi
     ({ report: ref, workspace }) =>
       runTool(async () => {
         const resolved = await resolveReportRef(ctx, ref, workspace)
+        await noteAgentRead(ctx, resolved, "report")
         const { text, structured } = await reportSummary(ctx, resolved)
         return textResult(text, structured)
       }),
@@ -145,7 +147,9 @@ export function registerReportReadTools(server: McpServer, ctx: McpContext): voi
     "getComments",
     {
       title: "Get report comments",
-      description: "The team's discussion on a report, oldest first, with each comment's id (for editComment and deleteComment).",
+      description:
+        "The team's discussion on a report: newest thread first, replies under their comment (oldest first), reactions, " +
+        "and each comment's id (for editComment, deleteComment, and addComment's replyTo to answer it).",
       inputSchema: reportArgs,
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
@@ -153,21 +157,33 @@ export function registerReportReadTools(server: McpServer, ctx: McpContext): voi
       runTool(async () => {
         const resolved = await resolveReportRef(ctx, ref, workspace)
         requireMemberAccess(resolved)
-        const comments = await createCommentsService(ctx.deps).list(ctx.caller.user, resolved.id)
-        if (comments.length === 0) return textResult("No comments yet.", { comments: [] })
-        const lines = comments.map((item) => {
-          const names = new Map(item.mentions.map((person) => [person.id, person.name]))
+        await noteAgentRead(ctx, resolved, "comments")
+        const threads = await createCommentsService(ctx.deps).list(ctx.caller.user, resolved.id)
+        if (threads.length === 0) return textResult("No comments yet.", { comments: [] })
+        type Shown = (typeof threads)[number]["replies"][number]
+        const bodyOf = (item: Shown) => renderMentions(item.body, new Map(item.mentions.map((person) => [person.id, person.name])))
+        /** One comment as text; a reply is indented under its thread with "↳". */
+        const render = (item: Shown, reply: boolean) => {
+          const indent = reply ? "  " : ""
+          const mark = reply ? "↳ " : ""
+          if (item.deleted) return `${indent}${mark}[${item.id}] (deleted comment)`
           const via = item.viaAgent ? ` (via ${item.viaAgent})` : ""
-          return `[${item.id}] ${item.author.name}${via} · ${item.createdAt.toISOString()}\n${clip(renderMentions(item.body, names))}`
+          const reactions = item.reactions.map((reaction) => `${reaction.emoji} ${reaction.count}`).join("  ")
+          const text = clip(bodyOf(item)).replaceAll("\n", `\n${indent}`)
+          return `${indent}${mark}[${item.id}] ${item.author?.name}${via} · ${item.createdAt.toISOString()}\n${indent}${text}${reactions ? `\n${indent}${reactions}` : ""}`
+        }
+        const lines = threads.map((thread) => [render(thread, false), ...thread.replies.map((reply) => render(reply, true))].join("\n"))
+        const structured = (item: Shown) => ({
+          id: item.id,
+          author: item.deleted ? null : (item.author?.name ?? null),
+          viaAgent: item.viaAgent,
+          createdAt: item.createdAt.toISOString(),
+          deleted: item.deleted,
+          body: item.deleted ? "" : bodyOf(item),
+          reactions: item.reactions.map((reaction) => ({ emoji: reaction.emoji, count: reaction.count })),
         })
         return textResult(lines.join("\n\n"), {
-          comments: comments.map((item) => ({
-            id: item.id,
-            author: item.author.name,
-            viaAgent: item.viaAgent,
-            createdAt: item.createdAt.toISOString(),
-            body: renderMentions(item.body, new Map(item.mentions.map((person) => [person.id, person.name]))),
-          })),
+          comments: threads.map((thread) => ({ ...structured(thread), replies: thread.replies.map(structured) })),
         })
       }),
   )
@@ -185,6 +201,7 @@ export function registerReportReadTools(server: McpServer, ctx: McpContext): voi
       runTool(async () => {
         if (!ctx.screenshotLimiter.consume(ctx.caller.user.id)) throw new McpToolError("rate_limited", RATE_LIMITED)
         const resolved = await resolveReportRef(ctx, ref, workspace)
+        await noteAgentRead(ctx, resolved, "screenshot")
         const { storage } = ctx.deps
         const row = resolved.row
         const url = reportUrl(ctx.deps.config.appUrl, resolved.id)

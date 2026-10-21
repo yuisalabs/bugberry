@@ -28,15 +28,15 @@ describe("AccountSettingsView", () => {
     const name = screen.getByRole("textbox", { name: "Display name" }) as HTMLInputElement
     expect(name.value).toBe("Budi")
     fireEvent.change(name, { target: { value: "  Budi S " } })
-    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }))
     expect(props.onSaveName).toHaveBeenCalledWith("Budi S")
     fireEvent.change(name, { target: { value: "   " } })
-    expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole("button", { name: "Save changes" }) as HTMLButtonElement).disabled).toBe(true)
 
     const email = screen.getByRole("textbox", { name: "Email" }) as HTMLInputElement
     expect(email.value).toBe("budi@kantor.test")
     expect(email.readOnly).toBe(true)
-    expect(screen.getByText("Your email comes from how you sign in and can't be changed here.")).toBeTruthy()
+    expect(screen.getByText("Comes from how you sign in, so it can't be changed here.")).toBeTruthy()
     const methods = screen.getByRole("list", { name: "Sign-in methods" })
     expect(methods.textContent).toContain("Google")
     expect(methods.textContent).toContain("Email code")
@@ -54,6 +54,22 @@ describe("AccountSettingsView", () => {
     pick(input, small)
     expect(props.onUpload).toHaveBeenCalledWith(small)
     expect(screen.queryByRole("button", { name: "Remove" })).toBeNull()
+  })
+
+  test("each sign-in method says what it is and that it works", () => {
+    view()
+    const rows = screen.getAllByRole("listitem").map((row) => row.textContent)
+    expect(rows).toEqual([
+      "GoogleSign in with your Google accountConnected",
+      "Email codeA one-time code sent to budi@kantor.testEnabled",
+    ])
+  })
+
+  test("the save bar follows the name", () => {
+    view({ saved: true })
+    expect(screen.getByRole("status").textContent).toBe("Saved")
+    fireEvent.change(screen.getByRole("textbox", { name: "Display name" }), { target: { value: "Budi Santoso" } })
+    expect(screen.getByRole("status").textContent).toBe("Unsaved changes")
   })
 
   test("Remove shows only with a photo", () => {

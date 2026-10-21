@@ -7,6 +7,7 @@ import { clip, moreLine, offsetLabel, paginate, textResult } from "../format"
 import { resolveReportRef } from "../refs"
 import { pageArgs, reportArgs } from "./args"
 import { requestLine } from "./events"
+import { noteAgentRead } from "../activity"
 
 const STATUS_CLASSES = ["2xx", "3xx", "4xx", "5xx", "error"] as const
 type StatusClass = (typeof STATUS_CLASSES)[number]
@@ -63,7 +64,9 @@ export function registerNetworkTools(server: McpServer, ctx: McpContext): void {
     },
     (args) =>
       runTool(async () => {
-        const view = await requireDebuggerView(ctx, await resolveReportRef(ctx, args.report, args.workspace))
+        const resolved = await resolveReportRef(ctx, args.report, args.workspace)
+        await noteAgentRead(ctx, resolved, "network")
+        const view = await requireDebuggerView(ctx, resolved)
         const base = eventBase(view) ?? view.events[0]?.t ?? 0
         const method = args.method?.toUpperCase()
         const host = args.host?.toLowerCase()
@@ -108,7 +111,9 @@ export function registerNetworkTools(server: McpServer, ctx: McpContext): void {
     },
     (args) =>
       runTool(async () => {
-        const view = await requireDebuggerView(ctx, await resolveReportRef(ctx, args.report, args.workspace))
+        const resolved = await resolveReportRef(ctx, args.report, args.workspace)
+        await noteAgentRead(ctx, resolved, "network")
+        const view = await requireDebuggerView(ctx, resolved)
         const found = numberedRequests(view).find(({ n }) => n === args.index)
         if (!found) throw new McpToolError("request_not_found", `No request #${args.index} in this report`)
         const { request } = found

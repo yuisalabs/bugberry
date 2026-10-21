@@ -60,6 +60,12 @@ async function memberNames(ctx: McpContext, workspaceId: string): Promise<Map<st
   return new Map(rows.map((row) => [row.id, row.name]))
 }
 
+const NOTIFICATION_VERBS = {
+  mention: "mentioned you",
+  reply_to_you: "replied to your comment",
+  reply_in_thread: "replied in a thread you're in",
+} as const
+
 export function registerBrowseTools(server: McpServer, ctx: McpContext): void {
   const { config } = ctx.deps
 
@@ -207,7 +213,8 @@ export function registerBrowseTools(server: McpServer, ctx: McpContext): void {
     "getNotifications",
     {
       title: "Get your notifications",
-      description: "Comments where someone mentioned you, newest first (unread only by default), with the notification id for markNotificationsRead.",
+      description:
+        "Comments where someone mentioned you or replied in your threads, newest first (unread only by default), with the notification id for markNotificationsRead.",
       inputSchema: {
         unreadOnly: z.boolean().optional().describe("Only unread ones (default true)."),
         limit: z.number().int().min(1).max(50).optional(),
@@ -224,7 +231,7 @@ export function registerBrowseTools(server: McpServer, ctx: McpContext): void {
         const lines = items.map((item) => {
           const actor = `${item.actor?.name ?? "Someone"}${item.viaAgent ? ` (via ${item.viaAgent})` : ""}`
           return [
-            `[${item.id}]${item.read ? "" : " (unread)"} ${actor} mentioned you in BB-${item.report.number} · ${item.report.title}`,
+            `[${item.id}]${item.read ? "" : " (unread)"} ${actor} ${NOTIFICATION_VERBS[item.kind]} in BB-${item.report.number} · ${item.report.title}`,
             `    ${item.snippet}`,
             `    ${reportUrl(config.appUrl, item.report.id)}#comment-${item.commentId}`,
           ].join("\n")

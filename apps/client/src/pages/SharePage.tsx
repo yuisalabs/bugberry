@@ -50,9 +50,12 @@ export function SharePage() {
         report={share.data}
         header={
           <ReportHeader back={null}>
-            <CopyLinkButton report={share.data} settings={false} />
+            <span className="hidden md:inline-flex">
+              <CopyLinkButton report={share.data} settings={false} />
+            </span>
           </ReportHeader>
         }
+        footer={<CopyLinkButton report={share.data} settings={false} bar />}
         title={<ReportTitle title={share.data.title} editable={false} onSave={() => {}} />}
         refreshReport={async () => (await share.refetch()).data}
         startAtSeconds={t}

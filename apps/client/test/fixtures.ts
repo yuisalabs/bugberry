@@ -1,4 +1,4 @@
-import type { ReportDetail, ReportListItem } from "../src/lib/api"
+import type { Activity, Comment, CommentThread, ReportDetail, ReportListItem } from "../src/lib/api"
 
 export function reportFixture(overrides: Partial<ReportDetail> = {}): ReportDetail {
   return {
@@ -56,6 +56,39 @@ export function listItemFixture(overrides: Partial<ReportListItem> = {}): Report
     createdAt: new Date(NOW - 17 * 3_600_000),
     updatedAt: new Date(NOW - 17 * 3_600_000),
     reporter: { id: "u1", name: "Ervalsa Dwi Nanda", image: null },
+    ...overrides,
+  }
+}
+
+export function commentFixture(overrides: Partial<Comment> = {}): Comment {
+  return {
+    id: "c1",
+    reportId: "r1",
+    parentId: null,
+    author: { id: "u1", name: "Ana", image: null },
+    body: "Looks broken",
+    viaAgent: null,
+    createdAt: new Date("2026-10-16T08:00:00Z"),
+    edited: false,
+    deleted: false,
+    mentions: [],
+    reactions: [],
+    ...overrides,
+  }
+}
+
+export function threadFixture(overrides: Partial<CommentThread> = {}): CommentThread {
+  return { ...commentFixture(), replies: [], ...overrides }
+}
+
+export function activityFixture(overrides: Partial<Activity> = {}): Activity {
+  return {
+    id: "a1",
+    kind: "status",
+    at: new Date("2026-10-16T08:30:00Z"),
+    actor: { id: "u1", name: "Ana", image: null },
+    viaAgent: null,
+    detail: { from: "open", to: "in_progress" },
     ...overrides,
   }
 }

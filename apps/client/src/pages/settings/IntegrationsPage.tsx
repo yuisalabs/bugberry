@@ -1,26 +1,152 @@
-import { PROVIDER_LABELS } from "@bugberry/shared"
+import { PROVIDER_LABELS, TRACKER_PROVIDERS, type TrackerProvider } from "@bugberry/shared"
+import {
+  RiAddLine,
+  RiArrowRightSLine,
+  RiCheckboxCircleLine,
+  RiCloseCircleLine,
+  RiDeleteBinLine,
+  RiPencilLine,
+  RiPlugLine,
+} from "@remixicon/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { getRouteApi, Link } from "@tanstack/react-router"
-import { useReducer } from "react"
+import { useReducer, useState } from "react"
 import { Button } from "@bugberry/ui/button"
-import { IntegrationForm, type IntegrationSubmit } from "../../components/IntegrationForm"
+import { BugBerryLogo } from "../../components/BugBerryLogo"
+import { IntegrationForm, type IntegrationSubmit, ProviderMark } from "../../components/IntegrationForm"
+import { GithubIcon } from "../../components/LoginView"
 import { SettingsRowsSkeleton } from "../../components/Skeletons"
-import { Badge, EmptyState, ErrorState, PageHeader } from "../../components/ui"
-import { errorMessage, type IntegrationInput } from "../../lib/api"
+import { Badge, dangerText, ErrorState } from "../../components/ui"
+import { errorMessage, type Integration, type IntegrationInput } from "../../lib/api"
 import { api } from "../../lib/client"
-import { INITIAL_INTEGRATIONS_UI, integrationsUi } from "../../lib/integrations-ui"
+import { INITIAL_INTEGRATIONS_UI, integrationsUi, type TestResult } from "../../lib/integrations-ui"
 import { queries } from "../../lib/queries"
 import { useCurrentWorkspace } from "../../lib/workspace"
+import { useConfirm } from "@bugberry/ui/confirm-dialog"
 
 const routeApi = getRouteApi("/_authed/_admin/app/settings/projects/$projectId/integrations")
 
+/** What each tracker makes out of a report. */
+const PROVIDER_CREATES: Record<TrackerProvider, string> = { github: "Create issues", activecollab: "Create tasks" }
+
+/** No integration yet: what one does, and a card per tracker that opens the form with it chosen. */
+export function IntegrationsEmpty({ onPick }: { onPick(provider: TrackerProvider): void }) {
+  return (
+    <div className="flex flex-col items-center gap-6 rounded-2xl border border-border bg-background px-6 py-12 text-center shadow-xs">
+      <div aria-hidden className="flex items-center gap-4">
+        <span className="grid size-14 place-content-center rounded-2xl bg-primary-subtle">
+          <BugBerryLogo withWordmark={false} className="size-9" />
+        </span>
+        {/* The wave's shape comes from an image used as a mask, so it takes the theme's colour. */}
+        <span className="h-4 w-16 bg-primary/40 [mask:url(/assets/wave.svg)_center/contain_no-repeat]" />
+        <span className="grid size-14 place-content-center rounded-2xl bg-foreground text-background [&_svg]:size-7">
+          <GithubIcon />
+        </span>
+      </div>
+      <div className="flex max-w-lg flex-col gap-2">
+        <h2 className="font-heading text-2xl font-bold tracking-tight text-foreground">No integrations yet</h2>
+        <p className="text-muted-foreground">
+          Connect a tracker and each report becomes a ready-to-work issue, with the video, console logs and steps attached.
+        </p>
+      </div>
+      <ul className="grid w-full max-w-xl grid-cols-1 gap-3 sm:grid-cols-2">
+        {TRACKER_PROVIDERS.map((provider) => (
+          <li key={provider}>
+            <button
+              type="button"
+              onClick={() => onPick(provider)}
+              className="flex w-full items-center gap-3 rounded-xl border border-border bg-background px-4 py-3 text-left outline-hidden transition hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <ProviderMark provider={provider} className="size-10" />
+              <span className="flex flex-1 flex-col">
+                <span className="font-medium text-foreground">{PROVIDER_LABELS[provider]}</span>
+                <span className="text-sm text-muted-foreground">{PROVIDER_CREATES[provider]}</span>
+              </span>
+              <RiArrowRightSLine aria-hidden className="size-5 text-muted-foreground" />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+/** A saved integration: where it sends, whether it sends on its own, and its connection test. */
+export function IntegrationRow({
+  integration,
+  testResult,
+  testing,
+  removing,
+  onTest,
+  onEdit,
+  onDelete,
+}: {
+  integration: Integration
+  testResult: TestResult | null
+  testing: boolean
+  removing: boolean
+  onTest(): void
+  onEdit(): void
+  onDelete(): void
+}) {
+  return (
+    <li className="flex flex-col gap-3 rounded-2xl border border-border bg-background p-5 shadow-xs">
+      <div className="flex flex-wrap items-center gap-4">
+        <ProviderMark provider={integration.provider} className="size-11" />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="truncate font-mono font-medium text-foreground">{integration.label}</span>
+            {integration.autoSend && <Badge className="bg-success-subtle text-success-subtle-foreground">Sends every report</Badge>}
+          </span>
+          <span className="text-sm text-muted-foreground">
+            {PROVIDER_LABELS[integration.provider]} · {PROVIDER_CREATES[integration.provider].toLowerCase()}
+          </span>
+        </div>
+        <span className="flex flex-wrap gap-2">
+          <Button size="sm" intent="outline" isDisabled={testing} onPress={onTest}>
+            <RiPlugLine aria-hidden />
+            Test connection
+          </Button>
+          <Button size="sm" intent="outline" onPress={onEdit} aria-label={`Edit ${integration.label}`}>
+            <RiPencilLine aria-hidden />
+            Edit
+          </Button>
+          <Button
+            size="sm"
+            intent="plain"
+            isDisabled={removing}
+            onPress={onDelete}
+            aria-label={`Delete ${integration.label}`}
+            className={dangerText}
+          >
+            <RiDeleteBinLine aria-hidden />
+            Delete
+          </Button>
+        </span>
+      </div>
+      {testResult && (
+        <p
+          role="status"
+          className={`flex items-center gap-1.5 text-sm ${testResult.ok ? "text-success-subtle-foreground" : "text-danger-subtle-foreground"}`}
+        >
+          {testResult.ok ? <RiCheckboxCircleLine aria-hidden className="size-4" /> : <RiCloseCircleLine aria-hidden className="size-4" />}
+          {testResult.message}
+        </p>
+      )}
+    </li>
+  )
+}
+
 export function IntegrationsPage() {
+  const { confirm, dialog } = useConfirm()
   const { projectId } = routeApi.useParams()
   const queryClient = useQueryClient()
   const { workspace } = useCurrentWorkspace()
   const projects = useQuery({ ...queries.projects(workspace?.id ?? ""), enabled: Boolean(workspace) })
   const integrations = useQuery(queries.integrations(projectId))
   const [{ editing, testResult }, dispatch] = useReducer(integrationsUi, INITIAL_INTEGRATIONS_UI)
+  // The tracker chosen on the empty page's cards, for the new integration's form.
+  const [picked, setPicked] = useState<TrackerProvider>("github")
   const refresh = () => queryClient.invalidateQueries({ queryKey: queries.integrations(projectId).queryKey })
 
   const save = useMutation({
@@ -51,94 +177,99 @@ export function IntegrationsPage() {
     onError: (error, id) => dispatch({ type: "tested", id, ok: false, message: errorMessage(error) }),
   })
 
+  const start = (provider: TrackerProvider) => {
+    setPicked(provider)
+    dispatch({ type: "edit", id: "new" })
+  }
   const cancel = () => {
     dispatch({ type: "cancel" })
     save.reset()
   }
 
   const project = projects.data?.find((item) => item.id === projectId)
+  const projectName = project?.name ?? "this project"
   const error = save.error ?? remove.error
+  const editingIntegration = editing && editing !== "new" ? integrations.data?.find((item) => item.id === editing) : undefined
 
   return (
-    <section className="flex max-w-4xl flex-col gap-4">
-      <Link to="/app/settings/projects" className="text-sm text-primary hover:underline">
-        ← Project
-      </Link>
-      <PageHeader
-        title={`Integrations${project ? ` · ${project.name}` : ""}`}
-        subtitle="Reports in this project can be sent to these trackers."
-        actions={editing !== "new" && <Button size="sm" onPress={() => dispatch({ type: "edit", id: "new" })}>New integration</Button>}
-      />
-      {editing === "new" && (
-        <IntegrationForm
-          busy={save.isPending}
-          onCancel={cancel}
-          onSubmit={(value) => save.mutate({ id: null, value })}
-        />
-      )}
+    <section className="flex flex-col gap-6">
+      <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+        <Link to="/app/settings/projects" className="hover:text-foreground">
+          Projects
+        </Link>
+        <RiArrowRightSLine aria-hidden className="size-4" />
+        {project ? (
+          <Link to="/app/p/$projectSlug" params={{ projectSlug: project.slug }} className="hover:text-foreground">
+            {project.name}
+          </Link>
+        ) : (
+          <span>Project</span>
+        )}
+        <RiArrowRightSLine aria-hidden className="size-4" />
+        <span aria-current="page" className="font-medium text-primary">
+          Integrations
+        </span>
+      </nav>
+
+      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-6">
+        <div className="flex flex-col gap-1">
+          <h1 className="font-heading text-xl font-bold tracking-tight text-foreground">Integrations</h1>
+          <p className="text-muted-foreground">Reports in {projectName} can be sent to these trackers.</p>
+        </div>
+        {editing === null && (
+          <Button onPress={() => start("github")}>
+            <RiAddLine aria-hidden />
+            New integration
+          </Button>
+        )}
+      </header>
+
       {error && (
         <p role="alert" className="text-sm text-danger-subtle-foreground">
           {errorMessage(error)}
         </p>
       )}
-      {integrations.isPending ? (
+
+      {editing === "new" || editingIntegration ? (
+        <IntegrationForm
+          key={editing}
+          integration={editingIntegration}
+          projectName={projectName}
+          initialProvider={picked}
+          busy={save.isPending}
+          onCancel={cancel}
+          onSubmit={(value) => save.mutate({ id: editingIntegration?.id ?? null, value })}
+        />
+      ) : integrations.isPending ? (
         <SettingsRowsSkeleton />
       ) : integrations.isError ? (
         <ErrorState error={integrations.error} onRetry={() => void integrations.refetch()} />
       ) : integrations.data.length === 0 ? (
-        <EmptyState title="No integrations yet" />
+        <IntegrationsEmpty onPick={start} />
       ) : (
         <ul className="flex flex-col gap-3">
-          {integrations.data.map((item) =>
-            editing === item.id ? (
-              <li key={item.id}>
-                <IntegrationForm
-                  integration={item}
-                  busy={save.isPending}
-                  onCancel={cancel}
-                  onSubmit={(value) => save.mutate({ id: item.id, value })}
-                />
-              </li>
-            ) : (
-              <li
-                key={item.id}
-                className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-border bg-background p-4"
-              >
-                <div className="min-w-0">
-                  <p className="font-medium">
-                    {PROVIDER_LABELS[item.provider]} · {item.label}
-                  </p>
-                  {item.autoSend && <Badge className="mt-1 bg-success-subtle text-success-subtle-foreground">Auto-send</Badge>}
-                  {testResult?.id === item.id && (
-                    <p role="status" className={`mt-1 text-sm ${testResult.ok ? "text-success-subtle-foreground" : "text-danger-subtle-foreground"}`}>
-                      {testResult.message}
-                    </p>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" intent="outline" isDisabled={check.isPending} onPress={() => check.mutate(item.id)}>
-                    Test connection
-                  </Button>
-                  <Button size="sm" intent="outline" onPress={() => dispatch({ type: "edit", id: item.id })}>
-                    Edit
-                  </Button>
-                  <Button size="sm"
-                    intent="danger"
-                    isDisabled={remove.isPending}
-                    onPress={() => {
-                      if (window.confirm("Delete this integration? Links to issues it already created are removed from BugBerry too.")) {
-                        remove.mutate(item.id)
-                      }
-                    }}
-                  >
-                    Delete
-                  </Button>
-                </div>
-              </li>
-            ),
-          )}
+          {integrations.data.map((item) => (
+            <IntegrationRow
+              key={item.id}
+              integration={item}
+              testResult={testResult?.id === item.id ? testResult : null}
+              testing={check.isPending}
+              removing={remove.isPending}
+              onTest={() => check.mutate(item.id)}
+              onEdit={() => dispatch({ type: "edit", id: item.id })}
+              onDelete={async () => {
+                const yes = await confirm({
+                  title: "Delete this integration?",
+                  description: "Links to issues it already created are removed from BugBerry too.",
+                  confirmLabel: "Delete integration",
+                })
+                if (yes) remove.mutate(item.id)
+              }}
+            />
+          ))}
         </ul>
       )}
+      {dialog}
     </section>
   )
 }

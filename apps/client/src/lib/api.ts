@@ -163,15 +163,21 @@ export function createApi(origin: string = window.location.origin, fetcher: type
     updateProject: (id: string, body: ProjectInput) => unwrap(api.projects({ id }).patch(body)),
     deleteProject: (id: string) => unwrap(api.projects({ id }).delete()),
     reports: (workspaceId: string, query: ReportsQuery) => unwrap(api.reports.get({ query: { workspaceId, ...query } })),
+    reportCounts: (workspaceId: string, query: Omit<ReportsQuery, "page" | "perPage">) =>
+      unwrap(api.reports.counts.get({ query: { workspaceId, ...query } })),
     report: (id: string) => unwrap(api.reports({ id }).get()),
     updateReport: (id: string, patch: ReportPatch) => unwrap(api.reports({ id }).patch(patch)),
     deleteReport: (id: string) => unwrap(api.reports({ id }).delete()),
     regenerateShare: (id: string) => unwrap(api.reports({ id }).share.regenerate.post()),
     share: (slug: string) => unwrap(api.share({ slug }).get()),
     comments: (reportId: string) => unwrap(api.reports({ id: reportId }).comments.get()),
-    addComment: (reportId: string, body: string) => unwrap(api.reports({ id: reportId }).comments.post({ body })),
+    addComment: (reportId: string, body: string, replyTo?: string) =>
+      unwrap(api.reports({ id: reportId }).comments.post(replyTo ? { body, replyTo } : { body })),
     editComment: (id: string, body: string) => unwrap(api.comments({ id }).patch({ body })),
     deleteComment: (id: string) => unwrap(api.comments({ id }).delete()),
+    /** Adds the caller's emoji to a comment, or takes it off; returns the comment's reactions. */
+    react: (commentId: string, emoji: string) => unwrap(api.comments({ id: commentId }).reactions.post({ emoji })),
+    activity: (reportId: string) => unwrap(api.reports({ id: reportId }).activity.get()),
     updateName: (name: string) => unwrap(api.me.patch({ name })),
     avatarUploadTarget: (contentType: "image/png" | "image/jpeg", size: number) => unwrap(api.me.avatar.post({ contentType, size })),
     confirmAvatar: (avatarId: string) => unwrap(api.me.avatar({ avatarId }).post()),
@@ -216,9 +222,15 @@ export type JoinRequest = Awaited<ReturnType<Api["joinRequests"]>>[number]
 export type InviteResult = Awaited<ReturnType<Api["invite"]>>[number]
 export type InvitationInfo = Awaited<ReturnType<Api["invitation"]>>
 export type ReportList = Awaited<ReturnType<Api["reports"]>>
+export type ReportCounts = Awaited<ReturnType<Api["reportCounts"]>>
 export type ReportListItem = ReportList["items"][number]
 export type ReportDetail = Awaited<ReturnType<Api["report"]>>
-export type Comment = Awaited<ReturnType<Api["comments"]>>[number]
+/** A thread: its first comment, with the replies under it. */
+export type CommentThread = Awaited<ReturnType<Api["comments"]>>[number]
+/** One comment, a thread's first or a reply. */
+export type Comment = CommentThread["replies"][number]
+export type Reaction = Comment["reactions"][number]
+export type Activity = Awaited<ReturnType<Api["activity"]>>[number]
 export type Notifications = Awaited<ReturnType<Api["notifications"]>>
 export type ReportTrackers = Awaited<ReturnType<Api["reportTrackers"]>>
 export type TrackerLink = ReportTrackers["links"][number]
@@ -236,6 +248,7 @@ const MESSAGES: Record<string, string> = {
   project_not_found: "Project not found",
   report_not_found: "Report not found",
   comment_not_found: "Comment not found",
+  invalid_emoji: "Pick an emoji to react with",
   empty_comment: "A comment can't be empty",
   integration_not_found: "Integration not found",
   invalid_config: "The integration settings are invalid",

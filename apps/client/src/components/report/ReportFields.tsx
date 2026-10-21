@@ -30,10 +30,14 @@ function CompactSelect({
       selectedKey={value}
       isDisabled={disabled}
       onSelectionChange={(key) => key !== null && onChange(String(key))}
-      className="w-auto *:data-[slot=label]:font-medium [&>[data-slot=label]+[data-slot=control]]:mt-1"
+      // Phones: one row of the fields card, the label on the left and the value on the right.
+      className="w-auto *:data-[slot=label]:font-medium [&>[data-slot=label]+[data-slot=control]]:mt-1 max-md:flex max-md:w-full max-md:items-center max-md:justify-between max-md:gap-3 max-md:px-4 max-md:py-2.5 max-md:*:data-[slot=control]:w-auto max-md:*:data-[slot=label]:font-normal max-md:[&>[data-slot=label]+[data-slot=control]]:mt-0"
     >
-      <Label className="text-xs text-muted-foreground sm:text-xs">{label}</Label>
-      <SelectTrigger prefix={icon} className="h-8 min-w-28 bg-background py-0 sm:py-0" />
+      <Label className="text-sm text-muted-foreground sm:text-sm md:text-xs">{label}</Label>
+      <SelectTrigger
+        prefix={icon}
+        className="h-8 min-w-28 bg-background py-0 sm:py-0 max-md:min-w-0 max-md:border-transparent max-md:bg-transparent max-md:font-medium"
+      />
       <SelectContent items={options}>{(option) => <SelectItem id={option.id}>{option.label}</SelectItem>}</SelectContent>
     </Select>
   )
@@ -56,7 +60,7 @@ export function ReportFields({
   const listed =
     report.assignee && !people.some((member) => member.id === report.assignee?.id) ? [report.assignee, ...people] : people
   return (
-    <div className="flex flex-wrap items-end gap-3">
+    <div className="flex flex-col divide-y divide-border rounded-xl border border-border bg-background md:flex-row md:flex-wrap md:items-end md:gap-3 md:divide-y-0 md:rounded-none md:border-0 md:bg-transparent">
       <CompactSelect
         label="Status"
         icon={<span className={`block size-2 rounded-full ${STATUS_DOT_STYLES[report.status]}`} />}

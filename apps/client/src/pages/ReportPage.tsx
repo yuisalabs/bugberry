@@ -47,6 +47,7 @@ export function ReportPage() {
     onSuccess: (detail) => {
       queryClient.setQueryData(queries.report(reportId).queryKey, detail)
       void queryClient.invalidateQueries({ queryKey: ["reports"] })
+      void queryClient.invalidateQueries({ queryKey: queries.activity(reportId).queryKey })
     },
     onError: (error) => toast({ title: errorMessage(error), tone: "error" }),
   })
@@ -73,10 +74,14 @@ export function ReportPage() {
       report={report.data}
       header={
         <ReportHeader back={backTarget(report.data, projects.data ?? [])} leading={<NotificationBell placement="bottom start" />}>
-          <CopyLinkButton report={report.data} />
+          <span className="hidden md:inline-flex">
+            <CopyLinkButton report={report.data} />
+          </span>
           <MoreMenu report={report.data} />
         </ReportHeader>
       }
+      footer={<CopyLinkButton report={report.data} bar />}
+      project={projects.data?.find((project) => project.id === report.data.projectId)?.name ?? null}
       fields={
         <ReportFields
           report={report.data}

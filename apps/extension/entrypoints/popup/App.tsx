@@ -15,6 +15,7 @@ import type { RecordingStatus } from "../../lib/recording-flow"
 import { checkSession, type SessionState, serverLabel, signInUrl } from "../../lib/session"
 import { loadSettings, type Settings } from "../../lib/settings"
 import { PopupView } from "./PopupView"
+import { useConfirm } from "@bugberry/ui/confirm-dialog"
 
 const store = createIndexedDbDraftStore()
 const MIC_BLOCKED = "Microphone is blocked. Allow it for BugBerry in Chrome's site settings."
@@ -25,6 +26,7 @@ const tabRecorder = hasTabRecorder(browser)
 const ALL_SITES = { origins: ["<all_urls>"] }
 
 export function App() {
+  const { confirm, dialog } = useConfirm()
   const [settings, setSettings] = useState<Settings | null | undefined>(undefined)
   const [session, setSession] = useState<SessionState | undefined>(undefined)
   const [prefs, setPrefs] = useState<CapturePrefs>(DEFAULT_CAPTURE_PREFS)
@@ -141,7 +143,12 @@ export function App() {
   }
 
   const remove = async (id: string) => {
-    if (!window.confirm("Delete this draft? Its screenshot or video is deleted too.")) return
+    const yes = await confirm({
+      title: "Delete this draft?",
+      description: "Its screenshot or video is deleted too.",
+      confirmLabel: "Delete draft",
+    })
+    if (!yes) return
     await store.delete(id)
     setDrafts(await store.list())
   }
@@ -153,33 +160,36 @@ export function App() {
   }
 
   return (
-    <PopupView
-      session={session}
-      serverHost={settings ? serverLabel(settings.serverUrl, BUILD_SERVER_ORIGIN) : ""}
-      prefs={prefs}
-      micLabel={micLabel}
-      screenshotShortcut={shortcut}
-      recording={recording}
-      drafts={drafts}
-      logsAvailable={capturable(activeTab?.url)}
-      tabRecorder={tabRecorder}
-      hostAccess={hostAccess}
-      error={error}
-      busy={busy}
-      onPrefs={(patch) => void updatePrefs(patch)}
-      onMicToggle={(on) => void onMicToggle(on)}
-      onScreenshot={onScreenshot}
-      onRecord={onRecord}
-      onSignIn={() => settings && void browser.tabs.create({ url: signInUrl(settings.serverUrl) })}
-      onRetry={() => void retry()}
-      onOpenSettings={() => void browser.runtime.openOptionsPage()}
-      onOpenDashboard={() => settings && void browser.tabs.create({ url: `${settings.serverUrl}/app` })}
-      onOpenDraft={(id) => void browser.tabs.create({ url: `${browser.runtime.getURL("/review.html")}?draft=${encodeURIComponent(id)}` })}
-      onDeleteDraft={(id) => void remove(id)}
-      onAllowHosts={() => void browser.permissions.request(ALL_SITES).finally(readHostAccess)}
-      usage={limitNotes.usage}
-      screenshotWarning={limitNotes.screenshot}
-      recordWarning={limitNotes.record}
-    />
+    <>
+      {dialog}
+      <PopupView
+        session={session}
+        serverHost={settings ? serverLabel(settings.serverUrl, BUILD_SERVER_ORIGIN) : ""}
+        prefs={prefs}
+        micLabel={micLabel}
+        screenshotShortcut={shortcut}
+        recording={recording}
+        drafts={drafts}
+        logsAvailable={capturable(activeTab?.url)}
+        tabRecorder={tabRecorder}
+        hostAccess={hostAccess}
+        error={error}
+        busy={busy}
+        onPrefs={(patch) => void updatePrefs(patch)}
+        onMicToggle={(on) => void onMicToggle(on)}
+        onScreenshot={onScreenshot}
+        onRecord={onRecord}
+        onSignIn={() => settings && void browser.tabs.create({ url: signInUrl(settings.serverUrl) })}
+        onRetry={() => void retry()}
+        onOpenSettings={() => void browser.runtime.openOptionsPage()}
+        onOpenDashboard={() => settings && void browser.tabs.create({ url: `${settings.serverUrl}/app` })}
+        onOpenDraft={(id) => void browser.tabs.create({ url: `${browser.runtime.getURL("/review.html")}?draft=${encodeURIComponent(id)}` })}
+        onDeleteDraft={(id) => void remove(id)}
+        onAllowHosts={() => void browser.permissions.request(ALL_SITES).finally(readHostAccess)}
+        usage={limitNotes.usage}
+        screenshotWarning={limitNotes.screenshot}
+        recordWarning={limitNotes.record}
+      />
+    </>
   )
 }

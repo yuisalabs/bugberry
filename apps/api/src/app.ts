@@ -8,6 +8,7 @@ import { AppError } from "./lib/errors"
 import { mcpModule } from "./mcp/route"
 import { wellKnownModule } from "./well-known"
 import type { TrackerFactory } from "./lib/trackers/providers"
+import { activityModule } from "./modules/activity"
 import { commentsModule } from "./modules/comments"
 import { integrationsModule } from "./modules/integrations"
 import { localFilesModule } from "./modules/local-files"
@@ -127,6 +128,7 @@ export function createApp(deps: AppDeps) {
     .use(reportsModule(deps))
     .use(shareModule(deps))
     .use(commentsModule(deps))
+    .use(activityModule(deps))
     .use(notificationsModule(deps))
     .use(integrationsModule(deps))
     .use(trackersModule(deps))

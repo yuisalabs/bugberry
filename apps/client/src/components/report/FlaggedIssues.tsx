@@ -41,13 +41,17 @@ export function FlaggedIssues({
       </h2>
       <ul className="mt-2 flex flex-col divide-y divide-primary/10">
         {shown.map((issue) => (
-          <li key={issue.key} className="flex items-center gap-3 py-1.5 text-sm">
-            <span aria-hidden className={`size-2 shrink-0 rounded-full ${DOT[issue.level]}`} />
+          // Phones: the whole message wraps beside its dot, and Jump goes to its own line under it.
+          <li key={issue.key} className="flex flex-wrap items-start gap-x-3 gap-y-2 py-2 text-sm md:items-center md:py-1.5">
+            <span aria-hidden className={`mt-1.5 size-2 shrink-0 rounded-full md:mt-0 ${DOT[issue.level]}`} />
             <AriaButton
               onPress={() => onOpen(issue.target)}
-              className="flex min-w-0 flex-1 items-baseline gap-2 text-left hover:underline"
+              className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 gap-y-0.5 text-left hover:underline max-md:basis-[calc(100%-1.25rem)] md:flex-nowrap"
             >
-              <span title={issue.source ? `${issue.text} (${issue.source})` : issue.text} className="truncate font-mono text-xs text-foreground">
+              <span
+                title={issue.source ? `${issue.text} (${issue.source})` : issue.text}
+                className="min-w-0 font-mono text-xs/5 break-all text-foreground md:truncate"
+              >
                 {issue.text}
               </span>
               {issue.source && <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{issue.source}</span>}
@@ -57,13 +61,13 @@ export function FlaggedIssues({
                 intent="outline"
                 size="xs"
                 onPress={() => onJump(issue.time.kind === "video" ? issue.time.offsetMs : 0)}
-                className="shrink-0 bg-background text-primary"
+                className="shrink-0 bg-background text-primary max-md:ml-5"
               >
                 <RiPlayFill aria-hidden />
                 Jump to {formatOffset(issue.time.offsetMs)}
               </Button>
             ) : issue.time.kind === "before" || issue.time.kind === "after" ? (
-              <span className="shrink-0 text-xs text-muted-foreground">{issue.time.kind} recording</span>
+              <span className="shrink-0 text-xs text-muted-foreground max-md:ml-5">{issue.time.kind} recording</span>
             ) : null}
           </li>
         ))}

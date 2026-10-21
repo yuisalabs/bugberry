@@ -23,8 +23,13 @@ export function registerWriteTools(server: McpServer, ctx: McpContext): void {
       title: "Comment on a report",
       description:
         "Post a comment on a report as you; BugBerry shows it with a 'via AI' badge. Plain text or Markdown. " +
+        "Pass replyTo (a comment id from getComments) to answer that comment in its thread. " +
         "To mention someone, write @[user:<id>] with an id from listMembers; they get a notification and an email.",
-      inputSchema: { ...reportArgs, body: z.string().min(1).max(5000).describe("The comment.") },
+      inputSchema: {
+        ...reportArgs,
+        body: z.string().min(1).max(5000).describe("The comment."),
+        replyTo: z.string().min(1).max(100).optional().describe("A comment id from getComments to reply to."),
+      },
       annotations: writeAnnotations,
     },
     (args) =>
@@ -32,7 +37,10 @@ export function registerWriteTools(server: McpServer, ctx: McpContext): void {
         requireWrite(ctx)
         const resolved = await resolveReportRef(ctx, args.report, args.workspace)
         requireMemberAccess(resolved)
-        const created = await comments.create(ctx.caller.user, resolved.id, args.body, { viaAgent: agentLabel(ctx.caller) })
+        const created = await comments.create(ctx.caller.user, resolved.id, args.body, {
+          viaAgent: agentLabel(ctx.caller),
+          replyTo: args.replyTo,
+        })
         return textResult(`Comment added: ${reportUrl(appUrl, resolved.id)}#comment-${created.id}`, { id: created.id })
       }),
   )
@@ -111,7 +119,7 @@ export function registerWriteTools(server: McpServer, ctx: McpContext): void {
             input.projectId = row.id
           }
         }
-        const detail = await updateReport(ctx.deps, ctx.caller.user, resolved.id, input)
+        const detail = await updateReport(ctx.deps, ctx.caller.user, resolved.id, input, { viaAgent: agentLabel(ctx.caller) })
         return textResult(
           `Updated BB-${detail.number}: ${detail.status}/${detail.priority}, assignee ${detail.assignee?.name ?? "nobody"}. ${reportUrl(appUrl, detail.id)}`,
         )

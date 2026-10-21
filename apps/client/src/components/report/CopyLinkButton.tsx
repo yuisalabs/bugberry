@@ -1,5 +1,5 @@
 import type { Visibility } from "@bugberry/shared"
-import { RiArrowDownSLine, RiLink } from "@remixicon/react"
+import { RiArrowDownSLine, RiLink, RiShareBoxLine } from "@remixicon/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Dialog, DialogTrigger } from "react-aria-components"
 import { Button } from "@bugberry/ui/button"
@@ -20,10 +20,13 @@ import { SharePopoverView } from "./SharePopover"
 export function CopyLinkButton({
   report,
   settings = true,
+  bar = false,
 }: {
   report: ReportDetail
   /** False on the share page: a viewer copies the link but cannot change who opens it. */
   settings?: boolean
+  /** The phone's bottom bar: a full-width Copy link, and the share settings on their own button beside it. */
+  bar?: boolean
 }) {
   const queryClient = useQueryClient()
   const me = useQuery({ ...queries.me(), enabled: settings })
@@ -61,17 +64,27 @@ export function CopyLinkButton({
   })
 
   return (
-    <div className="inline-flex">
-      <Button size="sm" onPress={() => void copy().catch(() => {})} className={settings ? "rounded-r-none" : undefined}>
+    <div className={bar ? "flex gap-3" : "inline-flex"}>
+      <Button
+        size={bar ? "lg" : "sm"}
+        onPress={() => void copy().catch(() => {})}
+        className={bar ? "flex-1" : settings ? "rounded-r-none" : undefined}
+      >
         <RiLink aria-hidden />
         Copy link
       </Button>
       {settings && (
         <DialogTrigger>
-          <Button size="sq-sm" aria-label="Share settings" className="rounded-l-none border-l-primary-foreground/25">
-            <RiArrowDownSLine aria-hidden />
-          </Button>
-          <Popover placement="bottom end" className="max-w-none">
+          {bar ? (
+            <Button intent="outline" size="sq-lg" aria-label="Share settings" className="bg-background">
+              <RiShareBoxLine aria-hidden />
+            </Button>
+          ) : (
+            <Button size="sq-sm" aria-label="Share settings" className="rounded-l-none border-l-primary-foreground/25">
+              <RiArrowDownSLine aria-hidden />
+            </Button>
+          )}
+          <Popover placement={bar ? "top end" : "bottom end"} className="max-w-none">
             <Dialog aria-label="Share report" className="outline-hidden">
               <SharePopoverView
                 number={report.number}

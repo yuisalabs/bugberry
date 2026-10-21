@@ -94,9 +94,10 @@ export function RequestDetail({
 
   return (
     <div className="flex flex-col text-xs">
-      <div className="sticky top-0 z-10 bg-background">
+      <div className="sticky top-0 z-10 bg-(--detail-bg,var(--color-background))">
         <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-          <p className="min-w-0 flex-1 truncate font-mono font-medium text-foreground">
+          {/* Phones wrap the address (the detail has a sheet to itself there); beside the table it stays on one line. */}
+          <p className="min-w-0 flex-1 font-mono font-medium break-words text-foreground md:truncate">
             {row.method} {requestPath(row.url)}
           </p>
           {request && (

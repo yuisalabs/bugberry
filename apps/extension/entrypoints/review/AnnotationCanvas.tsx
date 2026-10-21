@@ -38,6 +38,8 @@ export const AnnotationCanvas = forwardRef<
     shapes.length > 0 ? { shapes, undone: [] } : EMPTY_ANNOTATIONS,
   )
   const [drawing, setDrawing] = useState<Shape | null>(null)
+  /** A text annotation being typed: where it goes on the picture, and the text so far. */
+  const [typing, setTyping] = useState<{ at: Point; text: string } | null>(null)
   const size = { width: image.width, height: image.height }
 
   useEffect(() => {
@@ -65,11 +67,20 @@ export const AnnotationCanvas = forwardRef<
     }
   }
 
+  /** Adds what was typed (nothing when it is blank) and closes the box. */
+  const finishTyping = () => {
+    const text = typing?.text.trim()
+    if (typing && text) dispatch({ type: "add", shape: { kind: "text", color, at: typing.at, text } })
+    setTyping(null)
+  }
+
   const onPointerDown = (event: PointerEvent<HTMLCanvasElement>) => {
     const point = toImagePoint(event)
     if (tool === "text") {
-      const text = window.prompt("Annotation text")
-      if (text) dispatch({ type: "add", shape: { kind: "text", color, at: point, text } })
+      // The box opens where the picture was clicked; a click elsewhere first keeps the text being typed.
+      event.preventDefault()
+      finishTyping()
+      setTyping({ at: point, text: "" })
       return
     }
     event.currentTarget.setPointerCapture(event.pointerId)
@@ -138,17 +149,48 @@ export const AnnotationCanvas = forwardRef<
           </Button>
         </span>
       </div>
-      <canvas
-        ref={canvasRef}
-        width={image.width}
-        height={image.height}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        // A gesture the browser cancels ends the stroke instead of leaving it hanging.
-        onPointerCancel={onPointerUp}
-        className="h-auto w-full cursor-crosshair bg-background"
-      />
+      <div className="relative">
+        <canvas
+          ref={canvasRef}
+          width={image.width}
+          height={image.height}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          // A gesture the browser cancels ends the stroke instead of leaving it hanging.
+          onPointerCancel={onPointerUp}
+          className={`h-auto w-full bg-background ${tool === "text" ? "cursor-text" : "cursor-crosshair"}`}
+        />
+        {typing && (
+          // Placed by share of the picture, so it sits where the text will be drawn at any zoom.
+          <div
+            data-slot="text-annotation"
+            className="absolute -translate-y-1/2"
+            style={{ left: `${(typing.at.x / image.width) * 100}%`, top: `${(typing.at.y / image.height) * 100}%` }}
+          >
+            <input
+              aria-label="Annotation text"
+              // biome-ignore lint/a11y/noAutofocus: the person just clicked the picture to write here
+              autoFocus
+              value={typing.text}
+              onChange={(event) => setTyping({ ...typing, text: event.target.value })}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault()
+                  finishTyping()
+                } else if (event.key === "Escape") {
+                  event.preventDefault()
+                  setTyping(null)
+                }
+              }}
+              onBlur={finishTyping}
+              placeholder="Type, then Enter"
+              className="w-56 rounded-md border-2 bg-background px-2 py-1 text-sm text-foreground shadow-lg outline-hidden placeholder:text-muted-foreground"
+              style={{ borderColor: color }}
+            />
+          </div>
+        )}
+      </div>
     </div>
   )
 })
