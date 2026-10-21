@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test"
 import {
+  CONNECTION_SETTING_KEYS,
+  hasTarget,
   INTEGRATION_PROVIDERS,
+  targetKey,
+  targetLabel,
   integrationKind,
   integrationLabel,
   isTrackerProvider,
@@ -31,6 +35,26 @@ describe("integration helpers", () => {
     )
     expect(integrationLabel("slack", {})).toBe("Slack channel")
     expect(integrationLabel("webhook", { url: "not a url" })).toBe("Webhook")
+  })
+
+  test("a use's target has a key that ignores labels, and a short label", () => {
+    expect(targetKey("github", { owner: "Kantor", repo: "Web", labels: ["bug"] })).toBe("kantor/web")
+    expect(targetKey("github", { owner: "kantor", repo: "web", labels: [] })).toBe("kantor/web")
+    expect(targetKey("jira", { projectKey: "BUG", issueType: "Bug", labels: [] })).toBe("bug/bug")
+    expect(targetKey("activecollab", { projectId: 12, taskListId: 3 })).toBe("12/3")
+    expect(targetKey("telegram", { chatId: "-100" })).toBe("-100")
+    expect(targetKey("linear", { teamKey: "eng", labels: [] })).toBe("ENG")
+    expect(targetKey("slack", {})).toBe("")
+    expect(targetLabel("gitlab", { projectPath: "kantor/web", labels: [] })).toBe("kantor/web")
+    expect(targetLabel("linear", { teamKey: "ENG", labels: [] })).toBe("Team ENG")
+    expect(targetLabel("jira", { projectKey: "BUG", issueType: "Bug", labels: [] })).toBe("BUG · Bug")
+    expect(targetLabel("activecollab", { projectId: 12, taskListId: 3 })).toBe("Project #12")
+    expect(targetLabel("telegram", { chatId: "-100" })).toBe("Chat -100")
+    expect(targetLabel("slack", {})).toBeNull()
+    expect(hasTarget("telegram")).toBe(true)
+    expect(hasTarget("activecollab")).toBe(true)
+    expect(hasTarget("webhook")).toBe(false)
+    expect(CONNECTION_SETTING_KEYS).toEqual(["baseUrl", "siteUrl", "email", "url"])
   })
 
   test("issues are referred to the way each tracker does", () => {
