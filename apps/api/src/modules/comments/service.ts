@@ -10,6 +10,7 @@ import { mentionEmail } from "../../email/mention-email"
 import { createEmailSender, type EmailSender } from "../../email/sender"
 import { memberNames, mentionedIds, mentionsOf, notifyMentions, snippetOf } from "./mentions"
 import { isEmoji, reactionsFor } from "./reactions"
+import { notifyReplies } from "./replies"
 
 const author = alias(user, "author")
 const commentColumns = {
@@ -172,6 +173,7 @@ export function createCommentsService(deps: AppDeps) {
       const parentId = opts.replyTo ? await threadRootOf(reportId, opts.replyTo) : null
       await db.insert(comment).values({ id, reportId, authorId: current.id, body: text, viaAgent, parentId })
       const notified = await notifyMentions(db, { commentId: id, reportId, workspaceId, actorId: current.id, body: text })
+      if (parentId) await notifyReplies(db, { commentId: id, reportId, workspaceId, actorId: current.id, rootId: parentId })
       emailMentions({ userIds: notified, commentId: id, reportId, workspaceId, actorName: current.name, body: text, viaAgent })
       return loadComment(id, workspaceId)
     },

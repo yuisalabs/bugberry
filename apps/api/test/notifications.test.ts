@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { and, eq } from "drizzle-orm"
-import { workspaceMember } from "../src/db/schema"
+import { notification, workspaceMember } from "../src/db/schema"
 import { renderMentions } from "../src/modules/comments/mentions"
 import { createCommentsService } from "../src/modules/comments/service"
 import { createProject, createReadyReport, createUserWithToken, setupTestApp } from "./helpers"
+import { callTool, mcpClient } from "./mcp-helpers"
 
 let ctx: Awaited<ReturnType<typeof setupTestApp>>
 let ana: Awaited<ReturnType<typeof createUserWithToken>>
@@ -101,5 +102,50 @@ describe("notifications via AI", () => {
     await post(ana, `${tag(budi.user.id)} by hand`)
     const { data } = await list(budi)
     expect(data?.items.map((item) => item.viaAgent)).toEqual([null, "Cursor"])
+  })
+})
+
+describe("reply notifications", () => {
+  const reply = (by: typeof ana, body: string, replyTo: string) =>
+    ctx.api.api.reports({ id: reportId }).comments.post({ body, replyTo }, { headers: by.headers })
+  const kindsFor = async (by: typeof ana) => (await list(by)).data?.items.map((item) => item.kind) ?? []
+
+  test("a reply notifies the root's author and earlier repliers, not the replier", async () => {
+    const citra = await createUserWithToken(ctx.db, { name: "Citra" })
+    const root = (await post(ana, "Root")).data?.id ?? ""
+    await reply(budi, "Budi joins", root)
+    await reply(citra, "Citra joins", root)
+    expect(await kindsFor(ana)).toEqual(["reply_to_you", "reply_to_you"])
+    expect(await kindsFor(budi)).toEqual(["reply_in_thread"])
+    expect(await kindsFor(citra)).toEqual([])
+  })
+
+  test("someone mentioned in a reply gets one notification, as a mention", async () => {
+    const root = (await post(ana, "Root")).data?.id ?? ""
+    await reply(budi, `${tag(ana.user.id)} look`, root)
+    expect(await kindsFor(ana)).toEqual(["mention"])
+  })
+
+  test("a member who left gets no reply notification", async () => {
+    const root = (await post(ana, "Root")).data?.id ?? ""
+    await ctx.db.delete(workspaceMember).where(eq(workspaceMember.userId, ana.user.id))
+    await reply(budi, "Anyone?", root)
+    const rows = await ctx.db.select().from(notification).where(eq(notification.userId, ana.user.id))
+    expect(rows).toHaveLength(0)
+  })
+
+  test("the bell lists the kind, and mentions stay mentions", async () => {
+    await post(budi, `${tag(ana.user.id)} hi`)
+    expect(await kindsFor(ana)).toEqual(["mention"])
+  })
+})
+
+describe("getNotifications over MCP", () => {
+  test("says whether someone mentioned you or replied", async () => {
+    const root = (await post(ana, "Root")).data?.id ?? ""
+    await ctx.api.api.reports({ id: reportId }).comments.post({ body: "On it", replyTo: root }, { headers: budi.headers })
+    const client = await mcpClient(ctx.app, ana.headers)
+    const result = await callTool(client, "getNotifications", {})
+    expect(result.text).toContain("Budi replied to your comment in BB-")
   })
 })
