@@ -1,3 +1,4 @@
+import { PROVIDER_LABELS } from "@bugberry/shared"
 import {
   RiAddLine,
   RiArrowLeftSLine,
@@ -29,7 +30,7 @@ import {
 } from "@bugberry/ui/menu"
 import { errorMessage, type ReportDetail } from "../../lib/api"
 import { api } from "../../lib/client"
-import { copyForAiText, type TrackerItem, trackerItems } from "../../lib/more-menu"
+import { copyForAiText, sendOutcome, type TrackerItem, trackerItems } from "../../lib/more-menu"
 import { queries } from "../../lib/queries"
 import { backTarget } from "../../lib/report-page"
 import { toast } from "../../lib/toast"
@@ -346,9 +347,23 @@ export function MoreMenu({ report }: { report: ReportDetail }) {
     },
     onError: failed,
   })
+  // The menu closes on the click, so a toast says whether the issue was made.
   const send = useMutation({
     mutationFn: (integrationId: string) => api.sendToTracker(report.id, integrationId),
-    onError: failed,
+    onSuccess: (link) => {
+      const outcome = sendOutcome(link)
+      const href = outcome.href
+      toast({
+        title: outcome.title,
+        description: outcome.description,
+        tone: outcome.tone,
+        action: href ? { label: "Open", onClick: () => window.open(href, "_blank", "noopener,noreferrer") } : undefined,
+      })
+    },
+    onError: (error, integrationId) => {
+      const provider = trackers.data?.integrations.find((item) => item.id === integrationId)?.provider
+      toast({ title: `Couldn't send to ${provider ? PROVIDER_LABELS[provider] : "the tracker"}`, description: errorMessage(error), tone: "error" })
+    },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: trackersKey })
       void queryClient.invalidateQueries({ queryKey: ["activity", report.id] })

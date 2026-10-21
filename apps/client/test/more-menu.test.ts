@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { ReportTrackers } from "../src/lib/api"
-import { trackerItems } from "../src/lib/more-menu"
+import { sendOutcome, trackerItems } from "../src/lib/more-menu"
 
 const now = new Date("2026-10-16T08:00:00Z")
 const integrations = [
@@ -80,5 +80,36 @@ describe("trackerItems", () => {
     const earlier = link({ integrationId: null, provider: "linear", externalId: "ENG-142", externalUrl: "https://linear.app/kantor/issue/ENG-142" })
     const [item] = trackerItems({ needsProject: false, integrations: [], links: [earlier] }, now.getTime())
     expect(item?.label).toBe("Open issue ENG-142")
+  })
+})
+
+describe("sendOutcome", () => {
+  test("a created issue says where it went, with a way to open it", () => {
+    expect(sendOutcome(link({ externalId: "12", externalUrl: "https://github.com/kantor/web/issues/12" }))).toEqual({
+      title: "Sent to GitHub",
+      description: "Created issue #12",
+      tone: "success",
+      href: "https://github.com/kantor/web/issues/12",
+    })
+    expect(sendOutcome(link({ provider: "linear", externalId: "ENG-4", externalUrl: "https://linear.app/x/ENG-4" })).description).toBe(
+      "Created issue ENG-4",
+    )
+  })
+
+  test("an issue link that isn't http(s) is not offered", () => {
+    expect(sendOutcome(link({ externalId: "12", externalUrl: "javascript:alert(1)" })).href).toBeNull()
+  })
+
+  test("a failed send says so, with the tracker's reason", () => {
+    expect(sendOutcome(link({ provider: "activecollab", error: "Project not found" }))).toEqual({
+      title: "Couldn't send to ActiveCollab",
+      description: "Project not found",
+      tone: "error",
+      href: null,
+    })
+  })
+
+  test("a tracker no longer known is named plainly", () => {
+    expect(sendOutcome(link({ provider: null, error: "Bad token" })).title).toBe("Couldn't send to the tracker")
   })
 })

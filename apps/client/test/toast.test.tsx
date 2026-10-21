@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, test } from "bun:test"
-import { render, screen } from "@testing-library/react"
+import { beforeEach, describe, expect, mock, test } from "bun:test"
+import { fireEvent, render, screen } from "@testing-library/react"
 import { toast as sonner } from "sonner"
 import { Toast } from "@bugberry/ui/toast"
 import { TOAST_MS, toast } from "../src/lib/toast"
@@ -16,6 +16,15 @@ describe("toast", () => {
     expect(await screen.findByText("Toast test: saved")).toBeTruthy()
     expect(screen.getByText("Only workspace members can open it")).toBeTruthy()
     expect(TOAST_MS).toBe(4000)
+  })
+
+  test("a toast can carry one action", async () => {
+    render(<Toast visibleToasts={20} />)
+    const onClick = mock()
+    toast({ title: "Toast test: sent", action: { label: "Open", onClick } })
+    await screen.findByText("Toast test: sent")
+    fireEvent.click(screen.getByRole("button", { name: "Open" }))
+    expect(onClick).toHaveBeenCalledTimes(1)
   })
 
   test("an error toast says so", async () => {

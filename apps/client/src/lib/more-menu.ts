@@ -1,5 +1,5 @@
 import { issueReference, PROVIDER_LABELS } from "@bugberry/shared"
-import type { ReportTrackers } from "./api"
+import type { ReportTrackers, TrackerLink } from "./api"
 import { linkState } from "./tracker-links"
 import { safeHttpUrl } from "./urls"
 
@@ -56,4 +56,26 @@ export function trackerItems(data: ReportTrackers, now: number, sendingId: strin
     }
   })
   return [...earlier, ...current]
+}
+
+/**
+ * What a send to a tracker came to, for the toast after the menu closed. The server answers a send that
+ * reached the tracker but failed there with the link and its error, not with an error response.
+ */
+export function sendOutcome(link: Pick<TrackerLink, "provider" | "externalId" | "externalUrl" | "error">): {
+  title: string
+  description: string
+  tone: "success" | "error"
+  href: string | null
+} {
+  const tracker = link.provider ? PROVIDER_LABELS[link.provider] : "the tracker"
+  if (link.externalId) {
+    return {
+      title: `Sent to ${tracker}`,
+      description: `Created issue ${issueReference(link.provider, link.externalId)}`,
+      tone: "success",
+      href: link.externalUrl ? safeHttpUrl(link.externalUrl) : null,
+    }
+  }
+  return { title: `Couldn't send to ${tracker}`, description: link.error ?? "Try again from the ⋯ menu.", tone: "error", href: null }
 }
