@@ -8,6 +8,7 @@ import { badRequest, forbidden, notFound, unprocessable } from "../../lib/errors
 import { newShareSlug } from "../../lib/ids"
 import { escapeLike } from "../../lib/sql"
 import { memberRole, requireReportMember, resolveWorkspace } from "../../workspaces/access"
+import { recordActivity } from "../activity/service"
 import { loadReportDetail, type ReportDetail } from "./detail"
 import { type listReportsQuery, NO_ASSIGNEE, NO_PROJECT, type updateReportBody } from "./model"
 
@@ -140,8 +141,25 @@ export async function listReports({ db, storage }: Deps, caller: CurrentUser, in
 
 export type ReportListItem = Awaited<ReturnType<typeof listReports>>["items"][number]
 
-/** Changes a report as a member, with the same rules as the report page. */
-export async function updateReport(deps: Deps, caller: CurrentUser, reportId: string, input: UpdateReportInput): Promise<ReportDetail> {
+/** The fields whose changes show in the report's activity, and the activity kind each one records. */
+const LOGGED_FIELDS = [
+  ["status", "status"],
+  ["priority", "priority"],
+  ["assigneeId", "assignee"],
+  ["title", "title"],
+] as const
+
+/**
+ * Changes a report as a member, with the same rules as the report page. Status, priority, assignee and title
+ * changes go into the report's activity; `viaAgent` names the AI app when the change came through MCP.
+ */
+export async function updateReport(
+  deps: Deps,
+  caller: CurrentUser,
+  reportId: string,
+  input: UpdateReportInput,
+  opts: { viaAgent?: string } = {},
+): Promise<ReportDetail> {
   const { db } = deps
   const target = await requireReportMember(db, caller.id, reportId)
   if (Object.values(input).every((value) => value === undefined)) {
@@ -169,12 +187,23 @@ export async function updateReport(deps: Deps, caller: CurrentUser, reportId: st
   }
   // Leaving public retires the link that went around; workspace and internal links stay as they are.
   const retiresLink = input.visibility !== undefined && input.visibility !== "public" && target.visibility === "public"
+  const [before] = await db
+    .select({ status: report.status, priority: report.priority, assigneeId: report.assigneeId, title: report.title })
+    .from(report)
+    .where(eq(report.id, reportId))
+    .limit(1)
   const updated = await db
     .update(report)
     .set(retiresLink ? { ...input, shareSlug: newShareSlug() } : input)
     .where(and(eq(report.id, reportId), eq(report.uploadStatus, "ready")))
     .returning({ id: report.id })
   if (updated.length === 0) throw reportNotFound()
+  for (const [field, kind] of LOGGED_FIELDS) {
+    const to = input[field]
+    const from = before?.[field]
+    if (to === undefined || to === from) continue
+    await recordActivity(db, { reportId, kind, detail: { from: from ?? null, to }, actorId: caller.id, viaAgent: opts.viaAgent ?? null })
+  }
   const detail = await loadReportDetail(deps, eq(report.id, reportId), { forMember: true })
   if (!detail) throw reportNotFound()
   return detail

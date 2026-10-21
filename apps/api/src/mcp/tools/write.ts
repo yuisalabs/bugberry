@@ -111,7 +111,7 @@ export function registerWriteTools(server: McpServer, ctx: McpContext): void {
             input.projectId = row.id
           }
         }
-        const detail = await updateReport(ctx.deps, ctx.caller.user, resolved.id, input)
+        const detail = await updateReport(ctx.deps, ctx.caller.user, resolved.id, input, { viaAgent: agentLabel(ctx.caller) })
         return textResult(
           `Updated BB-${detail.number}: ${detail.status}/${detail.priority}, assignee ${detail.assignee?.name ?? "nobody"}. ${reportUrl(appUrl, detail.id)}`,
         )
