@@ -21,6 +21,7 @@ import { debuggerKeyFor, mediaKeyFor, thumbnailKeyFor } from "../../storage/keys
 import { requireReportMember, resolveWorkspace } from "../../workspaces/access"
 import { assertCanCreateReport } from "../../workspaces/limits"
 import { createUploadBody } from "./model"
+import { afterFinalize } from "./after-finalize"
 import { claimReportNumber } from "./numbers"
 
 const UPLOAD_SESSIONS_PER_MINUTE = 30
@@ -176,7 +177,7 @@ export function reportUploadsModule(deps: AppDeps) {
             .where(eq(report.id, row.id))
         })
         // In the background: a slow tracker must not delay the extension.
-        deps.background?.(dispatcher.autoSend(row.id).catch((error) => console.error("auto-send failed", error)))
+        afterFinalize(deps, row.id, () => dispatcher.autoSend(row.id))
         return { id: row.id, uploadStatus: "ready" as const, ...linksFor(row) }
       },
       { auth: true },
