@@ -18,6 +18,12 @@ function view(overrides: Partial<ComponentProps<typeof InviteDialogView>> = {}) 
 }
 
 describe("InviteDialogView", () => {
+  test("the header is just the title and its line, with no icon beside it", () => {
+    view()
+    const header = screen.getByRole("heading", { name: "Invite people to Cuy Workspaces" }).parentElement?.parentElement as HTMLElement
+    expect(header.querySelector("svg")).toBeNull()
+  })
+
   test("names the workspace and sends every address typed as a chip", async () => {
     const props = view()
     expect(screen.getByRole("heading", { name: "Invite people to Cuy Workspaces" })).toBeTruthy()

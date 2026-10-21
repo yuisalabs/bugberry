@@ -1,4 +1,4 @@
-import { RiArrowRightLine, RiGroupLine, RiLinkM, RiSendPlaneLine, RiUserAddLine } from "@remixicon/react"
+import { RiArrowRightLine, RiGroupLine, RiLinkM, RiSendPlaneLine } from "@remixicon/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { type FormEvent, type ReactNode, useState } from "react"
@@ -134,12 +134,9 @@ export function InviteDialogView({
 
   return (
     <form onSubmit={send} className="flex min-h-0 flex-col">
-      <div className="flex items-start gap-4 p-(--gutter) pb-4">
-        <span aria-hidden className="grid size-11 shrink-0 place-content-center rounded-xl bg-primary-subtle text-primary">
-          <RiUserAddLine className="size-5" />
-        </span>
+      <div className="p-(--gutter) pb-4">
         <div className="flex min-w-0 flex-col gap-0.5 pr-8">
-          <DialogTitle className="font-heading text-xl sm:text-xl">Invite people to {workspaceName}</DialogTitle>
+          <DialogTitle className="font-heading text-lg">Invite people to {workspaceName}</DialogTitle>
           <DialogDescription>They'll get an email with a link to join.</DialogDescription>
         </div>
       </div>
