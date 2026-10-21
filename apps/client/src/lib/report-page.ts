@@ -1,4 +1,4 @@
-import type { TrackerProvider } from "@bugberry/shared"
+import type { IntegrationProvider } from "@bugberry/shared"
 import type { ReportTrackers } from "./api"
 
 /** A member who opened a share link belongs on the full report page; anyone else stays. */
@@ -20,7 +20,7 @@ export function backTarget(
 
 export interface SentIssue {
   /** Null when the issue came through a tracker the report's project no longer has. */
-  provider: TrackerProvider | null
+  provider: IntegrationProvider | null
   externalId: string
   externalUrl: string | null
 }

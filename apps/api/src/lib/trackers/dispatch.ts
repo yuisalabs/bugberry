@@ -10,6 +10,7 @@ import { buildIssueContent } from "./content"
 import { type ActivityActor, recordActivity } from "../../modules/activity/service"
 import { readTopErrors } from "./debugger-errors"
 import { type TrackerFactory, TrackerError } from "./providers"
+import { isTrackerProvider, type TrackerConfig } from "@bugberry/shared"
 
 export interface TrackerLink {
   integrationId: string
@@ -116,7 +117,8 @@ export function createDispatcher(deps: { config: Config; db: Db; storage: Storag
       return finish({ error: SECRET_UNREADABLE })
     }
     try {
-      const issue = await deps.trackers(target.provider, target.config, secret).createIssue(content)
+      if (!isTrackerProvider(target.provider)) throw new TrackerError("This integration does not create issues")
+      const issue = await deps.trackers(target.provider, target.config as TrackerConfig, secret).createIssue(content)
       const link = await finish({ externalId: issue.externalId, externalUrl: issue.url, error: null })
       await recordActivity(db, {
         reportId,

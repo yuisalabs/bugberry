@@ -1,4 +1,11 @@
-import { type ActiveCollabConfig, type GithubConfig, integrationLabel, type TrackerConfig, type TrackerProvider } from "@bugberry/shared"
+import {
+  type ActiveCollabConfig,
+  type GithubConfig,
+  integrationLabel,
+  isTrackerProvider,
+  type TrackerConfig,
+  type TrackerProvider,
+} from "@bugberry/shared"
 import { and, asc, eq } from "drizzle-orm"
 import { Elysia, t } from "elysia"
 import type { AppDeps } from "../../app"
@@ -63,7 +70,7 @@ function normalizeConfig(provider: TrackerProvider, config: TrackerConfig): Trac
     }
     return github
   }
-  if (provider === "activecollab" && "baseUrl" in config) {
+  if (provider === "activecollab" && "projectId" in config) {
     const activecollab: ActiveCollabConfig = {
       baseUrl: normalizeBaseUrl(config.baseUrl),
       projectId: config.projectId,
@@ -145,7 +152,10 @@ export function integrationsModule(deps: AppDeps) {
         await requireProjectRole(db, user.id, params.id, "admin")
         const row = await find(params.id, params.integrationId)
         const changes: Partial<typeof integration.$inferInsert> = {}
-        if (body.config) changes.config = normalizeConfig(row.provider, body.config)
+        if (body.config) {
+          if (!isTrackerProvider(row.provider)) throw unprocessable("invalid_config", "The settings don't match the integration provider")
+          changes.config = normalizeConfig(row.provider, body.config)
+        }
         if (body.secret?.trim()) changes.secretEncrypted = box.seal(body.secret.trim())
         if (body.autoSend !== undefined) changes.autoSend = body.autoSend
         if (Object.keys(changes).length === 0) return publicIntegration(row)
@@ -178,7 +188,8 @@ export function integrationsModule(deps: AppDeps) {
           throw error
         }
         try {
-          await trackers(row.provider, row.config, secret).test()
+          if (!isTrackerProvider(row.provider)) throw new TrackerError("This integration cannot be tested yet")
+          await trackers(row.provider, row.config as TrackerConfig, secret).test()
         } catch (error) {
           throw unprocessable("integration_test_failed", error instanceof TrackerError ? error.message : "The connection test failed")
         }

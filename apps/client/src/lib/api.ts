@@ -105,7 +105,7 @@ export type IntegrationInput =
   | { provider: "activecollab"; config: ActiveCollabConfig; secret: string; autoSend?: boolean }
 
 export interface IntegrationPatch {
-  config?: TrackerConfig
+  config?: GithubConfig | ActiveCollabConfig
   secret?: string
   autoSend?: boolean
 }

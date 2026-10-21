@@ -1,4 +1,4 @@
-import { PROVIDER_LABELS, TRACKER_PROVIDERS, type TrackerProvider } from "@bugberry/shared"
+import { type IntegrationProvider, PROVIDER_LABELS, TRACKER_PROVIDERS, type TrackerProvider } from "@bugberry/shared"
 import {
   RiAddLine,
   RiArrowRightSLine,
@@ -27,7 +27,17 @@ import { useConfirm } from "@bugberry/ui/confirm-dialog"
 const routeApi = getRouteApi("/_authed/_admin/app/settings/projects/$projectId/integrations")
 
 /** What each tracker makes out of a report. */
-const PROVIDER_CREATES: Record<TrackerProvider, string> = { github: "Create issues", activecollab: "Create tasks" }
+const PROVIDER_CREATES: Record<IntegrationProvider, string> = {
+  github: "Create issues",
+  activecollab: "Create tasks",
+  gitlab: "Create issues",
+  linear: "Create issues",
+  jira: "Create issues",
+  slack: "Post new reports",
+  discord: "Post new reports",
+  telegram: "Post new reports",
+  webhook: "Post new reports",
+}
 
 /** No integration yet: what one does, and a card per tracker that opens the form with it chosen. */
 export function IntegrationsEmpty({ onPick }: { onPick(provider: TrackerProvider): void }) {
@@ -153,7 +163,8 @@ export function IntegrationsPage() {
     mutationFn: async ({ id, value }: { id: string | null; value: IntegrationSubmit }) => {
       if (id) {
         return api.updateIntegration(projectId, id, {
-          config: value.config,
+          // Narrowed until the settings for the new providers arrive (the API accepts only these two for now).
+          config: value.config as Parameters<typeof api.updateIntegration>[2]["config"],
           autoSend: value.autoSend,
           ...(value.secret ? { secret: value.secret } : {}),
         })

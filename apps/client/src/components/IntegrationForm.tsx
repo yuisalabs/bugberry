@@ -1,4 +1,11 @@
-import { PROVIDER_LABELS, TRACKER_PROVIDERS, type TrackerConfig, type TrackerProvider } from "@bugberry/shared"
+import {
+  type IntegrationProvider,
+  isTrackerProvider,
+  PROVIDER_LABELS,
+  TRACKER_PROVIDERS,
+  type TrackerConfig,
+  type TrackerProvider,
+} from "@bugberry/shared"
 import {
   RiArrowRightLine,
   RiArrowRightUpLine,
@@ -32,7 +39,7 @@ export interface IntegrationSubmit {
 export const GITHUB_TOKEN_URL = "https://github.com/settings/personal-access-tokens/new"
 
 /** A tracker's own mark: GitHub's, and ActiveCollab's app icon (public/assets/activecollab_icon.png, from activecollab.com). */
-export function ProviderMark({ provider, className = "size-9" }: { provider: TrackerProvider; className?: string }) {
+export function ProviderMark({ provider, className = "size-9" }: { provider: IntegrationProvider; className?: string }) {
   return provider === "github" ? (
     <span aria-hidden className={`grid shrink-0 place-content-center rounded-lg border border-border bg-background text-foreground ${className}`}>
       <GithubIcon />
@@ -199,7 +206,9 @@ export function IntegrationForm({
   onCancel(): void
 }) {
   const tokenHint = useId()
-  const [provider, setProvider] = useState<TrackerProvider>(integration?.provider ?? initialProvider)
+  const [provider, setProvider] = useState<TrackerProvider>(
+    integration && isTrackerProvider(integration.provider) ? integration.provider : initialProvider,
+  )
   const [fields, setFields] = useState(() => initialFields(integration))
   const [secret, setSecret] = useState("")
   const [showSecret, setShowSecret] = useState(false)
