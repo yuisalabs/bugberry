@@ -53,6 +53,8 @@ describe("workspaces", () => {
       ["Ana", "member"],
       ["Budi", "member"],
     ])
+    // When each joined, for the Members page.
+    expect(data?.every((member) => new Date(member.joinedAt).getTime() > 0)).toBe(true)
     expect(status(await ctx.api.api.workspaces({ id: elsewhere.id }).members.get({ headers: me.headers }))).toBe(404)
   })
 

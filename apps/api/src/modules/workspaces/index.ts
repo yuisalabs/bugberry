@@ -152,7 +152,14 @@ export function workspacesModule(deps: AppDeps) {
         await requireMember(db, current.id, params.id)
         const ownerId = await ownerOf(db, params.id)
         const rows = await db
-          .select({ id: user.id, name: user.name, email: user.email, image: user.image, role: workspaceMember.role })
+          .select({
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            image: user.image,
+            role: workspaceMember.role,
+            joinedAt: workspaceMember.createdAt,
+          })
           .from(workspaceMember)
           .innerJoin(user, eq(user.id, workspaceMember.userId))
           .where(eq(workspaceMember.workspaceId, params.id))

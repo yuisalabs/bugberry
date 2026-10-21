@@ -8,7 +8,19 @@ const EMAIL = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/
  * Email addresses as removable chips: Enter, a comma or leaving the field turns the typed text into chips.
  * A pasted list is split; anything that is not an email stays in the box to fix.
  */
-export function EmailChips({ emails, onChange }: { emails: readonly string[]; onChange(emails: string[]): void }) {
+export function EmailChips({
+  emails,
+  onChange,
+  label = "Invite teammates",
+  placeholder = "name@company.com",
+}: {
+  emails: readonly string[]
+  onChange(emails: string[]): void
+  /** The field's name for screen readers. */
+  label?: string
+  /** Shown while no address is in yet. */
+  placeholder?: string
+}) {
   const [text, setText] = useState("")
   const [error, setError] = useState<string | null>(null)
 
@@ -50,8 +62,8 @@ export function EmailChips({ emails, onChange }: { emails: readonly string[]; on
         <Input
           type="text"
           inputMode="email"
-          aria-label="Invite teammates"
-          placeholder={emails.length === 0 ? "name@company.com" : "Add email"}
+          aria-label={label}
+          placeholder={emails.length === 0 ? placeholder : "Add another email"}
           value={text}
           onChange={(event) => {
             const value = event.target.value
@@ -61,6 +73,14 @@ export function EmailChips({ emails, onChange }: { emails: readonly string[]; on
             setError(null)
           }}
           onKeyDown={onKeyDown}
+          // A one-line input drops the line breaks of a pasted list (one address per line), gluing the addresses
+          // together; the clipboard still has them.
+          onPaste={(event) => {
+            const pasted = event.clipboardData.getData("text")
+            if (!/[\s,;]/.test(pasted.trim())) return
+            event.preventDefault()
+            setText(commit(`${text} ${pasted}`))
+          }}
           onBlur={() => {
             if (text.trim()) setText(commit(text))
           }}

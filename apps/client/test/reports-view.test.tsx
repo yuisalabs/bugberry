@@ -8,7 +8,7 @@ import type { ReportListItem } from "../src/lib/api"
 import type { ReportFeed } from "../src/lib/report-feed"
 import { listItemFixture, NOW } from "./fixtures"
 
-const members = [{ id: "u1", name: "Ana", email: "ana@kantor.test", image: null, role: "member" as const, owner: false }]
+const members = [{ id: "u1", name: "Ana", email: "ana@kantor.test", image: null, role: "member" as const, owner: false, joinedAt: new Date("2026-09-12T00:00:00Z") }]
 
 function listOf(items: ReportListItem[], more: Partial<ReportFeed> = {}): ReportFeed {
   return { items, total: items.length, hasMore: false, loadingMore: false, moreFailed: false, ...more }

@@ -6,8 +6,8 @@ import { choose } from "./fields"
 
 const budi = { id: "u2", name: "Budi", image: null }
 const members: Member[] = [
-  { id: "u1", name: "Ana", email: "ana@kantor.test", image: null, role: "admin", owner: false },
-  { id: "u2", name: "Budi", email: "budi@kantor.test", image: null, role: "member", owner: false },
+  { id: "u1", name: "Ana", email: "ana@kantor.test", image: null, role: "admin", owner: false, joinedAt: new Date("2026-09-12T00:00:00Z") },
+  { id: "u2", name: "Budi", email: "budi@kantor.test", image: null, role: "member", owner: false, joinedAt: new Date("2026-09-12T00:00:00Z") },
 ]
 const report = (assignee: typeof budi | null) => ({ status: "open" as const, priority: "high" as const, assignee })
 const select = (name: string) => screen.getByLabelText(name) as HTMLButtonElement

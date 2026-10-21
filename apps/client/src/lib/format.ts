@@ -1,4 +1,5 @@
 const dateTimeFormat = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" })
+const dateFormat = new Intl.DateTimeFormat("en-US", { dateStyle: "medium" })
 const clockFormat = new Intl.DateTimeFormat("en-US", {
   hour: "2-digit",
   minute: "2-digit",
@@ -9,6 +10,12 @@ const clockFormat = new Intl.DateTimeFormat("en-US", {
 export function formatDateTime(value: Date | string | number): string {
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? "-" : dateTimeFormat.format(date)
+}
+
+/** "Oct 3, 2026". */
+export function formatDate(value: Date | string | number): string {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? "-" : dateFormat.format(date)
 }
 
 /** "17 October 2026, 14:22 GMT+7", in the viewer's time zone unless one is given. */

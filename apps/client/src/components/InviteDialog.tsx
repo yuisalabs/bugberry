@@ -1,12 +1,11 @@
+import { RiSendPlaneLine } from "@remixicon/react"
 import { useQueryClient } from "@tanstack/react-query"
 import { type FormEvent, useState } from "react"
 import { Dialog, DialogBody, DialogHeader, DialogTitle } from "@bugberry/ui/dialog"
 import { Button } from "@bugberry/ui/button"
-import { Label } from "@bugberry/ui/field"
-import { TextField } from "@bugberry/ui/text-field"
-import { Textarea } from "@bugberry/ui/textarea"
 import type { InviteResult } from "../lib/api"
 import { api } from "../lib/client"
+import { EmailChips } from "./EmailChips"
 
 export const RESULT_LABELS: Record<InviteResult["status"], string> = {
   sent: "Invited",
@@ -16,42 +15,41 @@ export const RESULT_LABELS: Record<InviteResult["status"], string> = {
   invalid: "Not an email address",
 }
 
-/** Addresses typed with commas, spaces or new lines between them. */
-export function parseEmails(text: string): string[] {
-  return text
-    .split(/[\s,;]+/)
-    .map((item) => item.trim())
-    .filter(Boolean)
+/** "Send 2 invites" once addresses are in; "Send invites" before. */
+export function sendLabel(count: number): string {
+  if (count === 1) return "Send invite"
+  return count > 1 ? `Send ${count} invites` : "Send invites"
 }
 
-/** "Invite by email": several addresses at once, with what happened to each. */
+/** "Invite by email": several addresses at once as chips, with what happened to each. */
 export function InviteForm({ onInvite }: { onInvite(emails: string[]): Promise<InviteResult[]> }) {
-  const [text, setText] = useState("")
+  const [emails, setEmails] = useState<string[]>([])
   const [results, setResults] = useState<InviteResult[]>([])
   const [sending, setSending] = useState(false)
 
   const send = async (event: FormEvent) => {
     event.preventDefault()
-    const emails = parseEmails(text)
     if (emails.length === 0) return
     setSending(true)
     try {
       setResults(await onInvite(emails))
-      setText("")
+      setEmails([])
     } finally {
       setSending(false)
     }
   }
 
   return (
-    <form onSubmit={send} className="flex flex-col gap-4">
-      <TextField value={text} onChange={setText}>
-        <Label>Invite by email</Label>
-        <Textarea rows={2} placeholder="sari@company.com, andi@gmail.com" />
-      </TextField>
-      <Button size="sm" type="submit" className="self-start" isDisabled={sending || parseEmails(text).length === 0}>
-        Send invites
-      </Button>
+    <form onSubmit={send} className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+        <div className="min-w-0 flex-1">
+          <EmailChips emails={emails} onChange={setEmails} label="Invite by email" placeholder="sari@company.com, andi@gmail.com" />
+        </div>
+        <Button type="submit" className="shrink-0" isDisabled={sending || emails.length === 0}>
+          <RiSendPlaneLine aria-hidden />
+          {sendLabel(emails.length)}
+        </Button>
+      </div>
       {results.length > 0 && (
         <ul role="status" className="flex flex-col gap-0.5 text-sm text-muted-foreground">
           {results.map((result) => (
