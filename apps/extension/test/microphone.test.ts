@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { micAccess, micChoiceAfterCheck, micDeviceLabel, micErrorText } from "../lib/microphone"
+import { micAccess, micChoiceAfterCheck, micDeviceLabel, micDevices, micErrorText } from "../lib/microphone"
 
 describe("micDeviceLabel", () => {
   test("names the default microphone without Chrome's prefix", () => {
@@ -17,6 +17,46 @@ describe("micDeviceLabel", () => {
     // Before permission is granted, Chrome hides the labels.
     expect(micDeviceLabel([{ kind: "audioinput", deviceId: "", label: "" }])).toBe("Microphone")
     expect(micDeviceLabel([])).toBe("Microphone")
+  })
+})
+
+const input = (deviceId: string, label: string, groupId = deviceId) => ({ kind: "audioinput", deviceId, groupId, label })
+
+describe("micDevices", () => {
+  test("a built-in array", () => {
+    expect(micDevices([input("a", "Microphone Array (Realtek(R) Audio)")]).devices).toEqual([
+      { id: "a", name: "Microphone Array", detail: "Realtek(R) Audio · built-in", short: "Realtek Audio", kind: "built-in" },
+    ])
+  })
+
+  test("headset and USB", () => {
+    const { devices } = micDevices([input("h", "AirPods Pro"), input("u", "Blue Yeti (046d:0aaa)")])
+    expect(devices[0]).toEqual({ id: "h", name: "AirPods Pro", detail: "Bluetooth headset", short: "AirPods Pro", kind: "headset" })
+    expect(devices[1]).toEqual({ id: "u", name: "Blue Yeti", detail: "USB microphone", short: "Blue Yeti", kind: "usb" })
+  })
+
+  test("pseudo-entries are skipped and give the default", () => {
+    const result = micDevices([
+      input("default", "Default - Headset Mic", "g2"),
+      input("communications", "Communications - Headset Mic", "g2"),
+      input("a", "Mic A", "g1"),
+      input("b", "Headset Mic", "g2"),
+      { kind: "videoinput", deviceId: "cam", groupId: "g3", label: "Camera" },
+    ])
+    expect(result.devices.map((device) => device.id)).toEqual(["a", "b"])
+    expect(result.defaultId).toBe("b")
+  })
+
+  test("without a default entry the first device is the default", () => {
+    expect(micDevices([input("a", "Mic A"), input("b", "Mic B")]).defaultId).toBe("a")
+  })
+
+  test("no permission: no devices", () => {
+    expect(micDevices([input("", ""), input("", "")])).toEqual({ devices: [], defaultId: null })
+  })
+
+  test("Default - prefix", () => {
+    expect(micDevices([input("x", "Default - USB Mic")]).devices[0]?.name).toBe("USB Mic")
   })
 })
 
