@@ -4,11 +4,12 @@ import type { AppDeps } from "../../app"
 import type { CurrentUser } from "../../auth/plugin"
 import { memberRole, requireReportMember } from "../../workspaces/access"
 import { comment, commentReaction, notification, report, user } from "../../db/schema"
-import { badRequest, forbidden, notFound } from "../../lib/errors"
+import { badRequest, forbidden, notFound, unprocessable } from "../../lib/errors"
 import { newId } from "../../lib/ids"
 import { mentionEmail } from "../../email/mention-email"
 import { createEmailSender, type EmailSender } from "../../email/sender"
 import { memberNames, mentionedIds, mentionsOf, notifyMentions, snippetOf } from "./mentions"
+import { isEmoji, reactionsFor } from "./reactions"
 
 const author = alias(user, "author")
 const commentColumns = {
@@ -26,12 +27,7 @@ const commentColumns = {
 /** A comment counts as edited when it changed more than a second after it was written. */
 const EDITED_AFTER_MS = 1000
 
-/** One emoji on a comment: how many people put it there, and who, in the order they did. */
-export interface ReactionView {
-  emoji: string
-  count: number
-  people: { id: string; name: string }[]
-}
+export type { ReactionView } from "./reactions"
 
 function cleanBody(body: string): string {
   const trimmed = body.trim()
@@ -53,6 +49,7 @@ export function createCommentsService(deps: AppDeps) {
   const toViews = async (rows: CommentRow[], workspaceId: string) => {
     const live = rows.filter((row) => row.deletedAt === null)
     const names = await memberNames(db, workspaceId, [...new Set(live.flatMap((row) => mentionedIds(row.body)))])
+    const reactions = await reactionsFor(db, live.map((row) => row.id))
     return rows.map((row) => {
       const deleted = row.deletedAt !== null
       return {
@@ -66,7 +63,7 @@ export function createCommentsService(deps: AppDeps) {
         edited: !deleted && row.updatedAt.getTime() - row.createdAt.getTime() > EDITED_AFTER_MS,
         deleted,
         mentions: deleted ? [] : mentionsOf(row.body, names),
-        reactions: [] as ReactionView[],
+        reactions: deleted ? [] : (reactions.get(row.id) ?? []),
       }
     })
   }
@@ -200,6 +197,17 @@ export function createCommentsService(deps: AppDeps) {
         viaAgent: access.viaAgent,
       })
       return loadComment(commentId, access.workspaceId)
+    },
+    /** Adds the caller's emoji to a comment, or takes it off when it is already there; returns its reactions. */
+    async toggleReaction(current: CurrentUser, commentId: string, emoji: string) {
+      await commentAccess(current.id, commentId)
+      if (!isEmoji(emoji)) throw unprocessable("invalid_emoji", "A reaction must be an emoji")
+      const mine = and(eq(commentReaction.commentId, commentId), eq(commentReaction.userId, current.id), eq(commentReaction.emoji, emoji))
+      const removed = await db.delete(commentReaction).where(mine).returning({ emoji: commentReaction.emoji })
+      if (removed.length === 0) {
+        await db.insert(commentReaction).values({ commentId, userId: current.id, emoji }).onConflictDoNothing()
+      }
+      return (await reactionsFor(db, [commentId])).get(commentId) ?? []
     },
     /**
      * A thread's first comment with replies stays as "This comment was deleted": its body is wiped (search reads

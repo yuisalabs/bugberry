@@ -25,4 +25,9 @@ export function commentsModule(deps: AppDeps) {
       body: commentBody,
     })
     .delete("/comments/:id", ({ user: current, params }) => comments.remove(current, params.id), { auth: true })
+    .post(
+      "/comments/:id/reactions",
+      ({ user: current, params, body }) => comments.toggleReaction(current, params.id, body.emoji),
+      { auth: true, body: t.Object({ emoji: t.String({ minLength: 1, maxLength: 64 }) }) },
+    )
 }
