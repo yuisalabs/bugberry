@@ -1,4 +1,4 @@
-import { PROVIDER_LABELS, TRACKER_PROVIDERS, type TrackerProvider } from "@bugberry/shared"
+import { type IntegrationProvider, isTrackerProvider, NOTIFIER_PROVIDERS, PROVIDER_LABELS, TRACKER_PROVIDERS } from "@bugberry/shared"
 import {
   RiAddLine,
   RiArrowRightSLine,
@@ -7,6 +7,7 @@ import {
   RiDeleteBinLine,
   RiPencilLine,
   RiPlugLine,
+  RiSendPlaneLine,
 } from "@remixicon/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { getRouteApi, Link } from "@tanstack/react-router"
@@ -22,15 +23,32 @@ import { api } from "../../lib/client"
 import { INITIAL_INTEGRATIONS_UI, integrationsUi, type TestResult } from "../../lib/integrations-ui"
 import { queries } from "../../lib/queries"
 import { useCurrentWorkspace } from "../../lib/workspace"
+import { useNow } from "../../hooks/useNow"
+import { formatRelative } from "../../lib/format"
 import { useConfirm } from "@bugberry/ui/confirm-dialog"
 
 const routeApi = getRouteApi("/_authed/_admin/app/settings/projects/$projectId/integrations")
 
-/** What each tracker makes out of a report. */
-const PROVIDER_CREATES: Record<TrackerProvider, string> = { github: "Create issues", activecollab: "Create tasks" }
+/** What each integration does with a report. */
+const PROVIDER_CREATES: Record<IntegrationProvider, string> = {
+  github: "Create issues",
+  activecollab: "Create tasks",
+  gitlab: "Create issues",
+  linear: "Create issues",
+  jira: "Create issues",
+  slack: "Post new reports",
+  discord: "Post new reports",
+  telegram: "Post new reports",
+  webhook: "Post new reports",
+}
 
-/** No integration yet: what one does, and a card per tracker that opens the form with it chosen. */
-export function IntegrationsEmpty({ onPick }: { onPick(provider: TrackerProvider): void }) {
+const PROVIDER_GROUPS = [
+  { title: "Issue trackers", items: TRACKER_PROVIDERS },
+  { title: "Notifications", items: NOTIFIER_PROVIDERS },
+] as const
+
+/** No integration yet: what one does, and a card per provider that opens the form with it chosen. */
+export function IntegrationsEmpty({ onPick }: { onPick(provider: IntegrationProvider): void }) {
   return (
     <div className="flex flex-col items-center gap-6 rounded-2xl border border-border bg-background px-6 py-12 text-center shadow-xs">
       <div aria-hidden className="flex items-center gap-4">
@@ -46,32 +64,38 @@ export function IntegrationsEmpty({ onPick }: { onPick(provider: TrackerProvider
       <div className="flex max-w-lg flex-col gap-2">
         <h2 className="font-heading text-2xl font-bold tracking-tight text-foreground">No integrations yet</h2>
         <p className="text-muted-foreground">
-          Connect a tracker and each report becomes a ready-to-work issue, with the video, console logs and steps attached.
+          Connect a tracker and each report becomes a ready-to-work issue, with the video, console logs and steps attached. Or
+          let a chat channel hear about every new report.
         </p>
       </div>
-      <ul className="grid w-full max-w-xl grid-cols-1 gap-3 sm:grid-cols-2">
-        {TRACKER_PROVIDERS.map((provider) => (
-          <li key={provider}>
-            <button
-              type="button"
-              onClick={() => onPick(provider)}
-              className="flex w-full items-center gap-3 rounded-xl border border-border bg-background px-4 py-3 text-left outline-hidden transition hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <ProviderMark provider={provider} className="size-10" />
-              <span className="flex flex-1 flex-col">
-                <span className="font-medium text-foreground">{PROVIDER_LABELS[provider]}</span>
-                <span className="text-sm text-muted-foreground">{PROVIDER_CREATES[provider]}</span>
-              </span>
-              <RiArrowRightSLine aria-hidden className="size-5 text-muted-foreground" />
-            </button>
-          </li>
-        ))}
-      </ul>
+      {PROVIDER_GROUPS.map((group) => (
+        <section key={group.title} className="flex w-full max-w-xl flex-col gap-3 text-left">
+          <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{group.title}</h3>
+          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {group.items.map((provider) => (
+              <li key={provider}>
+                <button
+                  type="button"
+                  onClick={() => onPick(provider)}
+                  className="flex w-full items-center gap-3 rounded-xl border border-border bg-background px-4 py-3 text-left outline-hidden transition hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <ProviderMark provider={provider} className="size-10" />
+                  <span className="flex flex-1 flex-col">
+                    <span className="font-medium text-foreground">{PROVIDER_LABELS[provider]}</span>
+                    <span className="text-sm text-muted-foreground">{PROVIDER_CREATES[provider]}</span>
+                  </span>
+                  <RiArrowRightSLine aria-hidden className="size-5 text-muted-foreground" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
     </div>
   )
 }
 
-/** A saved integration: where it sends, whether it sends on its own, and its connection test. */
+/** A saved integration: where it sends, whether it sends on its own, its test, and (for a channel) its last message. */
 export function IntegrationRow({
   integration,
   testResult,
@@ -89,6 +113,8 @@ export function IntegrationRow({
   onEdit(): void
   onDelete(): void
 }) {
+  const now = useNow()
+  const notifier = !isTrackerProvider(integration.provider)
   return (
     <li className="flex flex-col gap-3 rounded-2xl border border-border bg-background p-5 shadow-xs">
       <div className="flex flex-wrap items-center gap-4">
@@ -99,13 +125,13 @@ export function IntegrationRow({
             {integration.autoSend && <Badge className="bg-success-subtle text-success-subtle-foreground">Sends every report</Badge>}
           </span>
           <span className="text-sm text-muted-foreground">
-            {PROVIDER_LABELS[integration.provider]} · {PROVIDER_CREATES[integration.provider].toLowerCase()}
+            {PROVIDER_LABELS[integration.provider]} · {notifier ? "Posts new reports" : PROVIDER_CREATES[integration.provider].toLowerCase()}
           </span>
         </div>
         <span className="flex flex-wrap gap-2">
           <Button size="sm" intent="outline" isDisabled={testing} onPress={onTest}>
-            <RiPlugLine aria-hidden />
-            Test connection
+            {notifier ? <RiSendPlaneLine aria-hidden /> : <RiPlugLine aria-hidden />}
+            {notifier ? "Send test message" : "Test connection"}
           </Button>
           <Button size="sm" intent="outline" onPress={onEdit} aria-label={`Edit ${integration.label}`}>
             <RiPencilLine aria-hidden />
@@ -124,6 +150,15 @@ export function IntegrationRow({
           </Button>
         </span>
       </div>
+      {notifier && integration.lastError && (
+        <p className="flex items-center gap-1.5 text-sm text-danger-subtle-foreground">
+          <RiCloseCircleLine aria-hidden className="size-4 shrink-0" />
+          Last message failed: {integration.lastError}
+        </p>
+      )}
+      {notifier && !integration.lastError && integration.lastDeliveredAt && (
+        <p className="text-sm text-muted-foreground">Last message {formatRelative(integration.lastDeliveredAt, now)}</p>
+      )}
       {testResult && (
         <p
           role="status"
@@ -146,7 +181,7 @@ export function IntegrationsPage() {
   const integrations = useQuery(queries.integrations(projectId))
   const [{ editing, testResult }, dispatch] = useReducer(integrationsUi, INITIAL_INTEGRATIONS_UI)
   // The tracker chosen on the empty page's cards, for the new integration's form.
-  const [picked, setPicked] = useState<TrackerProvider>("github")
+  const [picked, setPicked] = useState<IntegrationProvider>("github")
   const refresh = () => queryClient.invalidateQueries({ queryKey: queries.integrations(projectId).queryKey })
 
   const save = useMutation({
@@ -173,11 +208,15 @@ export function IntegrationsPage() {
   const remove = useMutation({ mutationFn: (id: string) => api.deleteIntegration(projectId, id), onSuccess: refresh })
   const check = useMutation({
     mutationFn: (id: string) => api.testIntegration(projectId, id),
-    onSuccess: (_result, id) => dispatch({ type: "tested", id, ok: true, message: "Connection works" }),
+    onSuccess: (_result, id) => {
+      const tested = integrations.data?.find((item) => item.id === id)
+      const message = tested && !isTrackerProvider(tested.provider) ? "Test message sent" : "Connection works"
+      dispatch({ type: "tested", id, ok: true, message })
+    },
     onError: (error, id) => dispatch({ type: "tested", id, ok: false, message: errorMessage(error) }),
   })
 
-  const start = (provider: TrackerProvider) => {
+  const start = (provider: IntegrationProvider) => {
     setPicked(provider)
     dispatch({ type: "edit", id: "new" })
   }
@@ -214,7 +253,7 @@ export function IntegrationsPage() {
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-6">
         <div className="flex flex-col gap-1">
           <h1 className="font-heading text-xl font-bold tracking-tight text-foreground">Integrations</h1>
-          <p className="text-muted-foreground">Reports in {projectName} can be sent to these trackers.</p>
+          <p className="text-muted-foreground">Trackers that take reports from {projectName}, and channels that hear about new ones.</p>
         </div>
         {editing === null && (
           <Button onPress={() => start("github")}>

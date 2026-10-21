@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { IssueContent } from "../src/lib/trackers/content"
+import { HostGuardError, PRIVATE_HOST_MESSAGE } from "../src/lib/net/host-guard"
 import { createTrackerFactory, TrackerError } from "../src/lib/trackers/providers"
 
 const content: IssueContent = {
@@ -193,5 +194,129 @@ describe("network problems", () => {
     await expect(createTrackerFactory(offline)("activecollab", activecollab, "ac-token").test()).rejects.toThrow(
       /ActiveCollab could not be reached/,
     )
+  })
+})
+
+describe("guarded factory", () => {
+  test("checks the address before sending, and sends nothing when it is refused", async () => {
+    const { fetcher, requests } = fakeFetch(() => Response.json({}))
+    const refuse = async () => {
+      throw new HostGuardError(PRIVATE_HOST_MESSAGE)
+    }
+    await expect(createTrackerFactory(fetcher, 1000, refuse)("activecollab", activecollab, "token").test()).rejects.toThrow("private network")
+    expect(requests).toHaveLength(0)
+  })
+})
+
+const gitlab = { baseUrl: "https://gitlab.kantor.test", projectPath: "web/shop", labels: ["bug", "bugberry"] }
+
+describe("GitLab client", () => {
+  test("creates an issue in the project with the token and labels", async () => {
+    const { fetcher, requests } = fakeFetch(() =>
+      Response.json({ iid: 42, web_url: "https://gitlab.kantor.test/web/shop/-/issues/42" }, { status: 201 }),
+    )
+    const issue = await createTrackerFactory(fetcher)("gitlab", gitlab, "glpat-token").createIssue(content)
+    expect(issue).toEqual({ externalId: "42", url: "https://gitlab.kantor.test/web/shop/-/issues/42" })
+    const request = requests[0] as Request
+    expect(request.method).toBe("POST")
+    expect(request.url).toBe("https://gitlab.kantor.test/api/v4/projects/web%2Fshop/issues")
+    expect(request.headers.get("private-token")).toBe("glpat-token")
+    const body = (await request.json()) as { title: string; description: string; labels: string }
+    expect(body.title).toBe("Pay button fails")
+    expect(body.labels).toBe("bug,bugberry")
+    expect(body.description).toContain("https://bugberry.kantor.test/r/r1")
+  })
+
+  test("the connection test refuses a project with issues turned off", async () => {
+    const { fetcher, requests } = fakeFetch(() => Response.json({ id: 9, issues_enabled: false }))
+    await expect(createTrackerFactory(fetcher)("gitlab", gitlab, "glpat-token").test()).rejects.toThrow("Issues are turned off")
+    expect((requests[0] as Request).url).toBe("https://gitlab.kantor.test/api/v4/projects/web%2Fshop")
+  })
+
+  test("401 and 404 become plain messages", async () => {
+    const unauthorized = fakeFetch(() => Response.json({ message: "401 Unauthorized" }, { status: 401 }))
+    await expect(createTrackerFactory(unauthorized.fetcher)("gitlab", gitlab, "bad").test()).rejects.toThrow(
+      "The GitLab token is invalid or has expired",
+    )
+    const missing = fakeFetch(() => Response.json({ message: "404 Project Not Found" }, { status: 404 }))
+    await expect(createTrackerFactory(missing.fetcher)("gitlab", gitlab, "glpat").test()).rejects.toThrow(
+      "The GitLab project was not found or the token lacks the api scope",
+    )
+  })
+})
+
+const linear = { teamKey: "ENG", labels: ["Bug", "missing"] }
+const linearTeam = {
+  data: { teams: { nodes: [{ id: "team-1", labels: { nodes: [{ id: "l-bug", name: "bug" }, { id: "l-ux", name: "UX" }] } }] } },
+}
+
+describe("Linear client", () => {
+  test("creates an issue in the team with the labels it knows", async () => {
+    const { fetcher, requests } = fakeFetch(async (request) => {
+      const body = (await request.clone().json()) as { query: string }
+      if (body.query.includes("issueCreate")) {
+        return Response.json({
+          data: { issueCreate: { success: true, issue: { identifier: "ENG-142", url: "https://linear.app/kantor/issue/ENG-142" } } },
+        })
+      }
+      return Response.json(linearTeam)
+    })
+    const issue = await createTrackerFactory(fetcher)("linear", linear, "lin_api_key").createIssue(content)
+    expect(issue).toEqual({ externalId: "ENG-142", url: "https://linear.app/kantor/issue/ENG-142" })
+    expect(requests.map((request) => request.url)).toEqual(["https://api.linear.app/graphql", "https://api.linear.app/graphql"])
+    expect((requests[0] as Request).headers.get("authorization")).toBe("lin_api_key")
+    const create = (await (requests[1] as Request).json()) as { variables: { input: Record<string, unknown> } }
+    expect(create.variables.input).toMatchObject({ teamId: "team-1", title: "Pay button fails", labelIds: ["l-bug"] })
+    expect(String(create.variables.input.description)).toContain("https://bugberry.kantor.test/r/r1")
+  })
+
+  test("the connection test reports a team that does not exist", async () => {
+    const { fetcher } = fakeFetch(() => Response.json({ data: { teams: { nodes: [] } } }))
+    await expect(createTrackerFactory(fetcher)("linear", linear, "lin_api_key").test()).rejects.toThrow("Linear team ENG was not found")
+  })
+
+  test("a GraphQL error becomes its message, and a bad key a plain one", async () => {
+    const graphql = fakeFetch(() => Response.json({ errors: [{ message: "Title is too long" }] }))
+    await expect(createTrackerFactory(graphql.fetcher)("linear", linear, "lin").test()).rejects.toThrow("Linear: Title is too long")
+    const unauthorized = fakeFetch(() =>
+      Response.json({ errors: [{ message: "Authentication required", extensions: { code: "AUTHENTICATION_ERROR" } }] }, { status: 400 }),
+    )
+    await expect(createTrackerFactory(unauthorized.fetcher)("linear", linear, "bad").test()).rejects.toThrow("The Linear API key is invalid")
+  })
+})
+
+const jira = { siteUrl: "https://kantor.atlassian.net", email: "dev@kantor.test", projectKey: "BUG", issueType: "Bug", labels: ["from bugberry"] }
+
+describe("Jira client", () => {
+  test("creates an issue with basic auth and an Atlassian document description", async () => {
+    const { fetcher, requests } = fakeFetch(() => Response.json({ id: "10001", key: "BUG-12" }, { status: 201 }))
+    const issue = await createTrackerFactory(fetcher)("jira", jira, "atl-token").createIssue(content)
+    expect(issue).toEqual({ externalId: "BUG-12", url: "https://kantor.atlassian.net/browse/BUG-12" })
+    const request = requests[0] as Request
+    expect(request.url).toBe("https://kantor.atlassian.net/rest/api/3/issue")
+    expect(request.headers.get("authorization")).toBe(`Basic ${btoa("dev@kantor.test:atl-token")}`)
+    const body = (await request.json()) as { fields: Record<string, unknown> }
+    expect(body.fields).toMatchObject({
+      project: { key: "BUG" },
+      summary: "Pay button fails",
+      issuetype: { name: "Bug" },
+      labels: ["from-bugberry"],
+    })
+    expect(body.fields.description).toMatchObject({ version: 1, type: "doc" })
+  })
+
+  test("the connection test needs the issue type in the project", async () => {
+    const { fetcher, requests } = fakeFetch(() => Response.json({ key: "BUG", issueTypes: [{ name: "Task" }, { name: "Story" }] }))
+    await expect(createTrackerFactory(fetcher)("jira", jira, "atl-token").test()).rejects.toThrow("Jira project BUG has no issue type Bug")
+    expect((requests[0] as Request).url).toBe("https://kantor.atlassian.net/rest/api/3/project/BUG")
+    const ok = fakeFetch(() => Response.json({ key: "BUG", issueTypes: [{ name: "bug" }] }))
+    await expect(createTrackerFactory(ok.fetcher)("jira", jira, "atl-token").test()).resolves.toBeUndefined()
+  })
+
+  test("Jira's own error messages are passed on, and auth failures are plain", async () => {
+    const bad = fakeFetch(() => Response.json({ errorMessages: [], errors: { summary: "Summary is required" } }, { status: 400 }))
+    await expect(createTrackerFactory(bad.fetcher)("jira", jira, "atl").createIssue(content)).rejects.toThrow("Summary is required")
+    const unauthorized = fakeFetch(() => new Response("", { status: 401 }))
+    await expect(createTrackerFactory(unauthorized.fetcher)("jira", jira, "atl").test()).rejects.toThrow("The Jira email or API token is wrong")
   })
 })

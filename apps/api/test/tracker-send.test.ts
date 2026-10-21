@@ -269,3 +269,24 @@ describe("auto-send", () => {
     expect((await sendFor(session.reportId)).data?.externalId).toBe("9")
   })
 })
+
+describe("auto-send without a background hook (as in production)", () => {
+  test("a finalized report is still sent to an auto-send integration", async () => {
+    const fake = fakeTrackers()
+    const app = await setupTestApp({}, { trackers: fake.factory })
+    const admin = await createUserWithToken(app.db, { role: "admin" })
+    const member = await createUserWithToken(app.db)
+    const project = (await createProject(app.db)).id
+    const { data } = await app.api.api.projects({ id: project }).integrations.post(
+      { provider: "github", config: { owner: "kantor", repo: "web", labels: [] }, secret: "ghp_token", autoSend: true },
+      { headers: admin.headers },
+    )
+    expect(data?.autoSend).toBe(true)
+    const session = (await app.api.api.reports.uploads.post(uploadBody(project), { headers: member.headers })).data
+    if (!session) throw new Error("no upload session")
+    await putUpload(app.app, session.mediaUpload, new Uint8Array([1, 2, 3, 4]))
+    await app.api.api.reports({ id: session.reportId }).finalize.post(undefined, { headers: member.headers })
+    for (let waited = 0; fake.created.length === 0 && waited < 2000; waited += 50) await Bun.sleep(50)
+    expect(fake.created).toHaveLength(1)
+  })
+})

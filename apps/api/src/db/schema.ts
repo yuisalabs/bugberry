@@ -4,8 +4,8 @@ import {
   type DeviceInfo,
   PRIORITIES,
   REPORT_STATUSES,
-  TRACKER_PROVIDERS,
-  type TrackerConfig,
+  INTEGRATION_PROVIDERS,
+  type IntegrationConfig,
   UPLOAD_STATUSES,
   VISIBILITIES,
   WORKSPACE_ROLES,
@@ -37,7 +37,8 @@ export const priorityEnum = pgEnum("priority", PRIORITIES)
 export const visibilityEnum = pgEnum("visibility", VISIBILITIES)
 export const captureTypeEnum = pgEnum("capture_type", CAPTURE_TYPES)
 export const uploadStatusEnum = pgEnum("upload_status", UPLOAD_STATUSES)
-export const trackerProviderEnum = pgEnum("tracker_provider", TRACKER_PROVIDERS)
+/** Every integration provider; the SQL name stays from when only trackers existed. */
+export const integrationProviderEnum = pgEnum("tracker_provider", INTEGRATION_PROVIDERS)
 export const workspaceRoleEnum = pgEnum("workspace_role", WORKSPACE_ROLES)
 /** "full" works on every route (CLI tokens); "mcp" only on /api/mcp (made in the dashboard for AI agents). */
 export const apiTokenKindEnum = pgEnum("api_token_kind", ["full", "mcp"])
@@ -338,11 +339,14 @@ export const integration = pgTable(
     projectId: text("project_id")
       .notNull()
       .references(() => project.id, { onDelete: "cascade" }),
-    provider: trackerProviderEnum("provider").notNull(),
-    config: jsonb("config").$type<TrackerConfig>().notNull(),
+    provider: integrationProviderEnum("provider").notNull(),
+    config: jsonb("config").$type<IntegrationConfig>().notNull(),
     /** AES-256-GCM ciphertext from SecretBox; never returned by the API. */
     secretEncrypted: text("secret_encrypted").notNull(),
     autoSend: boolean("auto_send").notNull().default(false),
+    /** A notification channel's last failed delivery, cleared by the next one that works. */
+    lastError: text("last_error"),
+    lastDeliveredAt: timestamp("last_delivered_at", { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

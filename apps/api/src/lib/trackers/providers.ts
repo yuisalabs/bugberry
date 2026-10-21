@@ -1,5 +1,6 @@
-import type { ActiveCollabConfig, GithubConfig, TrackerConfig, TrackerProvider } from "@bugberry/shared"
-import { type IssueContent, renderHtml, renderMarkdown } from "./content"
+import type { ActiveCollabConfig, GithubConfig, GitlabConfig, JiraConfig, LinearConfig, TrackerConfig, TrackerProvider } from "@bugberry/shared"
+import { type IssueContent, renderAtlassianDocument, renderHtml, renderMarkdown } from "./content"
+import { type HostGuard, HostGuardError, NO_GUARD } from "../net/host-guard"
 
 /** A failure whose message is safe to show to people (never contains the token). */
 export class TrackerError extends Error {
@@ -18,16 +19,23 @@ export interface TrackerClient {
 
 export type TrackerFactory = (provider: TrackerProvider, config: TrackerConfig, secret: string) => TrackerClient
 
-const DEFAULT_TIMEOUT_MS = 15_000
+export const DEFAULT_TIMEOUT_MS = 15_000
 
-interface Http {
+export interface Http {
   fetcher: typeof fetch
   timeoutMs: number
+  /** Checks each address (and each redirect's) before it is called. */
+  guard: HostGuard
 }
 
 const MAX_REDIRECTS = 3
 
 async function request(http: Http, name: string, url: string, init: RequestInit): Promise<Response> {
+  try {
+    await http.guard(url)
+  } catch (error) {
+    throw new TrackerError(error instanceof HostGuardError ? error.message : `${name} could not be reached`)
+  }
   try {
     return await http.fetcher(url, { ...init, redirect: "manual", signal: AbortSignal.timeout(http.timeoutMs) })
   } catch (error) {
@@ -47,7 +55,7 @@ async function request(http: Http, name: string, url: string, init: RequestInit)
  * Redirects are followed by hand and only on the same origin: the token travels in a custom header
  * that fetch would forward to any host, and a redirect could also lead off https.
  */
-async function send(http: Http, name: string, url: string, init: RequestInit): Promise<Response> {
+export async function guardedSend(http: Http, name: string, url: string, init: RequestInit): Promise<Response> {
   const origin = new URL(url).origin
   let current = url
   for (let hop = 0; ; hop++) {
@@ -98,7 +106,7 @@ function githubClient(config: GithubConfig, token: string, http: Http): TrackerC
      * Fine-grained tokens do not reveal their permissions; those are checked by the first send.
      */
     async test() {
-      const response = await send(http, "GitHub", base, { headers })
+      const response = await guardedSend(http, "GitHub", base, { headers })
       if (!response.ok) await fail(response)
       const repo = (await response.json().catch(() => ({}))) as { private?: unknown; has_issues?: unknown }
       if (repo.has_issues === false) throw new TrackerError("Issues are turned off for this repo")
@@ -116,7 +124,7 @@ function githubClient(config: GithubConfig, token: string, http: Http): TrackerC
       }
     },
     async createIssue(content) {
-      const response = await send(http, "GitHub", `${base}/issues`, {
+      const response = await guardedSend(http, "GitHub", `${base}/issues`, {
         method: "POST",
         headers: { ...headers, "content-type": "application/json" },
         body: JSON.stringify({ title: content.title.slice(0, 256), body: renderMarkdown(content), labels: config.labels }),
@@ -145,11 +153,11 @@ function activeCollabClient(config: ActiveCollabConfig, token: string, http: Htt
 
   return {
     async test() {
-      const response = await send(http, "ActiveCollab", projectApi, { headers })
+      const response = await guardedSend(http, "ActiveCollab", projectApi, { headers })
       if (!response.ok) await fail(response)
     },
     async createIssue(content) {
-      const response = await send(http, "ActiveCollab", `${projectApi}/tasks`, {
+      const response = await guardedSend(http, "ActiveCollab", `${projectApi}/tasks`, {
         method: "POST",
         headers: { ...headers, "content-type": "application/json" },
         body: JSON.stringify({ name: content.title.slice(0, 150), body: renderHtml(content), task_list_id: config.taskListId }),
@@ -166,11 +174,171 @@ function activeCollabClient(config: ActiveCollabConfig, token: string, http: Htt
   }
 }
 
-export function createTrackerFactory(fetcher: typeof fetch = fetch, timeoutMs = DEFAULT_TIMEOUT_MS): TrackerFactory {
-  const http = { fetcher, timeoutMs }
+function gitlabClient(config: GitlabConfig, token: string, http: Http): TrackerClient {
+  const project = `${config.baseUrl.replace(/\/+$/, "")}/api/v4/projects/${encodeURIComponent(config.projectPath)}`
+  const headers = { "private-token": token, accept: "application/json", "user-agent": "BugBerry" }
+  const fail = async (response: Response): Promise<never> => {
+    if (response.status === 401) throw new TrackerError("The GitLab token is invalid or has expired")
+    if (response.status === 403 || response.status === 404) {
+      throw new TrackerError("The GitLab project was not found or the token lacks the api scope")
+    }
+    if (response.status === 429) throw new TrackerError("GitLab is limiting requests, try again later")
+    throw new TrackerError(`GitLab rejected the request (HTTP ${response.status})${await remoteMessage(response)}`)
+  }
+
+  return {
+    /** Reading the project proves the token sees it; issues must also be switched on. */
+    async test() {
+      const response = await guardedSend(http, "GitLab", project, { headers })
+      if (!response.ok) await fail(response)
+      const body = (await response.json().catch(() => ({}))) as { issues_enabled?: unknown }
+      if (body.issues_enabled === false) throw new TrackerError("Issues are turned off for this GitLab project")
+    },
+    async createIssue(content) {
+      const response = await guardedSend(http, "GitLab", `${project}/issues`, {
+        method: "POST",
+        headers: { ...headers, "content-type": "application/json" },
+        body: JSON.stringify({ title: content.title.slice(0, 255), description: renderMarkdown(content), labels: config.labels.join(",") }),
+      })
+      if (!response.ok) await fail(response)
+      const issue = (await response.json()) as { iid?: unknown; web_url?: unknown }
+      if (typeof issue.iid !== "number" || typeof issue.web_url !== "string") {
+        throw new TrackerError("GitLab's response was not recognized")
+      }
+      return { externalId: String(issue.iid), url: issue.web_url }
+    },
+  }
+}
+
+const LINEAR_API = "https://api.linear.app/graphql"
+const LINEAR_TEAM = `query Team($key: String!) {
+  teams(filter: { key: { eq: $key } }) { nodes { id labels { nodes { id name } } } }
+}`
+const LINEAR_CREATE = `mutation Create($input: IssueCreateInput!) {
+  issueCreate(input: $input) { success issue { identifier url } }
+}`
+
+function linearClient(config: LinearConfig, apiKey: string, http: Http): TrackerClient {
+  /** One GraphQL call; Linear answers errors in the body, sometimes with HTTP 400. */
+  const graphql = async <T>(query: string, variables: Record<string, unknown>): Promise<T> => {
+    const response = await guardedSend(http, "Linear", LINEAR_API, {
+      method: "POST",
+      headers: { authorization: apiKey, "content-type": "application/json", "user-agent": "BugBerry" },
+      body: JSON.stringify({ query, variables }),
+    })
+    const body = (await response.json().catch(() => ({}))) as {
+      data?: T
+      errors?: Array<{ message?: unknown; extensions?: { code?: unknown } }>
+    }
+    const [error] = body.errors ?? []
+    if (response.status === 401 || error?.extensions?.code === "AUTHENTICATION_ERROR") {
+      throw new TrackerError("The Linear API key is invalid")
+    }
+    if (error) throw new TrackerError(`Linear: ${String(error.message ?? "the request failed").slice(0, 200)}`)
+    if (!response.ok || !body.data) throw new TrackerError(`Linear rejected the request (HTTP ${response.status})`)
+    return body.data
+  }
+  type Team = { id: string; labels: { nodes: Array<{ id: string; name: string }> } }
+  const team = async (): Promise<Team> => {
+    const data = await graphql<{ teams: { nodes: Team[] } }>(LINEAR_TEAM, { key: config.teamKey })
+    const [found] = data.teams.nodes
+    if (!found) throw new TrackerError(`Linear team ${config.teamKey} was not found`)
+    return found
+  }
+
+  return {
+    async test() {
+      await team()
+    },
+    async createIssue(content) {
+      const { id, labels } = await team()
+      // Labels are matched by name; one the team doesn't have is left out rather than failing the issue.
+      const wanted = new Set(config.labels.map((label) => label.toLowerCase()))
+      const labelIds = labels.nodes.filter((label) => wanted.has(label.name.toLowerCase())).map((label) => label.id)
+      const data = await graphql<{ issueCreate: { success: boolean; issue: { identifier?: unknown; url?: unknown } | null } }>(
+        LINEAR_CREATE,
+        { input: { teamId: id, title: content.title.slice(0, 255), description: renderMarkdown(content), labelIds } },
+      )
+      const issue = data.issueCreate.issue
+      if (!data.issueCreate.success || typeof issue?.identifier !== "string" || typeof issue.url !== "string") {
+        throw new TrackerError("Linear's response was not recognized")
+      }
+      return { externalId: issue.identifier, url: issue.url }
+    },
+  }
+}
+
+function jiraClient(config: JiraConfig, apiToken: string, http: Http): TrackerClient {
+  const site = config.siteUrl.replace(/\/+$/, "")
+  const headers = {
+    authorization: `Basic ${btoa(`${config.email}:${apiToken}`)}`,
+    accept: "application/json",
+    "user-agent": "BugBerry",
+  }
+  const fail = async (response: Response): Promise<never> => {
+    if (response.status === 401) throw new TrackerError("The Jira email or API token is wrong")
+    if (response.status === 403 || response.status === 404) {
+      throw new TrackerError("The Jira project was not found or the account cannot create issues in it")
+    }
+    if (response.status === 429) throw new TrackerError("Jira is limiting requests, try again later")
+    const body = (await response.json().catch(() => ({}))) as { errorMessages?: unknown; errors?: unknown }
+    const messages = [
+      ...(Array.isArray(body.errorMessages) ? body.errorMessages : []),
+      ...(body.errors && typeof body.errors === "object" ? Object.values(body.errors) : []),
+    ].filter((message): message is string => typeof message === "string")
+    throw new TrackerError(
+      messages.length > 0
+        ? `Jira: ${messages.join("; ").slice(0, 200)}`
+        : `Jira rejected the request (HTTP ${response.status})`,
+    )
+  }
+
+  return {
+    /** The project must exist for this account and offer the chosen issue type. */
+    async test() {
+      const response = await guardedSend(http, "Jira", `${site}/rest/api/3/project/${encodeURIComponent(config.projectKey)}`, { headers })
+      if (!response.ok) await fail(response)
+      const project = (await response.json().catch(() => ({}))) as { issueTypes?: Array<{ name?: unknown }> }
+      const wanted = config.issueType.toLowerCase()
+      if (!project.issueTypes?.some((type) => typeof type.name === "string" && type.name.toLowerCase() === wanted)) {
+        throw new TrackerError(`Jira project ${config.projectKey} has no issue type ${config.issueType}`)
+      }
+    },
+    async createIssue(content) {
+      const response = await guardedSend(http, "Jira", `${site}/rest/api/3/issue`, {
+        method: "POST",
+        headers: { ...headers, "content-type": "application/json" },
+        body: JSON.stringify({
+          fields: {
+            project: { key: config.projectKey },
+            summary: content.title.slice(0, 255),
+            issuetype: { name: config.issueType },
+            description: renderAtlassianDocument(content),
+            // Jira labels cannot hold spaces.
+            labels: config.labels.map((label) => label.replace(/\s+/g, "-")),
+          },
+        }),
+      })
+      if (!response.ok) await fail(response)
+      const issue = (await response.json()) as { key?: unknown }
+      if (typeof issue.key !== "string") throw new TrackerError("Jira's response was not recognized")
+      return { externalId: issue.key, url: `${site}/browse/${issue.key}` }
+    },
+  }
+}
+
+export function createTrackerFactory(
+  fetcher: typeof fetch = fetch,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+  guard: HostGuard = NO_GUARD,
+): TrackerFactory {
+  const http = { fetcher, timeoutMs, guard }
   return (provider, config, secret) => {
     if (provider === "github" && "owner" in config) return githubClient(config, secret, http)
     if (provider === "activecollab" && "projectId" in config) return activeCollabClient(config, secret, http)
+    if (provider === "gitlab" && "projectPath" in config) return gitlabClient(config, secret, http)
+    if (provider === "linear" && "teamKey" in config) return linearClient(config, secret, http)
+    if (provider === "jira" && "projectKey" in config) return jiraClient(config, secret, http)
     throw new TrackerError("The integration settings don't match its provider")
   }
 }

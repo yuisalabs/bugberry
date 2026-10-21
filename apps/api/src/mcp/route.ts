@@ -8,11 +8,11 @@ import { user as userTable } from "../db/schema"
 import { TOKEN_PREFIX } from "../lib/api-token"
 import { createRateLimiter, type RateLimiter } from "../lib/rate-limit"
 import { createDispatcher } from "../lib/trackers/dispatch"
-import { createTrackerFactory } from "../lib/trackers/providers"
 import { type McpCaller, type McpContext, RATE_LIMITED } from "./context"
 import { createDebuggerCache } from "./debugger"
 import { createKeyCache, verifyOAuthAccessToken } from "./oauth"
 import { createMcpServer } from "./server"
+import { trackerFactoryFor } from "../lib/trackers/default"
 
 const CALLS_PER_MINUTE = 120
 const SCREENSHOTS_PER_MINUTE = 20
@@ -36,7 +36,7 @@ export function mcpModule(deps: AppDeps, options: { limiter?: RateLimiter } = {}
   const cache = createDebuggerCache()
   const keyCache = createKeyCache()
   const screenshotLimiter = createRateLimiter({ limit: SCREENSHOTS_PER_MINUTE, windowMs: 60_000 })
-  const dispatcher = createDispatcher({ ...deps, trackers: deps.trackers ?? createTrackerFactory() })
+  const dispatcher = createDispatcher({ ...deps, trackers: trackerFactoryFor(deps) })
 
   const challenge = `Bearer resource_metadata="${resourceMetadataUrl(deps.config.appUrl)}"`
   const unauthorized = () => rpcError(401, -32001, "Unauthorized", { "www-authenticate": challenge })

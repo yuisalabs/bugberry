@@ -1,17 +1,17 @@
-import { integrationLabel } from "@bugberry/shared"
-import { and, asc, eq } from "drizzle-orm"
+import { integrationLabel, TRACKER_PROVIDERS } from "@bugberry/shared"
+import { and, asc, eq, inArray } from "drizzle-orm"
 import { Elysia } from "elysia"
 import type { AppDeps } from "../../app"
 import { authPlugin } from "../../auth/plugin"
 import { integration, report } from "../../db/schema"
 import { notFound } from "../../lib/errors"
 import { createDispatcher } from "../../lib/trackers/dispatch"
-import { createTrackerFactory } from "../../lib/trackers/providers"
 import { requireReportMember } from "../../workspaces/access"
+import { trackerFactoryFor } from "../../lib/trackers/default"
 
 export function trackersModule(deps: AppDeps) {
   const { db } = deps
-  const dispatcher = createDispatcher({ ...deps, trackers: deps.trackers ?? createTrackerFactory() })
+  const dispatcher = createDispatcher({ ...deps, trackers: trackerFactoryFor(deps) })
 
   return new Elysia()
     .use(authPlugin(deps))
@@ -29,7 +29,7 @@ export function trackersModule(deps: AppDeps) {
         const rows = await db
           .select()
           .from(integration)
-          .where(eq(integration.projectId, row.projectId))
+          .where(and(eq(integration.projectId, row.projectId), inArray(integration.provider, [...TRACKER_PROVIDERS])))
           .orderBy(asc(integration.createdAt))
         return {
           integrations: rows.map((item) => ({

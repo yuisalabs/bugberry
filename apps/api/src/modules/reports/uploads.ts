@@ -16,19 +16,21 @@ import {
 import { newId, newShareSlug } from "../../lib/ids"
 import { createRateLimiter } from "../../lib/rate-limit"
 import { createDispatcher } from "../../lib/trackers/dispatch"
-import { createTrackerFactory } from "../../lib/trackers/providers"
 import { debuggerKeyFor, mediaKeyFor, thumbnailKeyFor } from "../../storage/keys"
 import { requireReportMember, resolveWorkspace } from "../../workspaces/access"
 import { assertCanCreateReport } from "../../workspaces/limits"
 import { createUploadBody } from "./model"
+import { afterFinalize } from "./after-finalize"
 import { claimReportNumber } from "./numbers"
+import { trackerFactoryFor } from "../../lib/trackers/default"
+import { notifyNewReport } from "../../lib/notifiers/deliver"
 
 const UPLOAD_SESSIONS_PER_MINUTE = 30
 
 export function reportUploadsModule(deps: AppDeps) {
   const { config, db, storage } = deps
   const limiter = createRateLimiter({ limit: UPLOAD_SESSIONS_PER_MINUTE, windowMs: 60_000 })
-  const dispatcher = createDispatcher({ ...deps, trackers: deps.trackers ?? createTrackerFactory() })
+  const dispatcher = createDispatcher({ ...deps, trackers: trackerFactoryFor(deps) })
   const linksFor = (row: { id: string; shareSlug: string }) => ({
     reportUrl: `${config.appUrl}/app/r/${row.id}`,
     shareUrl: `${config.appUrl}/s/${row.shareSlug}`,
@@ -176,7 +178,11 @@ export function reportUploadsModule(deps: AppDeps) {
             .where(eq(report.id, row.id))
         })
         // In the background: a slow tracker must not delay the extension.
-        deps.background?.(dispatcher.autoSend(row.id).catch((error) => console.error("auto-send failed", error)))
+        afterFinalize(deps, row.id, async () => {
+          // Each on its own: a tracker that fails must not keep the channels from hearing about the report.
+          await dispatcher.autoSend(row.id).catch((error) => console.error("auto-send failed", { reportId: row.id, error }))
+          await notifyNewReport(deps, row.id).catch((error) => console.error("notify failed", { reportId: row.id, error }))
+        })
         return { id: row.id, uploadStatus: "ready" as const, ...linksFor(row) }
       },
       { auth: true },

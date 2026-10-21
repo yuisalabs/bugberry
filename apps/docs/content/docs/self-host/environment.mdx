@@ -43,6 +43,7 @@ At least one method must be on. See [Sign-in methods](/self-host/sign-in).
 | `SMTP_USER`, `SMTP_PASSWORD` | none | SMTP login, if the server needs one. |
 | `SMTP_SECURE` | `false` | `true` for TLS from the start (usually port 465). |
 | `ALLOWED_EMAIL_DOMAINS` | empty: anyone | Comma-separated domains allowed to sign in, for example `example.com`. |
+| `ALLOW_PRIVATE_INTEGRATION_HOSTS` | `false` | `true` lets integrations reach private network addresses, such as an internal GitLab or webhook. Leave it off on a server that several organizations share. |
 
 ## Storage and uploads
 

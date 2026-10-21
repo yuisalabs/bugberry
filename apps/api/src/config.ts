@@ -72,6 +72,8 @@ export interface Config {
   storage: StorageConfig
   /** Null unless ACCOUNT_LIMITS=true: self-hosted servers have no limits. */
   accountLimits: AccountLimits | null
+  /** ALLOW_PRIVATE_INTEGRATION_HOSTS=true lets integrations reach private network addresses (an internal GitLab). */
+  allowPrivateIntegrationHosts: boolean
 }
 
 export class ConfigError extends Error {
@@ -227,5 +229,6 @@ export function loadConfig(env: Env): Config {
             ownedWorkspaces: integer("LIMIT_OWNED_WORKSPACES", 1, 1, 10_000),
           }
         : null,
+    allowPrivateIntegrationHosts: optional("ALLOW_PRIVATE_INTEGRATION_HOSTS") === "true",
   }
 }

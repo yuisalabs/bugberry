@@ -1,4 +1,4 @@
-import { PROVIDER_LABELS, type Priority, type ReportStatus, type TrackerProvider } from "@bugberry/shared"
+import { type IntegrationProvider, issueReference, PROVIDER_LABELS, type Priority, type ReportStatus } from "@bugberry/shared"
 import { reportedVia } from "../components/report/ReportMeta"
 import type { Activity, CommentThread } from "./api"
 import { PRIORITY_LABELS, STATUS_LABELS } from "./labels"
@@ -88,7 +88,8 @@ export function activitySentence(item: Activity): string {
     case "title":
       return `renamed this from "${detail.from}" to "${detail.to}"`
     case "tracker": {
-      const where = `${PROVIDER_LABELS[detail.provider as TrackerProvider] ?? "the tracker"} as #${detail.externalId}`
+      const provider = detail.provider as IntegrationProvider
+      const where = `${PROVIDER_LABELS[provider] ?? "the tracker"} as ${issueReference(provider, String(detail.externalId))}`
       // Only sends marked automatic say so; older ones never stored who sent them.
       return detail.automatic ? `sent automatically to ${where}` : `sent this to ${where}`
     }

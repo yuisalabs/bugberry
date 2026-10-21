@@ -1,6 +1,6 @@
-import { integrationLabel } from "@bugberry/shared"
+import { integrationLabel, issueReference, TRACKER_PROVIDERS } from "@bugberry/shared"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
-import { asc, eq } from "drizzle-orm"
+import { and, asc, eq, inArray } from "drizzle-orm"
 import { z } from "zod"
 import { integration } from "../../db/schema"
 import { agentLabel, type McpContext, McpToolError, requireWrite, runTool } from "../context"
@@ -16,7 +16,8 @@ export function registerTrackerTools(server: McpServer, ctx: McpContext): void {
     "listTrackers",
     {
       title: "List issue trackers",
-      description: "The GitHub or ActiveCollab integrations of the report's project, and the issues this report was already sent to.",
+      description:
+        "The issue trackers (GitHub, GitLab, Linear, Jira, ActiveCollab) of the report's project, and the issues this report was already sent to.",
       inputSchema: reportArgs,
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
@@ -28,13 +29,15 @@ export function registerTrackerTools(server: McpServer, ctx: McpContext): void {
         const rows = await ctx.deps.db
           .select()
           .from(integration)
-          .where(eq(integration.projectId, resolved.row.projectId))
+          .where(and(eq(integration.projectId, resolved.row.projectId), inArray(integration.provider, [...TRACKER_PROVIDERS])))
           .orderBy(asc(integration.createdAt))
         if (rows.length === 0) return textResult("The report's project has no trackers set up.")
         const links = new Map((await ctx.dispatcher.linksFor(resolved.id)).map((link) => [link.integrationId, link]))
         const lines = rows.map((row) => {
           const link = links.get(row.id)
-          const state = link?.externalUrl ? `sent: ${link.externalUrl}` : link?.error ? `failed: ${link.error}` : link ? "sending" : "Not sent yet"
+          const state = link?.externalUrl
+            ? `sent as ${issueReference(row.provider, link.externalId ?? "")}: ${link.externalUrl}`
+            : link?.error ? `failed: ${link.error}` : link ? "sending" : "Not sent yet"
           return `${row.id} · ${row.provider} · ${integrationLabel(row.provider, row.config)}${row.autoSend ? " · auto-send" : ""} · ${state}`
         })
         return textResult(lines.join("\n"))

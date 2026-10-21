@@ -1,17 +1,34 @@
 ---
 title: Integrations
-description: Send reports to GitHub Issues or ActiveCollab, and let AI agents work on them through MCP.
+description: Send reports to issue trackers, post new reports to chat channels, and let AI agents work on them through MCP.
 ---
+
+Workspace admins set up every integration of a project in one place: **Projects** in the sidebar → **Integrations**. There are two kinds:
+
+- **Issue trackers** (GitHub Issues, GitLab, Linear, Jira, ActiveCollab) turn a report into an issue, by hand or automatically.
+- **Notifications** (Slack, Discord, Telegram, a webhook) post a message when a new report comes in.
+
+Tokens, webhook URLs and signing secrets are stored encrypted with `ENCRYPTION_KEY`, so it must be set (see [Install](/self-host/install#generate-the-secrets)), and they are never shown again after saving. If the key ever changes, the saved secrets can't be read anymore: save them again in each integration.
 
 ## Tracker integrations
 
-Workspace admins connect each project to GitHub Issues or ActiveCollab under **Projects** in the sidebar → **Integrations**. A report can then be sent from its page, or automatically when a new report that belongs to the project finishes uploading.
-
-Tokens are stored encrypted with `ENCRYPTION_KEY`, so it must be set (see [Install](/self-host/install#generate-the-secrets)). If it ever changes, the saved tokens can't be read anymore: save the token again in each integration.
+A report can be sent from its page, or automatically when a new report that belongs to the project finishes uploading (turn on auto-send in the integration).
 
 ### GitHub Issues
 
 Create a **fine-grained personal access token** with access to the target repository and the **Issues: Read and write** permission, and paste it into the integration.
+
+### GitLab
+
+Works with gitlab.com and self-hosted GitLab. Enter the GitLab address (such as `https://gitlab.com`) and the project path (`group/project`, or deeper with subgroups). Create a **personal access token** under **Preferences → Access tokens** (`<GitLab address>/-/user_settings/personal_access_tokens`) with the **api** scope, from an account that can create issues in the project. The project must have issues turned on.
+
+### Linear
+
+Create a **personal API key** under **Settings → Security & access** (`https://linear.app/settings/account/security`) and enter the team's key, such as `ENG` (it starts every issue identifier of that team). Labels are matched by name to the team's existing labels; names that don't exist are skipped.
+
+### Jira Cloud
+
+Enter the site address (`https://<your-site>.atlassian.net`), the email of the Atlassian account, the project key (such as `BUG`) and the issue type (such as `Bug` or `Task`). Create an **API token** at `https://id.atlassian.com/manage-profile/security/api-tokens` with that account; it needs permission to create issues in the project. Spaces in labels become dashes, because Jira labels can't contain spaces.
 
 ### ActiveCollab (self-hosted)
 
@@ -22,6 +39,78 @@ Use the API token of an account that can create tasks in the target project. The
 - A report without a project is never sent to a tracker; add it to a project first, from its page.
 - Moving a report into a project doesn't send it automatically; send it from the report's **More** menu.
 - Tracker issues include the report's link and its captured details, but never the reporter's city.
+
+## Notifications
+
+A notification integration posts one message for every new report in the project, as soon as it finishes uploading. Reports without a project notify nobody. **Send test message** on the integration posts a test message right away, so you can check the setup.
+
+Chat messages (Slack, Discord, Telegram) show the report number and title, the project, who reported it, the browser, the number of console errors and failed requests, and a link to open the report in BugBerry. They never include the address of the captured page, because it can carry session ids or tokens in its query string. Only the webhook sends it.
+
+When a channel doesn't answer, BugBerry tries twice more (after 5 and 30 seconds). If the last try fails too, the integration shows **Last message failed** with the reason; otherwise it shows when the last message went out.
+
+### Slack
+
+In Slack, create an app with **Incoming Webhooks** turned on and add a webhook to the channel ([Slack's guide](https://api.slack.com/messaging/webhooks)). Paste the webhook URL, which starts with `https://hooks.slack.com/services/`.
+
+### Discord
+
+In the channel's settings, open **Integrations → Webhooks**, create a webhook and copy its URL (`https://discord.com/api/webhooks/…`). Messages never mention anyone, whatever the report's title says.
+
+### Telegram
+
+Create a bot with [@BotFather](https://t.me/BotFather) and copy its token. Add the bot to the group or channel (for a channel, as an admin that can post). Then enter the chat id: a group's numeric id, which usually starts with `-100`, or a public channel's `@name`. To find a group's id, send a message in the group and open `https://api.telegram.org/bot<token>/getUpdates`.
+
+### Webhook
+
+BugBerry sends a `POST` with a JSON body to the URL you enter (it must be `https`; plain `http` only works for `localhost`). The headers are `content-type: application/json`, `user-agent: BugBerry` and `x-bugberry-event: report.created`.
+
+```json
+{
+  "event": "report.created",
+  "sentAt": "2026-10-21T08:00:03.120Z",
+  "report": {
+    "id": "q3k9v1x7m2",
+    "number": 42,
+    "title": "Pay now fails with a 500",
+    "project": "Checkout Web",
+    "reporter": "Dana Kim",
+    "browser": "Chrome 141",
+    "consoleErrors": 2,
+    "failedRequests": 1,
+    "pageUrl": "https://shop.example.com/checkout",
+    "url": "https://bugberry.example.com/app/r/q3k9v1x7m2",
+    "createdAt": "2026-10-21T08:00:00.000Z"
+  },
+  "test": false
+}
+```
+
+`test` is `true` for **Send test message**. Any `2xx` answer counts as delivered.
+
+With a signing secret, every request also carries `x-bugberry-signature: sha256=<hex>`, the HMAC-SHA256 of the raw body with the secret as key. Check it before trusting the body:
+
+```ts
+import { createHmac, timingSafeEqual } from "node:crypto"
+
+function isFromBugBerry(rawBody: string, header: string | null, secret: string): boolean {
+  const expected = `sha256=${createHmac("sha256", secret).update(rawBody).digest("hex")}`
+  return header !== null && header.length === expected.length && timingSafeEqual(Buffer.from(header), Buffer.from(expected))
+}
+```
+
+Compute the signature over the body exactly as it arrived, before parsing the JSON.
+
+## Private network addresses
+
+By default BugBerry refuses integration addresses that point to a private network (such as `10.x`, `192.168.x`, `localhost` or a cloud metadata address). The check runs when an integration is saved and again before every request and redirect, so a name that later resolves to a private address is refused too. This keeps a workspace admin from using an integration to reach services inside your network.
+
+If your GitLab, ActiveCollab or webhook receiver lives on your own network, set this in the API's environment and restart it:
+
+```bash
+ALLOW_PRIVATE_INTEGRATION_HOSTS=true
+```
+
+See [Environment variables](/self-host/environment).
 
 ## AI agents (MCP)
 

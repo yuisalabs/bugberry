@@ -20,6 +20,7 @@ import { claimReportNumber } from "../src/modules/reports/numbers"
 import { freeSlug } from "../src/workspaces/slug"
 import { createStorage } from "../src/storage"
 import type { UploadTarget } from "../src/storage/types"
+import type { NotifierFactory } from "../src/lib/notifiers/channels"
 
 export const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ?? "postgres://fdebag:fdebag@localhost:54329/fdebag_test"
@@ -90,20 +91,35 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
     encryptionKey: TEST_ENCRYPTION_KEY,
     storage: { driver: "local", dir: mkdtempSync(join(tmpdir(), "bugberry-test-")) },
     accountLimits: null,
+    allowPrivateIntegrationHosts: true,
     ...overrides,
   }
 }
 
 export async function setupTestApp(
   overrides: Partial<Config> = {},
-  extra: { trackers?: TrackerFactory; background?: (task: Promise<unknown>) => void; email?: EmailSender } = {},
+  extra: {
+    trackers?: TrackerFactory
+    notifiers?: NotifierFactory
+    background?: (task: Promise<unknown>) => void
+    email?: EmailSender
+  } = {},
 ) {
   const db = await getTestDb()
   await resetDb(db)
   const config = testConfig(overrides)
   const storage = createStorage(config)
   const betterAuth = createAuth(config, db, { email: extra.email })
-  const app = createApp({ config, db, storage, betterAuth, trackers: extra.trackers, background: extra.background, email: extra.email })
+  const app = createApp({
+    config,
+    db,
+    storage,
+    betterAuth,
+    trackers: extra.trackers,
+    notifiers: extra.notifiers,
+    background: extra.background,
+    email: extra.email,
+  })
   const testWorkspace = await createWorkspaceRow(db, "Test")
   defaultWorkspaceId = testWorkspace.id
   return { app, api: treaty(app), db, config, storage, betterAuth, workspace: testWorkspace }
