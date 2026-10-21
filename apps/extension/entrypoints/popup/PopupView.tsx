@@ -1,7 +1,7 @@
 import { Button } from "@bugberry/ui/button"
 import { Menu, MenuHeader, MenuItem, MenuSection, MenuTrigger } from "@bugberry/ui/menu"
 import { RiArrowRightUpLine, RiLayoutGridLine, RiMoreLine, RiSettings3Line } from "@remixicon/react"
-import { type ReactNode, useState } from "react"
+import { type ReactNode, useCallback, useRef, useState } from "react"
 import { Button as AriaButton } from "react-aria-components"
 import type { CapturePrefs } from "../../lib/capture-prefs"
 import type { MicAccess, MicDevice } from "../../lib/microphone"
@@ -11,6 +11,7 @@ import type { SessionState } from "../../lib/session"
 import type { ReportDraft } from "../../lib/types"
 import { CaptureControls, Tiles } from "./CapturePanel"
 import { DraftList } from "./DraftList"
+import { MicPicker } from "./MicPicker"
 import { Footer } from "./parts"
 
 /** The microphones as the popup knows them; `level` is the metered device's loudness, 0..1. */
@@ -67,17 +68,36 @@ export interface PopupViewProps {
   recordWarning?: string | null
 }
 
+/** The device recorded from: the chosen one, or the default one when it is unplugged or none was chosen. */
+function micInUse(prefs: CapturePrefs, mic: MicState) {
+  return mic.devices.find((device) => device.id === prefs.micDeviceId) ?? mic.devices.find((device) => device.id === mic.defaultId)
+}
+
 /** The chosen microphone's short name for the chip and the note; null while the microphone is off. */
 export function micShortName(prefs: CapturePrefs, mic: MicState): string | null {
   if (!prefs.mic) return null
-  const id = prefs.micDeviceId ?? mic.defaultId
-  return mic.devices.find((device) => device.id === id)?.short ?? "Microphone"
+  return micInUse(prefs, mic)?.short ?? "Microphone"
+}
+
+/** The device whose level the popup shows: the one in use, or the default one while the microphone is off. */
+export function meteredMicId(prefs: CapturePrefs, mic: MicState): string | null {
+  return prefs.mic ? (micInUse(prefs, mic)?.id ?? mic.defaultId) : mic.defaultId
 }
 
 /** The toolbar popup: tiles to choose what to capture, a dial to do it. No browser APIs here; App wires them. */
 export function PopupView(props: PopupViewProps) {
   const [showDrafts, setShowDrafts] = useState(false)
   const [micOpen, setMicOpen] = useState(false)
+  const chipRef = useRef<HTMLButtonElement>(null)
+  const { onMicPicker } = props
+  const toggleMic = useCallback(
+    (open: boolean) => {
+      setMicOpen(open)
+      onMicPicker(open)
+    },
+    [onMicPicker],
+  )
+  const closeMic = useCallback(() => toggleMic(false), [toggleMic])
 
   if (showDrafts) return <DraftList {...props} onBack={() => setShowDrafts(false)} />
 
@@ -87,10 +107,6 @@ export function PopupView(props: PopupViewProps) {
   const logsOn = props.logsAvailable && props.hostAccess
   const micShort = micShortName(prefs, props.mic)
   const warning = choice.kind === "screenshot" ? props.screenshotWarning : props.recordWarning
-  const toggleMic = (open: boolean) => {
-    setMicOpen(open)
-    props.onMicPicker(open)
-  }
 
   return (
     <main className="flex flex-col bg-background text-foreground">
@@ -150,6 +166,25 @@ export function PopupView(props: PopupViewProps) {
               onMicChip={() => toggleMic(!micOpen)}
               onScreenshot={props.onScreenshot}
               onRecord={props.onRecord}
+              chipRef={chipRef}
+              picker={
+                micOpen && (
+                  <MicPicker
+                    access={props.mic.access}
+                    devices={props.mic.devices}
+                    chosen={prefs.mic ? (micInUse(prefs, props.mic)?.id ?? null) : null}
+                    metered={meteredMicId(prefs, props.mic)}
+                    level={props.mic.level}
+                    chipRef={chipRef}
+                    onChoose={(id) => {
+                      props.onMicChoose(id)
+                      closeMic()
+                    }}
+                    onAllow={props.onMicAllow}
+                    onClose={closeMic}
+                  />
+                )
+              }
             />
             <Footer text={captureCopy(choice, micShort, logsOn).footer} logsOn={logsOn} />
           </section>

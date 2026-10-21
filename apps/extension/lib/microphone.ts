@@ -10,14 +10,6 @@ export async function micAccess(query: (name: "microphone") => Promise<{ state: 
   }
 }
 
-/** The default microphone's name as the popup shows it; Chrome hides names until permission is granted. */
-export function micDeviceLabel(devices: Array<{ kind: string; deviceId: string; label: string }>): string {
-  const inputs = devices.filter((device) => device.kind === "audioinput")
-  const chosen = inputs.find((device) => device.deviceId === "default") ?? inputs[0]
-  const label = chosen?.label.replace(/^Default - /, "").trim()
-  return label || "Microphone"
-}
-
 export type MicKind = "built-in" | "headset" | "usb" | "other"
 
 /** A microphone as the popup's picker shows it. */

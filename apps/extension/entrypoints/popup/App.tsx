@@ -14,7 +14,8 @@ import { pickEditorWorkspace } from "../../lib/report-form"
 import type { PopupRecordingStatus, RecordingStatus } from "../../lib/recording-flow"
 import { checkSession, type SessionState, serverLabel, signInUrl } from "../../lib/session"
 import { loadSettings, type Settings } from "../../lib/settings"
-import { type MicState, PopupView } from "./PopupView"
+import { type MicState, meteredMicId, PopupView } from "./PopupView"
+import { useMicLevel } from "./use-mic-level"
 import { useConfirm } from "@bugberry/ui/confirm-dialog"
 
 const store = createIndexedDbDraftStore()
@@ -37,6 +38,9 @@ export function App() {
   const [activeTab, setActiveTab] = useState<{ id?: number; url?: string } | null>(null)
   const [mic, setMic] = useState<MicState>({ access: "prompt", devices: [], defaultId: null, level: 0 })
   const [live, setLive] = useState<PopupRecordingStatus | undefined>(undefined)
+  const [micPicker, setMicPicker] = useState(false)
+  // Listens only while the picker is open or a microphone is chosen, and only once it may be used.
+  const level = useMicLevel(meteredMicId(prefs, mic), (micPicker || prefs.mic) && mic.access === "granted")
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [limitNotes, setLimitNotes] = useState<{ usage: string | null; screenshot: string | null; record: string | null }>({
@@ -169,7 +173,7 @@ export function App() {
         session={session}
         serverHost={settings ? serverLabel(settings.serverUrl, BUILD_SERVER_ORIGIN) : ""}
         prefs={prefs}
-        mic={mic}
+        mic={{ ...mic, level }}
         recording={recording}
         live={live}
         activeTabId={activeTab?.id ?? null}
@@ -182,7 +186,10 @@ export function App() {
         onPrefs={(patch) => void updatePrefs(patch)}
         onMicChoose={(id) => void onMicChoose(id)}
         onMicAllow={onMicAllow}
-        onMicPicker={() => {}}
+        onMicPicker={(open) => {
+          setMicPicker(open)
+          if (open) void readMic()
+        }}
         onPause={() => {}}
         onResume={() => {}}
         onRestart={() => {}}

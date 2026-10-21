@@ -246,3 +246,68 @@ describe("website access", () => {
     expect(screen.queryByRole("button", { name: "Allow access to websites" })).toBeNull()
   })
 })
+
+const devices = [
+  { id: "a", name: "Microphone Array", detail: "Realtek(R) Audio · built-in", short: "Realtek Audio", kind: "built-in" as const },
+  { id: "h", name: "AirPods Pro", detail: "Bluetooth headset", short: "AirPods Pro", kind: "headset" as const },
+  { id: "u", name: "Blue Yeti", detail: "USB microphone", short: "Blue Yeti", kind: "usb" as const },
+]
+
+describe("microphone picker", () => {
+  test("before access: No microphone and Allow microphone access", () => {
+    const props = view({ prefs: record("tab"), mic: { access: "prompt", devices: [], defaultId: null, level: 0 } })
+    fireEvent.click(button(/Mic off/))
+    expect(props.onMicPicker).toHaveBeenCalledWith(true)
+    expect(radio(/No microphone/).checked).toBe(true)
+    expect(screen.queryByText(/found/)).toBeNull()
+    fireEvent.click(button(/Allow microphone access/))
+    expect(props.onMicAllow).toHaveBeenCalledTimes(1)
+    expect(screen.getByText("Chrome asks for mic access the first time. Your choice is remembered.")).toBeTruthy()
+  })
+
+  test("access blocked: an instruction instead of Allow", () => {
+    view({ prefs: record("tab"), mic: { access: "denied", devices: [], defaultId: null, level: 0 } })
+    fireEvent.click(button(/Mic off/))
+    expect(screen.getByText("Microphone is blocked. Allow it for BugBerry in Chrome's site settings.")).toBeTruthy()
+    expect(screen.queryByRole("button", { name: /Allow microphone access/ })).toBeNull()
+  })
+
+  test("devices: the count, choosing one, the picker closes", () => {
+    const props = view({ prefs: record("tab"), mic: { access: "granted", devices, defaultId: "a", level: 0.5 } })
+    fireEvent.click(button(/Mic off/))
+    expect(screen.getByText("3 found")).toBeTruthy()
+    expect(screen.getByText("Realtek(R) Audio · built-in")).toBeTruthy()
+    fireEvent.click(radio(/Microphone Array/))
+    expect(props.onMicChoose).toHaveBeenCalledWith("a")
+    expect(screen.queryByText("3 found")).toBeNull()
+  })
+
+  test("No microphone turns it off", () => {
+    const props = view({ prefs: { ...record("tab"), mic: true, micDeviceId: "a" }, mic: { access: "granted", devices, defaultId: "a", level: 0 } })
+    fireEvent.click(button(/Realtek Audio/))
+    fireEvent.click(radio(/No microphone/))
+    expect(props.onMicChoose).toHaveBeenCalledWith(null)
+  })
+
+  test("Esc closes without a choice", () => {
+    const props = view({ prefs: record("tab"), mic: { access: "granted", devices, defaultId: "a", level: 0 } })
+    fireEvent.click(button(/Mic off/))
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" })
+    expect(screen.queryByRole("dialog")).toBeNull()
+    expect(props.onMicChoose).not.toHaveBeenCalled()
+    expect(props.onMicPicker).toHaveBeenLastCalledWith(false)
+  })
+
+  test("a chosen microphone shows on the chip and in the info", () => {
+    view({ prefs: { ...record("tab"), mic: true, micDeviceId: "a" }, mic: { access: "granted", devices, defaultId: "h", level: 0 } })
+    expect(button(/Realtek Audio/)).toBeTruthy()
+    expect(
+      screen.getByText("Only this tab is recorded, with your voice from Realtek Audio. Other tabs and apps stay private."),
+    ).toBeTruthy()
+  })
+
+  test("a chosen microphone that is gone falls back to the default one's name", () => {
+    view({ prefs: { ...record("tab"), mic: true, micDeviceId: "gone" }, mic: { access: "granted", devices, defaultId: "h", level: 0 } })
+    expect(button(/AirPods Pro/)).toBeTruthy()
+  })
+})

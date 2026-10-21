@@ -1,24 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { micAccess, micChoiceAfterCheck, micDeviceLabel, micDevices, micErrorText } from "../lib/microphone"
-
-describe("micDeviceLabel", () => {
-  test("names the default microphone without Chrome's prefix", () => {
-    expect(
-      micDeviceLabel([
-        { kind: "videoinput", deviceId: "cam", label: "FaceTime HD Camera" },
-        { kind: "audioinput", deviceId: "usb", label: "USB Mic" },
-        { kind: "audioinput", deviceId: "default", label: "Default - MacBook Pro Microphone" },
-      ]),
-    ).toBe("MacBook Pro Microphone")
-  })
-
-  test("falls back to the first microphone, then to a plain name", () => {
-    expect(micDeviceLabel([{ kind: "audioinput", deviceId: "usb", label: "USB Mic" }])).toBe("USB Mic")
-    // Before permission is granted, Chrome hides the labels.
-    expect(micDeviceLabel([{ kind: "audioinput", deviceId: "", label: "" }])).toBe("Microphone")
-    expect(micDeviceLabel([])).toBe("Microphone")
-  })
-})
+import { micAccess, micChoiceAfterCheck, micDevices, micErrorText } from "../lib/microphone"
 
 const input = (deviceId: string, label: string, groupId = deviceId) => ({ kind: "audioinput", deviceId, groupId, label })
 

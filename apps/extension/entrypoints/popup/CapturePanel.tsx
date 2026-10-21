@@ -12,7 +12,7 @@ import {
   RiTimerLine,
   RiVolumeUpLine,
 } from "@remixicon/react"
-import type { ReactNode } from "react"
+import type { ReactNode, RefObject } from "react"
 import { Button as AriaButton, Radio, RadioGroup, ToggleButton } from "react-aria-components"
 import type { CapturePrefs, RecordSource, ScreenshotMode } from "../../lib/capture-prefs"
 import { type CaptureChoice, captureCopy } from "../../lib/popup"
@@ -116,6 +116,7 @@ export function CaptureControls(props: {
   onRecord(): void
   /** The picker, drawn above the chips. */
   picker?: ReactNode
+  chipRef?: RefObject<HTMLButtonElement | null>
 }) {
   const { choice, prefs } = props
   const copy = captureCopy(choice, props.micShort, true)
@@ -131,7 +132,7 @@ export function CaptureControls(props: {
       {recording && (
         <div className="relative mt-3 flex flex-wrap items-center justify-center gap-2">
           {props.picker}
-          <AriaButton aria-expanded={props.micOpen} onPress={props.onMicChip} className={`${chip(props.micShort !== null)} ${props.micOpen ? "ring-[1.5px] ring-primary" : ""}`}>
+          <AriaButton ref={props.chipRef} aria-expanded={props.micOpen} onPress={props.onMicChip} className={`${chip(props.micShort !== null)} ${props.micOpen ? "ring-[1.5px] ring-primary" : ""}`}>
             {props.micShort !== null ? <RiMicLine size={16} aria-hidden /> : <RiMicOffLine size={16} aria-hidden />}
             <span className={props.micShort !== null ? "" : "text-foreground/80"}>{props.micShort ?? "Mic off"}</span>
             {props.micShort !== null && <LevelBars level={props.level} />}
