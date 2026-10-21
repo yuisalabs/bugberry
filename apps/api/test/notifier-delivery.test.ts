@@ -6,7 +6,17 @@ import type { NotifierFactory } from "../src/lib/notifiers/channels"
 import { notifyNewReport } from "../src/lib/notifiers/deliver"
 import type { NewReportMessage } from "../src/lib/notifiers/message"
 import { TrackerError } from "../src/lib/trackers/providers"
-import { createProject, createReadyReport, createUserWithToken, putUpload, setupTestApp, uploadBody } from "./helpers"
+import {
+  createIntegration,
+  createProject,
+  createReadyReport,
+  createUserWithToken,
+  fakeTrackers,
+  putUpload,
+  setupTestApp,
+  uploadBody,
+  waitFor,
+} from "./helpers"
 
 interface Sent {
   provider: NotifierProvider
@@ -47,12 +57,8 @@ beforeEach(async () => {
   project = await createProject(ctx.db, { name: "Checkout Web" })
 })
 
-async function addChannel(provider: "slack" | "discord", secret: string) {
-  const { data, error } = await ctx.api.api
-    .projects({ id: project.id })
-    .integrations.post({ provider, config: {}, secret }, { headers: admin.headers })
-  if (!data) throw new Error(`could not add ${provider}: ${JSON.stringify(error?.value)}`)
-  return data.id
+async function addChannel(provider: "slack" | "discord", secret: string, projectId = project.id) {
+  return (await createIntegration(ctx.db, { projectId, provider, secret })).id
 }
 
 async function finalizeReport(projectId: string | null) {
@@ -67,6 +73,43 @@ async function finalizeReport(projectId: string | null) {
 const rowOf = async (id: string) => (await ctx.db.select().from(integration).where(eq(integration.id, id)))[0]
 
 describe("new-report notifications", () => {
+  test("a slow tracker does not hold up the channels", async () => {
+    const trackers = fakeTrackers()
+    let release: () => void = () => {}
+    trackers.behaviour.createIssue = () =>
+      new Promise((resolve) => {
+        release = () => resolve({ externalId: "1", url: "https://tracker.test/issues/1" })
+      })
+    const pending: Promise<unknown>[] = []
+    const app = await setupTestApp({}, { trackers: trackers.factory, notifiers: notifiers.factory, background: (task) => pending.push(task) })
+    const reporter = await createUserWithToken(app.db)
+    const owner = await createProject(app.db)
+    await createIntegration(app.db, { projectId: owner.id, provider: "github", target: { owner: "kantor", repo: "web", labels: [] }, autoSend: true })
+    await createIntegration(app.db, { projectId: owner.id, provider: "slack", secret: SLACK })
+    const session = (await app.api.api.reports.uploads.post(uploadBody(owner.id), { headers: reporter.headers })).data
+    if (!session) throw new Error("no upload session")
+    await putUpload(app.app, session.mediaUpload, new Uint8Array([1, 2, 3, 4]))
+    await app.api.api.reports({ id: session.reportId }).finalize.post(undefined, { headers: reporter.headers })
+    // The tracker never answers until released, and the channel still gets its message.
+    await waitFor(async () => notifiers.sent.length === 1, 2000)
+    await waitFor(async () => trackers.created.length === 1, 2000)
+    release()
+    await Promise.all(pending)
+  })
+
+  test("one Slack connection used by two projects posts once per project", async () => {
+    const other = await createProject(ctx.db, { name: "Admin Panel" })
+    const slack = await createIntegration(ctx.db, { projectId: project.id, provider: "slack", secret: SLACK })
+    const second = await createIntegration(ctx.db, { projectId: other.id, provider: "slack", connectionId: slack.connectionId })
+    await finalizeReport(project.id)
+    expect(notifiers.sent).toHaveLength(1)
+    expect(notifiers.sent[0]).toMatchObject({ secret: SLACK, message: { projectName: "Checkout Web" } })
+    await finalizeReport(other.id)
+    expect(notifiers.sent).toHaveLength(2)
+    expect(notifiers.sent[1]).toMatchObject({ secret: SLACK, message: { projectName: "Admin Panel" } })
+    expect((await rowOf(second.id))?.lastDeliveredAt).toBeInstanceOf(Date)
+  })
+
   test("a finalized report notifies every channel of its project", async () => {
     const slack = await addChannel("slack", SLACK)
     await addChannel("discord", DISCORD)

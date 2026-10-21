@@ -1,22 +1,13 @@
 import { treaty } from "@elysiajs/eden"
 import type { App } from "@bugberry/api"
 import type {
-  ActiveCollabConfig,
   CaptureType,
-  DiscordConfig,
-  GithubConfig,
-  GitlabConfig,
-  IntegrationConfig,
+  ConnectionSettings,
   IntegrationProvider,
-  JiraConfig,
-  LinearConfig,
   Priority,
   ReportStatus,
-  SlackConfig,
-  TelegramConfig,
-  TrackerConfig,
+  UseTarget,
   Visibility,
-  WebhookConfig,
   WorkspaceRole,
 } from "@bugberry/shared"
 
@@ -109,22 +100,34 @@ export interface ReportsQuery {
   perPage: number
 }
 
-type Input<P extends IntegrationProvider, C> = { provider: P; config: C; secret: string; autoSend?: boolean }
-
-export type IntegrationInput =
-  | Input<"github", GithubConfig>
-  | Input<"activecollab", ActiveCollabConfig>
-  | Input<"gitlab", GitlabConfig>
-  | Input<"linear", LinearConfig>
-  | Input<"jira", JiraConfig>
-  | Input<"slack", SlackConfig>
-  | Input<"discord", DiscordConfig>
-  | Input<"telegram", TelegramConfig>
-  | Input<"webhook", WebhookConfig>
-
-export interface IntegrationPatch {
-  config?: IntegrationConfig
+/** A workspace connection as an admin saves it; the secret is sealed on the server and never comes back. */
+export interface ConnectionInput {
+  provider: IntegrationProvider
+  name: string
+  settings: ConnectionSettings
   secret?: string
+}
+
+export interface ConnectionPatch {
+  name?: string
+  settings?: ConnectionSettings
+  /** Empty keeps the current secret. */
+  secret?: string
+}
+
+/** What a connection can list for a project to pick from. */
+export type OptionList = "targets" | "labels" | "issueTypes" | "taskLists"
+
+/** A project's use of a connection; its target is picked from the connection's lists. */
+export interface IntegrationInput {
+  connectionId: string
+  target: UseTarget
+  autoSend?: boolean
+}
+
+/** Only labels and auto-send change; a different target is a new use. */
+export interface IntegrationPatch {
+  labels?: string[]
   autoSend?: boolean
 }
 
@@ -213,12 +216,28 @@ export function createApi(origin: string = window.location.origin, fetcher: type
     reportTrackers: (reportId: string) => unwrap(api.reports({ id: reportId }).trackers.get()),
     sendToTracker: (reportId: string, integrationId: string) =>
       unwrap(api.reports({ id: reportId }).trackers({ integrationId }).send.post()),
+    connections: (workspaceId: string) => unwrap(api.workspaces({ id: workspaceId }).connections.get()),
+    createConnection: (workspaceId: string, body: ConnectionInput) =>
+      unwrap(api.workspaces({ id: workspaceId }).connections.post(body as never)),
+    updateConnection: (workspaceId: string, id: string, body: ConnectionPatch) =>
+      unwrap(api.workspaces({ id: workspaceId }).connections({ connectionId: id }).patch(body)),
+    deleteConnection: (workspaceId: string, id: string) =>
+      unwrap(api.workspaces({ id: workspaceId }).connections({ connectionId: id }).delete()),
+    testConnection: (workspaceId: string, id: string) =>
+      unwrap(api.workspaces({ id: workspaceId }).connections({ connectionId: id }).test.post()),
+    connectionOptions: (workspaceId: string, id: string, list: OptionList, opts: { q?: string; parent?: string } = {}) =>
+      unwrap(
+        api
+          .workspaces({ id: workspaceId })
+          .connections({ connectionId: id })
+          .options.get({ query: { list, ...(opts.q ? { q: opts.q } : {}), ...(opts.parent ? { parent: opts.parent } : {}) } }),
+      ),
     integrations: (projectId: string) => unwrap(api.projects({ id: projectId }).integrations.get()),
-    createIntegration: (projectId: string, body: IntegrationInput) =>
-      unwrap(api.projects({ id: projectId }).integrations.post(body)),
+    addIntegration: (projectId: string, body: IntegrationInput) =>
+      unwrap(api.projects({ id: projectId }).integrations.post(body as never)),
     updateIntegration: (projectId: string, id: string, body: IntegrationPatch) =>
       unwrap(api.projects({ id: projectId }).integrations({ integrationId: id }).patch(body)),
-    deleteIntegration: (projectId: string, id: string) =>
+    removeIntegration: (projectId: string, id: string) =>
       unwrap(api.projects({ id: projectId }).integrations({ integrationId: id }).delete()),
     testIntegration: (projectId: string, id: string) =>
       unwrap(api.projects({ id: projectId }).integrations({ integrationId: id }).test.post()),
@@ -253,6 +272,11 @@ export type Notifications = Awaited<ReturnType<Api["notifications"]>>
 export type ReportTrackers = Awaited<ReturnType<Api["reportTrackers"]>>
 export type TrackerLink = ReportTrackers["links"][number]
 export type Integration = Awaited<ReturnType<Api["integrations"]>>[number]
+/** A workspace connection; admins also get its settings and the projects that use it. */
+export type Connection = Awaited<ReturnType<Api["connections"]>>[number] & {
+  settings?: ConnectionSettings
+  usedBy?: Array<{ projectId: string; projectName: string }>
+}
 
 const MESSAGES: Record<string, string> = {
   network: NETWORK_MESSAGE,

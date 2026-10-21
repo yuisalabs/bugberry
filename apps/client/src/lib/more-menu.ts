@@ -9,7 +9,7 @@ export function copyForAiText(origin: string, reportId: string): string {
 }
 
 export interface TrackerItem {
-  integrationId: string
+  integrationId: string | null
   label: string
   /** "none": nothing to do while a send runs. */
   action: "send" | "retry" | "open" | "none"
@@ -27,10 +27,10 @@ export function trackerItems(data: ReportTrackers, now: number, sendingId: strin
     .filter((link) => link.externalId && !data.integrations.some((item) => item.id === link.integrationId))
     .map((link) => ({
       integrationId: link.integrationId,
-      label: `Open issue #${link.externalId}`,
+      label: `Open issue ${issueReference(link.provider, link.externalId ?? "")}`,
       action: "open" as const,
       href: link.externalUrl ? safeHttpUrl(link.externalUrl) : null,
-      note: "Created before the report moved projects",
+      note: "From an integration this project no longer has",
     }))
 
   const current = data.integrations.map((integration): TrackerItem => {

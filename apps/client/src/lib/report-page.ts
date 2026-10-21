@@ -31,6 +31,6 @@ export function sentIssues(data: ReportTrackers | undefined): SentIssue[] {
   return data.links.flatMap((link) => {
     const integration = data.integrations.find((item) => item.id === link.integrationId)
     if (!link.externalId) return []
-    return [{ provider: integration?.provider ?? null, externalId: link.externalId, externalUrl: link.externalUrl }]
+    return [{ provider: link.provider ?? integration?.provider ?? null, externalId: link.externalId, externalUrl: link.externalUrl }]
   })
 }

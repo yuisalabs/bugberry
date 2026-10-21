@@ -48,9 +48,10 @@ describe("host guard", () => {
     await expect(guard()("https://140.82.112.3/")).resolves.toBeUndefined()
   })
 
-  test("a name that does not resolve is reported plainly", async () => {
+  test("a name that does not resolve is reported plainly, without the address (members read these errors)", async () => {
     const failing = createHostGuard({ allowPrivate: false, lookup: async () => Promise.reject(new Error("ENOTFOUND")) })
-    await expect(failing("https://nowhere.kantor.test/")).rejects.toThrow("could not be found")
+    await expect(failing("https://nowhere.kantor.test/")).rejects.toThrow("The integration's address could not be found")
+    await expect(failing("https://nowhere.kantor.test/")).rejects.not.toThrow("nowhere")
   })
 
   test("allows everything when the operator allows private hosts", async () => {

@@ -1,0 +1,1 @@
+ALTER TYPE "public"."tracker_provider" ADD VALUE 'plane' BEFORE 'slack';

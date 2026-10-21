@@ -14,6 +14,12 @@ New database migrations run when the `api` container starts. `docker stop` gives
 
 If you build the extension yourself, update the server first, then share the new extension zip.
 
+### Upgrading to workspace integrations
+
+From this version, accounts and channels are connected once per workspace and projects use them. On upgrade, every existing integration becomes a connection of its own, named after what it pointed at (such as "GitHub · kantor/web"), used by the project it belonged to, with the same target, labels and auto-send. Nothing stops sending.
+
+Integrations that used the same token become separate connections; nothing merges them for you. To tidy up, rename the connections under **Integrations**, then in each project use the one you keep and remove the others.
+
 ## Backups
 
 Data lives in two volumes: `fdebag-prod_pgdata` (the database) and, with local storage, `fdebag-prod_uploads` (the files). Back up both:

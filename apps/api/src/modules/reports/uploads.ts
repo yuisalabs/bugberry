@@ -179,9 +179,11 @@ export function reportUploadsModule(deps: AppDeps) {
         })
         // In the background: a slow tracker must not delay the extension.
         afterFinalize(deps, row.id, async () => {
-          // Each on its own: a tracker that fails must not keep the channels from hearing about the report.
-          await dispatcher.autoSend(row.id).catch((error) => console.error("auto-send failed", { reportId: row.id, error }))
-          await notifyNewReport(deps, row.id).catch((error) => console.error("notify failed", { reportId: row.id, error }))
+          // Side by side and each on its own: a slow or failing tracker must not keep the channels waiting.
+          await Promise.all([
+            dispatcher.autoSend(row.id).catch((error) => console.error("auto-send failed", { reportId: row.id, error })),
+            notifyNewReport(deps, row.id).catch((error) => console.error("notify failed", { reportId: row.id, error })),
+          ])
         })
         return { id: row.id, uploadStatus: "ready" as const, ...linksFor(row) }
       },

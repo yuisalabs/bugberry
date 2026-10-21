@@ -1,9 +1,10 @@
-import { integrationLabel, TRACKER_PROVIDERS } from "@bugberry/shared"
-import { and, asc, eq, inArray } from "drizzle-orm"
+import { TRACKER_PROVIDERS } from "@bugberry/shared"
+import { and, eq } from "drizzle-orm"
 import { Elysia } from "elysia"
 import type { AppDeps } from "../../app"
 import { authPlugin } from "../../auth/plugin"
-import { integration, report } from "../../db/schema"
+import { report } from "../../db/schema"
+import { usesOfProject } from "../../lib/integrations/resolve"
 import { notFound } from "../../lib/errors"
 import { createDispatcher } from "../../lib/trackers/dispatch"
 import { requireReportMember } from "../../workspaces/access"
@@ -26,18 +27,9 @@ export function trackersModule(deps: AppDeps) {
           .limit(1)
         if (!row) throw notFound("report_not_found", "Report not found")
         if (!row.projectId) return { integrations: [], links: await dispatcher.linksFor(params.id), needsProject: true }
-        const rows = await db
-          .select()
-          .from(integration)
-          .where(and(eq(integration.projectId, row.projectId), inArray(integration.provider, [...TRACKER_PROVIDERS])))
-          .orderBy(asc(integration.createdAt))
+        const uses = await usesOfProject(db, row.projectId, TRACKER_PROVIDERS)
         return {
-          integrations: rows.map((item) => ({
-            id: item.id,
-            provider: item.provider,
-            label: integrationLabel(item.provider, item.config),
-            autoSend: item.autoSend,
-          })),
+          integrations: uses.map((item) => ({ id: item.id, provider: item.provider, label: item.label, autoSend: item.autoSend })),
           links: await dispatcher.linksFor(params.id),
           needsProject: false,
         }

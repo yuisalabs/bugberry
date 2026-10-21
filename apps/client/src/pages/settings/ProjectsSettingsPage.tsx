@@ -126,8 +126,8 @@ function ProjectCard({ project, ...actions }: { project: Project; onEditPatterns
       integrationCount={integrations.data?.length ?? null}
       integrationsLink={
         <Link
-          to="/app/settings/projects/$projectId/integrations"
-          params={{ projectId: project.id }}
+          to="/app/p/$projectSlug/integrations"
+          params={{ projectSlug: project.slug }}
           className={buttonStyles({ intent: "outline", size: "sm" })}
         >
           <RiApps2Line aria-hidden />

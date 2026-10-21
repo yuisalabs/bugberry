@@ -3,6 +3,8 @@ import {
   RiCloseLine,
   RiFolderFill,
   RiFolderLine,
+  RiPlugFill,
+  RiPlugLine,
   RiGroupFill,
   RiGroupLine,
   RiHashtag,
@@ -188,6 +190,14 @@ export function AppShell() {
                     <>
                       <ActiveIcon active={isActive} line={RiFolderLine} fill={RiFolderFill} className={navIcon} />
                       Projects
+                    </>
+                  )}
+                </Link>
+                <Link to="/app/settings/integrations" {...navLink}>
+                  {({ isActive }) => (
+                    <>
+                      <ActiveIcon active={isActive} line={RiPlugLine} fill={RiPlugFill} className={navIcon} />
+                      Integrations
                     </>
                   )}
                 </Link>

@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, setSystemTime, test } from "bun:test"
 import { and, eq } from "drizzle-orm"
-import { integration, reportExternalLink } from "../src/db/schema"
+import { connection, integration, reportExternalLink } from "../src/db/schema"
 import { TrackerError } from "../src/lib/trackers/providers"
 import { LocalStorageDriver } from "../src/storage/local"
 import {
   createProject,
   createReadyReport,
+  createIntegration,
   createUserWithToken,
   type FakeTrackers,
   fakeTrackers,
@@ -28,11 +29,14 @@ beforeEach(async () => {
   admin = await createUserWithToken(ctx.db, { role: "admin" })
   member = await createUserWithToken(ctx.db)
   projectId = (await createProject(ctx.db)).id
-  const { data } = await ctx.api.api.projects({ id: projectId }).integrations.post(
-    { provider: "github", config: { owner: "kantor", repo: "web", labels: [] }, secret: "ghp_token" },
-    { headers: admin.headers },
-  )
-  integrationId = data?.id ?? ""
+  integrationId = (
+    await createIntegration(ctx.db, {
+      projectId,
+      provider: "github",
+      target: { owner: "kantor", repo: "web", labels: [] },
+      secret: "ghp_token",
+    })
+  ).id
 })
 
 const sendFor = (reportId: string, id = integrationId) =>
@@ -154,7 +158,8 @@ describe("sending a report to a tracker", () => {
 
   test("an unreadable token is reported on the link without calling the tracker", async () => {
     const created = await createReadyReport(ctx.db, { projectId, reporterId: member.user.id })
-    await ctx.db.update(integration).set({ secretEncrypted: "v1.aaa.bbb.ccc" }).where(eq(integration.id, integrationId))
+    const [use] = await ctx.db.select().from(integration).where(eq(integration.id, integrationId))
+    await ctx.db.update(connection).set({ secretEncrypted: "v1.aaa.bbb.ccc" }).where(eq(connection.id, use?.connectionId ?? ""))
     const { data } = await sendFor(created.id)
     expect(data?.error).toContain("ENCRYPTION_KEY")
     expect(trackers.created).toHaveLength(0)
@@ -181,6 +186,33 @@ describe("sending a report to a tracker", () => {
     expect(trackers.created).toHaveLength(0)
   })
 
+  test("a send uses the connection's secret and settings with the use's target", async () => {
+    const gitlab = await createIntegration(ctx.db, {
+      projectId,
+      provider: "gitlab",
+      settings: { baseUrl: "https://gitlab.kantor.test" },
+      target: { projectPath: "kantor/web", labels: [] },
+      secret: "glpat-x",
+    })
+    const created = await createReadyReport(ctx.db, { projectId, reporterId: member.user.id })
+    const { data } = await sendFor(created.id, gitlab.id)
+    expect(trackers.created[0]).toMatchObject({
+      provider: "gitlab",
+      config: { baseUrl: "https://gitlab.kantor.test", projectPath: "kantor/web", labels: [] },
+      secret: "glpat-x",
+    })
+    expect(data).toMatchObject({ integrationId: gitlab.id, provider: "gitlab", externalId: "1" })
+  })
+
+  test("a link stays when its use is removed", async () => {
+    const created = await createReadyReport(ctx.db, { projectId, reporterId: member.user.id })
+    await sendFor(created.id)
+    await ctx.db.delete(integration).where(eq(integration.id, integrationId))
+    const { data } = await ctx.api.api.reports({ id: created.id }).trackers.get({ headers: member.headers })
+    expect(data?.integrations).toEqual([])
+    expect(data?.links).toMatchObject([{ provider: "github", externalId: "1", integrationId: null }])
+  })
+
   test("members see the project's integrations and the report's links", async () => {
     const created = await createReadyReport(ctx.db, { projectId, reporterId: member.user.id })
     await sendFor(created.id)
@@ -201,11 +233,14 @@ describe("auto-send", () => {
     admin = await createUserWithToken(ctx.db, { role: "admin" })
     member = await createUserWithToken(ctx.db)
     projectId = (await createProject(ctx.db)).id
-    const { data } = await ctx.api.api.projects({ id: projectId }).integrations.post(
-      { provider: "github", config: { owner: "kantor", repo: "web", labels: [] }, secret: "ghp_token" },
-      { headers: admin.headers },
-    )
-    integrationId = data?.id ?? ""
+    integrationId = (
+      await createIntegration(ctx.db, {
+        projectId,
+        provider: "github",
+        target: { owner: "kantor", repo: "web", labels: [] },
+        secret: "ghp_token",
+      })
+    ).id
   })
 
   const finishedUpload = async () => {
@@ -277,11 +312,13 @@ describe("auto-send without a background hook (as in production)", () => {
     const admin = await createUserWithToken(app.db, { role: "admin" })
     const member = await createUserWithToken(app.db)
     const project = (await createProject(app.db)).id
-    const { data } = await app.api.api.projects({ id: project }).integrations.post(
-      { provider: "github", config: { owner: "kantor", repo: "web", labels: [] }, secret: "ghp_token", autoSend: true },
-      { headers: admin.headers },
-    )
-    expect(data?.autoSend).toBe(true)
+    await createIntegration(app.db, {
+      projectId: project,
+      provider: "github",
+      target: { owner: "kantor", repo: "web", labels: [] },
+      secret: "ghp_token",
+      autoSend: true,
+    })
     const session = (await app.api.api.reports.uploads.post(uploadBody(project), { headers: member.headers })).data
     if (!session) throw new Error("no upload session")
     await putUpload(app.app, session.mediaUpload, new Uint8Array([1, 2, 3, 4]))

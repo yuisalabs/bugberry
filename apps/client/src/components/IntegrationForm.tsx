@@ -1,7 +1,5 @@
 import {
-  type IntegrationConfig,
   type IntegrationProvider,
-  isTrackerProvider,
   NOTIFIER_PROVIDERS,
   type NotifierProvider,
   PROVIDER_LABELS,
@@ -10,48 +8,35 @@ import {
 } from "@bugberry/shared"
 import {
   RiArrowRightLine,
-  RiArrowRightUpLine,
   RiCheckboxCircleLine,
   RiErrorWarningLine,
   RiEyeLine,
-  RiEyeOffLine,
-  RiKey2Line,
   RiRecordCircleLine,
   RiWebhookLine,
 } from "@remixicon/react"
-import { type FormEvent, type KeyboardEvent, type ReactNode, useId, useState } from "react"
-import { Radio, RadioGroup } from "react-aria-components"
-import { Button } from "@bugberry/ui/button"
-import { Label } from "@bugberry/ui/field"
-import { Input, InputGroup } from "@bugberry/ui/input"
-import { Switch, SwitchField } from "@bugberry/ui/switch"
-import { Tag, TagGroup, TagList } from "@bugberry/ui/tag-group"
-import { TextField } from "@bugberry/ui/text-field"
-import type { Integration } from "../lib/api"
-import { EMPTY_FIELDS, type IntegrationFields, validateIntegration, validateSecret } from "../lib/integrations"
+import type { ReactNode } from "react"
+import { Radio } from "react-aria-components"
+import type { ConnectionFields } from "../lib/integrations"
 import { GithubIcon } from "./LoginView"
-
-export interface IntegrationSubmit {
-  provider: IntegrationProvider
-  config: IntegrationConfig
-  secret: string
-  autoSend: boolean
-}
 
 /** Where a GitHub admin makes the fine-grained token this form asks for. */
 export const GITHUB_TOKEN_URL = "https://github.com/settings/personal-access-tokens/new"
-const GITLAB_COM = "https://gitlab.com"
+export const GITLAB_COM = "https://gitlab.com"
+/** Plane Cloud's API; a self-hosted Plane uses its own address instead. */
+export const PLANE_CLOUD = "https://api.plane.so"
+/** Where a provider's address starts when nobody typed one. */
+export const DEFAULT_ADDRESS: Partial<Record<IntegrationProvider, string>> = { gitlab: GITLAB_COM, plane: PLANE_CLOUD }
 
 /** What each provider calls its secret, where to make one, and what it needs. */
-interface SecretSetup {
+export interface SecretSetup {
   label: string
   placeholder: string
   hint: string
-  link?: (fields: IntegrationFields) => string
+  link?: (fields: ConnectionFields) => string
   optional?: boolean
 }
 
-const SECRET_SETUP: Record<IntegrationProvider, SecretSetup> = {
+export const SECRET_SETUP: Record<IntegrationProvider, SecretSetup> = {
   github: {
     label: "Personal access token",
     placeholder: "github_pat_…",
@@ -80,6 +65,11 @@ const SECRET_SETUP: Record<IntegrationProvider, SecretSetup> = {
     placeholder: "Token",
     hint: "An API token of the account above, which can create issues in this project.",
     link: () => "https://id.atlassian.com/manage-profile/security/api-tokens",
+  },
+  plane: {
+    label: "API key",
+    placeholder: "plane_api_…",
+    hint: "A personal access token from Plane: Profile Settings, then Personal Access Tokens. Its user must be a member of the projects.",
   },
   slack: {
     label: "Incoming Webhook URL",
@@ -124,8 +114,10 @@ export function ProviderMark({ provider, className = "size-9" }: { provider: Int
       </span>
     )
   }
-  if (provider === "activecollab") {
-    return <img src="/assets/activecollab_icon.png" alt="" className={`shrink-0 rounded-lg border border-border bg-background object-contain ${className}`} />
+  // Full app icons (their own background and corners) are shown as they are, without padding.
+  const appIcon = provider === "activecollab" ? "/assets/activecollab_icon.png" : provider === "plane" ? "/assets/integrations/plane.png" : null
+  if (appIcon) {
+    return <img src={appIcon} alt="" className={`shrink-0 rounded-lg border border-border bg-background object-contain ${className}`} />
   }
   return (
     <img
@@ -136,88 +128,7 @@ export function ProviderMark({ provider, className = "size-9" }: { provider: Int
   )
 }
 
-function initialFields(provider: IntegrationProvider, integration?: Integration): IntegrationFields {
-  const config = (integration?.config ?? {}) as Record<string, unknown>
-  const text = (key: keyof IntegrationFields) => (config[key] === undefined ? "" : String(config[key]))
-  return {
-    ...EMPTY_FIELDS,
-    owner: text("owner"),
-    repo: text("repo"),
-    labels: Array.isArray(config.labels) ? config.labels.join(", ") : "",
-    baseUrl: text("baseUrl") || (provider === "gitlab" ? GITLAB_COM : ""),
-    projectId: text("projectId"),
-    taskListId: text("taskListId"),
-    projectPath: text("projectPath"),
-    teamKey: text("teamKey"),
-    siteUrl: text("siteUrl"),
-    email: text("email"),
-    projectKey: text("projectKey"),
-    issueType: text("issueType") || "Bug",
-    chatId: text("chatId"),
-    url: text("url"),
-  }
-}
-
-const labelList = (labels: string) =>
-  labels
-    .split(",")
-    .map((label) => label.trim())
-    .filter(Boolean)
-
-/** Labels as chips: Enter or a comma adds one, Backspace in the empty field takes the last back. */
-function LabelChips({ labels, onChange }: { labels: string[]; onChange(labels: string[]): void }) {
-  const [text, setText] = useState("")
-  const add = (raw: string) => {
-    const next = [...labels]
-    for (const label of labelList(raw)) if (!next.includes(label)) next.push(label)
-    if (next.length !== labels.length) onChange(next)
-  }
-  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Enter") {
-      event.preventDefault()
-      add(text)
-      setText("")
-    } else if (event.key === "Backspace" && !text && labels.length > 0) {
-      onChange(labels.slice(0, -1))
-    }
-  }
-  return (
-    <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-input bg-background px-2 py-1.5 focus-within:border-ring/70 focus-within:ring-3 focus-within:ring-ring/20 *:data-[slot=control]:min-w-32 *:data-[slot=control]:flex-1">
-      {labels.length > 0 && (
-        <TagGroup aria-label="Labels" onRemove={(keys) => onChange(labels.filter((label) => !keys.has(label)))} className="contents">
-          <TagList items={labels.map((label) => ({ label }))} className="contents">
-            {({ label }) => (
-              <Tag id={label} textValue={label}>
-                {label}
-              </Tag>
-            )}
-          </TagList>
-        </TagGroup>
-      )}
-      <Input
-        aria-label="Add label"
-        placeholder={labels.length === 0 ? "bug, bugberry" : "Add label"}
-        value={text}
-        onChange={(event) => {
-          const value = event.target.value
-          if (value.includes(",")) {
-            add(value)
-            return setText("")
-          }
-          setText(value)
-        }}
-        onKeyDown={onKeyDown}
-        onBlur={() => {
-          if (text.trim()) add(text)
-          setText("")
-        }}
-        className="border-0 bg-transparent px-0 py-0.5 focus:ring-0 sm:px-0 sm:py-0.5"
-      />
-    </div>
-  )
-}
-
-function Field({ label, aside, children }: { label: string; aside?: ReactNode; children: ReactNode }) {
+export function Field({ label, aside, children }: { label: string; aside?: ReactNode; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-3">
@@ -335,7 +246,7 @@ export function MessagePreview({ provider }: { provider: NotifierProvider }) {
   )
 }
 
-function ProviderOption({ provider }: { provider: IntegrationProvider }) {
+export function ProviderOption({ provider }: { provider: IntegrationProvider }) {
   return (
     <Radio
       value={provider}
@@ -352,258 +263,7 @@ function ProviderOption({ provider }: { provider: IntegrationProvider }) {
   )
 }
 
-const PROVIDER_GROUPS = [
+export const PROVIDER_GROUPS = [
   { title: "Issue trackers", items: TRACKER_PROVIDERS },
   { title: "Notifications", items: NOTIFIER_PROVIDERS },
 ] as const
-
-export function IntegrationForm({
-  integration,
-  projectName = "this project",
-  initialProvider = "github",
-  busy,
-  onSubmit,
-  onCancel,
-}: {
-  integration?: Integration
-  projectName?: string
-  /** The provider picked from the empty page's cards. */
-  initialProvider?: IntegrationProvider
-  busy: boolean
-  onSubmit(value: IntegrationSubmit): void
-  onCancel(): void
-}) {
-  const tokenHint = useId()
-  const [provider, setProvider] = useState<IntegrationProvider>(integration?.provider ?? initialProvider)
-  const [fields, setFields] = useState(() => initialFields(integration?.provider ?? initialProvider, integration))
-  const [secret, setSecret] = useState("")
-  const [showSecret, setShowSecret] = useState(false)
-  const [autoSend, setAutoSend] = useState(integration?.autoSend ?? false)
-  const [error, setError] = useState<string | null>(null)
-  const update = (changes: Partial<IntegrationFields>) => setFields((current) => ({ ...current, ...changes }))
-  const text = (key: keyof IntegrationFields) => ({ value: fields[key], onChange: (value: string) => update({ [key]: value }) })
-  const labels = labelList(fields.labels)
-  const tracker = isTrackerProvider(provider)
-  const setup = SECRET_SETUP[provider]
-  const tokenLink = setup.link?.(fields)
-
-  const choose = (next: IntegrationProvider) => {
-    setProvider(next)
-    // GitLab starts at gitlab.com; that address must not follow to ActiveCollab.
-    setFields((current) => {
-      if (next === "gitlab" && !current.baseUrl) return { ...current, baseUrl: GITLAB_COM }
-      if (next !== "gitlab" && current.baseUrl === GITLAB_COM) return { ...current, baseUrl: "" }
-      return current
-    })
-    setError(null)
-  }
-
-  const submit = (event: FormEvent) => {
-    event.preventDefault()
-    const result = validateIntegration(provider, fields)
-    if (!result.ok) return setError(result.error)
-    const token = secret.trim()
-    if (!integration && !token && !setup.optional) return setError(`Enter the ${setup.label.toLowerCase()}`)
-    const secretError = token ? validateSecret(provider, token) : null
-    if (secretError) return setError(secretError)
-    setError(null)
-    onSubmit({ provider, config: result.config, secret: token, autoSend: tracker && autoSend })
-  }
-
-  return (
-    <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
-      <form onSubmit={submit} className="flex flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-xs">
-        <div className="flex flex-col gap-1 border-b border-border px-6 py-5 sm:px-8">
-          <h2 className="font-heading text-lg font-semibold text-foreground">{integration ? "Edit integration" : "New integration"}</h2>
-          <p className="text-sm text-muted-foreground">
-            {tracker
-              ? `Send reports from ${projectName} to your tracker as new issues.`
-              : `Tell a channel about every new report in ${projectName}.`}
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-6 px-6 py-6 sm:px-8">
-          <RadioGroup
-            aria-label="Provider"
-            value={provider}
-            isDisabled={Boolean(integration)}
-            onChange={(value) => choose(value as IntegrationProvider)}
-            className="flex flex-col gap-4"
-          >
-            <span className="text-sm font-medium text-foreground">Provider</span>
-            {PROVIDER_GROUPS.map((group) => (
-              <div key={group.title} className="flex flex-col gap-2">
-                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{group.title}</span>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {group.items.map((item) => (
-                    <ProviderOption key={item} provider={item} />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </RadioGroup>
-
-          {provider === "github" && (
-            <Field label="Repository">
-              <div className="flex items-center gap-3">
-                <TextField aria-label="Owner" {...text("owner")} className="flex-1">
-                  <Input placeholder="owner" className="font-mono" />
-                </TextField>
-                <span aria-hidden className="text-lg text-muted-foreground">
-                  /
-                </span>
-                <TextField aria-label="Repo" {...text("repo")} className="flex-1">
-                  <Input placeholder="repo" className="font-mono" />
-                </TextField>
-              </div>
-            </Field>
-          )}
-          {provider === "activecollab" && (
-            <>
-              <TextField {...text("baseUrl")}>
-                <Label>ActiveCollab address</Label>
-                <Input placeholder="https://ac.example.com" className="font-mono" />
-              </TextField>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <TextField inputMode="numeric" {...text("projectId")}>
-                  <Label>Project ID</Label>
-                  <Input />
-                </TextField>
-                <TextField inputMode="numeric" {...text("taskListId")}>
-                  <Label>Task list ID</Label>
-                  <Input />
-                </TextField>
-              </div>
-            </>
-          )}
-          {provider === "gitlab" && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <TextField {...text("baseUrl")}>
-                <Label>GitLab address</Label>
-                <Input placeholder={GITLAB_COM} className="font-mono" />
-              </TextField>
-              <TextField {...text("projectPath")}>
-                <Label>Project path</Label>
-                <Input placeholder="group/project" className="font-mono" />
-              </TextField>
-            </div>
-          )}
-          {provider === "linear" && (
-            <TextField {...text("teamKey")}>
-              <Label>Team key</Label>
-              <Input placeholder="ENG" className="font-mono" />
-            </TextField>
-          )}
-          {provider === "jira" && (
-            <>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <TextField {...text("siteUrl")}>
-                  <Label>Jira site</Label>
-                  <Input placeholder="https://yourteam.atlassian.net" className="font-mono" />
-                </TextField>
-                <TextField type="email" {...text("email")}>
-                  <Label>Atlassian account email</Label>
-                  <Input placeholder="you@example.com" />
-                </TextField>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <TextField {...text("projectKey")}>
-                  <Label>Project key</Label>
-                  <Input placeholder="BUG" className="font-mono" />
-                </TextField>
-                <TextField {...text("issueType")}>
-                  <Label>Issue type</Label>
-                  <Input placeholder="Bug" />
-                </TextField>
-              </div>
-            </>
-          )}
-          {provider === "telegram" && (
-            <TextField {...text("chatId")}>
-              <Label>Chat ID</Label>
-              <Input placeholder="-1001234567890 or @channel" className="font-mono" />
-            </TextField>
-          )}
-          {provider === "webhook" && (
-            <TextField type="url" {...text("url")}>
-              <Label>Webhook URL</Label>
-              <Input placeholder="https://example.com/bugberry" className="font-mono" />
-            </TextField>
-          )}
-          {tracker && provider !== "activecollab" && (
-            <Field label="Labels">
-              <LabelChips labels={labels} onChange={(next) => update({ labels: next.join(", ") })} />
-            </Field>
-          )}
-
-          <Field
-            label={setup.label}
-            aside={
-              tokenLink && (
-                <a href={tokenLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
-                  Create one on {PROVIDER_LABELS[provider]}
-                  <RiArrowRightUpLine aria-hidden className="size-4" />
-                </a>
-              )
-            }
-          >
-            <TextField
-              aria-label={setup.label}
-              aria-describedby={tokenHint}
-              type={showSecret ? "text" : "password"}
-              autoComplete="off"
-              value={secret}
-              onChange={setSecret}
-            >
-              <InputGroup>
-                <Input placeholder={integration ? "Leave empty to keep the current one" : setup.placeholder} className="font-mono" />
-                <Button
-                  intent="plain"
-                  size="sq-xs"
-                  aria-label={showSecret ? "Hide token" : "Show token"}
-                  onPress={() => setShowSecret((shown) => !shown)}
-                  className="me-1"
-                >
-                  {showSecret ? <RiEyeOffLine aria-hidden /> : <RiEyeLine aria-hidden />}
-                </Button>
-              </InputGroup>
-            </TextField>
-            <p id={tokenHint} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <RiKey2Line aria-hidden className="size-3.5 shrink-0" />
-              {setup.hint}
-            </p>
-          </Field>
-
-          {tracker && (
-            <div className="flex items-center justify-between gap-4 rounded-xl bg-muted px-5 py-4">
-              <div className="flex flex-col">
-                <span className="text-sm font-medium text-foreground">Send every new report automatically</span>
-                <span className="text-sm text-muted-foreground">If off, you pick which reports to send from the report page.</span>
-              </div>
-              <SwitchField aria-label="Send every new report automatically" isSelected={autoSend} onChange={setAutoSend}>
-                <Switch />
-              </SwitchField>
-            </div>
-          )}
-
-          {error && (
-            <p role="alert" className="text-sm text-danger-subtle-foreground">
-              {error}
-            </p>
-          )}
-        </div>
-
-        <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border bg-muted/50 px-6 py-4 sm:px-8">
-          <Button intent="outline" onPress={onCancel}>
-            Cancel
-          </Button>
-          <Button type="submit" isDisabled={busy}>
-            Save integration
-          </Button>
-        </div>
-      </form>
-
-      {isTrackerProvider(provider) ? <IssuePreview provider={provider} labels={labels} /> : <MessagePreview provider={provider} />}
-    </div>
-  )
-}

@@ -3,16 +3,25 @@ title: Integrations
 description: Send reports to issue trackers, post new reports to chat channels, and let AI agents work on them through MCP.
 ---
 
-Workspace admins set up every integration of a project in one place: **Projects** in the sidebar → **Integrations**. There are two kinds:
+Integrations work on two levels:
 
-- **Issue trackers** (GitHub Issues, GitLab, Linear, Jira, ActiveCollab) turn a report into an issue, by hand or automatically.
+- **Connections, in the workspace.** Workspace admins connect an account or a channel once, under **Integrations** in the sidebar: a GitHub token, a Jira login, a Slack channel's webhook URL. A workspace can have several connections of the same provider (two GitHub accounts, a Slack channel per team); each gets a name.
+- **Uses, in a project.** Anyone in the workspace opens a project, then **Integrations** at the top of its reports, and uses a connection there. For a tracker they pick the repository, project or team from a list that comes straight from the account, plus its labels. A chat channel needs nothing more.
+
+There are two kinds:
+
+- **Issue trackers** (GitHub Issues, GitLab, Linear, Jira, Plane, ActiveCollab) turn a report into an issue, by hand or automatically.
 - **Notifications** (Slack, Discord, Telegram, a webhook) post a message when a new report comes in.
 
-Tokens, webhook URLs and signing secrets are stored encrypted with `ENCRYPTION_KEY`, so it must be set (see [Install](/self-host/install#generate-the-secrets)), and they are never shown again after saving. If the key ever changes, the saved secrets can't be read anymore: save them again in each integration.
+Tokens, webhook URLs and signing secrets are stored encrypted with `ENCRYPTION_KEY`, so it must be set (see [Install](/self-host/install#generate-the-secrets)), and they are never shown again after saving. Members never see them, nor a connection's addresses: only its name. If the key ever changes, the saved secrets can't be read anymore: save them again in each connection.
+
+Replacing a connection's token fixes every project that uses it at once. Deleting a connection stops every project that uses it (the confirmation lists them), but issues already created keep their links on their reports.
+
+Because members can point a project at anything a connection's token reaches, give each token only the access projects should have: a fine-grained GitHub token for the right repositories, a GitLab account that is a member of the right projects, and so on.
 
 ## Tracker integrations
 
-A report can be sent from its page, or automatically when a new report that belongs to the project finishes uploading (turn on auto-send in the integration).
+A report can be sent from its page, or automatically when a new report that belongs to the project finishes uploading (turn on auto-send where the project uses the connection). A project may use one connection several times with different targets, such as two repositories.
 
 ### GitHub Issues
 
@@ -20,19 +29,23 @@ Create a **fine-grained personal access token** with access to the target reposi
 
 ### GitLab
 
-Works with gitlab.com and self-hosted GitLab. Enter the GitLab address (such as `https://gitlab.com`) and the project path (`group/project`, or deeper with subgroups). Create a **personal access token** under **Preferences → Access tokens** (`<GitLab address>/-/user_settings/personal_access_tokens`) with the **api** scope, from an account that can create issues in the project. The project must have issues turned on.
+Works with gitlab.com and self-hosted GitLab. Enter the GitLab address (such as `https://gitlab.com`); projects then pick their GitLab project from the list. Create a **personal access token** under **Preferences → Access tokens** (`<GitLab address>/-/user_settings/personal_access_tokens`) with the **api** scope, from an account that can create issues in the project. The project must have issues turned on.
 
 ### Linear
 
-Create a **personal API key** under **Settings → Security & access** (`https://linear.app/settings/account/security`) and enter the team's key, such as `ENG` (it starts every issue identifier of that team). Labels are matched by name to the team's existing labels; names that don't exist are skipped.
+Create a **personal API key** under **Settings → Security & access** (`https://linear.app/settings/account/security`). Projects then pick a team and its labels from the lists.
 
 ### Jira Cloud
 
-Enter the site address (`https://<your-site>.atlassian.net`), the email of the Atlassian account, the project key (such as `BUG`) and the issue type (such as `Bug` or `Task`). Create an **API token** at `https://id.atlassian.com/manage-profile/security/api-tokens` with that account; it needs permission to create issues in the project. Spaces in labels become dashes, because Jira labels can't contain spaces.
+Enter the site address (`https://<your-site>.atlassian.net`) and the email of the Atlassian account. Projects then pick the Jira project and the issue type (such as `Bug` or `Task`) from the lists. Create an **API token** at `https://id.atlassian.com/manage-profile/security/api-tokens` with that account; it needs permission to create issues in the project. Spaces in labels become dashes, because Jira labels can't contain spaces.
+
+### Plane
+
+Works with Plane Cloud and self-hosted Plane. Keep the address at `https://api.plane.so` for Plane Cloud, or enter your own Plane's address. Enter the workspace slug, the part after the address in Plane's URLs (`my-team` in `app.plane.so/my-team/projects`); one connection holds one Plane workspace. Create a **personal access token** in Plane under **Profile Settings → Personal Access Tokens**, with a user that is a member of the projects reports should go to. Projects then pick the Plane project and its labels from the lists, and each report becomes a work item such as `WEB-142`.
 
 ### ActiveCollab (self-hosted)
 
-Use the API token of an account that can create tasks in the target project. The project ID and task list ID are in the ActiveCollab address of that project and list.
+Enter the ActiveCollab address and the API token of an account that can create tasks. Projects then pick the ActiveCollab project and task list from the lists.
 
 ### How sending works
 
@@ -58,7 +71,7 @@ In the channel's settings, open **Integrations → Webhooks**, create a webhook 
 
 ### Telegram
 
-Create a bot with [@BotFather](https://t.me/BotFather) and copy its token. Add the bot to the group or channel (for a channel, as an admin that can post). Then enter the chat id: a group's numeric id, which usually starts with `-100`, or a public channel's `@name`. To find a group's id, send a message in the group and open `https://api.telegram.org/bot<token>/getUpdates`.
+Create a bot with [@BotFather](https://t.me/BotFather) and copy its token into the connection. Add the bot to the group or channel (for a channel, as an admin that can post). Each project that uses the bot then enters its chat id: a group's numeric id, which usually starts with `-100`, or a public channel's `@name`. To find a group's id, send a message in the group and open `https://api.telegram.org/bot<token>/getUpdates`.
 
 ### Webhook
 

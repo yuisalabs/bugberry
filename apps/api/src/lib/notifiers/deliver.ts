@@ -1,5 +1,5 @@
 import { NOTIFIER_PROVIDERS, type NotifierConfig, type NotifierProvider } from "@bugberry/shared"
-import { and, eq, inArray, sql } from "drizzle-orm"
+import { and, eq, sql } from "drizzle-orm"
 import type { AppDeps } from "../../app"
 import { integration, project, report, user } from "../../db/schema"
 import { createHostGuard } from "../net/host-guard"
@@ -7,6 +7,7 @@ import { createSecretBox, SECRET_UNREADABLE } from "../secret-box"
 import { DEFAULT_TIMEOUT_MS, TrackerError } from "../trackers/providers"
 import { createNotifierFactory, type NotifierFactory } from "./channels"
 import { buildNewReportMessage, type NewReportMessage } from "./message"
+import { usesOfProject } from "../integrations/resolve"
 
 /** The app's notifier factory: the one a test gave, or the real one behind the private-network guard. */
 export function notifierFactoryFor(deps: Pick<AppDeps, "notifiers" | "config">): NotifierFactory {
@@ -52,10 +53,7 @@ export async function notifyNewReport(deps: Deps, reportId: string, opts: Delive
     .where(and(eq(report.id, reportId), eq(report.uploadStatus, "ready")))
     .limit(1)
   if (!row) return
-  const channels = await deps.db
-    .select({ id: integration.id, provider: integration.provider, config: integration.config, secretEncrypted: integration.secretEncrypted })
-    .from(integration)
-    .where(and(eq(integration.projectId, row.projectId), inArray(integration.provider, [...NOTIFIER_PROVIDERS])))
+  const channels = await usesOfProject(deps.db, row.projectId, NOTIFIER_PROVIDERS)
   const message = buildNewReportMessage(row, row.projectName, row.reporterName, deps.config.appUrl)
   await Promise.all(
     channels.map((channel) =>

@@ -121,13 +121,13 @@ function MoreDropdown({
         <MenuSeparator />
         {trackers.map((item) => (
           <MenuItem
-            key={item.integrationId}
+            key={item.integrationId ?? `earlier-${item.label}`}
             textValue={item.label}
             isDisabled={item.action === "none" || (item.action === "open" && !item.href)}
             href={item.action === "open" && item.href ? item.href : undefined}
             target={item.action === "open" ? "_blank" : undefined}
             rel={item.action === "open" ? "noreferrer" : undefined}
-            onAction={item.action === "send" || item.action === "retry" ? () => onSend(item.integrationId) : undefined}
+            onAction={(item.action === "send" || item.action === "retry") && item.integrationId ? () => onSend(item.integrationId as string) : undefined}
           >
             <MenuLabel>{item.label}</MenuLabel>
             {item.note && <MenuDescription>{item.note}</MenuDescription>}
@@ -261,13 +261,13 @@ function MoreSheet({
               {(trackers.length > 0 || needsProject) && <div className="my-1 h-px bg-border" />}
               {trackers.map((item) => (
                 <SheetRow
-                  key={item.integrationId}
+                  key={item.integrationId ?? `earlier-${item.label}`}
                   icon={<RiShareForwardLine aria-hidden />}
                   label={item.label}
                   note={item.note}
                   href={item.action === "open" ? item.href : null}
                   disabled={item.action === "none" || (item.action === "open" && !item.href)}
-                  onPress={item.action === "send" || item.action === "retry" ? run(() => onSend(item.integrationId)) : undefined}
+                  onPress={(item.action === "send" || item.action === "retry") && item.integrationId ? run(() => onSend(item.integrationId as string)) : undefined}
                 />
               ))}
               {needsProject && trackers.length === 0 && (

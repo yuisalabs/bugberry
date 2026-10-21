@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm"
 import type { Db } from "../src/db/client"
 import { comment, integration, project, report, reportExternalLink, user, workspace } from "../src/db/schema"
 import { newId, newShareSlug } from "../src/lib/ids"
-import { getTestDb, resetDb } from "./helpers"
+import { createIntegration, getTestDb, resetDb } from "./helpers"
 
 let db: Db
 
@@ -75,13 +75,10 @@ describe("comments and tracker links", () => {
   test("a report keeps one link per integration and takes its comments and links when deleted", async () => {
     const { userId, projectId, reportValues } = await seed()
     await db.insert(report).values(reportValues)
-    const integrationId = newId()
-    await db.insert(integration).values({
-      id: integrationId,
+    const { id: integrationId } = await createIntegration(db, {
       projectId,
       provider: "github",
-      config: { owner: "kantor", repo: "web", labels: [] },
-      secretEncrypted: "v1.a.b.c",
+      target: { owner: "kantor", repo: "web", labels: [] },
     })
     await db.insert(comment).values({ id: newId(), reportId: reportValues.id, authorId: userId, body: "Check this first" })
     await db.insert(reportExternalLink).values({ id: newId(), reportId: reportValues.id, integrationId })

@@ -11,6 +11,7 @@ import type { TrackerFactory } from "./lib/trackers/providers"
 import { activityModule } from "./modules/activity"
 import { commentsModule } from "./modules/comments"
 import { integrationsModule } from "./modules/integrations"
+import { connectionsModule } from "./modules/connections"
 import { localFilesModule } from "./modules/local-files"
 import { accountModule } from "./modules/account"
 import { meModule } from "./modules/me"
@@ -28,6 +29,7 @@ import { joinModule } from "./modules/join"
 import { notificationsModule } from "./modules/notifications"
 import type { EmailSender } from "./email/sender"
 import type { NotifierFactory } from "./lib/notifiers/channels"
+import type { AccountFactory } from "./lib/integrations/accounts"
 import type { StorageDriver } from "./storage/types"
 
 export interface AppDeps {
@@ -37,6 +39,8 @@ export interface AppDeps {
   betterAuth: Auth
   /** Builds tracker clients; tests pass a fake, production uses real HTTP. */
   trackers?: TrackerFactory
+  /** Checks connection accounts and lists their targets; tests pass a fake. */
+  accounts?: AccountFactory
   /** Builds notification channel clients (Slack, Discord, Telegram, webhook); tests pass a fake. */
   notifiers?: NotifierFactory
   /** Sends invitation emails; tests pass a fake. Defaults to the configured driver. */
@@ -134,6 +138,7 @@ export function createApp(deps: AppDeps) {
     .use(activityModule(deps))
     .use(notificationsModule(deps))
     .use(integrationsModule(deps))
+    .use(connectionsModule(deps))
     .use(trackersModule(deps))
     .use(mcpModule(deps))
 

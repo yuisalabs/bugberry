@@ -103,7 +103,8 @@ export function createHostGuard(opts: { allowPrivate: boolean; lookup?: (host: s
       try {
         addresses = await lookup(host)
       } catch {
-        throw new HostGuardError(`${host} could not be found`)
+        // Members read these errors, and a connection's address is for admins only.
+        throw new HostGuardError("The integration's address could not be found")
       }
     }
     if (addresses.length === 0 || addresses.some(isPrivateAddress)) throw new HostGuardError(PRIVATE_HOST_MESSAGE)

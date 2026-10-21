@@ -320,3 +320,60 @@ describe("Jira client", () => {
     await expect(createTrackerFactory(unauthorized.fetcher)("jira", jira, "atl").test()).rejects.toThrow("The Jira email or API token is wrong")
   })
 })
+
+const PLANE_PROJECT = "b7e42a19-3c5d-4f80-9a26-8d1c0f4e7b53"
+const plane = {
+  baseUrl: "https://api.plane.so",
+  workspaceSlug: "kantor",
+  projectId: PLANE_PROJECT,
+  projectName: "Website (WEB)",
+  labels: ["Bug", "missing"],
+}
+
+/** A Plane that knows one project (WEB) with two labels, and numbers new work items 142. */
+function fakePlane() {
+  return fakeFetch((request) => {
+    const url = new URL(request.url)
+    if (url.pathname.endsWith(`/projects/${PLANE_PROJECT}/`)) return Response.json({ id: PLANE_PROJECT, identifier: "WEB", name: "Website" })
+    if (url.pathname.endsWith("/labels/")) {
+      return Response.json({ results: [{ id: "l-bug", name: "bug" }, { id: "l-ux", name: "UX" }] })
+    }
+    return Response.json({ id: "wi-1", sequence_id: 142, name: "Pay button fails" }, { status: 201 })
+  })
+}
+
+describe("Plane client", () => {
+  test("creates a work item with the key and the labels' ids, linked on app.plane.so", async () => {
+    const { fetcher, requests } = fakePlane()
+    const issue = await createTrackerFactory(fetcher)("plane", plane, "plane_api_x").createIssue(content)
+    expect(issue).toEqual({ externalId: "WEB-142", url: "https://app.plane.so/kantor/browse/WEB-142/" })
+    const create = requests.find((request) => request.method === "POST") as Request
+    expect(create.url).toBe(`https://api.plane.so/api/v1/workspaces/kantor/projects/${PLANE_PROJECT}/work-items/`)
+    expect(create.headers.get("x-api-key")).toBe("plane_api_x")
+    const body = (await create.json()) as { name: string; description_html: string; labels: string[] }
+    expect(body.name).toBe("Pay button fails")
+    expect(body.labels).toEqual(["l-bug"])
+    expect(body.description_html).toContain("https://bugberry.kantor.test/r/r1")
+  })
+
+  test("a self-hosted Plane links to its own address", async () => {
+    const { fetcher } = fakePlane()
+    const issue = await createTrackerFactory(fetcher)("plane", { ...plane, baseUrl: "https://plane.kantor.test" }, "x").createIssue(content)
+    expect(issue.url).toBe("https://plane.kantor.test/kantor/browse/WEB-142/")
+  })
+
+  test("the connection test reads the project", async () => {
+    const { fetcher, requests } = fakePlane()
+    await createTrackerFactory(fetcher)("plane", plane, "x").test()
+    expect((requests[0] as Request).url).toBe(`https://api.plane.so/api/v1/workspaces/kantor/projects/${PLANE_PROJECT}/`)
+  })
+
+  test("401 and 404 become plain messages", async () => {
+    const unauthorized = fakeFetch(() => Response.json({ detail: "Invalid token" }, { status: 401 }))
+    await expect(createTrackerFactory(unauthorized.fetcher)("plane", plane, "bad").test()).rejects.toThrow("The Plane API key is invalid")
+    const missing = fakeFetch(() => Response.json({ detail: "Not found" }, { status: 404 }))
+    await expect(createTrackerFactory(missing.fetcher)("plane", plane, "x").test()).rejects.toThrow(
+      "The Plane project was not found, or the key's user is not a member of it",
+    )
+  })
+})

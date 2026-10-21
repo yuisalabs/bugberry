@@ -10,10 +10,13 @@ import { buildIssueContent } from "./content"
 import { type ActivityActor, recordActivity } from "../../modules/activity/service"
 import { readTopErrors } from "./debugger-errors"
 import { type TrackerFactory, TrackerError } from "./providers"
-import { isTrackerProvider, TRACKER_PROVIDERS, type TrackerConfig } from "@bugberry/shared"
+import { type IntegrationProvider, isTrackerProvider, TRACKER_PROVIDERS, type TrackerConfig } from "@bugberry/shared"
+import { loadUse } from "../integrations/resolve"
 
 export interface TrackerLink {
-  integrationId: string
+  /** Null once the use that sent it is gone; the link and its issue stay. */
+  integrationId: string | null
+  provider: IntegrationProvider | null
   externalId: string | null
   externalUrl: string | null
   error: string | null
@@ -22,6 +25,7 @@ export interface TrackerLink {
 
 const linkColumns = {
   integrationId: reportExternalLink.integrationId,
+  provider: reportExternalLink.provider,
   externalId: reportExternalLink.externalId,
   externalUrl: reportExternalLink.externalUrl,
   error: reportExternalLink.error,
@@ -45,11 +49,11 @@ export function createDispatcher(deps: { config: Config; db: Db; storage: Storag
    * the same one the 2-minute lease is measured against, cut to milliseconds so they survive the trip
    * through a JavaScript Date.
    */
-  const claim = async (reportId: string, integrationId: string): Promise<Date | null> => {
+  const claim = async (reportId: string, integrationId: string, provider: IntegrationProvider): Promise<Date | null> => {
     const databaseNow = sql<Date>`date_trunc('milliseconds', now())`
     const [claimed] = await db
       .insert(reportExternalLink)
-      .values({ id: newId(), reportId, integrationId, updatedAt: databaseNow })
+      .values({ id: newId(), reportId, integrationId, provider, updatedAt: databaseNow })
       .onConflictDoUpdate({
         target: [reportExternalLink.reportId, reportExternalLink.integrationId],
         set: { error: null, updatedAt: databaseNow },
@@ -71,19 +75,17 @@ export function createDispatcher(deps: { config: Config; db: Db; storage: Storag
     if (!row.projectId) {
       throw unprocessable("report_has_no_project", "Add the report to a project before sending it to a tracker")
     }
-    const [target] = await db
-      .select()
-      .from(integration)
-      .where(and(eq(integration.id, integrationId), eq(integration.projectId, row.projectId)))
-      .limit(1)
-    // A notification channel is no tracker: from here it does not exist.
-    if (!target || !isTrackerProvider(target.provider)) throw notFound("integration_not_found", "Integration not found")
+    const target = await loadUse(db, integrationId)
+    // A use of another project, or a notification channel (no tracker): from here it does not exist.
+    if (!target || target.projectId !== row.projectId || !isTrackerProvider(target.provider)) {
+      throw notFound("integration_not_found", "Integration not found")
+    }
 
     // Built before claiming, so only the bounded tracker request runs while the link is locked.
     const errors = row.debuggerKey ? await readTopErrors(deps.storage, row.debuggerKey) : []
     const content = buildIssueContent(row, errors, deps.config.appUrl)
 
-    const claimedAt = await claim(reportId, integrationId)
+    const claimedAt = await claim(reportId, integrationId, target.provider)
     if (!claimedAt) {
       const existing = await loadLink(reportId, integrationId)
       if (existing?.externalId) return existing

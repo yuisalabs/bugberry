@@ -8,8 +8,9 @@ const integrations = [
   { id: "ac", provider: "activecollab" as const, label: "Project #12", autoSend: false },
 ]
 const data = (links: ReportTrackers["links"]): ReportTrackers => ({ needsProject: false, integrations, links })
-const link = (overrides: Partial<ReportTrackers["links"][number]>) => ({
+const link = (overrides: Partial<ReportTrackers["links"][number]>): ReportTrackers["links"][number] => ({
   integrationId: "gh",
+  provider: "github",
   externalId: null,
   externalUrl: null,
   error: null,
@@ -70,8 +71,14 @@ describe("trackerItems", () => {
         label: "Open issue #42",
         action: "open",
         href: "https://github.com/kantor/web/issues/42",
-        note: "Created before the report moved projects",
+        note: "From an integration this project no longer has",
       },
     ])
+  })
+
+  test("an earlier Linear or Jira issue reads by its key, also once its integration is gone", () => {
+    const earlier = link({ integrationId: null, provider: "linear", externalId: "ENG-142", externalUrl: "https://linear.app/kantor/issue/ENG-142" })
+    const [item] = trackerItems({ needsProject: false, integrations: [], links: [earlier] }, now.getTime())
+    expect(item?.label).toBe("Open issue ENG-142")
   })
 })
