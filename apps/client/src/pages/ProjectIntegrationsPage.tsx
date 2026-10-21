@@ -1,17 +1,20 @@
 import { isTrackerProvider, PROVIDER_LABELS } from "@bugberry/shared"
 import {
   RiAddLine,
+  RiArrowRightLine,
   RiArrowRightSLine,
   RiCheckboxCircleLine,
   RiCloseCircleLine,
   RiDeleteBinLine,
+  RiHashtag,
   RiPencilLine,
   RiPlugLine,
   RiSendPlaneLine,
+  RiTicketLine,
 } from "@remixicon/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { getRouteApi, Link, Navigate } from "@tanstack/react-router"
-import { useCallback, useReducer, useState } from "react"
+import { type ReactNode, useCallback, useReducer, useState } from "react"
 import { Button } from "@bugberry/ui/button"
 import { useConfirm } from "@bugberry/ui/confirm-dialog"
 import { Dialog, DialogBody, DialogHeader, DialogTitle } from "@bugberry/ui/dialog"
@@ -20,7 +23,7 @@ import { SettingsRowsSkeleton } from "../components/Skeletons"
 import { Badge, dangerText, EmptyState, ErrorState } from "../components/ui"
 import { EditIntegrationSteps, type LoadOptions, UseConnectionModal } from "../components/UseConnectionDialog"
 import { useNow } from "../hooks/useNow"
-import { errorMessage, type Integration, type IntegrationInput, type OptionList } from "../lib/api"
+import { type Connection, errorMessage, type Integration, type IntegrationInput, type OptionList } from "../lib/api"
 import { api } from "../lib/client"
 import { formatRelative } from "../lib/format"
 import { INITIAL_INTEGRATIONS_UI, integrationsUi, type TestResult } from "../lib/integrations-ui"
@@ -29,6 +32,107 @@ import { useCurrentWorkspace } from "../lib/workspace"
 
 const routeApi = getRouteApi("/_authed/app/p/$projectSlug/integrations")
 const legacyRouteApi = getRouteApi("/_authed/_admin/app/settings/projects/$projectId/integrations")
+
+const STEPS = ["Pick a workspace connection", "Choose the project, repo or channel", "New reports flow there automatically"]
+
+/**
+ * A project with nothing connected: what using a connection means, and the workspace's connections ready to use.
+ * `addConnection` is the admin's link to the workspace page (a router link, so this renders without a router in tests).
+ */
+export function ProjectIntegrationsEmpty({
+  projectName,
+  workspaceName,
+  connections,
+  addConnection,
+  onUse,
+}: {
+  projectName: string
+  workspaceName: string
+  connections: Connection[]
+  addConnection: ReactNode
+  onUse(connectionId: string): void
+}) {
+  return (
+    <div className="grid gap-10 rounded-2xl border border-border bg-background p-6 shadow-xs sm:p-10 lg:grid-cols-2">
+      <div className="flex flex-col gap-5">
+        <div aria-hidden className="flex items-center gap-2 text-muted-foreground">
+          <span className="grid size-12 place-content-center rounded-xl bg-muted text-foreground">
+            <RiPlugLine className="size-5" />
+          </span>
+          <RiArrowRightLine className="size-4" />
+          <span className="grid size-12 place-content-center rounded-xl bg-primary-subtle text-primary">
+            <RiHashtag className="size-5" />
+          </span>
+          <RiArrowRightLine className="size-4" />
+          <span className="grid size-12 place-content-center rounded-xl bg-muted text-foreground">
+            <RiTicketLine className="size-5" />
+          </span>
+        </div>
+        <div className="flex flex-col gap-2">
+          <h2 className="font-heading text-xl font-bold tracking-tight text-foreground">Nothing connected yet</h2>
+          <p className="text-muted-foreground">
+            {`Your workspace already holds the accounts. Pick one, then choose where ${projectName}'s reports land: a Jira project, a GitHub repo or a Slack channel.`}
+          </p>
+        </div>
+        <ol className="flex flex-col gap-3">
+          {STEPS.map((step, index) => (
+            <li key={step} className="flex items-center gap-3 text-foreground">
+              <span aria-hidden className="grid size-6 shrink-0 place-content-center rounded-full border border-border text-xs text-muted-foreground">
+                {index + 1}
+              </span>
+              <span>{step}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-0.5">
+          <h3 className="font-semibold text-foreground">Ready to use</h3>
+          <p className="text-sm text-muted-foreground">
+            {connections.length} {connections.length === 1 ? "connection" : "connections"} in {workspaceName}
+          </p>
+        </div>
+        {connections.length === 0 ? (
+          <div className="flex flex-col gap-1 rounded-xl border border-dashed border-border px-5 py-6 text-center">
+            <p className="font-medium text-foreground">No connections in {workspaceName} yet</p>
+            <p className="text-sm text-muted-foreground">Connections are added once, under Workspace › Integrations.</p>
+          </div>
+        ) : (
+          <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-xl border border-border">
+            {connections.map((connection) => (
+              <li key={connection.id} className="flex items-center gap-3 px-4 py-3.5">
+                <ProviderMark provider={connection.provider} className="size-10" />
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className="truncate font-medium text-foreground">{connection.name}</span>
+                    <Badge className="bg-muted text-muted-foreground">{isTrackerProvider(connection.provider) ? "Issues" : "Messages"}</Badge>
+                  </span>
+                  <span className="text-sm text-muted-foreground">
+                    {PROVIDER_LABELS[connection.provider]} ·{" "}
+                    {connection.usedIn === 0 ? "Not used yet" : `Used by ${connection.usedIn} ${connection.usedIn === 1 ? "project" : "projects"}`}
+                  </span>
+                </div>
+                <Button size="sm" intent="outline" aria-label={`Use ${connection.name}`} onPress={() => onUse(connection.id)}>
+                  Use
+                  <RiArrowRightLine aria-hidden />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {addConnection ? (
+          <p className="flex items-center gap-1.5 text-sm font-medium text-primary">
+            <RiAddLine aria-hidden className="size-4 shrink-0" />
+            {addConnection}
+          </p>
+        ) : (
+          <p className="text-sm text-muted-foreground">Need another tool? Ask a workspace admin to add one in Workspace › Integrations.</p>
+        )}
+      </div>
+    </div>
+  )
+}
 
 /** The connection's name, and where this use sends when that says more. */
 const titleOf = (integration: Integration) =>
@@ -120,7 +224,8 @@ export function ProjectIntegrationsPage() {
   const integrations = useQuery({ ...queries.integrations(projectId), enabled: Boolean(project) })
   const connections = useQuery({ ...queries.connections(workspaceId), enabled: Boolean(workspace) })
   const [{ testResult }, dispatch] = useReducer(integrationsUi, INITIAL_INTEGRATIONS_UI)
-  const [adding, setAdding] = useState(false)
+  // Open with nothing chosen ({}), or at step 2 for the connection whose Use was pressed.
+  const [adding, setAdding] = useState<{ connectionId?: string } | null>(null)
   const [editing, setEditing] = useState<Integration | null>(null)
   const refresh = () => queryClient.invalidateQueries({ queryKey: queries.integrations(projectId).queryKey })
 
@@ -133,7 +238,7 @@ export function ProjectIntegrationsPage() {
   const add = useMutation({
     mutationFn: (body: IntegrationInput) => api.addIntegration(projectId, body),
     onSuccess: async () => {
-      setAdding(false)
+      setAdding(null)
       await refresh()
     },
   })
@@ -178,7 +283,7 @@ export function ProjectIntegrationsPage() {
           <h1 className="font-heading text-xl font-bold tracking-tight text-foreground">Integrations</h1>
           <p className="text-muted-foreground">Trackers that take reports from {project.name}, and channels that hear about new ones.</p>
         </div>
-        <Button onPress={() => setAdding(true)}>
+        <Button onPress={() => setAdding({})}>
           <RiAddLine aria-hidden />
           Use a connection
         </Button>
@@ -195,7 +300,19 @@ export function ProjectIntegrationsPage() {
       ) : integrations.isError ? (
         <ErrorState error={integrations.error} onRetry={() => void integrations.refetch()} />
       ) : integrations.data.length === 0 ? (
-        <EmptyState title="Nothing connected yet">Use one of the workspace's connections to send this project's reports to a tracker or a channel.</EmptyState>
+        <ProjectIntegrationsEmpty
+          projectName={project.name}
+          workspaceName={workspace?.name ?? "this workspace"}
+          connections={connections.data ?? []}
+          addConnection={
+            workspace?.role === "admin" ? (
+              <Link to="/app/settings/integrations" className="hover:underline">
+                Need another tool? Add a connection in Workspace › Integrations
+              </Link>
+            ) : null
+          }
+          onUse={(connectionId) => setAdding({ connectionId })}
+        />
       ) : (
         <ul className="flex flex-col gap-3">
           {integrations.data.map((item) => (
@@ -221,7 +338,10 @@ export function ProjectIntegrationsPage() {
       )}
 
       <UseConnectionModal
-        isOpen={adding}
+        // Keyed by the connection, so a second Use starts the steps afresh.
+        key={adding?.connectionId ?? "any"}
+        isOpen={adding !== null}
+        initialConnectionId={adding?.connectionId}
         error={add.error ? errorMessage(add.error) : connections.isError ? errorMessage(connections.error) : null}
         connections={connections.data}
         used={integrations.data ?? []}
@@ -229,7 +349,7 @@ export function ProjectIntegrationsPage() {
         busy={add.isPending}
         onSubmit={(body) => add.mutate(body)}
         onClose={() => {
-          setAdding(false)
+          setAdding(null)
           add.reset()
         }}
       />

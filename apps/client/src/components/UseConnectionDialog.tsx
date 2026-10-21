@@ -1,14 +1,14 @@
 import { isTrackerProvider, PROVIDER_LABELS, type UseTarget } from "@bugberry/shared"
-import { RiCheckboxCircleLine } from "@remixicon/react"
+import { RiCheckboxCircleLine, RiSearchLine } from "@remixicon/react"
 import { useEffect, useState } from "react"
 import { Radio as CardRadio, RadioGroup as CardRadioGroup } from "react-aria-components"
 import { Button } from "@bugberry/ui/button"
 import { Checkbox, CheckboxField } from "@bugberry/ui/checkbox"
 import { Dialog, DialogBody, DialogHeader, DialogTitle } from "@bugberry/ui/dialog"
 import { Label } from "@bugberry/ui/field"
-import { Input } from "@bugberry/ui/input"
+import { Input, InputGroup } from "@bugberry/ui/input"
 import { Radio, RadioField, RadioGroup } from "@bugberry/ui/radio"
-import { SearchField, SearchInput } from "@bugberry/ui/search-field"
+import { SearchField } from "@bugberry/ui/search-field"
 import { Switch, SwitchField } from "@bugberry/ui/switch"
 import { TextField } from "@bugberry/ui/text-field"
 import { type Connection, errorMessage, type Integration, type IntegrationInput, type OptionList } from "../lib/api"
@@ -77,7 +77,11 @@ function OptionPicker({
       <span className="text-sm font-medium text-foreground">{label}</span>
       {searchable && (
         <SearchField aria-label={`Search ${label.toLowerCase()}`} value={q} onChange={setQ}>
-          <SearchInput placeholder={`Search ${label.toLowerCase()}…`} />
+          {/* Like the debugger's filters: InputGroup only places icons marked as icons inside the box. */}
+          <InputGroup>
+            <RiSearchLine aria-hidden data-slot="icon" />
+            <Input placeholder={`Search ${label.toLowerCase()}…`} />
+          </InputGroup>
         </SearchField>
       )}
       {state.error ? (
@@ -203,6 +207,7 @@ function buildTarget(
 export function UseConnectionSteps({
   connections,
   used,
+  initialConnectionId,
   loadOptions,
   busy,
   onSubmit,
@@ -210,13 +215,15 @@ export function UseConnectionSteps({
 }: {
   connections: Connection[]
   used: Integration[]
+  /** A connection picked before the dialog opened (its Use button): the dialog starts at step 2. */
+  initialConnectionId?: string
   loadOptions: LoadOptions
   busy: boolean
   onSubmit(body: IntegrationInput): void
   onCancel(): void
 }) {
-  const [chosenId, setChosenId] = useState<string | null>(null)
-  const [step, setStep] = useState<1 | 2>(1)
+  const [chosenId, setChosenId] = useState<string | null>(initialConnectionId ?? null)
+  const [step, setStep] = useState<1 | 2>(initialConnectionId ? 2 : 1)
   const [target, setTarget] = useState<string | null>(null)
   const [second, setSecond] = useState<string | null>(null)
   const [labels, setLabels] = useState<string[]>([])
@@ -422,6 +429,7 @@ export function UseConnectionModal({
   isOpen,
   error,
   connections,
+  initialConnectionId,
   used,
   loadOptions,
   busy,
@@ -432,6 +440,7 @@ export function UseConnectionModal({
   error: string | null
   /** Undefined while the workspace's connections load. */
   connections: Connection[] | undefined
+  initialConnectionId?: string
   used: Integration[]
   loadOptions: LoadOptions
   busy: boolean
@@ -452,7 +461,15 @@ export function UseConnectionModal({
         {connections === undefined ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
         ) : (
-          <UseConnectionSteps connections={connections} used={used} loadOptions={loadOptions} busy={busy} onSubmit={onSubmit} onCancel={onClose} />
+          <UseConnectionSteps
+            connections={connections}
+            used={used}
+            initialConnectionId={initialConnectionId}
+            loadOptions={loadOptions}
+            busy={busy}
+            onSubmit={onSubmit}
+            onCancel={onClose}
+          />
         )}
       </DialogBody>
     </Dialog>

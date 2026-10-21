@@ -1,8 +1,9 @@
+import type * as React from "react"
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { UseConnectionModal, UseConnectionSteps } from "../src/components/UseConnectionDialog"
 import type { Connection, Integration, OptionList } from "../src/lib/api"
-import { IntegrationRow } from "../src/pages/ProjectIntegrationsPage"
+import { IntegrationRow, ProjectIntegrationsEmpty } from "../src/pages/ProjectIntegrationsPage"
 
 const status = { failing: 0, lastError: null, lastDeliveredAt: null }
 const githubKantor: Connection = { id: "c-gh", provider: "github", kind: "tracker", name: "GitHub Kantor", usedIn: 1, status }
@@ -45,7 +46,7 @@ const OPTIONS: Record<string, Array<{ value: string; label: string }>> = {
   "c-jira/labels/": [],
 }
 
-function steps(options: { used?: Integration[]; failing?: boolean } = {}) {
+function steps(options: { used?: Integration[]; failing?: boolean; initialConnectionId?: string } = {}) {
   const onSubmit = mock()
   const loadOptions = mock(async (connectionId: string, list: OptionList, _q: string, parent: string) => {
     if (options.failing) throw new Error("The GitHub token is invalid or has expired")
@@ -57,6 +58,7 @@ function steps(options: { used?: Integration[]; failing?: boolean } = {}) {
     <UseConnectionSteps
       connections={[githubKantor, jira, slack, telegram]}
       used={options.used ?? []}
+      initialConnectionId={options.initialConnectionId}
       loadOptions={loadOptions}
       busy={false}
       onSubmit={onSubmit}
@@ -83,6 +85,15 @@ describe("Use a connection", () => {
       target: { owner: "kantor", repo: "checkout", labels: ["bug"] },
       autoSend: false,
     })
+  })
+
+  test("the search icon sits inside the search box", async () => {
+    steps()
+    choose("GitHub Kantor")
+    const box = await screen.findByPlaceholderText("Search repository…")
+    // InputGroup only places icons marked as icons; any other svg falls above the input.
+    const icon = box.closest("[role=group]")?.querySelector("svg")
+    expect(icon?.getAttribute("data-slot")).toBe("icon")
   })
 
   test("Jira asks for the issue type after the project", async () => {
@@ -146,6 +157,56 @@ describe("Use a connection", () => {
     steps({ failing: true })
     choose("GitHub Kantor")
     await waitFor(() => expect(screen.getByRole("alert").textContent).toBe("The GitHub token is invalid or has expired"))
+  })
+})
+
+describe("a project with nothing connected", () => {
+  const empty = (connections: Connection[], addConnection: React.ReactNode = null) => {
+    const onUse = mock()
+    render(
+      <ProjectIntegrationsEmpty
+        projectName="Quinella AI"
+        workspaceName="Cuy Workspaces"
+        connections={connections}
+        addConnection={addConnection}
+        onUse={onUse}
+      />,
+    )
+    return onUse
+  }
+
+  test("explains the three steps and offers the workspace's connections", () => {
+    const onUse = empty([jira, githubKantor, slack])
+    expect(screen.getByRole("heading", { name: "Nothing connected yet" })).toBeTruthy()
+    expect(screen.getByText(/choose where Quinella AI's reports land/)).toBeTruthy()
+    for (const step of ["Pick a workspace connection", "Choose the project, repo or channel", "New reports flow there automatically"]) {
+      expect(screen.getByText(step)).toBeTruthy()
+    }
+    expect(screen.getByRole("heading", { name: "Ready to use" })).toBeTruthy()
+    expect(screen.getByText("3 connections in Cuy Workspaces")).toBeTruthy()
+    expect(screen.getAllByText("Issues")).toHaveLength(2)
+    expect(screen.getByText("Messages")).toBeTruthy()
+    expect(screen.getByText("Jira · Not used yet")).toBeTruthy()
+    expect(screen.getByText("Slack · Used by 1 project")).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: "Use GitHub Kantor" }))
+    expect(onUse).toHaveBeenCalledWith("c-gh")
+  })
+
+  test("an admin gets a way to add another connection; a member is told whom to ask", () => {
+    empty([slack], <a href="/app/settings/integrations">Add a connection in Workspace › Integrations</a>)
+    expect(screen.getByRole("link", { name: /Add a connection in Workspace › Integrations/ })).toBeTruthy()
+  })
+
+  test("a workspace without connections says so", () => {
+    empty([])
+    expect(screen.getByText("No connections in Cuy Workspaces yet")).toBeTruthy()
+    expect(screen.getByText(/Ask a workspace admin to add one/)).toBeTruthy()
+  })
+
+  test("Use on a connection opens the dialog at its second step", async () => {
+    steps({ initialConnectionId: "c-gh" })
+    expect(await screen.findByRole("radio", { name: "kantor/checkout" })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Use GitHub Kantor" })).toBeTruthy()
   })
 })
 
