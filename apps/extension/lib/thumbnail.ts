@@ -1,7 +1,4 @@
-import { MAX_THUMBNAIL_BYTES } from "@bugberry/shared"
-
-export const THUMBNAIL_MAX_WIDTH = 640
-export const THUMBNAIL_QUALITY = 0.7
+import { MAX_THUMBNAIL_BYTES, THUMBNAIL_MAX_WIDTH, THUMBNAIL_QUALITY } from "@bugberry/shared"
 
 /** Something decoded that `encodeJpeg` can draw: an ImageBitmap in the browser, a plain object in tests. */
 export interface ThumbnailSource {

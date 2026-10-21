@@ -42,6 +42,17 @@ For scripts and bot accounts. The extension doesn't use tokens, and the dashboar
 docker compose exec api bun apps/api/scripts/create-token.ts --email bot@example.com --name "Bot"
 ```
 
+## Previews for older screenshots
+
+Screenshots sent before the extension made previews show the full image on every card, which makes the report list slow to scroll. This makes a small preview for each of them. The first command only lists them; the second adds the previews:
+
+```bash
+docker compose exec api bun apps/api/scripts/backfill-thumbnails.ts
+docker compose exec api bun apps/api/scripts/backfill-thumbnails.ts --apply
+```
+
+It's safe to run again: a second run only looks at screenshots that still have no preview. Older videos keep showing "No preview".
+
 ## Notes for older installations
 
 - **From the single-container version:** `--remove-orphans` removes the old `fdebag` container, which still holds port 3000. Volumes and data are not touched.

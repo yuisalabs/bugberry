@@ -8,6 +8,12 @@ import { nextReportsPage, type ReportFilterQuery, reportsPageQuery } from "./rep
  */
 export const REPORT_LIST_REFRESH_MS = 5 * 60_000
 
+/**
+ * A report list is fresh for a minute: switching back to the window within that time doesn't fetch every part
+ * shown again. Changes made here invalidate it at once.
+ */
+export const REPORT_LIST_STALE_MS = 60_000
+
 /** How often the bell asks for new mentions; it also asks when the window regains focus. */
 export const NOTIFICATIONS_REFRESH_MS = 30_000
 
@@ -48,6 +54,7 @@ export const queries = {
       initialPageParam: 1,
       getNextPageParam: nextReportsPage,
       placeholderData: keepPreviousData,
+      staleTime: REPORT_LIST_STALE_MS,
       refetchInterval: REPORT_LIST_REFRESH_MS,
     }),
   report: (id: string) => queryOptions({ queryKey: ["report", id], queryFn: () => api.report(id) }),

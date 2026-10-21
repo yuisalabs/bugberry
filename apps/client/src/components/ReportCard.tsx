@@ -34,6 +34,7 @@ export function ReportCardBody({
             src={preview}
             alt={item.title}
             loading="lazy"
+            decoding="async"
             onError={() => {
               setFailedUrl(preview)
               onPreviewError?.()

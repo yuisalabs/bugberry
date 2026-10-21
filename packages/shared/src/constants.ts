@@ -40,6 +40,10 @@ export const DEBUGGER_CONTENT_TYPE = "application/gzip"
 /** The small JPEG preview the extension uploads with each report; best effort, never required. */
 export const THUMBNAIL_CONTENT_TYPE = "image/jpeg"
 export const MAX_THUMBNAIL_BYTES = 1024 * 1024
+/** Previews are at most this wide; the server makes the same ones for older reports. */
+export const THUMBNAIL_MAX_WIDTH = 640
+/** JPEG quality from 0 to 1. */
+export const THUMBNAIL_QUALITY = 0.7
 
 export const UPLOAD_STATUSES = ["uploading", "ready", "failed"] as const
 export type UploadStatus = (typeof UPLOAD_STATUSES)[number]

@@ -1,6 +1,7 @@
 import { S3Client } from "bun"
 import { assertSafeKey } from "./keys"
 import { presignUrl } from "./presign"
+import { ReadUrlCache } from "./read-url-cache"
 import type { ObjectInfo, StorageDriver, UploadTarget } from "./types"
 
 export interface S3StorageOptions {
@@ -21,6 +22,7 @@ export interface S3StorageOptions {
  */
 export class S3StorageDriver implements StorageDriver {
   private readonly client: S3Client
+  private readonly readUrls = new ReadUrlCache()
 
   constructor(private readonly options: S3StorageOptions) {
     this.client = new S3Client({
@@ -68,11 +70,10 @@ export class S3StorageDriver implements StorageDriver {
 
   async getReadUrl(key: string, opts: { contentType: string; expiresInSeconds?: number }): Promise<string> {
     assertSafeKey(key)
-    return this.client.presign(key, {
-      method: "GET",
-      expiresIn: opts.expiresInSeconds ?? this.options.readTtlSeconds,
-      type: opts.contentType,
-    })
+    const expiresIn = opts.expiresInSeconds ?? this.options.readTtlSeconds
+    return this.readUrls.get(key, opts.contentType, expiresIn, () =>
+      this.client.presign(key, { method: "GET", expiresIn, type: opts.contentType }),
+    )
   }
 
   async replace(key: string, body: Uint8Array<ArrayBuffer>, contentType: string): Promise<void> {

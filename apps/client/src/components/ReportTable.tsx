@@ -69,7 +69,7 @@ export function ReportTableBody({
               <TableRow key={item.id} id={item.id} textValue={item.title} className="cursor-pointer hover:bg-muted/40">
                 <TableCell className={`${cell} ${large}`}>
                   {item.thumbnailUrl ? (
-                    <img src={item.thumbnailUrl} alt="" loading="lazy" className="h-9 w-14 rounded-md object-cover object-top ring-1 ring-border" />
+                    <img src={item.thumbnailUrl} alt="" loading="lazy" decoding="async" className="h-9 w-14 rounded-md object-cover object-top ring-1 ring-border" />
                   ) : (
                     <span className="block h-9 w-14 rounded-md bg-muted ring-1 ring-border" />
                   )}

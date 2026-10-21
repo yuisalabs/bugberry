@@ -3,6 +3,7 @@ import { dirname, join } from "node:path"
 import type { BunFile } from "bun"
 import { sign, verify } from "../lib/signing"
 import { assertSafeKey } from "./keys"
+import { ReadUrlCache } from "./read-url-cache"
 import type { ObjectInfo, StorageDriver, UploadTarget } from "./types"
 
 /** Thrown by an exclusive write when the object is already there. */
@@ -40,9 +41,11 @@ export interface LocalStorageOptions {
 
 export class LocalStorageDriver implements StorageDriver {
   private readonly now: () => number
+  private readonly readUrls: ReadUrlCache
 
   constructor(private readonly options: LocalStorageOptions) {
     this.now = options.now ?? Date.now
+    this.readUrls = new ReadUrlCache(this.now)
   }
 
   async createUploadTarget(key: string, opts: { contentType: string; maxBytes: number }): Promise<UploadTarget> {
@@ -63,13 +66,11 @@ export class LocalStorageDriver implements StorageDriver {
 
   async getReadUrl(key: string, opts: { contentType: string; expiresInSeconds?: number }): Promise<string> {
     assertSafeKey(key)
-    const claims: LocalReadClaims = {
-      p: "rd",
-      k: key,
-      t: opts.contentType,
-      exp: this.now() + (opts.expiresInSeconds ?? this.options.readTtlSeconds) * 1000,
-    }
-    return `${this.options.publicBaseUrl}/api/files/${sign(claims, this.options.secret)}`
+    const ttlSeconds = opts.expiresInSeconds ?? this.options.readTtlSeconds
+    return this.readUrls.get(key, opts.contentType, ttlSeconds, () => {
+      const claims: LocalReadClaims = { p: "rd", k: key, t: opts.contentType, exp: this.now() + ttlSeconds * 1000 }
+      return `${this.options.publicBaseUrl}/api/files/${sign(claims, this.options.secret)}`
+    })
   }
 
   verifyUploadToken(token: string): LocalUploadClaims | null {

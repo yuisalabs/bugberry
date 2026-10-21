@@ -129,8 +129,12 @@ export function ReportsView({
             renderTable(loaded.items, tableProjects ?? projects)
           ) : (
             <ul className="grid grid-cols-1 gap-x-5 gap-y-6 sm:grid-cols-2 xl:grid-cols-3">
+              {/* Cards far outside the window are not drawn until scrolled near, so a long list scrolls as smoothly as
+                  a short one. The padding gives the focus ring room inside the card's own drawing area. */}
               {loaded.items.map((item) => (
-                <li key={item.id}>{renderCard(item)}</li>
+                <li key={item.id} className="-m-1 p-1 [contain-intrinsic-size:auto_320px] [content-visibility:auto]">
+                  {renderCard(item)}
+                </li>
               ))}
             </ul>
           )}
