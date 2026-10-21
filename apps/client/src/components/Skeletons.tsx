@@ -92,7 +92,7 @@ export function ReportDetailSkeleton() {
           <Skeleton className="size-8" />
         </div>
       </div>
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-5">
         <Skeleton className="aspect-video rounded-xl" />
         <div className="flex flex-col gap-3">
           <Skeleton className="h-7 w-2/3" />

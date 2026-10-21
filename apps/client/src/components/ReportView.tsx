@@ -126,7 +126,7 @@ export function ReportView({
             <DevtoolsToggle open={devtools.open} onToggle={(open) => changeDevtools({ ...devtools, open })} />
           </span>
         </header>
-        <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-5">
           {/* Phones: the fields come after what the report is about; from tablet width up, above the media. */}
           {fields && <div className="order-last md:order-none">{fields}</div>}
           <MediaViewer
