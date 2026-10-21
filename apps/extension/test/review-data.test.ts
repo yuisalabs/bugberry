@@ -3,6 +3,7 @@ import type { CaptureEvent } from "@bugberry/capture"
 import {
   applyPauses,
   errorsCaught,
+  liveCounts,
   pauseMarks,
   reviewMarkers,
   reviewStats,
@@ -97,5 +98,20 @@ describe("review numbers", () => {
   test("errors caught since the start, without paused ones", () => {
     expect(errorsCaught(events, 1550, [])).toBe(4)
     expect(errorsCaught(events, 1000, [{ start: 1650, end: 2050 }])).toBe(3)
+  })
+
+  test("liveCounts splits errors, failed requests and actions", () => {
+    const live: CaptureEvent[] = [
+      consoleError(900, "before the start"),
+      consoleError(1100, "a"),
+      { kind: "error", t: 1200, message: "boom" },
+      consoleError(1550, "paused"),
+      request(1300, "https://a.test/api/pay", { status: 500 }),
+      request(1400, "https://a.test/api/x", { status: undefined, failed: "TypeError" }),
+      click(1600),
+      click(1700),
+      click(1800),
+    ]
+    expect(liveCounts(live, 1000, [{ start: 1500, end: 1560 }])).toEqual({ errors: 2, failedRequests: 2, actions: 3 })
   })
 })

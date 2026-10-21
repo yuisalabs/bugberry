@@ -247,9 +247,6 @@ export default defineBackground(() => {
       await toPage(tabId, { type: "bugberry:ui-recording", on, session }).catch(() => {})
     },
     openReview,
-    setActionPopup: async (on) => {
-      await browser.action.setPopup({ popup: on ? "popup.html" : "" })
-    },
     author,
     micUnavailable: async () => void (await capturePrefsStorage.set({ mic: false })),
     state: browserRecordingState,
