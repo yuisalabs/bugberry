@@ -244,3 +244,43 @@ describe("GitLab client", () => {
     )
   })
 })
+
+const linear = { teamKey: "ENG", labels: ["Bug", "missing"] }
+const linearTeam = {
+  data: { teams: { nodes: [{ id: "team-1", labels: { nodes: [{ id: "l-bug", name: "bug" }, { id: "l-ux", name: "UX" }] } }] } },
+}
+
+describe("Linear client", () => {
+  test("creates an issue in the team with the labels it knows", async () => {
+    const { fetcher, requests } = fakeFetch(async (request) => {
+      const body = (await request.clone().json()) as { query: string }
+      if (body.query.includes("issueCreate")) {
+        return Response.json({
+          data: { issueCreate: { success: true, issue: { identifier: "ENG-142", url: "https://linear.app/kantor/issue/ENG-142" } } },
+        })
+      }
+      return Response.json(linearTeam)
+    })
+    const issue = await createTrackerFactory(fetcher)("linear", linear, "lin_api_key").createIssue(content)
+    expect(issue).toEqual({ externalId: "ENG-142", url: "https://linear.app/kantor/issue/ENG-142" })
+    expect(requests.map((request) => request.url)).toEqual(["https://api.linear.app/graphql", "https://api.linear.app/graphql"])
+    expect((requests[0] as Request).headers.get("authorization")).toBe("lin_api_key")
+    const create = (await (requests[1] as Request).json()) as { variables: { input: Record<string, unknown> } }
+    expect(create.variables.input).toMatchObject({ teamId: "team-1", title: "Pay button fails", labelIds: ["l-bug"] })
+    expect(String(create.variables.input.description)).toContain("https://bugberry.kantor.test/r/r1")
+  })
+
+  test("the connection test reports a team that does not exist", async () => {
+    const { fetcher } = fakeFetch(() => Response.json({ data: { teams: { nodes: [] } } }))
+    await expect(createTrackerFactory(fetcher)("linear", linear, "lin_api_key").test()).rejects.toThrow("Linear team ENG was not found")
+  })
+
+  test("a GraphQL error becomes its message, and a bad key a plain one", async () => {
+    const graphql = fakeFetch(() => Response.json({ errors: [{ message: "Title is too long" }] }))
+    await expect(createTrackerFactory(graphql.fetcher)("linear", linear, "lin").test()).rejects.toThrow("Linear: Title is too long")
+    const unauthorized = fakeFetch(() =>
+      Response.json({ errors: [{ message: "Authentication required", extensions: { code: "AUTHENTICATION_ERROR" } }] }, { status: 400 }),
+    )
+    await expect(createTrackerFactory(unauthorized.fetcher)("linear", linear, "bad").test()).rejects.toThrow("The Linear API key is invalid")
+  })
+})

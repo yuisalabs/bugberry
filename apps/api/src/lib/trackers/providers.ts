@@ -210,6 +210,64 @@ function gitlabClient(config: GitlabConfig, token: string, http: Http): TrackerC
   }
 }
 
+const LINEAR_API = "https://api.linear.app/graphql"
+const LINEAR_TEAM = `query Team($key: String!) {
+  teams(filter: { key: { eq: $key } }) { nodes { id labels { nodes { id name } } } }
+}`
+const LINEAR_CREATE = `mutation Create($input: IssueCreateInput!) {
+  issueCreate(input: $input) { success issue { identifier url } }
+}`
+
+function linearClient(config: LinearConfig, apiKey: string, http: Http): TrackerClient {
+  /** One GraphQL call; Linear answers errors in the body, sometimes with HTTP 400. */
+  const graphql = async <T>(query: string, variables: Record<string, unknown>): Promise<T> => {
+    const response = await guardedSend(http, "Linear", LINEAR_API, {
+      method: "POST",
+      headers: { authorization: apiKey, "content-type": "application/json", "user-agent": "BugBerry" },
+      body: JSON.stringify({ query, variables }),
+    })
+    const body = (await response.json().catch(() => ({}))) as {
+      data?: T
+      errors?: Array<{ message?: unknown; extensions?: { code?: unknown } }>
+    }
+    const [error] = body.errors ?? []
+    if (response.status === 401 || error?.extensions?.code === "AUTHENTICATION_ERROR") {
+      throw new TrackerError("The Linear API key is invalid")
+    }
+    if (error) throw new TrackerError(`Linear: ${String(error.message ?? "the request failed").slice(0, 200)}`)
+    if (!response.ok || !body.data) throw new TrackerError(`Linear rejected the request (HTTP ${response.status})`)
+    return body.data
+  }
+  type Team = { id: string; labels: { nodes: Array<{ id: string; name: string }> } }
+  const team = async (): Promise<Team> => {
+    const data = await graphql<{ teams: { nodes: Team[] } }>(LINEAR_TEAM, { key: config.teamKey })
+    const [found] = data.teams.nodes
+    if (!found) throw new TrackerError(`Linear team ${config.teamKey} was not found`)
+    return found
+  }
+
+  return {
+    async test() {
+      await team()
+    },
+    async createIssue(content) {
+      const { id, labels } = await team()
+      // Labels are matched by name; one the team doesn't have is left out rather than failing the issue.
+      const wanted = new Set(config.labels.map((label) => label.toLowerCase()))
+      const labelIds = labels.nodes.filter((label) => wanted.has(label.name.toLowerCase())).map((label) => label.id)
+      const data = await graphql<{ issueCreate: { success: boolean; issue: { identifier?: unknown; url?: unknown } | null } }>(
+        LINEAR_CREATE,
+        { input: { teamId: id, title: content.title.slice(0, 255), description: renderMarkdown(content), labelIds } },
+      )
+      const issue = data.issueCreate.issue
+      if (!data.issueCreate.success || typeof issue?.identifier !== "string" || typeof issue.url !== "string") {
+        throw new TrackerError("Linear's response was not recognized")
+      }
+      return { externalId: issue.identifier, url: issue.url }
+    },
+  }
+}
+
 export function createTrackerFactory(
   fetcher: typeof fetch = fetch,
   timeoutMs = DEFAULT_TIMEOUT_MS,
@@ -220,6 +278,7 @@ export function createTrackerFactory(
     if (provider === "github" && "owner" in config) return githubClient(config, secret, http)
     if (provider === "activecollab" && "projectId" in config) return activeCollabClient(config, secret, http)
     if (provider === "gitlab" && "projectPath" in config) return gitlabClient(config, secret, http)
+    if (provider === "linear" && "teamKey" in config) return linearClient(config, secret, http)
     throw new TrackerError("The integration settings don't match its provider")
   }
 }
