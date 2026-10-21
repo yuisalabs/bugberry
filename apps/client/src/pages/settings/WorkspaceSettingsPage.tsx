@@ -1,12 +1,20 @@
 import { RiFileCopyLine, RiInformationLine, RiRefreshLine } from "@remixicon/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { type FormEvent, type ReactNode, useEffect, useId, useState } from "react"
+import { type FormEvent, useEffect, useId, useState } from "react"
 import { Button } from "@bugberry/ui/button"
 import { Input } from "@bugberry/ui/input"
 import { Radio, RadioField, RadioGroup } from "@bugberry/ui/radio"
 import { Switch, SwitchField } from "@bugberry/ui/switch"
 import { TextField } from "@bugberry/ui/text-field"
 import { LOGO_RULE, LogoPicker } from "../../components/LogoPicker"
+import {
+  SettingRow,
+  SettingsCardHeader,
+  SettingsPageHeader,
+  SettingsSaveBar,
+  settingsCard,
+  settingsPadding,
+} from "../../components/SettingsCard"
 import { errorMessage, type WorkspaceAccess } from "../../lib/api"
 import { api } from "../../lib/client"
 import { queries } from "../../lib/queries"
@@ -15,33 +23,6 @@ import { useCurrentWorkspace } from "../../lib/workspace"
 import { type SlugAnswer, useSlugCheck } from "../../lib/workspace-slug"
 
 type Settings = { id: string; name: string; slug: string; logoUrl: string | null }
-
-const card = "flex flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-xs"
-const cardPadding = "px-6 sm:px-8"
-
-function CardHeader({ title, description }: { title: string; description?: string }) {
-  return (
-    <div className={`flex flex-col gap-1 py-5 ${cardPadding}`}>
-      <h2 className="font-heading text-lg font-semibold text-foreground">{title}</h2>
-      {description && <p className="text-sm text-muted-foreground">{description}</p>}
-    </div>
-  )
-}
-
-/** One setting: what it is on the left, its control on the right (stacked on phones). */
-function SettingRow({ id, title, description, children }: { id?: string; title: string; description: string; children: ReactNode }) {
-  return (
-    <div className={`grid gap-4 border-t border-border py-6 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] md:gap-10 ${cardPadding}`}>
-      <div className="flex flex-col gap-1">
-        <h3 id={id} className="font-medium text-foreground">
-          {title}
-        </h3>
-        <p className="text-sm text-muted-foreground">{description}</p>
-      </div>
-      <div className="flex min-w-0 flex-col justify-center gap-2">{children}</div>
-    </div>
-  )
-}
 
 /** Name, short URL and logo of the current workspace. Saving sends only what changed; the logo saves at once. */
 export function WorkspaceSettingsView({
@@ -97,8 +78,8 @@ export function WorkspaceSettingsView({
             : "Use 3–40 lowercase letters, numbers or dashes"
 
   return (
-    <form onSubmit={save} className={card}>
-      <CardHeader title="General" />
+    <form onSubmit={save} className={settingsCard}>
+      <SettingsCardHeader title="General" />
 
       <SettingRow title="Logo" description={`${LOGO_RULE}.`}>
         <LogoPicker
@@ -145,14 +126,7 @@ export function WorkspaceSettingsView({
         )}
       </SettingRow>
 
-      <div className={`flex flex-wrap items-center justify-between gap-3 border-t border-border bg-muted/50 py-4 ${cardPadding}`}>
-        <span role="status" className="text-sm text-muted-foreground">
-          {dirty ? "Unsaved changes" : saved ? "Saved" : "No unsaved changes"}
-        </span>
-        <Button type="submit" isDisabled={!canSave}>
-          Save changes
-        </Button>
-      </div>
+      <SettingsSaveBar dirty={dirty} saved={saved} canSave={canSave} />
     </form>
   )
 }
@@ -195,11 +169,11 @@ export function WorkspaceAccessView({
   }
 
   return (
-    <section className={card}>
-      <CardHeader title="Joining" description="Choose how new people can get into this workspace." />
+    <section className={settingsCard}>
+      <SettingsCardHeader title="Joining" description="Choose how new people can get into this workspace." />
 
       {!membersAllowed && (
-        <p className={`border-t border-border py-4 text-sm text-muted-foreground ${cardPadding}`}>Inviting teammates isn't available on this account.</p>
+        <p className={`border-t border-border py-4 text-sm text-muted-foreground ${settingsPadding}`}>Inviting teammates isn't available on this account.</p>
       )}
 
       <SettingRow title="Invite link" description="Anyone signed in with the link or code joins as a Member.">
@@ -351,10 +325,7 @@ export function WorkspaceSettingsPage() {
   const error = save.error ?? upload.error ?? remove.error
   return (
     <section className="flex flex-col gap-8">
-      <header className="flex flex-col gap-1 border-b border-border pb-6">
-        <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">Workspace settings</h1>
-        <p className="text-muted-foreground">Manage how {workspace.name} looks and who can join.</p>
-      </header>
+      <SettingsPageHeader title="Workspace settings" description={`Manage how ${workspace.name} looks and who can join.`} />
       <div className="flex max-w-5xl flex-col gap-6">
         {error && (
           <p role="alert" className="text-sm text-danger-subtle-foreground">
