@@ -5,7 +5,6 @@ import { Button } from "@bugberry/ui/button"
 import { Dialog, DialogBody, DialogHeader, DialogTitle } from "@bugberry/ui/dialog"
 import { Link } from "@bugberry/ui/link"
 import { askExtension, type ExtensionAnswer, openExtensionPopup, useServerInExtension } from "../lib/extension-bridge"
-import { isMacPlatform, openShortcut } from "../lib/shortcuts"
 import { useExtensionAnswer } from "./ExtensionCard"
 
 /** How to start a report when the extension can't open its popup for this dashboard. */
@@ -13,17 +12,14 @@ export function NewReportGuide({
   answer,
   installUrl,
   onUseServer,
-  mac = isMacPlatform(),
 }: {
   answer: ExtensionAnswer
   installUrl: string | null
   onUseServer(): void
-  /** ⌘ instead of Ctrl in the shortcut. */
-  mac?: boolean
 }) {
   return (
     <div className="flex flex-col gap-3 text-sm">
-      <p className="text-foreground">Open the page you want to report, then click the BugBerry icon or press {openShortcut(mac)}</p>
+      <p className="text-foreground">Open the page you want to report, then click the BugBerry icon in the toolbar.</p>
       {answer.installed ? (
         !answer.active && (
           <AriaButton onPress={onUseServer} className="self-start font-semibold text-primary hover:underline">

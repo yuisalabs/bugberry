@@ -50,6 +50,8 @@ describe("ReportFilters", () => {
     expect(screen.queryByRole("toolbar", { name: "Priority" })).toBeNull()
     press(screen.getByRole("button", { name: "More filters" }))
     expect(screen.getByRole("toolbar", { name: "Priority" })).toBeTruthy()
+    // Labelled on screen, so the assignee filter isn't mistaken for the reporter one.
+    expect(screen.getByText("Who is assigned to fix the report")).toBeTruthy()
     fireEvent.click(screen.getByRole("button", { name: "High" }))
     expect(onChange).toHaveBeenLastCalledWith({ priority: ["high"] })
     choose("Assignee", "Ana")
@@ -97,6 +99,23 @@ describe("ReportFilters", () => {
     other.dispatchEvent(event)
     expect(event.defaultPrevented).toBe(true)
     expect(document.activeElement).toBe(screen.getByRole("searchbox", { name: "Search reports" }))
+  })
+
+  test("Ctrl Shift K is left to the extension: the page neither blocks it nor jumps to search", () => {
+    render(
+      <>
+        <input aria-label="Lain" />
+        <ReportSearchBox value={undefined} onSearch={mock()} />
+      </>,
+    )
+    const other = screen.getByLabelText("Lain")
+    other.focus()
+    for (const modifier of [{ ctrlKey: true }, { metaKey: true }]) {
+      const event = new KeyboardEvent("keydown", { key: "K", shiftKey: true, ...modifier, bubbles: true, cancelable: true })
+      other.dispatchEvent(event)
+      expect(event.defaultPrevented).toBe(false)
+      expect(document.activeElement).toBe(other)
+    }
   })
 
   test("clears every filter but keeps the order", () => {

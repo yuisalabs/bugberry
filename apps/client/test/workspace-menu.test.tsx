@@ -12,7 +12,7 @@ const workspaces = [
 const me = { name: "Ervalsa Dwi Nanda", email: "ervalsa@javan.co.id", image: null }
 
 const panel = () => {
-  const props = { onSwitch: mock(), onCreate: mock(), onJoin: mock(), onAccount: mock(), onAiAgents: mock(), onLogout: mock() }
+  const props = { onSwitch: mock(), onCreate: mock(), onJoin: mock(), onAccount: mock(), onLogout: mock() }
   render(<WorkspaceMenuPanel workspaces={workspaces} currentId="w1" me={me} {...props} />)
   return props
 }
@@ -46,7 +46,7 @@ describe("WorkspaceMenuPanel", () => {
 
   test("without onCreate there is no Create workspace, only Join", () => {
     render(
-      <WorkspaceMenuPanel workspaces={workspaces} currentId="w1" me={me} onSwitch={mock()} onJoin={mock()} onAccount={mock()} onAiAgents={mock()} onLogout={mock()} />,
+      <WorkspaceMenuPanel workspaces={workspaces} currentId="w1" me={me} onSwitch={mock()} onJoin={mock()} onAccount={mock()} onLogout={mock()} />,
     )
     expect(screen.queryByRole("menuitem", { name: "Create workspace" })).toBeNull()
     expect(screen.getByRole("menuitem", { name: "Join workspace" })).toBeTruthy()
@@ -57,10 +57,9 @@ describe("WorkspaceMenuPanel", () => {
     expect(screen.getByText("Ervalsa Dwi Nanda")).toBeTruthy()
     expect(screen.getByText("ervalsa@javan.co.id")).toBeTruthy()
     fireEvent.click(screen.getByRole("menuitem", { name: "Account settings" }))
-    fireEvent.click(screen.getByRole("menuitem", { name: "AI agents (MCP)" }))
     fireEvent.click(screen.getByRole("menuitem", { name: "Log out" }))
     expect(props.onAccount).toHaveBeenCalled()
-    expect(props.onAiAgents).toHaveBeenCalled()
+    expect(screen.queryByRole("menuitem", { name: /AI agents/ })).toBeNull()
     expect(props.onLogout).toHaveBeenCalled()
   })
 
@@ -105,7 +104,6 @@ describe("WorkspaceTile", () => {
         onCreate={mock()}
         onJoin={mock()}
         onAccount={mock()}
-        onAiAgents={mock()}
         onLogout={mock()}
       />,
     )

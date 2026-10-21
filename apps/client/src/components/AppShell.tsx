@@ -9,6 +9,8 @@ import {
   RiLayoutGridFill,
   RiLayoutGridLine,
   RiMenuLine,
+  RiRobot2Fill,
+  RiRobot2Line,
   RiSettings3Fill,
   RiSettings3Line,
 } from "@remixicon/react"
@@ -17,6 +19,7 @@ import { Link, Outlet, useMatchRoute, useNavigate } from "@tanstack/react-router
 import { useState } from "react"
 import { Button } from "@bugberry/ui/button"
 import { Sheet } from "@bugberry/ui/sheet"
+import { usePageDrawer } from "../hooks/usePageDrawer"
 import { APP_MAIN_ID } from "../lib/app-scroll"
 import { signOut } from "../lib/auth"
 import { queries } from "../lib/queries"
@@ -33,8 +36,12 @@ import { ReportDetailSkeleton, ReportsPageSkeleton } from "./Skeletons"
 import { WorkspaceMenu } from "./WorkspaceMenu"
 
 const sectionTitle = "flex items-center justify-between px-2 pb-1 text-xs font-medium text-muted-foreground"
-const navLink = "flex items-center gap-2 truncate rounded-lg px-2 py-1.5 text-sm text-sidebar-foreground hover:bg-sidebar-accent"
-const navLinkActive = "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+// Colours live in the active and inactive styles only, so the open page's link never turns grey on hover.
+const navLink = {
+  className: "flex items-center gap-2 truncate rounded-lg px-2 py-1.5 text-sm",
+  activeProps: { className: "bg-sidebar-primary font-medium text-sidebar-primary-foreground [&_svg]:text-sidebar-primary-foreground" },
+  inactiveProps: { className: "text-sidebar-foreground hover:bg-sidebar-accent" },
+}
 const navIcon = "size-4 shrink-0 text-muted-foreground"
 
 export function AppShell() {
@@ -48,7 +55,7 @@ export function AppShell() {
   const waiting = useQuery({ ...queries.joinRequests(workspace?.id ?? ""), enabled: workspace?.role === "admin" })
   const waitingCount = waiting.data?.length ?? 0
   const myLimits = useQuery(queries.myLimits())
-  const [drawer, setDrawer] = useState(false)
+  const { open: drawer, setOpen: setDrawer } = usePageDrawer()
   const [creating, setCreating] = useState(false)
   const [joining, setJoining] = useState(false)
 
@@ -107,23 +114,29 @@ export function AppShell() {
           onCreate={myLimits.data?.canCreateWorkspace === false ? undefined : () => setCreating(true)}
           onJoin={() => setJoining(true)}
           onAccount={() => void navigate({ to: "/app/settings/account" })}
-          onAiAgents={() => void navigate({ to: "/app/settings/ai" })}
           onLogout={() => void logout()}
         />
       )}
       {workspace && (
         <>
-          <nav aria-label="Reports" className="flex flex-col gap-0.5">
+          <nav aria-label="Main" className="flex flex-col gap-0.5">
             <Link
               to="/app"
-              className={navLink}
+              {...navLink}
               activeOptions={{ exact: true, includeSearch: false }}
-              activeProps={{ className: navLinkActive }}
             >
               {({ isActive }) => (
                 <>
                   <ActiveIcon active={isActive} line={RiLayoutGridLine} fill={RiLayoutGridFill} className={navIcon} />
-                  All reports
+                  All Reports
+                </>
+              )}
+            </Link>
+            <Link to="/app/settings/ai" {...navLink}>
+              {({ isActive }) => (
+                <>
+                  <ActiveIcon active={isActive} line={RiRobot2Line} fill={RiRobot2Fill} className={navIcon} />
+                  AI Agents (MCP)
                 </>
               )}
             </Link>
@@ -142,8 +155,7 @@ export function AppShell() {
                 key={project.id}
                 to="/app/p/$projectSlug"
                 params={{ projectSlug: project.slug }}
-                className={navLink}
-                activeProps={{ className: navLinkActive }}
+                {...navLink}
               >
                 <RiHashtag aria-hidden className={navIcon} />
                 <span className="truncate">{project.name}</span>
@@ -153,7 +165,7 @@ export function AppShell() {
           </nav>
           <nav aria-label="Workspace" className="flex flex-col gap-0.5">
             <p className={sectionTitle}>Workspace</p>
-            <Link to="/app/settings/members" className={navLink} activeProps={{ className: navLinkActive }}>
+            <Link to="/app/settings/members" {...navLink}>
               {({ isActive }) => (
                 <>
                   <ActiveIcon active={isActive} line={RiGroupLine} fill={RiGroupFill} className={navIcon} />
@@ -171,7 +183,7 @@ export function AppShell() {
             </Link>
             {isAdmin && (
               <>
-                <Link to="/app/settings/projects" className={navLink} activeProps={{ className: navLinkActive }}>
+                <Link to="/app/settings/projects" {...navLink}>
                   {({ isActive }) => (
                     <>
                       <ActiveIcon active={isActive} line={RiFolderLine} fill={RiFolderFill} className={navIcon} />
@@ -179,7 +191,7 @@ export function AppShell() {
                     </>
                   )}
                 </Link>
-                <Link to="/app/settings/workspace" className={navLink} activeProps={{ className: navLinkActive }}>
+                <Link to="/app/settings/workspace" {...navLink}>
                   {({ isActive }) => (
                     <>
                       <ActiveIcon active={isActive} line={RiSettings3Line} fill={RiSettings3Fill} className={navIcon} />
@@ -222,9 +234,11 @@ export function AppShell() {
       <Sheet isOpen={drawer} onOpenChange={setDrawer} position="left" className="w-64 border-sidebar-border bg-sidebar md:hidden">
         <aside
           aria-label="Sidebar"
-          // Following a link closes the drawer.
+          // A link to another page closes the drawer once that page is drawn (usePageDrawer); a link to the page
+          // already shown navigates nowhere, so it closes the drawer here.
           onClickCapture={(event) => {
-            if ((event.target as HTMLElement).closest("a")) setDrawer(false)
+            const link = (event.target as HTMLElement).closest("a")
+            if (link && link.href === window.location.href) setDrawer(false)
           }}
           className="flex h-dvh flex-col gap-5 overflow-y-auto p-4"
         >

@@ -1,5 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query"
-import { APP_MAIN_ID } from "./lib/app-scroll"
+import { APP_MAIN_ID, mayRestoreScroll } from "./lib/app-scroll"
 import {
   createRootRouteWithContext,
   createRoute,
@@ -196,7 +196,7 @@ export function createAppRouter(queryClient: QueryClient) {
     routeTree,
     context: { queryClient },
     defaultPreload: "intent",
-    scrollRestoration: true,
+    scrollRestoration: mayRestoreScroll,
     scrollToTopSelectors: [`#${APP_MAIN_ID}`],
   })
 }

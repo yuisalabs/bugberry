@@ -24,7 +24,7 @@ describe("New report", () => {
     await waitFor(() => expect(ask).toHaveBeenCalled())
     fireEvent.click(screen.getByRole("button", { name: "New report" }))
     // No round trip to an extension that is not there.
-    expect(screen.getByText(/^Open the page you want to report, then click the BugBerry icon or press /)).toBeTruthy()
+    expect(screen.getByText("Open the page you want to report, then click the BugBerry icon in the toolbar.")).toBeTruthy()
     expect(opened).not.toHaveBeenCalled()
     expect(screen.getByRole("link", { name: "Install the extension" }).getAttribute("href")).toBe("https://store.test/x")
   })

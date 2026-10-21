@@ -22,7 +22,9 @@ export function ReportSearchBox({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+      // Only Ctrl K itself: Ctrl Shift K opens the extension, and Chrome gives the page the key first, so
+      // catching it here would keep the extension from ever seeing it.
+      if ((event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "k") {
         event.preventDefault()
         box.current?.focus()
       }

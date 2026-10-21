@@ -1,8 +1,9 @@
 import { CAPTURE_TYPES, type CaptureType, PRIORITIES, REPORT_STATUSES, type ReportStatus } from "@bugberry/shared"
 import { RiArrowDownSLine, RiArrowUpDownLine, RiEqualizerFill, RiEqualizerLine, RiLayoutGridFill, RiLayoutGridLine, RiListUnordered } from "@remixicon/react"
-import type { ReactNode } from "react"
+import { type ReactNode, useId } from "react"
 import type { Selection } from "react-aria-components"
 import { Button } from "@bugberry/ui/button"
+import { Description, Label } from "@bugberry/ui/field"
 import { Menu, MenuItem, MenuTrigger } from "@bugberry/ui/menu"
 import { Popover, PopoverTrigger } from "@bugberry/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@bugberry/ui/select"
@@ -84,6 +85,7 @@ export function ReportFilters({
   onChange: (patch: Partial<ReportSearch>) => void
   trailing?: ReactNode
 }) {
+  const priorityLabel = useId()
   const statusValue = search.status?.map((status) => STATUS_LABELS[status]).join(", ")
   const reporter = members.find((member) => member.id === search.reporterId)
   const projectValue =
@@ -169,30 +171,37 @@ export function ReportFilters({
             More filters
           </Button>
           <Popover placement="bottom start" className="min-w-72">
-            <div className="flex flex-col gap-3 p-3">
-              <ToggleGroup
-                aria-label="Priority"
-                selectionMode="multiple"
-                size="xs"
-                selectedKeys={search.priority ?? []}
-                onSelectionChange={(keys) => {
-                  const current = search.priority ?? []
-                  const toggled = PRIORITIES.find((priority) => keys.has(priority) !== current.includes(priority))
-                  if (toggled) onChange({ priority: toggleValue(search.priority, toggled) })
-                }}
-                className="self-start"
-              >
-                {PRIORITIES.map((priority) => (
-                  <ToggleGroupItem key={priority} id={priority}>
-                    {PRIORITY_LABELS[priority]}
-                  </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
+            <div className="flex flex-col gap-3 p-3.5">
+              <div className="flex flex-col gap-1.5">
+                <span id={priorityLabel} className="text-sm/6 font-medium text-foreground">
+                  Priority
+                </span>
+                <ToggleGroup
+                  aria-labelledby={priorityLabel}
+                  selectionMode="multiple"
+                  size="xs"
+                  selectedKeys={search.priority ?? []}
+                  onSelectionChange={(keys) => {
+                    const current = search.priority ?? []
+                    const toggled = PRIORITIES.find((priority) => keys.has(priority) !== current.includes(priority))
+                    if (toggled) onChange({ priority: toggleValue(search.priority, toggled) })
+                  }}
+                  className="w-full"
+                >
+                  {PRIORITIES.map((priority) => (
+                    <ToggleGroupItem key={priority} id={priority} className="flex-1">
+                      {PRIORITY_LABELS[priority]}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </div>
+              {/* Not the reporter (who sent the report, filtered in the row above): who is to fix it. */}
               <Select
-                aria-label="Assignee"
                 selectedKey={search.assigneeId ?? ALL}
                 onSelectionChange={(key) => onChange({ assigneeId: key === null || key === ALL ? undefined : String(key) })}
               >
+                <Label>Assignee</Label>
+                <Description>Who is assigned to fix the report</Description>
                 <SelectTrigger />
                 <SelectContent items={[{ id: ALL, name: "All assignees" }, ...members]}>
                   {(member) => <SelectItem id={member.id}>{member.name}</SelectItem>}

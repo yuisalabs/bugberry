@@ -50,7 +50,7 @@ export function ConsentView({
           ))}
         </ul>
         <p className="text-sm text-muted-foreground">
-          It sees only what you can see. You can disconnect it any time under Account → AI agents (MCP).
+          It sees only what you can see. You can disconnect it any time under AI Agents (MCP) in the sidebar.
         </p>
       </div>
       {error && (
