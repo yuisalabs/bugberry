@@ -16,7 +16,7 @@ import {
 
 describe("integration helpers", () => {
   test("trackers and notifiers make up every provider, each with a label", () => {
-    expect(TRACKER_PROVIDERS).toEqual(["github", "activecollab", "gitlab", "linear", "jira"])
+    expect(TRACKER_PROVIDERS).toEqual(["github", "activecollab", "gitlab", "linear", "jira", "plane"])
     expect(NOTIFIER_PROVIDERS).toEqual(["slack", "discord", "telegram", "webhook"])
     expect(INTEGRATION_PROVIDERS).toEqual([...TRACKER_PROVIDERS, ...NOTIFIER_PROVIDERS])
     expect(Object.keys(PROVIDER_LABELS).sort()).toEqual([...INTEGRATION_PROVIDERS].sort())
@@ -54,7 +54,20 @@ describe("integration helpers", () => {
     expect(hasTarget("telegram")).toBe(true)
     expect(hasTarget("activecollab")).toBe(true)
     expect(hasTarget("webhook")).toBe(false)
-    expect(CONNECTION_SETTING_KEYS).toEqual(["baseUrl", "siteUrl", "email", "url"])
+    expect(CONNECTION_SETTING_KEYS).toEqual(["baseUrl", "siteUrl", "email", "url", "workspaceSlug"])
+  })
+
+  test("Plane is a tracker whose work items read by their key", () => {
+    expect(TRACKER_PROVIDERS).toContain("plane")
+    expect(PROVIDER_LABELS.plane).toBe("Plane")
+    expect(hasTarget("plane")).toBe(true)
+    const target = { projectId: "B7E42A19-3C5D-4F80-9A26-8D1C0F4E7B53", projectName: "Website (WEB)", labels: ["bug"] }
+    expect(targetKey("plane", target)).toBe("b7e42a19-3c5d-4f80-9a26-8d1c0f4e7b53")
+    expect(targetLabel("plane", target)).toBe("Website (WEB)")
+    expect(issueReference("plane", "WEB-142")).toBe("WEB-142")
+    expect(
+      integrationLabel("plane", { baseUrl: "https://api.plane.so", workspaceSlug: "kantor", ...target }),
+    ).toBe("Website (WEB)")
   })
 
   test("issues are referred to the way each tracker does", () => {

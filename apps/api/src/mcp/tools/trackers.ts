@@ -16,7 +16,7 @@ export function registerTrackerTools(server: McpServer, ctx: McpContext): void {
     {
       title: "List issue trackers",
       description:
-        "The issue trackers (GitHub, GitLab, Linear, Jira, ActiveCollab) of the report's project, and the issues this report was already sent to.",
+        "The issue trackers (GitHub, GitLab, Linear, Jira, Plane, ActiveCollab) of the report's project, and the issues this report was already sent to.",
       inputSchema: reportArgs,
       annotations: { readOnlyHint: true, openWorldHint: false },
     },

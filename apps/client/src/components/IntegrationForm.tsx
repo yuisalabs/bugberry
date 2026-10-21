@@ -22,6 +22,10 @@ import { GithubIcon } from "./LoginView"
 /** Where a GitHub admin makes the fine-grained token this form asks for. */
 export const GITHUB_TOKEN_URL = "https://github.com/settings/personal-access-tokens/new"
 export const GITLAB_COM = "https://gitlab.com"
+/** Plane Cloud's API; a self-hosted Plane uses its own address instead. */
+export const PLANE_CLOUD = "https://api.plane.so"
+/** Where a provider's address starts when nobody typed one. */
+export const DEFAULT_ADDRESS: Partial<Record<IntegrationProvider, string>> = { gitlab: GITLAB_COM, plane: PLANE_CLOUD }
 
 /** What each provider calls its secret, where to make one, and what it needs. */
 export interface SecretSetup {
@@ -61,6 +65,11 @@ export const SECRET_SETUP: Record<IntegrationProvider, SecretSetup> = {
     placeholder: "Token",
     hint: "An API token of the account above, which can create issues in this project.",
     link: () => "https://id.atlassian.com/manage-profile/security/api-tokens",
+  },
+  plane: {
+    label: "API key",
+    placeholder: "plane_api_…",
+    hint: "A personal access token from Plane: Profile Settings, then Personal Access Tokens. Its user must be a member of the projects.",
   },
   slack: {
     label: "Incoming Webhook URL",
@@ -105,8 +114,10 @@ export function ProviderMark({ provider, className = "size-9" }: { provider: Int
       </span>
     )
   }
-  if (provider === "activecollab") {
-    return <img src="/assets/activecollab_icon.png" alt="" className={`shrink-0 rounded-lg border border-border bg-background object-contain ${className}`} />
+  // Full app icons (their own background and corners) are shown as they are, without padding.
+  const appIcon = provider === "activecollab" ? "/assets/activecollab_icon.png" : provider === "plane" ? "/assets/integrations/plane.png" : null
+  if (appIcon) {
+    return <img src={appIcon} alt="" className={`shrink-0 rounded-lg border border-border bg-background object-contain ${className}`} />
   }
   return (
     <img

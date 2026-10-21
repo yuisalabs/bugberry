@@ -48,6 +48,21 @@ describe("the workspace Integrations page", () => {
     })
   })
 
+  test("a Plane connection starts at Plane Cloud and takes the workspace slug and an API key", () => {
+    const onSubmit = mock()
+    render(<ConnectionForm initialProvider="plane" busy={false} onSubmit={onSubmit} onCancel={() => {}} />)
+    expect((screen.getByLabelText("Plane address") as HTMLInputElement).value).toBe("https://api.plane.so")
+    type("Workspace slug", "kantor")
+    type("API key", "plane_api_x")
+    save()
+    expect(onSubmit).toHaveBeenCalledWith({
+      provider: "plane",
+      name: "Plane",
+      settings: { baseUrl: "https://api.plane.so", workspaceSlug: "kantor" },
+      secret: "plane_api_x",
+    })
+  })
+
   test("a Slack connection takes only its webhook URL, and only Slack's", () => {
     const onSubmit = mock()
     render(<ConnectionForm initialProvider="slack" busy={false} onSubmit={onSubmit} onCancel={() => {}} />)

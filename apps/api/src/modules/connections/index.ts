@@ -21,6 +21,8 @@ const createBody = t.Union([
   t.Object({ provider: t.Union([t.Literal("github"), t.Literal("linear")]), name, settings: settingsSchemas.none, secret }),
   t.Object({ provider: t.Union([t.Literal("gitlab"), t.Literal("activecollab")]), name, settings: settingsSchemas.address, secret }),
   t.Object({ provider: t.Literal("jira"), name, settings: settingsSchemas.jira, secret }),
+  // Checked field by field in normalizeSettings, so a wrong workspace slug gets its own message.
+  t.Object({ provider: t.Literal("plane"), name, settings: settingsBody, secret }),
   t.Object({ provider: t.Union([t.Literal("slack"), t.Literal("discord"), t.Literal("telegram")]), name, settings: settingsSchemas.none, secret }),
   // A webhook's signing secret is optional.
   t.Object({ provider: t.Literal("webhook"), name, settings: settingsSchemas.webhook, secret: t.Optional(t.String({ maxLength: 500 })) }),

@@ -20,6 +20,15 @@ describe("validateConnection", () => {
     expect(validateConnection("activecollab", { ...EMPTY_FIELDS, baseUrl: "https://ac.kantor.test/?x=1" })).toMatchObject({ ok: false })
   })
 
+  test("Plane: an https address and the workspace slug", () => {
+    expect(validateConnection("plane", { ...EMPTY_FIELDS, baseUrl: "https://api.plane.so/", workspaceSlug: " kantor " })).toEqual({
+      ok: true,
+      settings: { baseUrl: "https://api.plane.so", workspaceSlug: "kantor" },
+    })
+    expect(validateConnection("plane", { ...EMPTY_FIELDS, baseUrl: "https://api.plane.so", workspaceSlug: "kan tor" })).toMatchObject({ ok: false })
+    expect(validateConnection("plane", { ...EMPTY_FIELDS, baseUrl: "http://plane.kantor.test", workspaceSlug: "kantor" })).toMatchObject({ ok: false })
+  })
+
   test("Jira: only a Jira Cloud site, and a real email", () => {
     const fields = { ...EMPTY_FIELDS, siteUrl: "https://Kantor.atlassian.net/", email: " dana@kantor.test " }
     expect(validateConnection("jira", fields)).toEqual({

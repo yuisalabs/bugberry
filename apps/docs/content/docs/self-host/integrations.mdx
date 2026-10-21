@@ -10,7 +10,7 @@ Integrations work on two levels:
 
 There are two kinds:
 
-- **Issue trackers** (GitHub Issues, GitLab, Linear, Jira, ActiveCollab) turn a report into an issue, by hand or automatically.
+- **Issue trackers** (GitHub Issues, GitLab, Linear, Jira, Plane, ActiveCollab) turn a report into an issue, by hand or automatically.
 - **Notifications** (Slack, Discord, Telegram, a webhook) post a message when a new report comes in.
 
 Tokens, webhook URLs and signing secrets are stored encrypted with `ENCRYPTION_KEY`, so it must be set (see [Install](/self-host/install#generate-the-secrets)), and they are never shown again after saving. Members never see them, nor a connection's addresses: only its name. If the key ever changes, the saved secrets can't be read anymore: save them again in each connection.
@@ -38,6 +38,10 @@ Create a **personal API key** under **Settings → Security & access** (`https:/
 ### Jira Cloud
 
 Enter the site address (`https://<your-site>.atlassian.net`) and the email of the Atlassian account. Projects then pick the Jira project and the issue type (such as `Bug` or `Task`) from the lists. Create an **API token** at `https://id.atlassian.com/manage-profile/security/api-tokens` with that account; it needs permission to create issues in the project. Spaces in labels become dashes, because Jira labels can't contain spaces.
+
+### Plane
+
+Works with Plane Cloud and self-hosted Plane. Keep the address at `https://api.plane.so` for Plane Cloud, or enter your own Plane's address. Enter the workspace slug, the part after the address in Plane's URLs (`my-team` in `app.plane.so/my-team/projects`); one connection holds one Plane workspace. Create a **personal access token** in Plane under **Profile Settings → Personal Access Tokens**, with a user that is a member of the projects reports should go to. Projects then pick the Plane project and its labels from the lists, and each report becomes a work item such as `WEB-142`.
 
 ### ActiveCollab (self-hosted)
 

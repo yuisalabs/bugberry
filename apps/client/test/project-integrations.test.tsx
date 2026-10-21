@@ -8,6 +8,7 @@ import { IntegrationRow, ProjectIntegrationsEmpty } from "../src/pages/ProjectIn
 const status = { failing: 0, lastError: null, lastDeliveredAt: null }
 const githubKantor: Connection = { id: "c-gh", provider: "github", kind: "tracker", name: "GitHub Kantor", usedIn: 1, status }
 const jira: Connection = { id: "c-jira", provider: "jira", kind: "tracker", name: "Jira", usedIn: 0, status }
+const plane: Connection = { id: "c-plane", provider: "plane", kind: "tracker", name: "Plane Kantor", usedIn: 0, status }
 const slack: Connection = { id: "c-slack", provider: "slack", kind: "notifier", name: "Slack #qa", usedIn: 1, status }
 const telegram: Connection = { id: "c-tg", provider: "telegram", kind: "notifier", name: "Telegram bot", usedIn: 0, status }
 
@@ -44,6 +45,8 @@ const OPTIONS: Record<string, Array<{ value: string; label: string }>> = {
     { value: "Task", label: "Task" },
   ],
   "c-jira/labels/": [],
+  "c-plane/targets/": [{ value: "b7e42a19-3c5d-4f80-9a26-8d1c0f4e7b53", label: "Website (WEB)" }],
+  "c-plane/labels/b7e42a19-3c5d-4f80-9a26-8d1c0f4e7b53": [{ value: "bug", label: "bug" }],
 }
 
 function steps(options: { used?: Integration[]; failing?: boolean; initialConnectionId?: string } = {}) {
@@ -56,7 +59,7 @@ function steps(options: { used?: Integration[]; failing?: boolean; initialConnec
   })
   render(
     <UseConnectionSteps
-      connections={[githubKantor, jira, slack, telegram]}
+      connections={[githubKantor, jira, plane, slack, telegram]}
       used={options.used ?? []}
       initialConnectionId={options.initialConnectionId}
       loadOptions={loadOptions}
@@ -94,6 +97,19 @@ describe("Use a connection", () => {
     // InputGroup only places icons marked as icons; any other svg falls above the input.
     const icon = box.closest("[role=group]")?.querySelector("svg")
     expect(icon?.getAttribute("data-slot")).toBe("icon")
+  })
+
+  test("a Plane project is picked by name and keeps it for showing", async () => {
+    const { onSubmit } = steps()
+    choose("Plane Kantor")
+    fireEvent.click(await screen.findByRole("radio", { name: "Website (WEB)" }))
+    fireEvent.click(await screen.findByRole("checkbox", { name: "bug" }))
+    fireEvent.click(screen.getByRole("button", { name: "Use Plane Kantor" }))
+    expect(onSubmit).toHaveBeenCalledWith({
+      connectionId: "c-plane",
+      target: { projectId: "b7e42a19-3c5d-4f80-9a26-8d1c0f4e7b53", projectName: "Website (WEB)", labels: ["bug"] },
+      autoSend: false,
+    })
   })
 
   test("Jira asks for the issue type after the project", async () => {

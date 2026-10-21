@@ -69,6 +69,7 @@ const PARENTS = {
   team: /^[A-Za-z][A-Za-z0-9_]{0,9}$/,
   "project key": /^[A-Za-z][A-Za-z0-9_]{1,9}$/,
   "project id": /^\d{1,12}$/,
+  "Plane project": /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
 }
 
 const needParent = (parent: string | undefined, kind: keyof typeof PARENTS): string => {
@@ -243,6 +244,33 @@ function activeCollab(settings: { baseUrl: string }, token: string, http: Http):
   }
 }
 
+function plane(settings: { baseUrl: string; workspaceSlug: string }, apiKey: string, http: Http): AccountClient {
+  const base = settings.baseUrl.replace(/\/+$/, "")
+  const workspace = `${base}/api/v1/workspaces/${encodeURIComponent(settings.workspaceSlug)}`
+  const init = { headers: { "x-api-key": apiKey, accept: "application/json", "user-agent": "BugBerry" } }
+  const fail = rejected("Plane", "The Plane API key is invalid")
+  type Page<T> = { results?: T[] } | T[]
+  const rows = <T>(page: Page<T>): T[] => (Array.isArray(page) ? page : (page.results ?? []))
+  return {
+    async check() {
+      await call(http, "Plane", `${base}/api/v1/users/me/`, init, fail)
+    },
+    async list(list, { q, parent }) {
+      if (list === "targets") {
+        const page = await call<Page<{ id: string; name: string; identifier: string }>>(http, "Plane", `${workspace}/projects/?per_page=100`, init, fail)
+        return finish(rows(page).map((project) => ({ value: project.id, label: `${project.name} (${project.identifier})` })), q)
+      }
+      if (list === "labels") {
+        const url = `${workspace}/projects/${encodeURIComponent(needParent(parent, "Plane project"))}/labels/?per_page=100`
+        const page = await call<Page<{ name: string }>>(http, "Plane", url, init, fail)
+        // Kept by name, like the other trackers' labels; the work item gets their ids when it is created.
+        return finish(rows(page).map((label) => same(label.name)), q)
+      }
+      return unavailable("plane", list)
+    },
+  }
+}
+
 function telegram(token: string, http: Http): AccountClient {
   return {
     async check() {
@@ -273,12 +301,13 @@ export function createAccountFactory(fetcher: typeof fetch, timeoutMs: number, g
   const http = { fetcher, timeoutMs, guard }
   return (provider, settings, secret) => {
     // The empty settings type stops `in` from narrowing, so the shape is checked by hand.
-    const { baseUrl, siteUrl, email } = settings as Partial<{ baseUrl: string; siteUrl: string; email: string }>
+    const { baseUrl, siteUrl, email, workspaceSlug } = settings as Partial<{ baseUrl: string; siteUrl: string; email: string; workspaceSlug: string }>
     if (provider === "github") return github(secret, http)
     if (provider === "gitlab" && baseUrl) return gitlab({ baseUrl }, secret, http)
     if (provider === "linear") return linear(secret, http)
     if (provider === "jira" && siteUrl && email) return jira({ siteUrl, email }, secret, http)
     if (provider === "activecollab" && baseUrl) return activeCollab({ baseUrl }, secret, http)
+    if (provider === "plane" && baseUrl && workspaceSlug) return plane({ baseUrl, workspaceSlug }, secret, http)
     if (provider === "telegram") return telegram(secret, http)
     if (provider === "slack" || provider === "discord" || provider === "webhook") return nothing(provider)
     throw new TrackerError("The connection settings don't match its provider")

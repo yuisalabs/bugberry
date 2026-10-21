@@ -8,7 +8,7 @@ import { Input, InputGroup } from "@bugberry/ui/input"
 import { TextField } from "@bugberry/ui/text-field"
 import type { Connection } from "../lib/api"
 import { type ConnectionFields, EMPTY_FIELDS, validateConnection, validateSecret } from "../lib/integrations"
-import { Field, GITLAB_COM, IssuePreview, MessagePreview, PROVIDER_GROUPS, ProviderOption, SECRET_SETUP } from "./IntegrationForm"
+import { DEFAULT_ADDRESS, Field, IssuePreview, MessagePreview, PROVIDER_GROUPS, ProviderOption, SECRET_SETUP } from "./IntegrationForm"
 
 export interface ConnectionSubmit {
   provider: IntegrationProvider
@@ -22,7 +22,7 @@ function initialFields(provider: IntegrationProvider, connection?: Connection): 
   return {
     ...EMPTY_FIELDS,
     ...settings,
-    baseUrl: settings.baseUrl ?? (provider === "gitlab" ? GITLAB_COM : ""),
+    baseUrl: settings.baseUrl ?? DEFAULT_ADDRESS[provider] ?? "",
   }
 }
 
@@ -57,9 +57,9 @@ export function ConnectionForm({
     if (name === PROVIDER_LABELS[provider]) setName(PROVIDER_LABELS[next])
     setProvider(next)
     setFields((current) => {
-      if (next === "gitlab" && !current.baseUrl) return { ...current, baseUrl: GITLAB_COM }
-      if (next !== "gitlab" && current.baseUrl === GITLAB_COM) return { ...current, baseUrl: "" }
-      return current
+      // GitLab and Plane start at their cloud address; a default nobody changed does not follow to another provider.
+      const untouched = !current.baseUrl || Object.values(DEFAULT_ADDRESS).includes(current.baseUrl)
+      return untouched ? { ...current, baseUrl: DEFAULT_ADDRESS[next] ?? "" } : current
     })
     setError(null)
   }
@@ -114,8 +114,20 @@ export function ConnectionForm({
           {(provider === "gitlab" || provider === "activecollab") && (
             <TextField {...text("baseUrl")}>
               <Label>{PROVIDER_LABELS[provider]} address</Label>
-              <Input placeholder={provider === "gitlab" ? GITLAB_COM : "https://ac.example.com"} className="font-mono" />
+              <Input placeholder={DEFAULT_ADDRESS[provider] ?? "https://ac.example.com"} className="font-mono" />
             </TextField>
+          )}
+          {provider === "plane" && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <TextField {...text("baseUrl")}>
+                <Label>Plane address</Label>
+                <Input placeholder={DEFAULT_ADDRESS.plane} className="font-mono" />
+              </TextField>
+              <TextField {...text("workspaceSlug")}>
+                <Label>Workspace slug</Label>
+                <Input placeholder="my-team" className="font-mono" />
+              </TextField>
+            </div>
           )}
           {provider === "jira" && (
             <div className="grid gap-4 sm:grid-cols-2">

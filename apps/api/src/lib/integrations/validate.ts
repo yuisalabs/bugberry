@@ -43,6 +43,16 @@ export const settingsBody = t.Record(t.String(), t.Unknown())
 /** Checks a connection's settings belong to its provider and returns them cleaned up. */
 export function normalizeSettings(provider: IntegrationProvider, settings: Record<string, unknown>): ConnectionSettings {
   const text = (key: string) => (typeof settings[key] === "string" ? (settings[key] as string) : null)
+  if (provider === "plane") {
+    const baseUrl = text("baseUrl")
+    const workspaceSlug = text("workspaceSlug")?.trim() ?? ""
+    if (baseUrl === null) throw mismatch()
+    // The workspace part of Plane's URLs: letters, digits, dashes and underscores.
+    if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(workspaceSlug)) {
+      throw unprocessable("invalid_config", "Enter the workspace slug from your Plane address")
+    }
+    return { baseUrl: normalizeBaseUrl(baseUrl, "Plane"), workspaceSlug }
+  }
   if (provider === "gitlab" || provider === "activecollab") {
     const baseUrl = text("baseUrl")
     if (baseUrl === null) throw mismatch()
@@ -92,6 +102,7 @@ const PATTERNS = {
   teamKey: /^[A-Za-z][A-Za-z0-9_]{0,9}$/,
   projectKey: /^[A-Za-z][A-Za-z0-9_]{1,9}$/,
   chatId: /^(?:-?\d{1,20}|@[A-Za-z0-9_]{5,32})$/,
+  planeProject: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
 }
 
 /**
@@ -141,6 +152,12 @@ export function normalizeTarget(provider: IntegrationProvider, target: Record<st
     }
     case "activecollab":
       return { projectId: positive("projectId"), taskListId: positive("taskListId") }
+    case "plane":
+      return {
+        projectId: text("projectId", PATTERNS.planeProject, "That Plane project is not valid").toLowerCase(),
+        projectName: text("projectName", /^.{1,200}$/, "That Plane project is not valid"),
+        labels: labels(),
+      }
     case "telegram":
       return { chatId: text("chatId", PATTERNS.chatId, "Enter a chat id, such as -1001234567890, or a channel's @name") }
     default:

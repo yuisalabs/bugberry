@@ -113,6 +113,28 @@ describe("project uses of workspace connections", () => {
     expect(longKey.error?.value).toMatchObject({ code: "invalid_target", message: "Enter the project key, such as BUG" })
   })
 
+  test("a Plane project is used with its name, and only a real project id is taken", async () => {
+    const plane = await createIntegration(ctx.db, {
+      projectId: (await createProject(ctx.db)).id,
+      provider: "plane",
+      settings: { baseUrl: "https://api.plane.so", workspaceSlug: "kantor" },
+      target: { projectId: "11111111-2222-4333-8444-555555555555", projectName: "Admin (ADM)", labels: [] },
+    })
+    const added = await uses().post(
+      {
+        connectionId: plane.connectionId,
+        target: { projectId: "b7e42a19-3c5d-4f80-9a26-8d1c0f4e7b53", projectName: "Website (WEB)", labels: ["bug"] },
+      },
+      { headers: member.headers },
+    )
+    expect(added.data).toMatchObject({ provider: "plane", label: "Website (WEB)", target: { labels: ["bug"] } })
+    const wrong = await uses().post(
+      { connectionId: plane.connectionId, target: { projectId: "../users", projectName: "X", labels: [] } },
+      { headers: member.headers },
+    )
+    expect(wrong.error?.value).toMatchObject({ code: "invalid_target", message: "That Plane project is not valid" })
+  })
+
   test("a notifier never sends every report as an issue", async () => {
     const slack = await createIntegration(ctx.db, { projectId: (await createProject(ctx.db)).id, provider: "slack" })
     const { data } = await uses().post({ connectionId: slack.connectionId, target: {}, autoSend: true }, { headers: member.headers })

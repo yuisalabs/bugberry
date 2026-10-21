@@ -28,6 +28,7 @@ const TARGET_NOUN: Record<string, string> = {
   gitlab: "Project",
   linear: "Team",
   jira: "Project",
+  plane: "Project",
   activecollab: "Project",
 }
 
@@ -49,7 +50,8 @@ function OptionPicker({
   searchable?: boolean
   loadOptions: LoadOptions
   value: string | null
-  onChange(value: string): void
+  /** The picked value, and its label as the list showed it. */
+  onChange(value: string, label: string): void
 }) {
   const [q, setQ] = useState("")
   const [state, setState] = useState<{ options: Option[] | null; error: string | null }>({ options: null, error: null })
@@ -93,7 +95,11 @@ function OptionPicker({
       ) : state.options.length === 0 ? (
         <p className="text-sm text-muted-foreground">Nothing to pick: the account reaches none, or nothing matches.</p>
       ) : (
-        <RadioGroup aria-label={label} value={value} onChange={onChange} className="max-h-56 space-y-2 overflow-y-auto rounded-lg border border-border p-3">
+        <RadioGroup
+          aria-label={label}
+          value={value}
+          onChange={(picked) => onChange(picked, state.options?.find((option) => option.value === picked)?.label ?? picked)}
+          className="max-h-56 space-y-2 overflow-y-auto rounded-lg border border-border p-3">
           {state.options.map((option) => (
             <RadioField key={option.value} value={option.value}>
               <Radio>{option.label}</Radio>
@@ -177,7 +183,7 @@ function AutoSendSwitch({ value, onChange }: { value: boolean; onChange(value: b
 /** The picks of step 2, turned into the target the server stores. Null with a reason while something is missing. */
 function buildTarget(
   provider: Connection["provider"],
-  picks: { target: string | null; second: string | null; labels: string[]; chatId: string },
+  picks: { target: string | null; targetLabel: string; second: string | null; labels: string[]; chatId: string },
 ): { target: UseTarget } | { error: string } {
   const noun = (TARGET_NOUN[provider] ?? "target").toLowerCase()
   if (provider === "telegram") {
@@ -191,6 +197,7 @@ function buildTarget(
     return { target: { owner: picks.target.slice(0, slash), repo: picks.target.slice(slash + 1), labels: picks.labels } }
   }
   if (provider === "gitlab") return { target: { projectPath: picks.target, labels: picks.labels } }
+  if (provider === "plane") return { target: { projectId: picks.target, projectName: picks.targetLabel, labels: picks.labels } }
   if (provider === "linear") return { target: { teamKey: picks.target, labels: picks.labels } }
   if (provider === "jira") {
     if (!picks.second) return { error: "Pick an issue type" }
@@ -225,6 +232,8 @@ export function UseConnectionSteps({
   const [chosenId, setChosenId] = useState<string | null>(initialConnectionId ?? null)
   const [step, setStep] = useState<1 | 2>(initialConnectionId ? 2 : 1)
   const [target, setTarget] = useState<string | null>(null)
+  // The picked target as the list named it: Plane keeps it to show "Website (WEB)" instead of an id.
+  const [targetLabel, setTargetLabel] = useState("")
   const [second, setSecond] = useState<string | null>(null)
   const [labels, setLabels] = useState<string[]>([])
   const [chatId, setChatId] = useState("")
@@ -289,7 +298,7 @@ export function UseConnectionSteps({
   const provider = chosen.provider
   const tracker = isTrackerProvider(provider)
   const submit = () => {
-    const result = buildTarget(provider, { target, second, labels, chatId })
+    const result = buildTarget(provider, { target, targetLabel, second, labels, chatId })
     if ("error" in result) return setError(result.error)
     setError(null)
     onSubmit({ connectionId: chosen.id, target: result.target, autoSend: tracker && autoSend })
@@ -313,8 +322,9 @@ export function UseConnectionSteps({
           searchable
           loadOptions={loadOptions}
           value={target}
-          onChange={(value) => {
+          onChange={(value, label) => {
             setTarget(value)
+            setTargetLabel(label)
             setSecond(null)
             setLabels([])
           }}

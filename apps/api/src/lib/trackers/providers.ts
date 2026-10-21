@@ -1,4 +1,13 @@
-import type { ActiveCollabConfig, GithubConfig, GitlabConfig, JiraConfig, LinearConfig, TrackerConfig, TrackerProvider } from "@bugberry/shared"
+import type {
+  ActiveCollabConfig,
+  GithubConfig,
+  GitlabConfig,
+  JiraConfig,
+  LinearConfig,
+  PlaneConfig,
+  TrackerConfig,
+  TrackerProvider,
+} from "@bugberry/shared"
 import { type IssueContent, renderAtlassianDocument, renderHtml, renderMarkdown } from "./content"
 import { type HostGuard, HostGuardError, NO_GUARD } from "../net/host-guard"
 
@@ -210,6 +219,60 @@ function gitlabClient(config: GitlabConfig, token: string, http: Http): TrackerC
   }
 }
 
+/** Plane Cloud's API answers at api.plane.so; its pages live at app.plane.so. A self-hosted Plane has both at one address. */
+export const PLANE_CLOUD_API = "https://api.plane.so"
+const PLANE_CLOUD_APP = "https://app.plane.so"
+
+/** Plane's v1 API: available on Plane Cloud and on self-hosted Plane alike. */
+function planeClient(config: PlaneConfig, apiKey: string, http: Http): TrackerClient {
+  const base = config.baseUrl.replace(/\/+$/, "")
+  const project = `${base}/api/v1/workspaces/${encodeURIComponent(config.workspaceSlug)}/projects/${encodeURIComponent(config.projectId)}`
+  const headers = { "x-api-key": apiKey, accept: "application/json", "user-agent": "BugBerry" }
+  const fail = async (response: Response): Promise<never> => {
+    if (response.status === 401) throw new TrackerError("The Plane API key is invalid")
+    if (response.status === 403 || response.status === 404) {
+      throw new TrackerError("The Plane project was not found, or the key's user is not a member of it")
+    }
+    if (response.status === 429) throw new TrackerError("Plane is limiting requests, try again later")
+    throw new TrackerError(`Plane rejected the request (HTTP ${response.status})${await remoteMessage(response)}`)
+  }
+  const get = async <T>(url: string): Promise<T> => {
+    const response = await guardedSend(http, "Plane", url, { headers })
+    if (!response.ok) await fail(response)
+    return (await response.json().catch(() => ({}))) as T
+  }
+
+  return {
+    /** Reading the project proves the key's user is a member of it. */
+    async test() {
+      await get(`${project}/`)
+    },
+    async createIssue(content) {
+      const { identifier } = await get<{ identifier?: unknown }>(`${project}/`)
+      if (typeof identifier !== "string") throw new TrackerError("Plane's response was not recognized")
+      // Work items take label ids; the chosen labels are kept by name, matched here case-insensitively.
+      const wanted = new Set(config.labels.map((label) => label.toLowerCase()))
+      const list = await get<{ results?: Array<{ id: string; name: string }> } | Array<{ id: string; name: string }>>(
+        `${project}/labels/?per_page=100`,
+      )
+      const labels = (Array.isArray(list) ? list : (list.results ?? []))
+        .filter((label) => wanted.has(label.name.toLowerCase()))
+        .map((label) => label.id)
+      const response = await guardedSend(http, "Plane", `${project}/work-items/`, {
+        method: "POST",
+        headers: { ...headers, "content-type": "application/json" },
+        body: JSON.stringify({ name: content.title.slice(0, 255), description_html: renderHtml(content), labels }),
+      })
+      if (!response.ok) await fail(response)
+      const item = (await response.json()) as { sequence_id?: unknown }
+      if (typeof item.sequence_id !== "number") throw new TrackerError("Plane's response was not recognized")
+      const key = `${identifier}-${item.sequence_id}`
+      const app = base === PLANE_CLOUD_API ? PLANE_CLOUD_APP : base
+      return { externalId: key, url: `${app}/${encodeURIComponent(config.workspaceSlug)}/browse/${key}/` }
+    },
+  }
+}
+
 const LINEAR_API = "https://api.linear.app/graphql"
 const LINEAR_TEAM = `query Team($key: String!) {
   teams(filter: { key: { eq: $key } }) { nodes { id labels { nodes { id name } } } }
@@ -335,10 +398,11 @@ export function createTrackerFactory(
   const http = { fetcher, timeoutMs, guard }
   return (provider, config, secret) => {
     if (provider === "github" && "owner" in config) return githubClient(config, secret, http)
-    if (provider === "activecollab" && "projectId" in config) return activeCollabClient(config, secret, http)
+    if (provider === "activecollab" && "taskListId" in config) return activeCollabClient(config, secret, http)
     if (provider === "gitlab" && "projectPath" in config) return gitlabClient(config, secret, http)
     if (provider === "linear" && "teamKey" in config) return linearClient(config, secret, http)
     if (provider === "jira" && "projectKey" in config) return jiraClient(config, secret, http)
+    if (provider === "plane" && "workspaceSlug" in config) return planeClient(config, secret, http)
     throw new TrackerError("The integration settings don't match its provider")
   }
 }

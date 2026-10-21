@@ -134,6 +134,19 @@ describe("workspace connections", () => {
     expect(trackersOfReport.data?.integrations).toEqual([])
   })
 
+  test("a Plane connection keeps its address and workspace slug", async () => {
+    const created = await connections().post(
+      { provider: "plane", name: "Plane", settings: { baseUrl: "https://api.plane.so/", workspaceSlug: "kantor" }, secret: "plane_api" },
+      { headers: admin.headers },
+    )
+    expect(created.data).toMatchObject({ provider: "plane", kind: "tracker", settings: { baseUrl: "https://api.plane.so", workspaceSlug: "kantor" } })
+    const badSlug = await connections().post(
+      { provider: "plane", name: "Plane", settings: { baseUrl: "https://api.plane.so", workspaceSlug: "kan tor" }, secret: "plane_api" },
+      { headers: admin.headers },
+    )
+    expect(badSlug.error?.value).toMatchObject({ code: "invalid_config", message: "Enter the workspace slug from your Plane address" })
+  })
+
   test("a wrong setting in an edit says which", async () => {
     const { data } = await connections().post(JIRA, { headers: admin.headers })
     const { error } = await one(data?.id ?? "").patch(

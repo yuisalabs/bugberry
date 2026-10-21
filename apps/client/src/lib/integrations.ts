@@ -8,11 +8,14 @@ export interface ConnectionFields {
   email: string
   /** The generic webhook's address. */
   url: string
+  /** Plane's workspace part of its URLs: "my-team" in app.plane.so/my-team/projects. */
+  workspaceSlug: string
 }
 
-export const EMPTY_FIELDS: ConnectionFields = { baseUrl: "", siteUrl: "", email: "", url: "" }
+export const EMPTY_FIELDS: ConnectionFields = { baseUrl: "", siteUrl: "", email: "", url: "", workspaceSlug: "" }
 
 const EMAIL = /^[^\s@]+@[^\s@]+$/
+const WORKSPACE_SLUG = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/
 const CHAT_ID = /^(?:-?\d{1,20}|@[A-Za-z0-9_]{5,32})$/
 const JIRA_SITE = /^https:\/\/[a-z0-9][a-z0-9-]*\.atlassian\.net$/i
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"])
@@ -45,6 +48,13 @@ export function validateConnection(
   provider: IntegrationProvider,
   fields: ConnectionFields,
 ): { ok: true; settings: ConnectionSettings } | { ok: false; error: string } {
+  if (provider === "plane") {
+    const address = baseUrl(fields.baseUrl)
+    if (!address) return { ok: false, error: "The Plane address must start with https:// and have no query" }
+    const workspaceSlug = fields.workspaceSlug.trim()
+    if (!WORKSPACE_SLUG.test(workspaceSlug)) return { ok: false, error: "Enter the workspace slug from your Plane address" }
+    return { ok: true, settings: { baseUrl: address, workspaceSlug } }
+  }
   if (provider === "gitlab" || provider === "activecollab") {
     const address = baseUrl(fields.baseUrl)
     if (!address) return { ok: false, error: `The ${PROVIDER_LABELS[provider]} address must start with https:// and have no query` }

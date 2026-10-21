@@ -153,6 +153,34 @@ describe("ActiveCollab", () => {
   })
 })
 
+describe("Plane", () => {
+  const PROJECT = "b7e42a19-3c5d-4f80-9a26-8d1c0f4e7b53"
+
+  test("checks the key and lists the workspace's projects and a project's labels", async () => {
+    const { fetcher, requests } = fakeFetch((request) => {
+      const url = new URL(request.url)
+      if (url.pathname === "/api/v1/users/me/") return json({ id: "u1" })
+      if (url.pathname === "/api/v1/workspaces/kantor/projects/") return json({ results: [{ id: PROJECT, name: "Website", identifier: "WEB" }] })
+      return json({ results: [{ id: "l1", name: "bug" }] })
+    })
+    const plane = createAccountFactory(fetcher, 5_000, NO_GUARD)("plane", { baseUrl: "https://api.plane.so", workspaceSlug: "kantor" }, "plane_api")
+    await plane.check()
+    expect(requests[0]?.url).toBe("https://api.plane.so/api/v1/users/me/")
+    expect(requests[0]?.headers.get("x-api-key")).toBe("plane_api")
+    expect(await plane.list("targets", {})).toEqual([{ value: PROJECT, label: "Website (WEB)" }])
+    expect(requests[1]?.url).toBe("https://api.plane.so/api/v1/workspaces/kantor/projects/?per_page=100")
+    expect(await plane.list("labels", { parent: PROJECT })).toEqual([{ value: "bug", label: "bug" }])
+    expect(requests.at(-1)?.url).toBe(`https://api.plane.so/api/v1/workspaces/kantor/projects/${PROJECT}/labels/?per_page=100`)
+    await expect(plane.list("labels", { parent: "../../users/me" })).rejects.toThrow("not valid")
+  })
+
+  test("a wrong key is reported", async () => {
+    const { fetcher } = fakeFetch(() => json({ detail: "Invalid token" }, 401))
+    const plane = createAccountFactory(fetcher, 5_000, NO_GUARD)("plane", { baseUrl: "https://api.plane.so", workspaceSlug: "kantor" }, "x")
+    await expect(plane.check()).rejects.toThrow("The Plane API key is invalid")
+  })
+})
+
 describe("Telegram", () => {
   test("checks the bot token and has nothing to list", async () => {
     const { fetcher, requests } = fakeFetch(() => json({ ok: true, result: { username: "bugberry_bot" } }))
