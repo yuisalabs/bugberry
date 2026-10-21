@@ -11,6 +11,7 @@ import type { TrackerFactory } from "./lib/trackers/providers"
 import { activityModule } from "./modules/activity"
 import { commentsModule } from "./modules/comments"
 import { integrationsModule } from "./modules/integrations"
+import { connectionsModule } from "./modules/connections"
 import { localFilesModule } from "./modules/local-files"
 import { accountModule } from "./modules/account"
 import { meModule } from "./modules/me"
@@ -134,6 +135,7 @@ export function createApp(deps: AppDeps) {
     .use(activityModule(deps))
     .use(notificationsModule(deps))
     .use(integrationsModule(deps))
+    .use(connectionsModule(deps))
     .use(trackersModule(deps))
     .use(mcpModule(deps))
 
