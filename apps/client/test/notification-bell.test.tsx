@@ -78,3 +78,16 @@ describe("NotificationBell via AI", () => {
     expect(screen.getByRole("button", { name: /mentioned you/ }).textContent).toContain("Ana mentioned you (via Claude Code) in BB-9")
   })
 })
+
+describe("NotificationBell replies", () => {
+  test("says whether someone mentioned you or replied", () => {
+    view({
+      items: [item(1), item(2, { kind: "reply_to_you" }), item(3, { kind: "reply_in_thread", viaAgent: "Claude Code" })],
+      unreadCount: 3,
+    })
+    const rows = screen.getAllByRole("button").map((row) => row.textContent ?? "")
+    expect(rows.some((text) => text.includes("Ana mentioned you in BB-1"))).toBe(true)
+    expect(rows.some((text) => text.includes("Ana replied to your comment in BB-2"))).toBe(true)
+    expect(rows.some((text) => text.includes("Ana replied in a thread you're in (via Claude Code) on BB-3"))).toBe(true)
+  })
+})

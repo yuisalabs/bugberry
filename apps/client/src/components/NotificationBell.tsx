@@ -15,6 +15,13 @@ import { PeopleRowsSkeleton } from "./Skeletons"
 type Item = Notifications["items"][number]
 
 /** The red unread count on the bell; nothing when everything is read. */
+/** What a bell row says happened, and the word before the report. */
+const WHAT_HAPPENED = {
+  mention: { verb: "mentioned you", on: "in" },
+  reply_to_you: { verb: "replied to your comment", on: "in" },
+  reply_in_thread: { verb: "replied in a thread you're in", on: "on" },
+} as const
+
 export function NotificationBadge({ count }: { count: number }) {
   if (count <= 0) return null
   return (
@@ -62,8 +69,8 @@ export function NotificationBellView({
                 />
                 <span className="flex min-w-0 flex-col gap-0.5">
                   <span className="text-sm text-foreground">
-                    <span className="font-semibold">{item.actor?.name ?? "Someone"}</span> mentioned you
-                    {item.viaAgent ? ` (via ${item.viaAgent})` : ""} in{" "}
+                    <span className="font-semibold">{item.actor?.name ?? "Someone"}</span> {WHAT_HAPPENED[item.kind].verb}
+                    {item.viaAgent ? ` (via ${item.viaAgent})` : ""} {WHAT_HAPPENED[item.kind].on}{" "}
                     <span className="font-semibold">BB-{item.report.number}</span> · {item.report.title}
                   </span>
                   <span className="line-clamp-2 text-xs text-muted-foreground">{item.snippet}</span>
