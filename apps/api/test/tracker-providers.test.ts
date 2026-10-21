@@ -207,3 +207,40 @@ describe("guarded factory", () => {
     expect(requests).toHaveLength(0)
   })
 })
+
+const gitlab = { baseUrl: "https://gitlab.kantor.test", projectPath: "web/shop", labels: ["bug", "bugberry"] }
+
+describe("GitLab client", () => {
+  test("creates an issue in the project with the token and labels", async () => {
+    const { fetcher, requests } = fakeFetch(() =>
+      Response.json({ iid: 42, web_url: "https://gitlab.kantor.test/web/shop/-/issues/42" }, { status: 201 }),
+    )
+    const issue = await createTrackerFactory(fetcher)("gitlab", gitlab, "glpat-token").createIssue(content)
+    expect(issue).toEqual({ externalId: "42", url: "https://gitlab.kantor.test/web/shop/-/issues/42" })
+    const request = requests[0] as Request
+    expect(request.method).toBe("POST")
+    expect(request.url).toBe("https://gitlab.kantor.test/api/v4/projects/web%2Fshop/issues")
+    expect(request.headers.get("private-token")).toBe("glpat-token")
+    const body = (await request.json()) as { title: string; description: string; labels: string }
+    expect(body.title).toBe("Pay button fails")
+    expect(body.labels).toBe("bug,bugberry")
+    expect(body.description).toContain("https://bugberry.kantor.test/r/r1")
+  })
+
+  test("the connection test refuses a project with issues turned off", async () => {
+    const { fetcher, requests } = fakeFetch(() => Response.json({ id: 9, issues_enabled: false }))
+    await expect(createTrackerFactory(fetcher)("gitlab", gitlab, "glpat-token").test()).rejects.toThrow("Issues are turned off")
+    expect((requests[0] as Request).url).toBe("https://gitlab.kantor.test/api/v4/projects/web%2Fshop")
+  })
+
+  test("401 and 404 become plain messages", async () => {
+    const unauthorized = fakeFetch(() => Response.json({ message: "401 Unauthorized" }, { status: 401 }))
+    await expect(createTrackerFactory(unauthorized.fetcher)("gitlab", gitlab, "bad").test()).rejects.toThrow(
+      "The GitLab token is invalid or has expired",
+    )
+    const missing = fakeFetch(() => Response.json({ message: "404 Project Not Found" }, { status: 404 }))
+    await expect(createTrackerFactory(missing.fetcher)("gitlab", gitlab, "glpat").test()).rejects.toThrow(
+      "The GitLab project was not found or the token lacks the api scope",
+    )
+  })
+})

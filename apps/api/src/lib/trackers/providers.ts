@@ -1,4 +1,4 @@
-import type { ActiveCollabConfig, GithubConfig, TrackerConfig, TrackerProvider } from "@bugberry/shared"
+import type { ActiveCollabConfig, GithubConfig, GitlabConfig, JiraConfig, LinearConfig, TrackerConfig, TrackerProvider } from "@bugberry/shared"
 import { type IssueContent, renderHtml, renderMarkdown } from "./content"
 import { type HostGuard, HostGuardError, NO_GUARD } from "../net/host-guard"
 
@@ -174,6 +174,42 @@ function activeCollabClient(config: ActiveCollabConfig, token: string, http: Htt
   }
 }
 
+function gitlabClient(config: GitlabConfig, token: string, http: Http): TrackerClient {
+  const project = `${config.baseUrl.replace(/\/+$/, "")}/api/v4/projects/${encodeURIComponent(config.projectPath)}`
+  const headers = { "private-token": token, accept: "application/json", "user-agent": "BugBerry" }
+  const fail = async (response: Response): Promise<never> => {
+    if (response.status === 401) throw new TrackerError("The GitLab token is invalid or has expired")
+    if (response.status === 403 || response.status === 404) {
+      throw new TrackerError("The GitLab project was not found or the token lacks the api scope")
+    }
+    if (response.status === 429) throw new TrackerError("GitLab is limiting requests, try again later")
+    throw new TrackerError(`GitLab rejected the request (HTTP ${response.status})${await remoteMessage(response)}`)
+  }
+
+  return {
+    /** Reading the project proves the token sees it; issues must also be switched on. */
+    async test() {
+      const response = await guardedSend(http, "GitLab", project, { headers })
+      if (!response.ok) await fail(response)
+      const body = (await response.json().catch(() => ({}))) as { issues_enabled?: unknown }
+      if (body.issues_enabled === false) throw new TrackerError("Issues are turned off for this GitLab project")
+    },
+    async createIssue(content) {
+      const response = await guardedSend(http, "GitLab", `${project}/issues`, {
+        method: "POST",
+        headers: { ...headers, "content-type": "application/json" },
+        body: JSON.stringify({ title: content.title.slice(0, 255), description: renderMarkdown(content), labels: config.labels.join(",") }),
+      })
+      if (!response.ok) await fail(response)
+      const issue = (await response.json()) as { iid?: unknown; web_url?: unknown }
+      if (typeof issue.iid !== "number" || typeof issue.web_url !== "string") {
+        throw new TrackerError("GitLab's response was not recognized")
+      }
+      return { externalId: String(issue.iid), url: issue.web_url }
+    },
+  }
+}
+
 export function createTrackerFactory(
   fetcher: typeof fetch = fetch,
   timeoutMs = DEFAULT_TIMEOUT_MS,
@@ -183,6 +219,7 @@ export function createTrackerFactory(
   return (provider, config, secret) => {
     if (provider === "github" && "owner" in config) return githubClient(config, secret, http)
     if (provider === "activecollab" && "projectId" in config) return activeCollabClient(config, secret, http)
+    if (provider === "gitlab" && "projectPath" in config) return gitlabClient(config, secret, http)
     throw new TrackerError("The integration settings don't match its provider")
   }
 }
