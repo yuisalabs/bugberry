@@ -1,14 +1,15 @@
+import { RiBookOpenLine, RiChat3Line, RiPlugLine, RiServerLine, RiTerminalBoxLine } from "@remixicon/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Button } from "@bugberry/ui/button"
-import { Description, Label } from "@bugberry/ui/field"
+import { type ReactNode, useState } from "react"
+import { Tab, TabList, TabPanel, Tabs } from "react-aria-components"
+import { Button, buttonStyles } from "@bugberry/ui/button"
 import { Input } from "@bugberry/ui/input"
-import { Tab, TabList, TabPanel, Tabs } from "@bugberry/ui/tabs"
 import { TextField } from "@bugberry/ui/text-field"
-import { useState } from "react"
 import { SettingsPageSkeleton } from "../../components/Skeletons"
 import { CopyButton, ErrorState } from "../../components/ui"
 import { errorMessage } from "../../lib/api"
 import { api } from "../../lib/client"
+import { DOCS_URL } from "../../lib/docs-url"
 import { formatDateTime } from "../../lib/format"
 
 export interface TokenRow {
@@ -42,6 +43,42 @@ export function connectSnippets(url: string): Array<{ id: string; label: string;
 
 const when = (value: Date | string | null) => (value ? formatDateTime(value) : "never")
 
+/** What a report link looks like on this server, for the example prompt. */
+export function exampleReportLink(origin: string): string {
+  return `${new URL(origin).host}/app/r/8f3a91c2`
+}
+
+const card = "flex flex-col gap-5 rounded-2xl border border-border bg-background p-6 shadow-xs"
+const cardTitle = "font-heading text-lg font-semibold text-foreground"
+// A terminal look (the theme's ink as the background), so a command reads as something to paste.
+const codeBlock = "relative rounded-xl bg-foreground p-4 pr-28 font-mono text-sm leading-6 text-background"
+
+function Step({ number, title, children }: { number: number; title: string; children: ReactNode }) {
+  return (
+    <li className="flex flex-col gap-3">
+      <h3 className="flex items-center gap-3 font-medium text-foreground">
+        <span aria-hidden className="grid size-6 shrink-0 place-content-center rounded-full bg-primary-subtle text-xs font-semibold text-primary">
+          {number}
+        </span>
+        {title}
+      </h3>
+      {children}
+    </li>
+  )
+}
+
+function ListRow({ title, meta, action }: { title: string; meta: string; action: ReactNode }) {
+  return (
+    <li className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <span className="text-sm font-medium text-foreground">{title}</span>
+        <span className="text-xs text-muted-foreground">{meta}</span>
+      </div>
+      <span className="shrink-0">{action}</span>
+    </li>
+  )
+}
+
 export function AiAgentsView({
   origin,
   tokens,
@@ -66,150 +103,202 @@ export function AiAgentsView({
   onDismissToken(): void
 }) {
   const url = `${origin}/api/mcp`
+  const snippets = connectSnippets(url)
   const [label, setLabel] = useState("")
   const trimmed = label.trim()
 
   return (
-    <section className="flex max-w-2xl flex-col gap-8">
-      <div className="flex flex-col gap-2">
-        <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground">AI agents (MCP)</h1>
-        <p className="text-sm text-muted-foreground">
-          Let AI apps like Claude Code or Cursor read your reports and work on them: paste a report link into the agent and it can see
-          the console, network, user actions and the code that failed, then comment or update the report for you. Agents see only what
-          you can see.
-        </p>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <h2 className="font-heading text-base font-semibold text-foreground">Server URL</h2>
-        <div className="flex flex-wrap items-center gap-2">
-          <code className="rounded-md bg-muted px-2 py-1 font-mono text-sm text-foreground">{url}</code>
-          <CopyButton text={url} label="Copy URL" />
+    <section className="flex flex-col gap-8">
+      <header className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-6">
+        <div className="flex max-w-3xl flex-col gap-2">
+          <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">AI agents (MCP)</h1>
+          <p className="text-muted-foreground">
+            Let AI apps like Claude Code or Cursor read your reports and work on them: paste a report link into the agent and it can see
+            the console, network, user actions and the code that failed, then comment or update the report for you. Agents see only what
+            you can see.
+          </p>
         </div>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <h2 className="font-heading text-base font-semibold text-foreground">Connect an app</h2>
-        <Tabs defaultSelectedKey="claude-code" className="gap-3">
-          <TabList aria-label="AI apps">
-            {connectSnippets(url).map((item) => (
-              <Tab key={item.id} id={item.id}>
-                {item.label}
-              </Tab>
-            ))}
-          </TabList>
-          {connectSnippets(url).map((item) => (
-            <TabPanel key={item.id} id={item.id} className="flex flex-col gap-2">
-              <p className="text-sm text-muted-foreground">{item.where}</p>
-              <pre className="overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs text-foreground">{item.code}</pre>
-              <CopyButton text={item.code} label="Copy" />
-            </TabPanel>
-          ))}
-        </Tabs>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <h2 className="font-heading text-base font-semibold text-foreground">Connected apps</h2>
-        {apps.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No AI apps connected yet.</p>
-        ) : (
-          <ul className="flex flex-col divide-y divide-border rounded-lg border border-border">
-            {apps.map((app) => (
-              <li key={app.clientId} className="flex flex-wrap items-center justify-between gap-3 px-3 py-2">
-                <div className="flex min-w-0 flex-col">
-                  <span className="text-sm font-medium text-foreground">{app.name}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {app.scopes.includes("bugberry:write") ? "Can read and change" : "Can read"} · allowed {when(app.grantedAt)} · last
-                    renewed {when(app.lastUsedAt)}
-                  </span>
-                </div>
-                <Button
-                  size="sm"
-                  intent="outline"
-                  isDisabled={busy}
-                  onPress={() => {
-                    if (window.confirm(`Disconnect ${app.name}? It loses access right away.`)) onRevokeApp(app.clientId)
-                  }}
-                >
-                  Disconnect
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1">
-          <h2 className="font-heading text-base font-semibold text-foreground">Personal tokens</h2>
-          <p className="text-sm text-muted-foreground">For clients without OAuth. Send it as "Authorization: Bearer &lt;token&gt;".</p>
-        </div>
-        {newToken && (
-          <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted p-3">
-            <p className="text-sm font-medium text-foreground">Copy it now. You won't see it again.</p>
-            <code className="break-all font-mono text-sm text-foreground">{newToken}</code>
-            <div className="flex gap-2">
-              <CopyButton text={newToken} label="Copy token" />
-              <Button size="sm" intent="plain" onPress={onDismissToken}>
-                Done
-              </Button>
-            </div>
-          </div>
-        )}
-        <form
-          className="flex flex-col gap-2"
-          onSubmit={(event) => {
-            event.preventDefault()
-            if (trimmed) {
-              onCreateToken(trimmed)
-              setLabel("")
-            }
-          }}
-        >
-          <TextField value={label} maxLength={60} onChange={setLabel}>
-            <Label>Token name</Label>
-            <div className="flex gap-2">
-              <Input placeholder="e.g. CI bot" />
-              <Button size="sm" type="submit" isDisabled={busy || !trimmed}>
-                Create token
-              </Button>
-            </div>
-            <Description>It only works with the MCP server, not the rest of the BugBerry API.</Description>
-          </TextField>
-        </form>
-        {tokens.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No personal tokens.</p>
-        ) : (
-          <ul className="flex flex-col divide-y divide-border rounded-lg border border-border">
-            {tokens.map((token) => (
-              <li key={token.id} className="flex flex-wrap items-center justify-between gap-3 px-3 py-2">
-                <div className="flex min-w-0 flex-col">
-                  <span className="text-sm font-medium text-foreground">{token.label}</span>
-                  <span className="text-xs text-muted-foreground">
-                    Created {when(token.createdAt)} · last used {when(token.lastUsedAt)}
-                  </span>
-                </div>
-                <Button
-                  size="sm"
-                  intent="outline"
-                  isDisabled={busy}
-                  onPress={() => {
-                    if (window.confirm(`Revoke "${token.label}"? Apps using it stop working.`)) onRevokeToken(token.id)
-                  }}
-                >
-                  Revoke
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+        <a href={`${DOCS_URL}/guide/ai-agents`} target="_blank" rel="noreferrer" className={buttonStyles({ intent: "outline", size: "sm" })}>
+          <RiBookOpenLine aria-hidden />
+          Read the docs
+        </a>
+      </header>
 
       {error && (
         <p role="alert" className="text-sm text-danger-subtle-foreground">
           {error}
         </p>
       )}
+
+      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)]">
+        <div className={card}>
+          <h2 className={cardTitle}>Connect an app</h2>
+          <ol className="flex flex-col gap-7">
+            <Step number={1} title="Copy the server URL">
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg border border-border bg-muted px-3 py-2">
+                  <RiServerLine aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+                  <code className="truncate font-mono text-sm text-foreground">{url}</code>
+                </div>
+                <CopyButton text={url} label="Copy URL" className="h-auto" />
+              </div>
+            </Step>
+
+            <Step number={2} title="Add it to your AI app">
+              <Tabs defaultSelectedKey="claude-code" className="flex flex-col gap-3">
+                <TabList aria-label="AI apps" className="grid grid-cols-3 gap-1 rounded-xl bg-muted p-1 sm:grid-cols-6">
+                  {snippets.map((item) => (
+                    <Tab
+                      key={item.id}
+                      id={item.id}
+                      className="cursor-default rounded-lg px-2 py-2 text-center text-sm whitespace-nowrap text-muted-foreground outline-hidden transition hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring selected:bg-background selected:font-medium selected:text-foreground selected:shadow-xs"
+                    >
+                      {item.label}
+                    </Tab>
+                  ))}
+                </TabList>
+                {snippets.map((item) => (
+                  <TabPanel key={item.id} id={item.id} className="flex flex-col gap-3 outline-hidden">
+                    <p className="flex items-start gap-2 text-sm text-foreground">
+                      <RiTerminalBoxLine aria-hidden className="mt-0.5 size-4 shrink-0 text-primary" />
+                      {item.where}
+                    </p>
+                    <div className={codeBlock}>
+                      <pre className="overflow-x-auto break-words whitespace-pre-wrap">
+                        {item.id === "claude-code" && (
+                          <span aria-hidden className="mr-3 text-primary select-none">
+                            $
+                          </span>
+                        )}
+                        <code>{item.code}</code>
+                      </pre>
+                      <CopyButton
+                        text={item.code}
+                        label="Copy"
+                        className="absolute top-3 right-3 border-background/15 bg-background/10 text-background hover:bg-background/20"
+                      />
+                    </div>
+                  </TabPanel>
+                ))}
+              </Tabs>
+            </Step>
+
+            <Step number={3} title="Paste a report link into your agent">
+              <p className="flex items-center gap-2.5 rounded-lg bg-muted px-3 py-2.5 text-sm text-muted-foreground">
+                <RiChat3Line aria-hidden className="size-4 shrink-0" />
+                <span className="min-w-0 truncate">
+                  Fix this bug: <code className="font-mono text-primary">{exampleReportLink(origin)}</code>
+                </span>
+              </p>
+            </Step>
+          </ol>
+        </div>
+
+        <div className="flex flex-col gap-6">
+          <div className={card}>
+            <h2 className={cardTitle}>Connected apps</h2>
+            {apps.length === 0 ? (
+              <div className="flex items-center gap-3">
+                <span aria-hidden className="grid size-11 shrink-0 place-content-center rounded-xl border border-border bg-muted text-muted-foreground">
+                  <RiPlugLine className="size-5" />
+                </span>
+                <div className="flex flex-col">
+                  <p className="text-sm font-medium text-foreground">No AI apps connected yet</p>
+                  <p className="text-sm text-muted-foreground">Apps show up here once you sign in from them.</p>
+                </div>
+              </div>
+            ) : (
+              <ul className="flex flex-col divide-y divide-border">
+                {apps.map((app) => (
+                  <ListRow
+                    key={app.clientId}
+                    title={app.name}
+                    meta={`${app.scopes.includes("bugberry:write") ? "Can read and change" : "Can read"} · allowed ${when(app.grantedAt)} · last renewed ${when(app.lastUsedAt)}`}
+                    action={
+                      <Button
+                        size="sm"
+                        intent="outline"
+                        isDisabled={busy}
+                        onPress={() => {
+                          if (window.confirm(`Disconnect ${app.name}? It loses access right away.`)) onRevokeApp(app.clientId)
+                        }}
+                      >
+                        Disconnect
+                      </Button>
+                    }
+                  />
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className={card}>
+            <div className="flex flex-col gap-1">
+              <h2 className={cardTitle}>Personal tokens</h2>
+              <p className="text-sm text-muted-foreground">
+                For clients without OAuth. Works with the MCP server only, not the rest of the BugBerry API.
+              </p>
+            </div>
+            {newToken && (
+              <div className="flex flex-col gap-2 rounded-lg border border-primary/20 bg-primary-subtle p-3">
+                <p className="text-sm font-medium text-foreground">Copy it now. You won't see it again.</p>
+                <code className="break-all font-mono text-sm text-foreground">{newToken}</code>
+                <div className="flex gap-2">
+                  <CopyButton text={newToken} label="Copy token" className="bg-background" />
+                  <Button size="sm" intent="plain" onPress={onDismissToken}>
+                    Done
+                  </Button>
+                </div>
+              </div>
+            )}
+            <form
+              className="flex gap-2"
+              onSubmit={(event) => {
+                event.preventDefault()
+                if (trimmed) {
+                  onCreateToken(trimmed)
+                  setLabel("")
+                }
+              }}
+            >
+              <TextField aria-label="Token name" value={label} maxLength={60} onChange={setLabel} className="flex-1">
+                <Input placeholder="Token name, e.g. CI bot" />
+              </TextField>
+              <Button type="submit" isDisabled={busy || !trimmed}>
+                Create
+              </Button>
+            </form>
+            <p className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
+              Send as <code className="font-mono text-sm text-foreground">Authorization: Bearer &lt;token&gt;</code>
+            </p>
+            {tokens.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No personal tokens yet.</p>
+            ) : (
+              <ul className="flex flex-col divide-y divide-border">
+                {tokens.map((token) => (
+                  <ListRow
+                    key={token.id}
+                    title={token.label}
+                    meta={`Created ${when(token.createdAt)} · last used ${when(token.lastUsedAt)}`}
+                    action={
+                      <Button
+                        size="sm"
+                        intent="outline"
+                        isDisabled={busy}
+                        onPress={() => {
+                          if (window.confirm(`Revoke "${token.label}"? Apps using it stop working.`)) onRevokeToken(token.id)
+                        }}
+                      >
+                        Revoke
+                      </Button>
+                    }
+                  />
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </div>
     </section>
   )
 }

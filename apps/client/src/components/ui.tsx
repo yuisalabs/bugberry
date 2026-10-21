@@ -1,3 +1,4 @@
+import { RiCheckLine, RiFileCopyLine } from "@remixicon/react"
 import { type ReactNode, useState } from "react"
 import { Button } from "@bugberry/ui/button"
 import { Loader } from "@bugberry/ui/loader"
@@ -58,7 +59,7 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
   )
 }
 
-export function CopyButton({ text, label }: { text: string; label: string }) {
+export function CopyButton({ text, label, className }: { text: string; label: string; className?: string }) {
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle")
   const copy = async () => {
     try {
@@ -70,7 +71,8 @@ export function CopyButton({ text, label }: { text: string; label: string }) {
     setTimeout(() => setState("idle"), 2000)
   }
   return (
-    <Button intent="outline" size="sm" onPress={() => void copy()}>
+    <Button intent="outline" size="sm" onPress={() => void copy()} className={className}>
+      {state === "copied" ? <RiCheckLine aria-hidden /> : <RiFileCopyLine aria-hidden />}
       {state === "copied" ? "Copied" : state === "failed" ? "Couldn't copy" : label}
     </Button>
   )
