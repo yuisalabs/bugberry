@@ -58,7 +58,8 @@ describe("reactions", () => {
   })
 
   test("accepts flags, skin tones, keycaps and ZWJ sequences", () => {
-    for (const emoji of ["🇮🇩", "👍🏽", "👩‍💻", "❤️", "1️⃣"]) expect(isEmoji(emoji)).toBe(true)
+    const england = "\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}"
+    for (const emoji of ["🇮🇩", "👍🏽", "👩‍💻", "❤️", "1️⃣", england]) expect(isEmoji(emoji)).toBe(true)
     for (const text of ["1", "#", "🇮", "ok", " "]) expect(isEmoji(text)).toBe(false)
   })
 

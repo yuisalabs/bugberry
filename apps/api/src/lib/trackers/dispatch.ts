@@ -121,7 +121,8 @@ export function createDispatcher(deps: { config: Config; db: Db; storage: Storag
       await recordActivity(db, {
         reportId,
         kind: "tracker",
-        detail: { provider: target.provider, externalId: issue.externalId, externalUrl: issue.url },
+        // Marked rather than inferred from a missing person: older sends were never stored with who sent them.
+        detail: { provider: target.provider, externalId: issue.externalId, externalUrl: issue.url, ...(by ? {} : { automatic: true }) },
         actorId: by?.actorId ?? null,
         viaAgent: by?.viaAgent ?? null,
       }).catch((error) => console.error("tracker activity failed", error))

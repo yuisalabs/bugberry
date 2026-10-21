@@ -9,13 +9,13 @@ export interface ReactionView {
   people: { id: string; name: string }[]
 }
 
-/** Only emoji pieces: pictographs, flags' letters, skin tones, joiners, variation selectors and keycap parts. */
-const EMOJI_PIECES = /^(?:\p{Extended_Pictographic}|\p{Regional_Indicator}|\p{Emoji_Modifier}|[‍️⃣#*0-9])+$/u
+/** Only emoji pieces: pictographs, flags' letters and tags, skin tones, joiners, variation selectors and keycap parts. */
+const EMOJI_PIECES = /^(?:\p{Extended_Pictographic}|\p{Regional_Indicator}|\p{Emoji_Modifier}|[\u200d\ufe0f\u20e3#*0-9\u{E0020}-\u{E007F}])+$/u
 
 /** Whether a reaction is one emoji (or a short run of them): a pictograph, a flag or a keycap, never plain text. */
 export function isEmoji(value: string): boolean {
   if (value.length === 0 || value.length > 32 || !EMOJI_PIECES.test(value)) return false
-  return /\p{Extended_Pictographic}/u.test(value) || /\p{Regional_Indicator}{2}/u.test(value) || /[#*0-9]️?⃣/u.test(value)
+  return /\p{Extended_Pictographic}/u.test(value) || /\p{Regional_Indicator}{2}/u.test(value) || /[#*0-9]\ufe0f?\u20e3/u.test(value)
 }
 
 /** Each comment's reactions, grouped by emoji in the order each emoji was first used on it. */

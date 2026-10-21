@@ -2,7 +2,7 @@ import { useState } from "react"
 import { Button as AriaButton } from "react-aria-components"
 import { Input } from "@bugberry/ui/input"
 
-const titleClass = "font-heading text-2xl font-semibold tracking-tight text-foreground"
+const titleClass = "font-heading text-lg font-semibold tracking-tight text-foreground"
 
 /** The report title; the reporter's teammates click it to rename the report. */
 export function ReportTitle({ title, editable, onSave }: { title: string; editable: boolean; onSave(next: string): void }) {

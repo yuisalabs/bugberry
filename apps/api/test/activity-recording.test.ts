@@ -79,6 +79,7 @@ describe("recording tracker sends", () => {
     expect(rows).toHaveLength(1)
     expect(rows[0]).toMatchObject({ kind: "tracker", actorId: budi.user.id, viaAgent: null, detail: { provider: "github" } })
     expect((rows[0]?.detail as { externalId: string }).externalId).toBeTruthy()
+    expect((rows[0]?.detail as { automatic?: boolean }).automatic).toBeUndefined()
   })
 
   test("an MCP send names the person and the agent", async () => {
@@ -92,7 +93,7 @@ describe("recording tracker sends", () => {
     await addIntegration(true)
     const dispatcher = createDispatcher({ config: ctx.config, db: ctx.db, storage: ctx.storage, trackers: trackers.factory })
     await dispatcher.autoSend(reportId)
-    expect((await lines())[0]).toMatchObject({ kind: "tracker", actorId: null, viaAgent: null })
+    expect((await lines())[0]).toMatchObject({ kind: "tracker", actorId: null, viaAgent: null, detail: { automatic: true } })
   })
 
   test("a failed send records nothing", async () => {

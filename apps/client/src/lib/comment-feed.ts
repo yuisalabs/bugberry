@@ -20,8 +20,8 @@ export function commentCount(threads: CommentThread[]): number {
 
 export type TextPart = { text: string } | { time: string; ms: number }
 
-/** "0:52" or "1:02:03" on its own, not glued to other digits or colons. */
-const TIME = /(?<![\d:])(?:(\d{1,2}):)?(\d{1,2}):(\d{2})(?![\d:])/g
+/** "0:52" or "1:02:03" on its own: not glued to letters, digits, colons or a dot before it ("10:30am", "10.0.0.5:22"). */
+const TIME = /(?<![\w:.])(?:(\d{1,2}):)?(\d{1,2}):(\d{2})(?![\w:])/g
 
 /**
  * A comment's text split around video times. A time becomes a seek target only on a video report and only
@@ -89,7 +89,8 @@ export function activitySentence(item: Activity): string {
       return `renamed this from "${detail.from}" to "${detail.to}"`
     case "tracker": {
       const where = `${PROVIDER_LABELS[detail.provider as TrackerProvider] ?? "the tracker"} as #${detail.externalId}`
-      return item.actor ? `sent this to ${where}` : `sent automatically to ${where}`
+      // Only sends marked automatic say so; older ones never stored who sent them.
+      return detail.automatic ? `sent automatically to ${where}` : `sent this to ${where}`
     }
     case "agent_read":
       return `read ${listOf(((detail.parts as string[] | undefined) ?? []).map((part) => READ_PARTS[part] ?? part))}`

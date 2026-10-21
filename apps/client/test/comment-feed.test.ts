@@ -44,6 +44,13 @@ describe("videoTimes", () => {
     expect(videoTimes("at 0:75 or 12:3", 900_000)).toEqual([{ text: "at 0:75 or 12:3" }])
   })
 
+  test("a time glued to letters or dots is not a time", () => {
+    expect(videoTimes("call at 10:30am", 4_000_000)).toEqual([{ text: "call at 10:30am" }])
+    expect(videoTimes("host 10.0.0.5:22", 4_000_000)).toEqual([{ text: "host 10.0.0.5:22" }])
+    expect(videoTimes("v0:52", 116_000)).toEqual([{ text: "v0:52" }])
+    expect(videoTimes("(0:52).", 116_000)).toEqual([{ text: "(" }, { time: "0:52", ms: 52_000 }, { text: ")." }])
+  })
+
   test("a time glued to other digits or colons is not a time", () => {
     expect(videoTimes("v1:02:03:04 and 10:301", 4_000_000)).toEqual([{ text: "v1:02:03:04 and 10:301" }])
   })
@@ -69,7 +76,11 @@ describe("activitySentence", () => {
   test("tracker sends, by someone or automatically", () => {
     const detail = { provider: "github", externalId: "142", externalUrl: "https://github.com/a/b/issues/142" }
     expect(activitySentence(activityFixture({ kind: "tracker", detail }))).toBe("sent this to GitHub as #142")
-    expect(activitySentence(activityFixture({ kind: "tracker", actor: null, detail }))).toBe("sent automatically to GitHub as #142")
+    expect(activitySentence(activityFixture({ kind: "tracker", actor: null, detail: { ...detail, automatic: true } }))).toBe(
+      "sent automatically to GitHub as #142",
+    )
+    // An older send: who sent it was never stored, but it was not automatic either.
+    expect(activitySentence(activityFixture({ kind: "tracker", actor: null, detail }))).toBe("sent this to GitHub as #142")
   })
 
   test("agent reads list what was read", () => {

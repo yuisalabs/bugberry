@@ -149,6 +149,21 @@ describe("the comments section", () => {
     expect(props.onReact).toHaveBeenCalledWith("c5", "👍")
   })
 
+  test("picking an emoji you already reacted with keeps your reaction", () => {
+    globalThis.fetch = (() => new Promise(() => {})) as unknown as typeof fetch
+    localStorage.setItem("bugberry.recentEmoji", JSON.stringify(["👍", "🎉"]))
+    const { props } = setup({
+      threads: [threadFixture({ id: "c6", reactions: [{ emoji: "👍", count: 1, people: [{ id: "u1", name: "Ana" }] }] })],
+    })
+    fireEvent.click(within(commentEl("c6")).getByRole("button", { name: "Add reaction" }))
+    fireEvent.click(screen.getByRole("button", { name: "👍" }))
+    expect(props.onReact).not.toHaveBeenCalled()
+    fireEvent.click(within(commentEl("c6")).getByRole("button", { name: "Add reaction" }))
+    fireEvent.click(screen.getByRole("button", { name: "🎉" }))
+    expect(props.onReact).toHaveBeenCalledWith("c6", "🎉")
+    localStorage.clear()
+  })
+
   test("a deleted first comment shows as a placeholder with its replies", () => {
     setup({
       threads: [

@@ -78,7 +78,11 @@ export function ReactionBar({
       <EmojiPicker
         label="Add reaction"
         trigger={<RiEmotionLine aria-hidden />}
-        onPick={onReact}
+        // The picker only adds: picking an emoji you already put here keeps it rather than taking it off.
+        onPick={(emoji) => {
+          const mine = reactions.some((reaction) => reaction.emoji === emoji && reaction.people.some((person) => person.id === meId))
+          if (!mine) onReact(emoji)
+        }}
         className="h-7 w-8 rounded-full border border-border text-muted-foreground"
       />
     </>

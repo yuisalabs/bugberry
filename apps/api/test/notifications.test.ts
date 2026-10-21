@@ -126,6 +126,14 @@ describe("reply notifications", () => {
     expect(await kindsFor(ana)).toEqual(["mention"])
   })
 
+  test("editing a reply to mention the thread's author turns their reply notification into a mention", async () => {
+    const root = (await post(ana, "Root")).data?.id ?? ""
+    const answer = (await reply(budi, "On it", root)).data?.id ?? ""
+    expect(await kindsFor(ana)).toEqual(["reply_to_you"])
+    await ctx.api.api.comments({ id: answer }).patch({ body: `${tag(ana.user.id)} on it` }, { headers: budi.headers })
+    expect(await kindsFor(ana)).toEqual(["mention"])
+  })
+
   test("a member who left gets no reply notification", async () => {
     const root = (await post(ana, "Root")).data?.id ?? ""
     await ctx.db.delete(workspaceMember).where(eq(workspaceMember.userId, ana.user.id))

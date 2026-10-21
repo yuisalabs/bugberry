@@ -77,3 +77,17 @@ describe("report activity", () => {
     expect(error?.status as number | undefined).toBe(404)
   })
 })
+
+describe("agent reads at the same moment", () => {
+  test("parallel reads by one agent still share one line, with every part", async () => {
+    const now = new Date()
+    await Promise.all(
+      (["report", "console", "network", "actions"] as const).map((part) =>
+        recordAgentRead(ctx.db, { reportId, actorId: ana.user.id, viaAgent: "Claude Code", part, now }),
+      ),
+    )
+    const rows = await ctx.db.select().from(reportActivity).where(eq(reportActivity.reportId, reportId))
+    expect(rows).toHaveLength(1)
+    expect([...(rows[0]?.detail as { parts: string[] }).parts].sort()).toEqual(["actions", "console", "network", "report"])
+  })
+})

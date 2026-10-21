@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm"
+import { and, eq, inArray, ne } from "drizzle-orm"
 import type { Db } from "../../db/client"
 import { notification, user, workspaceMember } from "../../db/schema"
 import { newId } from "../../lib/ids"
@@ -44,8 +44,9 @@ export function mentionsOf(body: string, names: Map<string, string>): Array<{ id
 }
 
 /**
- * Notifies the workspace members a comment mentions, except its author. A person already notified for
- * this comment is skipped, so editing never notifies anyone twice. Returns the ids notified just now.
+ * Notifies the workspace members a comment mentions, except its author. A person already mentioned in
+ * this comment is skipped, so editing never notifies anyone twice; one who only had a reply notification for
+ * it gets the mention instead. Returns the ids notified just now.
  */
 export async function notifyMentions(
   db: Db,
@@ -65,7 +66,12 @@ export async function notifyMentions(
         actorId: input.actorId,
       })),
     )
-    .onConflictDoNothing({ target: [notification.userId, notification.commentId] })
+    // Someone who only had a reply notification for this comment gets the mention instead (and its email).
+    .onConflictDoUpdate({
+      target: [notification.userId, notification.commentId],
+      set: { kind: "mention", readAt: null },
+      setWhere: ne(notification.kind, "mention"),
+    })
     .returning({ userId: notification.userId })
   return rows.map((row) => row.userId)
 }

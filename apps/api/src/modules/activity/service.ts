@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, inArray } from "drizzle-orm"
+import { and, desc, eq, gt, inArray, sql } from "drizzle-orm"
 import type { AppDeps } from "../../app"
 import type { CurrentUser } from "../../auth/plugin"
 import type { Db } from "../../db/client"
@@ -45,46 +45,50 @@ export async function recordActivity(
 }
 
 /**
- * Notes that an agent read part of a report. Within an hour of the person's last line with that agent the part
- * joins that line (and moves it to now), so a session of reading shows once.
+ * Notes that an agent read part of a report. Within an hour of when the person's line with that agent began, the
+ * part joins that line (and moves it to now), so a session of reading shows once.
  */
 export async function recordAgentRead(
   db: Db,
   input: { reportId: string; actorId: string; viaAgent: string; part: ReadPart; now?: Date },
 ): Promise<void> {
   const now = input.now ?? new Date()
-  const [open] = await db
-    .select({ id: reportActivity.id, detail: reportActivity.detail })
-    .from(reportActivity)
-    .where(
-      and(
-        eq(reportActivity.reportId, input.reportId),
-        eq(reportActivity.kind, "agent_read"),
-        eq(reportActivity.actorId, input.actorId),
-        eq(reportActivity.viaAgent, input.viaAgent),
-        gt(reportActivity.createdAt, new Date(now.getTime() - READ_WINDOW_MS)),
-      ),
-    )
-    .orderBy(desc(reportActivity.createdAt))
-    .limit(1)
-  if (!open) {
-    await db.insert(reportActivity).values({
-      id: newId(),
-      reportId: input.reportId,
-      actorId: input.actorId,
-      viaAgent: input.viaAgent,
-      kind: "agent_read",
-      detail: { parts: [input.part] },
-      createdAt: now,
-      updatedAt: now,
-    })
-    return
-  }
-  const parts = (open.detail as { parts?: ReadPart[] }).parts ?? []
-  await db
-    .update(reportActivity)
-    .set({ detail: { parts: parts.includes(input.part) ? parts : [...parts, input.part] }, updatedAt: now })
-    .where(eq(reportActivity.id, open.id))
+  // Agents call several tools at once; the lock makes those calls take turns, so they share one line.
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`agent-read:${input.reportId}:${input.actorId}:${input.viaAgent}`}))`)
+    const [open] = await tx
+      .select({ id: reportActivity.id, detail: reportActivity.detail })
+      .from(reportActivity)
+      .where(
+        and(
+          eq(reportActivity.reportId, input.reportId),
+          eq(reportActivity.kind, "agent_read"),
+          eq(reportActivity.actorId, input.actorId),
+          eq(reportActivity.viaAgent, input.viaAgent),
+          gt(reportActivity.createdAt, new Date(now.getTime() - READ_WINDOW_MS)),
+        ),
+      )
+      .orderBy(desc(reportActivity.createdAt))
+      .limit(1)
+    if (!open) {
+      await tx.insert(reportActivity).values({
+        id: newId(),
+        reportId: input.reportId,
+        actorId: input.actorId,
+        viaAgent: input.viaAgent,
+        kind: "agent_read",
+        detail: { parts: [input.part] },
+        createdAt: now,
+        updatedAt: now,
+      })
+      return
+    }
+    const parts = (open.detail as { parts?: ReadPart[] }).parts ?? []
+    await tx
+      .update(reportActivity)
+      .set({ detail: { parts: parts.includes(input.part) ? parts : [...parts, input.part] }, updatedAt: now })
+      .where(eq(reportActivity.id, open.id))
+  })
 }
 
 /** The report's activity for the feed, newest first; the report's creation is always the last line. */

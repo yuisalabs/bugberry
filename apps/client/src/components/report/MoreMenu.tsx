@@ -164,7 +164,10 @@ export function MoreMenu({ report }: { report: ReportDetail }) {
   const send = useMutation({
     mutationFn: (integrationId: string) => api.sendToTracker(report.id, integrationId),
     onError: failed,
-    onSettled: () => queryClient.invalidateQueries({ queryKey: trackersKey }),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: trackersKey })
+      void queryClient.invalidateQueries({ queryKey: ["activity", report.id] })
+    },
   })
   const remove = useMutation({
     mutationFn: () => api.deleteReport(report.id),

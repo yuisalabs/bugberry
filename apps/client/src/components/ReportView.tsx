@@ -13,7 +13,7 @@ import type { DebuggerFocus } from "./debugger/DebuggerTabs"
 import { MediaViewer } from "./MediaViewer"
 import { FlaggedIssues } from "./report/FlaggedIssues"
 import { ReportMeta } from "./report/ReportMeta"
-import { ReportVideoContext } from "./report/video-context"
+import { playAt, ReportVideoContext } from "./report/video-context"
 import { Badge } from "./ui"
 import { VideoReporter, VideoShareActions } from "./VideoOverlay"
 
@@ -89,8 +89,12 @@ export function ReportView({
   const onExpired = useCallback(() => void latestRefresh.current(), [])
   // A "0:52" in a comment seeks the video; only a video report with a known length offers it.
   const video = useMemo(
-    () => (report.captureType === "video" && report.durationMs !== null ? { seek, durationMs: report.durationMs } : null),
-    [report.captureType, report.durationMs, seek],
+    () => {
+      const durationMs = report.durationMs
+      if (report.captureType !== "video" || durationMs === null) return null
+      return { seek: (ms: number) => playAt(videoRef.current, ms, durationMs), durationMs }
+    },
+    [report.captureType, report.durationMs],
   )
   const reporter = useMemo(() => <VideoReporter reporter={report.reporter} />, [report.reporter])
   const shareActions = useCallback(
