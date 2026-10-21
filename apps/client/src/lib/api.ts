@@ -273,7 +273,10 @@ export type ReportTrackers = Awaited<ReturnType<Api["reportTrackers"]>>
 export type TrackerLink = ReportTrackers["links"][number]
 export type Integration = Awaited<ReturnType<Api["integrations"]>>[number]
 /** A workspace connection; admins also get its settings and the projects that use it. */
-export type Connection = Awaited<ReturnType<Api["connections"]>>[number]
+export type Connection = Awaited<ReturnType<Api["connections"]>>[number] & {
+  settings?: ConnectionSettings
+  usedBy?: Array<{ projectId: string; projectName: string }>
+}
 
 const MESSAGES: Record<string, string> = {
   network: NETWORK_MESSAGE,

@@ -128,6 +128,13 @@ const projectsSettingsRoute = createRoute({
   component: lazyRouteComponent(() => import("./pages/settings/ProjectsSettingsPage"), "ProjectsSettingsPage"),
 })
 
+/** The workspace's connections: admins connect accounts and channels once, for every project. */
+const connectionsRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "/app/settings/integrations",
+  component: lazyRouteComponent(() => import("./pages/settings/ConnectionsPage"), "ConnectionsPage"),
+})
+
 const integrationsRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "/app/settings/projects/$projectId/integrations",
@@ -187,7 +194,7 @@ const routeTree = rootRoute.addChildren([
     membersRoute,
     accountRoute,
     aiAgentsRoute,
-    adminRoute.addChildren([projectsSettingsRoute, integrationsRoute, workspaceSettingsRoute]),
+    adminRoute.addChildren([projectsSettingsRoute, connectionsRoute, integrationsRoute, workspaceSettingsRoute]),
   ]),
 ])
 
