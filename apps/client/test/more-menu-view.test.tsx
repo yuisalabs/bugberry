@@ -69,3 +69,63 @@ describe("MoreMenuView", () => {
     expect(screen.queryByRole("menuitem", { name: "Delete report" })).toBeNull()
   })
 })
+
+describe("MoreMenuView on a phone", () => {
+  const phone = () => {
+    const original = window.matchMedia
+    window.matchMedia = ((query: string) =>
+      ({ matches: query === "(max-width: 767px)", media: query, addEventListener() {}, removeEventListener() {} }) as unknown as MediaQueryList)
+    return () => {
+      window.matchMedia = original
+    }
+  }
+
+  test("the actions open in a sheet; Move to project is a second step with a way back", () => {
+    const restore = phone()
+    try {
+      const props = view()
+      const sheet = () => document.querySelector("[data-slot=sheet]") as HTMLElement
+      expect(sheet()).toBeTruthy()
+      expect(screen.queryAllByRole("menuitem")).toHaveLength(0)
+      fireEvent.click(screen.getByRole("button", { name: /Move to project/ }))
+      expect(screen.getByRole("button", { name: "Checkout Web" }).getAttribute("aria-pressed")).toBe("true")
+      fireEvent.click(screen.getByRole("button", { name: "Back" }))
+      expect(screen.getByRole("button", { name: /Copy for AI/ })).toBeTruthy()
+      fireEvent.click(screen.getByRole("button", { name: /Move to project/ }))
+      fireEvent.click(screen.getByRole("button", { name: "Q4 regression" }))
+      expect(props.onMove).toHaveBeenCalledWith("p2")
+    } finally {
+      restore()
+    }
+  })
+
+  test("each action runs from the sheet; a tracker that cannot be used is disabled", () => {
+    const restore = phone()
+    try {
+      const props = view({ trackers: [], needsProject: true })
+      expect((screen.getByRole("button", { name: /Send to a tracker/ }) as HTMLButtonElement).disabled).toBe(true)
+      fireEvent.click(screen.getByRole("button", { name: /Copy for AI/ }))
+      expect(props.onCopyForAi).toHaveBeenCalled()
+    } finally {
+      restore()
+    }
+  })
+
+  test("sending to a tracker, a new project and deleting work from the sheet", () => {
+    const restore = phone()
+    try {
+      const props = view()
+      fireEvent.click(screen.getByRole("button", { name: /Send to GitHub/ }))
+      expect(props.onSend).toHaveBeenCalledWith("gh")
+      fireEvent.click(screen.getByRole("button", { name: "More actions" }))
+      fireEvent.click(screen.getByRole("button", { name: /Delete report/ }))
+      expect(props.onDelete).toHaveBeenCalled()
+      fireEvent.click(screen.getByRole("button", { name: "More actions" }))
+      fireEvent.click(screen.getByRole("button", { name: /Move to project/ }))
+      fireEvent.click(screen.getByRole("button", { name: /New project/ }))
+      expect(props.onNewProject).toHaveBeenCalled()
+    } finally {
+      restore()
+    }
+  })
+})

@@ -1,7 +1,21 @@
-import { RiAddLine, RiDeleteBinLine, RiFolderLine, RiMoreLine, RiRobot2Line, RiSettings3Line } from "@remixicon/react"
+import {
+  RiAddLine,
+  RiArrowLeftSLine,
+  RiArrowRightSLine,
+  RiCheckLine,
+  RiDeleteBinLine,
+  RiFolderLine,
+  RiMoreLine,
+  RiRobot2Line,
+  RiSettings3Line,
+  RiShareForwardLine,
+} from "@remixicon/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
+import { type ReactNode, useState } from "react"
 import { Button } from "@bugberry/ui/button"
+import { Sheet } from "@bugberry/ui/sheet"
+import { PHONE_QUERY, useMediaQuery } from "../../hooks/useMediaQuery"
 import {
   Menu,
   MenuDescription,
@@ -24,20 +38,7 @@ import { roleIn } from "../../lib/workspace"
 const NO_PROJECT = "none"
 const NEW_PROJECT = "new"
 
-/** The ⋯ menu as it looks; MoreMenu wires it to the server. */
-export function MoreMenuView({
-  projectId,
-  projects,
-  trackers,
-  needsProject,
-  canDelete,
-  onCopyForAi,
-  onSetUpAi,
-  onMove,
-  onNewProject,
-  onSend,
-  onDelete,
-}: {
+interface MoreMenuProps {
   projectId: string | null
   projects: ReadonlyArray<{ id: string; name: string }>
   trackers: TrackerItem[]
@@ -49,7 +50,30 @@ export function MoreMenuView({
   onNewProject(): void
   onSend(integrationId: string): void
   onDelete(): void
-}) {
+}
+
+/**
+ * The ⋯ menu as it looks; MoreMenu wires it to the server. On phones it is a sheet from the bottom, with
+ * Move to project as a second step inside it: a submenu beside the menu would open off the screen.
+ */
+export function MoreMenuView(props: MoreMenuProps) {
+  const phone = useMediaQuery(PHONE_QUERY)
+  return phone ? <MoreSheet {...props} /> : <MoreDropdown {...props} />
+}
+
+function MoreDropdown({
+  projectId,
+  projects,
+  trackers,
+  needsProject,
+  canDelete,
+  onCopyForAi,
+  onSetUpAi,
+  onMove,
+  onNewProject,
+  onSend,
+  onDelete,
+}: MoreMenuProps) {
   return (
     <MenuTrigger>
       <Button intent="outline" size="sq-sm" aria-label="More actions">
@@ -125,6 +149,165 @@ export function MoreMenuView({
         )}
       </Menu>
     </MenuTrigger>
+  )
+}
+
+/** One tap-sized row of the phone's sheet: an icon, the action and a line under it. */
+function SheetRow({
+  icon,
+  label,
+  note,
+  onPress,
+  href,
+  disabled = false,
+  danger = false,
+  pressed,
+  trailing,
+}: {
+  icon?: ReactNode
+  label: string
+  note?: string | null
+  onPress?(): void
+  /** Opens in a new tab instead of running an action (a tracker issue already sent). */
+  href?: string | null
+  disabled?: boolean
+  danger?: boolean
+  /** Set on the project list: whether this is the report's project. */
+  pressed?: boolean
+  trailing?: ReactNode
+}) {
+  const className = `flex min-h-12 w-full items-center gap-3 rounded-lg px-3 py-2 text-left outline-hidden transition focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 ${
+    danger ? "text-danger-subtle-foreground hover:bg-danger-subtle" : "text-foreground hover:bg-muted"
+  } [&>svg]:size-5 [&>svg]:shrink-0 ${danger ? "" : "[&>svg]:text-muted-foreground"}`
+  const content = (
+    <>
+      {icon}
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="text-sm font-medium">{label}</span>
+        {note && <span className="text-xs text-muted-foreground">{note}</span>}
+      </span>
+      {/* Wrapped, so the row's grey icon colour stays off it (the check of the current project is primary). */}
+      {trailing && <span className="flex shrink-0">{trailing}</span>}
+    </>
+  )
+  if (href) {
+    return (
+      <a href={href} target="_blank" rel="noreferrer" className={className}>
+        {content}
+      </a>
+    )
+  }
+  return (
+    <button type="button" disabled={disabled} aria-pressed={pressed} onClick={onPress} className={className}>
+      {content}
+    </button>
+  )
+}
+
+function MoreSheet({
+  projectId,
+  projects,
+  trackers,
+  needsProject,
+  canDelete,
+  onCopyForAi,
+  onSetUpAi,
+  onMove,
+  onNewProject,
+  onSend,
+  onDelete,
+}: MoreMenuProps) {
+  const [open, setOpen] = useState(false)
+  const [step, setStep] = useState<"actions" | "projects">("actions")
+  /** Runs an action and closes the sheet, as picking from a menu does. */
+  const run = (action: () => void) => () => {
+    setOpen(false)
+    action()
+  }
+  const move = (target: string | null) =>
+    run(() => {
+      if (target !== projectId) onMove(target)
+    })
+  const current = projects.find((project) => project.id === projectId)?.name ?? "No project"
+
+  return (
+    <>
+      <Button
+        intent="outline"
+        size="sq-sm"
+        aria-label="More actions"
+        onPress={() => {
+          setStep("actions")
+          setOpen(true)
+        }}
+      >
+        <RiMoreLine aria-hidden />
+      </Button>
+      <Sheet isOpen={open} onOpenChange={setOpen} position="bottom" aria-label="More actions">
+        <div className="flex max-h-[85dvh] flex-col overflow-y-auto px-2 pt-6 pb-4">
+          {step === "actions" ? (
+            <div className="flex flex-col gap-0.5">
+              <SheetRow icon={<RiRobot2Line aria-hidden />} label="Copy for AI" note="A prompt for your agent to debug it" onPress={run(onCopyForAi)} />
+              <SheetRow icon={<RiSettings3Line aria-hidden />} label="Set up AI agents" onPress={run(onSetUpAi)} />
+              <div className="my-1 h-px bg-border" />
+              <SheetRow
+                icon={<RiFolderLine aria-hidden />}
+                label="Move to project"
+                note={current}
+                onPress={() => setStep("projects")}
+                trailing={<RiArrowRightSLine aria-hidden className="size-5 text-muted-foreground" />}
+              />
+              {(trackers.length > 0 || needsProject) && <div className="my-1 h-px bg-border" />}
+              {trackers.map((item) => (
+                <SheetRow
+                  key={item.integrationId}
+                  icon={<RiShareForwardLine aria-hidden />}
+                  label={item.label}
+                  note={item.note}
+                  href={item.action === "open" ? item.href : null}
+                  disabled={item.action === "none" || (item.action === "open" && !item.href)}
+                  onPress={item.action === "send" || item.action === "retry" ? run(() => onSend(item.integrationId)) : undefined}
+                />
+              ))}
+              {needsProject && trackers.length === 0 && (
+                <SheetRow icon={<RiShareForwardLine aria-hidden />} label="Send to a tracker" note="Move the report to a project first" disabled />
+              )}
+              {canDelete && (
+                <>
+                  <div className="my-1 h-px bg-border" />
+                  <SheetRow icon={<RiDeleteBinLine aria-hidden />} label="Delete report" danger onPress={run(onDelete)} />
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-0.5">
+              <div className="mb-1 flex items-center gap-1">
+                <Button intent="plain" size="sq-sm" aria-label="Back" onPress={() => setStep("actions")}>
+                  <RiArrowLeftSLine aria-hidden />
+                </Button>
+                <h2 className="font-heading text-base font-semibold text-foreground">Move to project</h2>
+              </div>
+              {[...projects, { id: NO_PROJECT, name: "No project" }].map((project) => {
+                const target = project.id === NO_PROJECT ? null : project.id
+                const selected = target === projectId
+                return (
+                  <SheetRow
+                    key={project.id}
+                    icon={<RiFolderLine aria-hidden />}
+                    label={project.name}
+                    pressed={selected}
+                    onPress={move(target)}
+                    trailing={selected ? <RiCheckLine aria-hidden className="size-5 text-primary" /> : null}
+                  />
+                )
+              })}
+              <div className="my-1 h-px bg-border" />
+              <SheetRow icon={<RiAddLine aria-hidden />} label="New project" onPress={run(onNewProject)} />
+            </div>
+          )}
+        </div>
+      </Sheet>
+    </>
   )
 }
 
