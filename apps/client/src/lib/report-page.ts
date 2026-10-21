@@ -1,5 +1,5 @@
 import type { IntegrationProvider } from "@bugberry/shared"
-import type { ReportTrackers } from "./api"
+import type { ReportPatch, ReportTrackers } from "./api"
 
 /** A member who opened a share link belongs on the full report page; anyone else stays. */
 export function sharePageTarget(share: {
@@ -33,4 +33,24 @@ export function sentIssues(data: ReportTrackers | undefined): SentIssue[] {
     if (!link.externalId) return []
     return [{ provider: link.provider ?? integration?.provider ?? null, externalId: link.externalId, externalUrl: link.externalUrl }]
   })
+}
+
+type Person = { id: string; name: string; image: string | null }
+
+/**
+ * The report as it will be once the server saves `patch`, shown at once so a field doesn't jump back to its
+ * old value while the change is on its way. An assignee who isn't in `members` stays as it was until the
+ * server's answer replaces the whole report.
+ */
+export function withPatch<T extends { assignee: Person | null }>(
+  report: T,
+  patch: ReportPatch,
+  members: ReadonlyArray<Person> | undefined,
+): T {
+  const { assigneeId, ...rest } = patch
+  const next = { ...report, ...rest }
+  if (assigneeId === undefined) return next
+  if (assigneeId === null) return { ...next, assignee: null }
+  const member = members?.find((person) => person.id === assigneeId)
+  return member ? { ...next, assignee: { id: member.id, name: member.name, image: member.image } } : next
 }

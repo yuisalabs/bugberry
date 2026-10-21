@@ -21,7 +21,7 @@ function CompactSelect({
   label: string
   icon: ReactNode
   value: string
-  disabled: boolean
+  disabled?: boolean
   onChange(value: string): void
   options: Array<{ id: string; label: string }>
 }) {
@@ -43,16 +43,14 @@ function CompactSelect({
   )
 }
 
-/** Status, priority and assignee, each saved as soon as it changes. */
+/** Status, priority and assignee, each saved as soon as it changes; they stay usable while a change saves. */
 export function ReportFields({
   report,
   members,
-  disabled,
   onChange,
 }: {
   report: Pick<ReportDetail, "status" | "priority" | "assignee">
   members: Member[] | undefined
-  disabled: boolean
   onChange(patch: ReportPatch): void
 }) {
   const people = members ?? []
@@ -65,7 +63,6 @@ export function ReportFields({
         label="Status"
         icon={<span className={`block size-2 rounded-full ${STATUS_DOT_STYLES[report.status]}`} />}
         value={report.status}
-        disabled={disabled}
         onChange={(status) => onChange({ status: status as ReportStatus })}
         options={REPORT_STATUSES.map((status) => ({ id: status, label: STATUS_LABELS[status] }))}
       />
@@ -73,7 +70,6 @@ export function ReportFields({
         label="Priority"
         icon={<RiFlagLine className={`size-3.5 ${PRIORITY_ICON_STYLES[report.priority]}`} />}
         value={report.priority}
-        disabled={disabled}
         onChange={(priority) => onChange({ priority: priority as Priority })}
         options={PRIORITIES.map((priority) => ({ id: priority, label: PRIORITY_LABELS[priority] }))}
       />
@@ -81,7 +77,7 @@ export function ReportFields({
         label="Assignee"
         icon={<RiAccountCircleLine className="size-4 text-muted-foreground" />}
         value={report.assignee?.id ?? NOBODY}
-        disabled={disabled || members === undefined}
+        disabled={members === undefined}
         onChange={(assigneeId) => onChange({ assigneeId: assigneeId === NOBODY ? null : assigneeId })}
         options={[
           { id: NOBODY, label: members === undefined && !report.assignee ? "Loading members…" : "Unassigned" },

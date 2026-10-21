@@ -15,7 +15,7 @@ const select = (name: string) => screen.getByLabelText(name) as HTMLButtonElemen
 describe("ReportFields", () => {
   test("status and priority save as soon as they change", () => {
     const onChange = mock()
-    render(<ReportFields report={report(null)} members={members} disabled={false} onChange={onChange} />)
+    render(<ReportFields report={report(null)} members={members} onChange={onChange} />)
     choose("Status", "Resolved")
     expect(onChange).toHaveBeenLastCalledWith({ status: "resolved" })
     choose("Priority", "Low")
@@ -23,14 +23,14 @@ describe("ReportFields", () => {
   })
 
   test("while members load the assignee shows and cannot be changed", () => {
-    render(<ReportFields report={report(budi)} members={undefined} disabled={false} onChange={() => {}} />)
+    render(<ReportFields report={report(budi)} members={undefined} onChange={() => {}} />)
     expect(select("Assignee").disabled).toBe(true)
     expect(select("Assignee").textContent).toContain("Budi")
   })
 
   test("choosing a member or nobody reports the choice", () => {
     const onChange = mock()
-    render(<ReportFields report={report(budi)} members={members} disabled={false} onChange={onChange} />)
+    render(<ReportFields report={report(budi)} members={members} onChange={onChange} />)
     choose("Assignee", "Ana")
     expect(onChange).toHaveBeenLastCalledWith({ assigneeId: "u1" })
     choose("Assignee", "Unassigned")
@@ -39,7 +39,7 @@ describe("ReportFields", () => {
 
   test("an assignee who left the workspace is still shown", () => {
     const gone = { id: "u9", name: "Cici", image: null }
-    render(<ReportFields report={report(gone)} members={members} disabled={false} onChange={() => {}} />)
+    render(<ReportFields report={report(gone)} members={members} onChange={() => {}} />)
     expect(select("Assignee").textContent).toContain("Cici")
   })
 })

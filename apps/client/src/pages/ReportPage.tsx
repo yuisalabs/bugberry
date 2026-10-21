@@ -14,7 +14,7 @@ import { ErrorState } from "../components/ui"
 import { ApiError, errorMessage, type ReportPatch } from "../lib/api"
 import { api } from "../lib/client"
 import { queries } from "../lib/queries"
-import { backTarget, sentIssues } from "../lib/report-page"
+import { backTarget, sentIssues, withPatch } from "../lib/report-page"
 import { toast } from "../lib/toast"
 import { useCurrentWorkspace } from "../lib/workspace"
 
@@ -42,14 +42,30 @@ export function ReportPage() {
   const trackers = useQuery({ ...queries.reportTrackers(reportId), enabled: Boolean(report.data) })
   const { workspace, workspaces, switchTo } = useCurrentWorkspace()
 
+  const reportKey = queries.report(reportId).queryKey
+  const updateKey = ["update-report", reportId]
+  // A change shows at once and the fields stay usable while it saves, so nothing dims or jumps back.
   const update = useMutation({
+    mutationKey: updateKey,
     mutationFn: (patch: ReportPatch) => api.updateReport(reportId, patch),
+    onMutate: async (patch) => {
+      await queryClient.cancelQueries({ queryKey: reportKey })
+      const before = queryClient.getQueryData(reportKey)
+      if (before) queryClient.setQueryData(reportKey, withPatch(before, patch, members.data))
+      return { before }
+    },
     onSuccess: (detail) => {
-      queryClient.setQueryData(queries.report(reportId).queryKey, detail)
+      // Two quick changes: only the last answer is the whole truth; an earlier one would undo the later change.
+      if (queryClient.isMutating({ mutationKey: updateKey }) === 1) queryClient.setQueryData(reportKey, detail)
       void queryClient.invalidateQueries({ queryKey: ["reports"] })
       void queryClient.invalidateQueries({ queryKey: queries.activity(reportId).queryKey })
     },
-    onError: (error) => toast({ title: errorMessage(error), tone: "error" }),
+    onError: (error, _patch, context) => {
+      if (context?.before) queryClient.setQueryData(reportKey, context.before)
+      // Another change may have saved meanwhile: the server says what the report is now.
+      void queryClient.invalidateQueries({ queryKey: reportKey })
+      toast({ title: errorMessage(error), tone: "error" })
+    },
   })
 
   // Someone outside the workspace who may still read the report is sent to its share link.
@@ -86,7 +102,6 @@ export function ReportPage() {
         <ReportFields
           report={report.data}
           members={members.data}
-          disabled={update.isPending}
           onChange={(patch) => update.mutate(patch)}
         />
       }

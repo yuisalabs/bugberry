@@ -1,5 +1,6 @@
+import type { Priority, ReportStatus } from "@bugberry/shared"
 import { describe, expect, test } from "bun:test"
-import { backTarget, sentIssues, sharePageTarget } from "../src/lib/report-page"
+import { backTarget, sentIssues, sharePageTarget, withPatch } from "../src/lib/report-page"
 
 describe("sharePageTarget", () => {
   test("a member goes on to the full report", () => {
@@ -52,5 +53,37 @@ describe("sentIssues", () => {
     expect(sentIssues(data as never)).toEqual([
       { provider: null, externalId: "42", externalUrl: "https://github.com/acme/web/issues/42" },
     ])
+  })
+})
+
+describe("withPatch", () => {
+  const ana: { id: string; name: string; image: string | null } = { id: "u1", name: "Ana", image: null }
+  const budi = { id: "u2", name: "Budi", image: "https://img.test/budi.png" }
+  const report: { title: string; status: ReportStatus; priority: Priority; assignee: typeof ana | null; projectId: string } = {
+    title: "Pay fails",
+    status: "open",
+    priority: "medium",
+    assignee: ana,
+    projectId: "p1",
+  }
+  const members = [ana, { ...budi, email: "budi@kantor.test" }]
+
+  test("status, priority and title show at once; the rest stays", () => {
+    expect(withPatch(report, { status: "resolved" }, members)).toEqual({ ...report, status: "resolved" })
+    expect(withPatch(report, { priority: "high", title: "Pay fails on Safari" }, members)).toEqual({
+      ...report,
+      priority: "high",
+      title: "Pay fails on Safari",
+    })
+  })
+
+  test("the assignee becomes the member chosen, or nobody", () => {
+    expect(withPatch(report, { assigneeId: "u2" }, members).assignee).toEqual(budi)
+    expect(withPatch(report, { assigneeId: null }, members).assignee).toBeNull()
+  })
+
+  test("an assignee not in the list keeps the current one until the server answers", () => {
+    expect(withPatch(report, { assigneeId: "u9" }, members).assignee).toEqual(ana)
+    expect(withPatch(report, { assigneeId: "u2" }, undefined).assignee).toEqual(ana)
   })
 })

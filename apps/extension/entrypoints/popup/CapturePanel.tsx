@@ -34,12 +34,12 @@ const SOURCES: Array<{ id: RecordSource; label: string; icon: ReactNode }> = [
 /** A tile: grey outline, or pink outline and tint once chosen. While recording they are all faded. */
 function tileClass({ isSelected, isFocusVisible, isDisabled }: { isSelected: boolean; isFocusVisible: boolean; isDisabled: boolean }) {
   return [
-    "flex h-[46px] flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border text-sm font-semibold outline-hidden transition-colors",
+    "flex h-[46px] flex-1 cursor-pointer items-center data-disabled:cursor-default justify-center gap-2 rounded-xl border text-sm font-semibold outline-hidden transition-colors",
     isSelected
       ? "border-primary bg-primary/[0.04] text-primary shadow-[inset_0_0_0_1px_var(--primary)]"
       : "border-border bg-background text-foreground hover:bg-muted",
     isFocusVisible ? "ring-2 ring-ring/40" : "",
-    isDisabled ? "cursor-default opacity-45 hover:bg-background" : "",
+    isDisabled ? "opacity-45 hover:bg-background" : "",
   ].join(" ")
 }
 
