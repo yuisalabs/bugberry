@@ -15,6 +15,7 @@ import { type McpContext, runTool } from "../context"
 import { requireDebuggerView } from "../debugger"
 import { clip, offsetLabel, textResult } from "../format"
 import { resolveReportRef } from "../refs"
+import { noteAgentRead } from "../activity"
 import { reportArgs } from "./args"
 import { actionText, requestLine } from "./events"
 
@@ -187,6 +188,7 @@ export function registerInsightTools(server: McpServer, ctx: McpContext): void {
     (args) =>
       runTool(async () => {
         const resolved = await resolveReportRef(ctx, args.report, args.workspace)
+        await noteAgentRead(ctx, resolved, "frustration")
         const view = await requireDebuggerView(ctx, resolved)
         const video = resolved.row.captureType === "video" ? { startedAt: view.recordingStartedAt, durationMs: resolved.row.durationMs } : null
         const flagged = flaggedIssues(view, video)
@@ -224,6 +226,7 @@ export function registerInsightTools(server: McpServer, ctx: McpContext): void {
     (args) =>
       runTool(async () => {
         const resolved = await resolveReportRef(ctx, args.report, args.workspace)
+        await noteAgentRead(ctx, resolved, "performance")
         const view = await requireDebuggerView(ctx, resolved)
         return textResult(performanceText(view, resolved.row.device))
       }),
@@ -242,6 +245,7 @@ export function registerInsightTools(server: McpServer, ctx: McpContext): void {
     (args) =>
       runTool(async () => {
         const resolved = await resolveReportRef(ctx, args.report, args.workspace)
+        await noteAgentRead(ctx, resolved, "code")
         const hotspots = codeHotspots(await requireDebuggerView(ctx, resolved))
         if (hotspots.length === 0) return textResult("No errors, warnings or failed requests point at a file in the page's code.")
         const text = [
