@@ -182,7 +182,7 @@ export function ReportView({
       </aside>
       {children && (
         <div className="min-w-0 px-4 pt-8 pb-6 sm:px-6 xl:col-start-1 xl:row-start-2 xl:pt-0">
-          <div className="mx-auto w-full max-w-4xl">
+          <div className="mx-auto w-full max-w-7xl">
             <ReportVideoContext.Provider value={video}>{children}</ReportVideoContext.Provider>
           </div>
         </div>
