@@ -40,7 +40,12 @@ export function ReportComments({ reportId, workspaceId }: { reportId: string; wo
       <CommentList
         comments={comments.data}
         people={(members.data ?? []).map(({ id, name, email }) => ({ id, name, email }))}
-        me={{ id: me.data.id, role: roleIn(workspaces.data ?? [], workspaceId) ?? "member" }}
+        me={{
+          id: me.data.id,
+          role: roleIn(workspaces.data ?? [], workspaceId) ?? "member",
+          name: me.data.name,
+          image: me.data.image,
+        }}
         busy={add.isPending || edit.isPending || remove.isPending}
         onAdd={(body) => add.mutateAsync(body)}
         onEdit={(id, body) => edit.mutateAsync({ id, body })}

@@ -73,10 +73,14 @@ export function ReportPage() {
       report={report.data}
       header={
         <ReportHeader back={backTarget(report.data, projects.data ?? [])} leading={<NotificationBell placement="bottom start" />}>
-          <CopyLinkButton report={report.data} />
+          <span className="hidden md:inline-flex">
+            <CopyLinkButton report={report.data} />
+          </span>
           <MoreMenu report={report.data} />
         </ReportHeader>
       }
+      footer={<CopyLinkButton report={report.data} bar />}
+      project={projects.data?.find((project) => project.id === report.data.projectId)?.name ?? null}
       fields={
         <ReportFields
           report={report.data}

@@ -13,6 +13,9 @@ interface Props {
   onPick(person: Mentionable & { label: string }): void
   label: string
   placeholder?: string
+  /** Starting height in lines; the box grows with what is typed. */
+  rows?: number
+  className?: string
 }
 
 /**
@@ -20,7 +23,7 @@ interface Props {
  * Escape closes, a click picks. Picking writes "@Name " (or "@Name (email name) " when two people
  * share the name); the caller turns it into a token on save.
  */
-export function MentionTextarea({ value, onChange, people, selfId, onPick, label, placeholder }: Props) {
+export function MentionTextarea({ value, onChange, people, selfId, onPick, label, placeholder, rows = 3, className }: Props) {
   const ref = useRef<HTMLTextAreaElement>(null)
   const listId = useId()
   const [caret, setCaret] = useState<number | null>(null)
@@ -84,8 +87,9 @@ export function MentionTextarea({ value, onChange, people, selfId, onPick, label
         aria-activedescendant={open ? `${listId}-${current}` : undefined}
         value={value}
         maxLength={5000}
-        rows={3}
+        rows={rows}
         placeholder={placeholder}
+        className={className}
         onChange={(event) => {
           const position = event.target.selectionStart ?? event.target.value.length
           // Escape closes one "@word"; a different (or new) "@" opens the list again.

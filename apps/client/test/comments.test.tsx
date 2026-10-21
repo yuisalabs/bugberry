@@ -102,7 +102,7 @@ describe("CommentList", () => {
       const props = handlers()
       render(<CommentList comments={[]} people={people} me={{ id: "u3", role: "member" }} busy={false} {...props} />)
       const box = screen.getByRole("textbox", { name: "New comment" }) as HTMLTextAreaElement
-      expect(box.placeholder).toBe("Write a comment or @ to mention")
+      expect(box.placeholder).toBe("Comment or @ to mention")
 
       fireEvent.change(box, { target: { value: "cek @ana" } })
       const list = screen.getByRole("listbox", { name: "Mention someone" })

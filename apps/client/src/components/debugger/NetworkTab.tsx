@@ -3,9 +3,11 @@ import { type CSSProperties, memo, useEffect, useMemo, useRef, useState } from "
 import { Button as AriaButton } from "react-aria-components"
 import { Input, InputGroup } from "@bugberry/ui/input"
 import { SearchField } from "@bugberry/ui/search-field"
+import { Sheet } from "@bugberry/ui/sheet"
 import { Switch, SwitchField } from "@bugberry/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@bugberry/ui/toggle-group"
 import type { ViewEvent } from "@bugberry/debugger-view"
+import { PHONE_QUERY, useMediaQuery } from "../../hooks/useMediaQuery"
 import { startHorizontalDrag, startVerticalDrag } from "../../lib/drag"
 import { formatDuration } from "../../lib/format"
 import {
@@ -16,6 +18,7 @@ import {
   networkTotals,
   requestDomain,
   requestName,
+  requestPath,
   requestState,
   sizeLabel,
   TYPE_FILTERS,
@@ -66,6 +69,16 @@ const STRIPE = "bg-muted-foreground/6"
 
 /** A body row: one line of text and its cell padding, and the rule under it. */
 const ROW_HEIGHT = 25
+
+/** A phone's row: the path over its type and time, in one tap-sized line. */
+const PHONE_ROW_HEIGHT = 57
+
+/** The status pill on a phone's row: the row stays plain and the pill carries the colour. */
+const PILL_STYLES = {
+  ok: "bg-muted text-muted-foreground",
+  failed: "bg-danger-subtle text-danger-subtle-foreground",
+  canceled: "bg-warning-subtle text-warning-subtle-foreground",
+} as const
 
 /**
  * A column's right edge in the header: it lights up on hover and drags to make the column wider or narrower.
@@ -157,7 +170,10 @@ function DetailResizer({
   )
 }
 
-/** The recorded requests and page files as a Chrome-like table; a row opens its detail under the table. */
+/**
+ * The recorded requests and page files as a Chrome-like table; a row opens its detail under the table. On phones
+ * the columns give way to one row per request (method, path, time and status) and the detail opens in a sheet.
+ */
 export function NetworkTab({
   events,
   base,
@@ -179,6 +195,7 @@ export function NetworkTab({
   const [open, setOpen] = useState<string | null>(null)
   const [widths, setWidths] = useState<ColumnWidths>(readColumnWidths)
   const [detailHeight, setDetailHeight] = useState(readDetailHeight)
+  const phone = useMediaQuery(PHONE_QUERY)
   const split = useRef<HTMLDivElement>(null)
   const detail = useRef<HTMLDivElement>(null)
   const fitDetail = (height: number) => clampDetailHeight(height, split.current?.clientHeight ?? Number.POSITIVE_INFINITY)
@@ -224,7 +241,7 @@ export function NetworkTab({
   const times = useMemo(() => visible.map((row) => row.t), [visible])
   const active = useActiveRow(times, base, playback)
   const keys = useMemo(() => visible.map((row) => row.key), [visible])
-  const virtual = useVirtualRows<HTMLTableSectionElement>({ keys, estimate: ROW_HEIGHT, active })
+  const virtual = useVirtualRows<HTMLTableSectionElement>({ keys, estimate: phone ? PHONE_ROW_HEIGHT : ROW_HEIGHT, active })
   const bars = useMemo(() => waterfall(all), [all])
   const totals = useMemo(() => networkTotals(events), [events])
   const failed = useMemo(() => all.filter((row) => stateOf(row) === "failed").length, [all])
@@ -305,36 +322,40 @@ export function NetworkTab({
             */}
             <table
               role="table"
-              aria-rowcount={visible.length + 1}
+              aria-rowcount={visible.length + (phone ? 0 : 1)}
               className="block text-left text-xs"
               style={
-                {
-                  minWidth: Object.values(widths).reduce((sum, width) => sum + width, WATERFALL_MIN_WIDTH),
-                  "--network-columns": gridColumns(widths),
-                } as CSSProperties
+                phone
+                  ? undefined
+                  : ({
+                      minWidth: Object.values(widths).reduce((sum, width) => sum + width, WATERFALL_MIN_WIDTH),
+                      "--network-columns": gridColumns(widths),
+                    } as CSSProperties)
               }
             >
-              <thead
-                {...{ [FOLLOW_STICKY_ATTRIBUTE]: "" }}
-                role="rowgroup"
-                className="sticky top-0 z-10 block bg-background text-muted-foreground"
-              >
-                <tr role="row" aria-rowindex={1} className={GRID_ROW}>
-                  {NETWORK_COLUMNS.map((column) => (
-                    <th
-                      key={column}
-                      scope="col"
-                      role="columnheader"
-                      // Named on its own: otherwise the resize edge's label becomes part of the header's name.
-                      aria-label={column}
-                      className={`relative border-b border-b-border font-medium first:pl-3 ${column === "Waterfall" ? "px-2 py-1.5" : `${CELL} py-1.5`}`}
-                    >
-                      {column}
-                      {column !== "Waterfall" && <ColumnResizer column={column} width={widths[column]} onResize={(width) => resize(column, width)} />}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
+              {!phone && (
+                <thead
+                  {...{ [FOLLOW_STICKY_ATTRIBUTE]: "" }}
+                  role="rowgroup"
+                  className="sticky top-0 z-10 block bg-background text-muted-foreground"
+                >
+                  <tr role="row" aria-rowindex={1} className={GRID_ROW}>
+                    {NETWORK_COLUMNS.map((column) => (
+                      <th
+                        key={column}
+                        scope="col"
+                        role="columnheader"
+                        // Named on its own: otherwise the resize edge's label becomes part of the header's name.
+                        aria-label={column}
+                        className={`relative border-b border-b-border font-medium first:pl-3 ${column === "Waterfall" ? "px-2 py-1.5" : `${CELL} py-1.5`}`}
+                      >
+                        {column}
+                        {column !== "Waterfall" && <ColumnResizer column={column} width={widths[column]} onResize={(width) => resize(column, width)} />}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+              )}
               <tbody ref={virtual.list} role="rowgroup" className="relative block" style={{ height: virtual.height }}>
                 {virtual.rows.map(({ index, key, top }) => {
                   const row = visible[index] as NetworkRow
@@ -347,6 +368,7 @@ export function NetworkTab({
                       bar={bars.get(row.key)}
                       selected={row.key === open}
                       active={index === active}
+                      compact={phone}
                       onOpen={setOpen}
                       measure={virtual.measure}
                     />
@@ -356,7 +378,7 @@ export function NetworkTab({
             </table>
           </div>
         )}
-        {opened && (
+        {opened && !phone && (
           <>
             <DetailResizer height={detailHeight} onDrag={previewDetail} onResize={resizeDetail} />
             {/* Shrinks before the table does when the panel gets short, so the table keeps a few rows. */}
@@ -366,6 +388,20 @@ export function NetworkTab({
           </>
         )}
       </div>
+      {phone && (
+        <Sheet isOpen={Boolean(opened)} onOpenChange={(isOpen) => !isOpen && setOpen(null)} position="bottom" aria-label="Request details">
+          {/*
+            One height for every request, so the sheet does not jump as tabs and requests change. The room for the
+            handle sits outside the scrolling box: inside it, the body would show above the header that sticks. The
+            header takes the sheet's own colour, so it reads as part of the sheet.
+          */}
+          <div className="flex h-[80dvh] flex-col pt-5 [--detail-bg:var(--color-overlay)]">
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {opened && <RequestDetail key={opened.key} row={opened} base={base} playback={playback} onClose={() => setOpen(null)} />}
+            </div>
+          </div>
+        </Sheet>
+      )}
       <div className="shrink-0 border-t border-border px-3 py-1.5 text-xs text-muted-foreground">
         <p>
           {all.length} requests · {failed} failed · {canceled} canceled
@@ -389,6 +425,7 @@ const RequestRow = memo(function RequestRow({
   active,
   onOpen,
   measure,
+  compact = false,
 }: {
   row: NetworkRow
   index: number
@@ -398,8 +435,47 @@ const RequestRow = memo(function RequestRow({
   active: boolean
   onOpen(key: string): void
   measure(element: HTMLElement | null): void
+  /** A phone's row: method, path, time and a status pill instead of the table's columns. */
+  compact?: boolean
 }) {
   const state = stateOf(row)
+  if (compact) {
+    const details = [row.type, row.durationMs === null ? "" : formatDuration(row.durationMs)].filter(Boolean).join(" · ")
+    return (
+      <tr
+        ref={measure}
+        data-index={index}
+        role="row"
+        aria-rowindex={index + 1}
+        aria-current={active ? "true" : undefined}
+        data-selected={selected || undefined}
+        onClick={() => onOpen(row.key)}
+        style={{ transform: `translateY(${top}px)` }}
+        className={`absolute inset-x-0 top-0 flex cursor-pointer items-center gap-3 border-b border-border/60 px-3 py-2.5 ${selected ? SELECTED_STYLES.ok : "hover:bg-muted"} ${active ? ACTIVE_ROW : ""}`}
+      >
+        <td role="cell" className="w-11 shrink-0 font-mono text-[11px] font-semibold text-muted-foreground">
+          {row.method}
+        </td>
+        <td role="cell" className="min-w-0 flex-1">
+          <AriaButton
+            onPress={() => onOpen(row.key)}
+            className={`block w-full cursor-pointer truncate text-left font-mono text-[13px] text-foreground ${row.page ? "font-semibold" : ""}`}
+          >
+            <span title={row.url}>{requestPath(row.url)}</span>
+          </AriaButton>
+          {details && <span className="block truncate text-xs text-muted-foreground">{details}</span>}
+        </td>
+        <td role="cell" className="shrink-0">
+          {/* Files the page loaded have no status of their own: no pill. */}
+          {(state === "canceled" || row.status !== null) && (
+            <span className={`rounded-md px-1.5 py-0.5 font-mono text-xs font-semibold ${PILL_STYLES[state]}`}>
+              {state === "canceled" ? "canceled" : row.status}
+            </span>
+          )}
+        </td>
+      </tr>
+    )
+  }
   const stripe = state === "ok" && !selected && index % 2 === 1 ? STRIPE : ""
   return (
     <tr

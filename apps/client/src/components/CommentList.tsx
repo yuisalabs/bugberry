@@ -1,16 +1,20 @@
 import type { WorkspaceRole } from "@bugberry/shared"
+import { RiSendPlane2Line } from "@remixicon/react"
 import { type FormEvent, useState } from "react"
+import { Avatar } from "@bugberry/ui/avatar"
 import { Button } from "@bugberry/ui/button"
 import type { Comment } from "../lib/api"
 import { formatDateTime } from "../lib/format"
 import { commentParts, type Mentionable, type Picked, toEditable, toStored } from "../lib/mentions"
+import { initialsOf } from "../lib/people"
 import { MentionTextarea } from "./MentionTextarea"
 
 interface Props {
   comments: Comment[]
   /** Who can be mentioned: the members of the report's workspace. */
   people?: Mentionable[]
-  me: { id: string; role: WorkspaceRole }
+  /** The person writing; their name and photo show beside the new comment box. */
+  me: { id: string; role: WorkspaceRole; name?: string; image?: string | null }
   busy: boolean
   /** Resolves when saved; the typed text is kept until then, so a failed save loses nothing. */
   onAdd(body: string): Promise<unknown>
@@ -73,13 +77,13 @@ function CommentItem({
 
   return (
     <li id={`comment-${comment.id}`} className="scroll-mt-24 rounded-lg border border-border bg-background p-3">
-      <div className="flex items-baseline justify-between gap-2">
-        <p className="text-sm">
+      <div className="flex items-start justify-between gap-2">
+        <p className="min-w-0 text-sm">
           <span className="font-medium">{comment.author.name}</span>
           {comment.viaAgent && (
             <span
               title={`Written by ${comment.viaAgent} for ${comment.author.name}`}
-              className="ml-2 rounded-full bg-primary-subtle px-1.5 py-0.5 text-[11px] font-medium text-primary-subtle-foreground"
+              className="ml-2 inline-block rounded-full bg-primary-subtle px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap text-primary-subtle-foreground"
             >
               via AI
             </span>
@@ -88,12 +92,13 @@ function CommentItem({
         </p>
         <div className="flex gap-1">
           {mine && draft === null && (
-            <Button size="sm" intent="plain" isDisabled={busy} onPress={startEditing}>
+            <Button size="xs" intent="plain" isDisabled={busy} onPress={startEditing}>
               Edit
             </Button>
           )}
           {(mine || me.role === "admin") && (
-            <Button size="sm"
+            <Button
+              size="xs"
               intent="plain"
               isDisabled={busy}
               onPress={() => {
@@ -150,9 +155,12 @@ export function CommentList({ comments, people = [], me, busy, onAdd, onEdit, on
 
   return (
     <section aria-label="Comments" className="flex flex-col gap-3">
-      <h2 className="text-lg font-semibold">Comments</h2>
+      <h2 className="flex items-center gap-2 font-heading text-lg font-semibold">
+        Comments
+        <span className="rounded-full bg-muted px-2 text-xs font-medium text-muted-foreground">{comments.length}</span>
+      </h2>
       {comments.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No comments yet.</p>
+        <p className="text-sm text-muted-foreground">No comments yet. Start the conversation.</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {comments.map((comment) => (
@@ -168,18 +176,43 @@ export function CommentList({ comments, people = [], me, busy, onAdd, onEdit, on
           ))}
         </ul>
       )}
-      <form onSubmit={submit} className="flex flex-col gap-2">
-        <MentionTextarea
-          label="New comment"
-          value={text}
-          onChange={setText}
-          people={people}
-          selfId={me.id}
-          onPick={(person) => setPicked((current) => addPicked(current, person))}
-          placeholder="Write a comment or @ to mention"
-        />
-        <Button size="sm" type="submit" className="self-start" isDisabled={busy || !text.trim()}>
-          Post comment
+      {/* One box: who is writing, the text (it grows as it is typed) and the send button. */}
+      <form
+        onSubmit={submit}
+        className="flex items-end gap-2 rounded-xl border border-input bg-background p-1.5 focus-within:border-ring/70 focus-within:ring-3 focus-within:ring-ring/20"
+      >
+        {me.name && (
+          <Avatar
+            src={me.image}
+            initials={initialsOf(me.name)}
+            alt=""
+            size="sm"
+            className="ml-0.5 shrink-0 self-center bg-primary text-primary-foreground"
+          />
+        )}
+        <div className="min-w-0 flex-1">
+          <MentionTextarea
+            label="New comment"
+            value={text}
+            onChange={setText}
+            people={people}
+            selfId={me.id}
+            onPick={(person) => setPicked((current) => addPicked(current, person))}
+            placeholder="Comment or @ to mention"
+            rows={1}
+            className="min-h-9 resize-none border-0 bg-transparent px-1 focus:ring-0 sm:px-1"
+          />
+        </div>
+        <Button
+          size="sq-sm"
+          // Pink once there is something to send; grey while the box is empty.
+          intent={text.trim() ? "primary" : "secondary"}
+          type="submit"
+          aria-label="Post comment"
+          className="shrink-0"
+          isDisabled={busy || !text.trim()}
+        >
+          <RiSendPlane2Line aria-hidden />
         </Button>
       </form>
     </section>

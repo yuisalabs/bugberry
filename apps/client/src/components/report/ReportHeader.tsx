@@ -4,7 +4,10 @@ import type { ReactNode } from "react"
 import type { backTarget } from "../../lib/report-page"
 import { BugBerryLogo } from "../BugBerryLogo"
 
-/** The report page's top row: back to the reports and the bell on the left, sharing and the ⋯ menu on the right. */
+/**
+ * The report page's top row. From tablet width up: back to the reports and the bell on the left, sharing and
+ * the ⋯ menu on the right. On phones the bell joins the right side, beside ⋯.
+ */
 export function ReportHeader({
   back,
   leading,
@@ -17,8 +20,8 @@ export function ReportHeader({
   children: ReactNode
 }) {
   return (
-    <div className="flex items-center justify-between gap-3">
-      <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1">
+      <div className="mr-auto md:mr-0">
         {back ? (
           <Link
             {...back}
@@ -30,9 +33,9 @@ export function ReportHeader({
         ) : (
           <BugBerryLogo />
         )}
-        {leading}
       </div>
-      <div className="flex items-center gap-2">{children}</div>
+      {leading && <div className="flex items-center">{leading}</div>}
+      <div className="flex items-center gap-2 md:ml-auto">{children}</div>
     </div>
   )
 }

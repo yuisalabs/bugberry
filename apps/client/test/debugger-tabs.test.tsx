@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test"
-import { fireEvent, render, screen } from "@testing-library/react"
+import { fireEvent, render, screen, within } from "@testing-library/react"
 import { ActionsTab } from "../src/components/debugger/ActionsTab"
 import { ConsoleTab } from "../src/components/debugger/ConsoleTab"
 import { type DebuggerFocus, DebuggerTabs } from "../src/components/debugger/DebuggerTabs"
@@ -162,6 +162,28 @@ describe("NetworkTab", () => {
     expect(screen.getByRole("button", { name: /^pay/ }).closest("tr")?.dataset.selected).toBeUndefined()
   })
 
+  test("on a phone: one row per request, and the request opens in a sheet", () => {
+    const original = window.matchMedia
+    window.matchMedia = ((query: string) =>
+      ({ matches: query === "(max-width: 767px)", media: query, addEventListener() {}, removeEventListener() {} }) as unknown as MediaQueryList)
+    try {
+      render(<NetworkTab events={events} base={1000} />)
+      // No columns to scroll sideways: method, path, type and time, and the status as a pill.
+      expect(screen.queryAllByRole("columnheader")).toHaveLength(0)
+      const pay = screen.getByRole("button", { name: "/api/pay" })
+      const row = pay.closest("tr") as HTMLElement
+      expect(within(row).getByText("POST")).toBeTruthy()
+      expect(within(row).getByText("500").className).toContain("bg-danger-subtle")
+      fireEvent.click(pay)
+      // Only in the sheet: the table has no detail of its own on a phone.
+      expect(screen.getByText("POST /api/pay").closest("[data-slot=sheet]")).toBeTruthy()
+      fireEvent.click(screen.getByRole("button", { name: "Close request" }))
+      expect(screen.queryByText("POST /api/pay")).toBeNull()
+    } finally {
+      window.matchMedia = original
+    }
+  })
+
   test("another row swaps the detail, and filtering keeps it open", () => {
     render(<NetworkTab events={events} base={1000} />)
     fireEvent.click(screen.getByRole("button", { name: /^pay/ }))
@@ -177,7 +199,7 @@ describe("DebuggerTabs", () => {
   test("the tabs count errors and failed requests", () => {
     const summary = { logs: 4, errors: 3, requests: 25, failedRequests: 6, actions: 9, incomplete: [] }
     render(<DebuggerTabs report={reportFixture({ debuggerSummary: summary })} state={{ status: "none" }} onRetry={() => {}} />)
-    expect(screen.getByRole("heading", { name: "DevTools" })).toBeTruthy()
+    expect(screen.getByRole("heading", { name: /DevTools/ })).toBeTruthy()
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Info", "Actions", "Console3", "Network6"])
   })
 
@@ -188,6 +210,20 @@ describe("DebuggerTabs", () => {
     expect(screen.getByText("boom")).toBeTruthy()
     fireEvent.click(screen.getByRole("tab", { name: /Info/ }))
     expect(screen.getByText("Chrome 140")).toBeTruthy()
+  })
+
+  test("below 1280 px a tab previews a few rows; View all opens the rest", () => {
+    const summary = { logs: 4, errors: 0, requests: 25, failedRequests: 0, actions: 3, incomplete: [] }
+    const view = normalizePayload({ capturedAt: 2000, events: [{ kind: "console", t: 1500, level: "log", args: ["hi"] }] })
+    render(<DebuggerTabs report={reportFixture({ debuggerSummary: summary })} state={{ status: "ready", view }} onRetry={() => {}} />)
+    // Three actions fit in the preview: nothing more to open.
+    expect(screen.queryByRole("button", { name: /View all/ })).toBeNull()
+    fireEvent.click(screen.getByRole("tab", { name: /Network/ }))
+    const panel = () => screen.getByRole("tabpanel")
+    expect(panel().className).toContain("max-h-96")
+    fireEvent.click(screen.getByRole("button", { name: "View all 25 requests" }))
+    expect(panel().className).toContain("max-h-[70vh]")
+    expect(screen.getByRole("button", { name: "Show less" })).toBeTruthy()
   })
 
   test("explains reports without debugger data", () => {
