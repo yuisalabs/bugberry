@@ -1,13 +1,12 @@
+import { RiFileCopyLine, RiInformationLine, RiRefreshLine } from "@remixicon/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { type FormEvent, useEffect, useState } from "react"
+import { type FormEvent, type ReactNode, useEffect, useId, useState } from "react"
 import { Button } from "@bugberry/ui/button"
-import { Label } from "@bugberry/ui/field"
 import { Input } from "@bugberry/ui/input"
 import { Radio, RadioField, RadioGroup } from "@bugberry/ui/radio"
 import { Switch, SwitchField } from "@bugberry/ui/switch"
 import { TextField } from "@bugberry/ui/text-field"
-import { LogoPicker } from "../../components/LogoPicker"
-import { PageHeader } from "../../components/ui"
+import { LOGO_RULE, LogoPicker } from "../../components/LogoPicker"
 import { errorMessage, type WorkspaceAccess } from "../../lib/api"
 import { api } from "../../lib/client"
 import { queries } from "../../lib/queries"
@@ -17,11 +16,39 @@ import { type SlugAnswer, useSlugCheck } from "../../lib/workspace-slug"
 
 type Settings = { id: string; name: string; slug: string; logoUrl: string | null }
 
-/** Name, short URL and logo of the current workspace. Saving sends only what changed. */
+const card = "flex flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-xs"
+const cardPadding = "px-6 sm:px-8"
+
+function CardHeader({ title, description }: { title: string; description?: string }) {
+  return (
+    <div className={`flex flex-col gap-1 py-5 ${cardPadding}`}>
+      <h2 className="font-heading text-lg font-semibold text-foreground">{title}</h2>
+      {description && <p className="text-sm text-muted-foreground">{description}</p>}
+    </div>
+  )
+}
+
+/** One setting: what it is on the left, its control on the right (stacked on phones). */
+function SettingRow({ id, title, description, children }: { id?: string; title: string; description: string; children: ReactNode }) {
+  return (
+    <div className={`grid gap-4 border-t border-border py-6 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] md:gap-10 ${cardPadding}`}>
+      <div className="flex flex-col gap-1">
+        <h3 id={id} className="font-medium text-foreground">
+          {title}
+        </h3>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+      <div className="flex min-w-0 flex-col justify-center gap-2">{children}</div>
+    </div>
+  )
+}
+
+/** Name, short URL and logo of the current workspace. Saving sends only what changed; the logo saves at once. */
 export function WorkspaceSettingsView({
   workspace,
   origin,
   busy,
+  saved = false,
   onSave,
   onLogo,
   onRemoveLogo,
@@ -31,12 +58,16 @@ export function WorkspaceSettingsView({
   workspace: Settings
   origin: string
   busy: boolean
+  /** The last save went through, so the footer can say so until something changes again. */
+  saved?: boolean
   onSave(patch: { name?: string; slug?: string }): void
   onLogo(file: File): void
   onRemoveLogo(): void
   check?: (query: { name?: string; slug?: string; except?: string }) => Promise<SlugAnswer>
   measure?: (file: File) => Promise<{ width: number; height: number }>
 }) {
+  const nameLabel = useId()
+  const urlLabel = useId()
   const [name, setName] = useState(workspace.name)
   const [slug, setSlug] = useState(workspace.slug)
   useEffect(() => setName(workspace.name), [workspace.name])
@@ -45,7 +76,8 @@ export function WorkspaceSettingsView({
   const nameChanged = name.trim() !== workspace.name
   const slugChanged = slug !== workspace.slug
   const slugOk = !slugChanged || url.status === "available"
-  const canSave = !busy && Boolean(name.trim()) && (nameChanged || slugChanged) && slugOk
+  const dirty = nameChanged || slugChanged
+  const canSave = !busy && Boolean(name.trim()) && dirty && slugOk
 
   const save = (event: FormEvent) => {
     event.preventDefault()
@@ -65,45 +97,63 @@ export function WorkspaceSettingsView({
             : "Use 3–40 lowercase letters, numbers or dashes"
 
   return (
-    <div className="flex flex-col gap-4">
-      <form onSubmit={save} className="flex flex-col gap-3 rounded-lg border border-border bg-background p-4">
-        <TextField value={name} onChange={setName} maxLength={80}>
-          <Label>Name</Label>
+    <form onSubmit={save} className={card}>
+      <CardHeader title="General" />
+
+      <SettingRow title="Logo" description={`${LOGO_RULE}.`}>
+        <LogoPicker
+          file={null}
+          current={workspace.logoUrl}
+          name={workspace.name}
+          onChange={onLogo}
+          measure={measure}
+          large
+          hint={workspace.logoUrl ? "Upload another to replace it everywhere." : "Upload a logo to replace it everywhere."}
+          actions={
+            workspace.logoUrl && (
+              <Button size="sm" intent="plain" isDisabled={busy} onPress={onRemoveLogo}>
+                Remove logo
+              </Button>
+            )
+          }
+        />
+      </SettingRow>
+
+      <SettingRow id={nameLabel} title="Name" description="Shown in the sidebar and on invites.">
+        <TextField aria-labelledby={nameLabel} value={name} onChange={setName} maxLength={80}>
           <Input />
         </TextField>
-        <TextField value={slug} maxLength={40} onChange={(value) => setSlug(value.toLowerCase())}>
-          <Label>Workspace URL</Label>
-          {/* The host stays in front of the slug, inside the same box. */}
+      </SettingRow>
+
+      <SettingRow id={urlLabel} title="Workspace URL" description="Changing it breaks old links to this workspace.">
+        <TextField aria-labelledby={urlLabel} value={slug} maxLength={40} onChange={(value) => setSlug(value.toLowerCase())}>
+          {/* The host sits in front of the slug as a fixed part of the same box. */}
           <span
             data-slot="control"
-            className="flex items-center gap-2 rounded-lg border border-input px-3 focus-within:border-ring/70 focus-within:ring-3 focus-within:ring-ring/20"
+            className="flex items-stretch overflow-hidden rounded-lg border border-input focus-within:border-ring/70 focus-within:ring-3 focus-within:ring-ring/20"
           >
-            <span className="shrink-0 font-mono text-xs text-muted-foreground">{`${new URL(origin).host}/`}</span>
-            <Input className="border-0 px-0 font-mono focus:ring-0 sm:px-0" />
-            {status && (
-              <span
-                className={`shrink-0 text-xs font-medium ${status === "Available" ? "text-success-subtle-foreground" : "text-danger-subtle-foreground"}`}
-              >
-                {status}
-              </span>
-            )}
+            <span className="flex shrink-0 items-center border-r border-input bg-muted px-3 font-mono text-sm text-muted-foreground">
+              {`${new URL(origin).host}/`}
+            </span>
+            <Input className="rounded-none border-0 font-mono focus:ring-0" />
           </span>
         </TextField>
-        <Button size="sm" type="submit" className="self-start" isDisabled={!canSave}>
-          Save
-        </Button>
-      </form>
-
-      <div className="flex flex-col gap-2 rounded-lg border border-border bg-background p-4">
-        <span className="text-sm font-medium">Logo</span>
-        <LogoPicker file={null} current={workspace.logoUrl} name={workspace.name} onChange={onLogo} measure={measure} />
-        {workspace.logoUrl && (
-          <Button size="sm" intent="outline" className="self-start" isDisabled={busy} onPress={onRemoveLogo}>
-            Remove logo
-          </Button>
+        {status && (
+          <span className={`text-xs font-medium ${status === "Available" ? "text-success-subtle-foreground" : "text-danger-subtle-foreground"}`}>
+            {status}
+          </span>
         )}
+      </SettingRow>
+
+      <div className={`flex flex-wrap items-center justify-between gap-3 border-t border-border bg-muted/50 py-4 ${cardPadding}`}>
+        <span role="status" className="text-sm text-muted-foreground">
+          {dirty ? "Unsaved changes" : saved ? "Saved" : "No unsaved changes"}
+        </span>
+        <Button type="submit" isDisabled={!canSave}>
+          Save changes
+        </Button>
       </div>
-    </div>
+    </form>
   )
 }
 
@@ -120,6 +170,7 @@ export function WorkspaceAccessView({
   onShareLink,
   onDomain,
   membersAllowed = true,
+  emailDomain = null,
 }: {
   access: WorkspaceAccess
   origin: string
@@ -128,24 +179,9 @@ export function WorkspaceAccessView({
   onDomain(patch: { joinDomain?: string | null; joinMode?: "direct" | "approval" }): void
   /** False under ACCOUNT_LIMITS: nothing can be turned on, but a way in already open can be closed. */
   membersAllowed?: boolean
+  /** The domain of my own email, to name it when it can't be used (gmail.com). */
+  emailDomain?: string | null
 }) {
-  if (!membersAllowed) {
-    return (
-      <section className="flex flex-col items-start gap-2 rounded-lg border border-border bg-background p-4">
-        <p className="text-sm text-muted-foreground">Inviting teammates isn't available on this account.</p>
-        {access.shareCode && (
-          <Button size="sm" intent="outline" isDisabled={busy} onPress={() => onShareLink("off")}>
-            Turn off invite link
-          </Button>
-        )}
-        {access.joinDomain && (
-          <Button size="sm" intent="outline" isDisabled={busy} onPress={() => onDomain({ joinDomain: null })}>
-            Turn off joining by email domain
-          </Button>
-        )}
-      </section>
-    )
-  }
   // The stored domain when there is one (it may be another admin's), else the domain I could turn on.
   const domain = access.joinDomain ?? access.ownDomain
   const link = access.shareCode ? `${new URL(origin).host}/join/${access.shareCode}` : null
@@ -159,34 +195,68 @@ export function WorkspaceAccessView({
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <section className="flex flex-col gap-2 rounded-lg border border-border bg-background p-4">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-sm font-medium">Invite link</h2>
-          <SwitchField aria-label="Invite link" isSelected={Boolean(link)} isDisabled={busy} onChange={() => onShareLink(link ? "off" : "on")}>
-            <Switch />
-          </SwitchField>
-        </div>
-        <p className="text-xs text-muted-foreground">Anyone signed in with the link or code joins as a Member.</p>
-        {link && (
+    <section className={card}>
+      <CardHeader title="Joining" description="Choose how new people can get into this workspace." />
+
+      {!membersAllowed && (
+        <p className={`border-t border-border py-4 text-sm text-muted-foreground ${cardPadding}`}>Inviting teammates isn't available on this account.</p>
+      )}
+
+      <SettingRow title="Invite link" description="Anyone signed in with the link or code joins as a Member.">
+        {membersAllowed || link ? (
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col">
+              <span className="font-medium text-foreground">{link ? "On" : "Off"}</span>
+              <span className="text-sm text-muted-foreground">
+                {link ? "Share it with anyone who should join." : "Turn it on to get a shareable link."}
+              </span>
+            </div>
+            {membersAllowed ? (
+              <SwitchField aria-label="Invite link" isSelected={Boolean(link)} isDisabled={busy} onChange={() => onShareLink(link ? "off" : "on")}>
+                <Switch />
+              </SwitchField>
+            ) : (
+              <Button size="sm" intent="outline" isDisabled={busy} onPress={() => onShareLink("off")}>
+                Turn off invite link
+              </Button>
+            )}
+          </div>
+        ) : (
+          <span className="text-sm text-muted-foreground">Off</span>
+        )}
+        {link && membersAllowed && (
           <div className="flex flex-wrap items-center gap-2">
-            <code className="min-w-0 flex-1 truncate rounded-md bg-muted px-2 py-1.5 font-mono text-xs">{link}</code>
+            <code className="min-w-0 flex-1 truncate rounded-lg border border-border bg-muted px-3 py-2 font-mono text-sm text-foreground">{link}</code>
             <Button size="sm" intent="outline" isDisabled={busy} onPress={() => void copy()}>
+              <RiFileCopyLine aria-hidden />
               Copy
             </Button>
             <Button size="sm" intent="plain" isDisabled={busy} onPress={() => onShareLink("reset")}>
+              <RiRefreshLine aria-hidden />
               Reset
             </Button>
           </div>
         )}
-      </section>
+      </SettingRow>
 
-      <section className="flex flex-col gap-2 rounded-lg border border-border bg-background p-4">
-        <h2 className="text-sm font-medium">Join by email domain</h2>
-        {domain ? (
+      <SettingRow title="Join by email domain" description="People with a matching work email can join without an invite.">
+        {!membersAllowed ? (
+          access.joinDomain ? (
+            <Button size="sm" intent="outline" className="self-start" isDisabled={busy} onPress={() => onDomain({ joinDomain: null })}>
+              Turn off joining by email domain
+            </Button>
+          ) : (
+            <span className="text-sm text-muted-foreground">Off</span>
+          )
+        ) : domain ? (
           <>
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-sm">{`Let people with @${domain} join`}</span>
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex flex-col">
+                <span className="font-medium text-foreground">@{domain}</span>
+                <span className="text-sm text-muted-foreground">
+                  {access.joinDomain !== null ? "On" : "Off"}
+                </span>
+              </div>
               <SwitchField
                 aria-label={`Let people with @${domain} join`}
                 isSelected={access.joinDomain !== null}
@@ -214,16 +284,23 @@ export function WorkspaceAccessView({
             )}
           </>
         ) : (
-          <p className="text-sm text-muted-foreground">Your email domain can't be used for this</p>
+          <div className="flex items-start gap-3 rounded-xl bg-muted px-4 py-3">
+            <RiInformationLine aria-hidden className="mt-0.5 size-4.5 shrink-0 text-muted-foreground" />
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-foreground">Not available for {emailDomain ?? "your email"}</span>
+              <span className="text-sm text-muted-foreground">Public email domains can't be used. Sign in with a company email to turn this on.</span>
+            </div>
+          </div>
         )}
-      </section>
-    </div>
+      </SettingRow>
+    </section>
   )
 }
 
 /** The access settings wired to the API. */
 function WorkspaceAccessSection({ workspaceId }: { workspaceId: string }) {
   const queryClient = useQueryClient()
+  const me = useQuery(queries.me())
   const access = useQuery(queries.workspaceAccess(workspaceId))
   const limits = useQuery(queries.workspaceLimits(workspaceId))
   const update = useMutation({
@@ -241,6 +318,7 @@ function WorkspaceAccessSection({ workspaceId }: { workspaceId: string }) {
         onShareLink={(action) => update.mutate({ shareLink: action })}
         onDomain={(patch) => update.mutate(patch)}
         membersAllowed={!limits.data.limited}
+        emailDomain={me.data?.email.split("@")[1] ?? null}
       />
       {update.error && (
         <p role="alert" className="text-sm text-danger-subtle-foreground">
@@ -272,27 +350,28 @@ export function WorkspaceSettingsPage() {
   if (!workspace) return null
   const error = save.error ?? upload.error ?? remove.error
   return (
-    <section className="flex max-w-xl flex-col gap-4">
-      <PageHeader title="Workspace" />
-      <WorkspaceSettingsView
-        workspace={{ id: workspace.id, name: workspace.name, slug: workspace.slug, logoUrl: workspace.logoUrl ?? null }}
-        origin={window.location.origin}
-        busy={save.isPending || upload.isPending || remove.isPending}
-        onSave={(patch) => save.mutate(patch)}
-        onLogo={(file) => upload.mutate(file)}
-        onRemoveLogo={() => remove.mutate()}
-      />
-      <WorkspaceAccessSection workspaceId={workspace.id} />
-      {save.isSuccess && (
-        <p role="status" className="text-sm text-muted-foreground">
-          Saved
-        </p>
-      )}
-      {error && (
-        <p role="alert" className="text-sm text-danger-subtle-foreground">
-          {errorMessage(error)}
-        </p>
-      )}
+    <section className="flex flex-col gap-8">
+      <header className="flex flex-col gap-1 border-b border-border pb-6">
+        <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">Workspace settings</h1>
+        <p className="text-muted-foreground">Manage how {workspace.name} looks and who can join.</p>
+      </header>
+      <div className="flex max-w-5xl flex-col gap-6">
+        {error && (
+          <p role="alert" className="text-sm text-danger-subtle-foreground">
+            {errorMessage(error)}
+          </p>
+        )}
+        <WorkspaceSettingsView
+          workspace={{ id: workspace.id, name: workspace.name, slug: workspace.slug, logoUrl: workspace.logoUrl ?? null }}
+          origin={window.location.origin}
+          busy={save.isPending || upload.isPending || remove.isPending}
+          saved={save.isSuccess}
+          onSave={(patch) => save.mutate(patch)}
+          onLogo={(file) => upload.mutate(file)}
+          onRemoveLogo={() => remove.mutate()}
+        />
+        <WorkspaceAccessSection workspaceId={workspace.id} />
+      </div>
     </section>
   )
 }

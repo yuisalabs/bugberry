@@ -15,6 +15,8 @@ export interface FileTriggerProps
   isPending?: boolean
   ref?: React.RefObject<HTMLInputElement>
   className?: string
+  /** Shown in place of the default paperclip (camera, folder) icon. */
+  icon?: React.ReactNode
 }
 
 export function FileTrigger({
@@ -23,6 +25,7 @@ export function FileTrigger({
   isCircle = false,
   ref,
   className,
+  icon,
   ...props
 }: FileTriggerProps) {
   return (
@@ -35,13 +38,13 @@ export function FileTrigger({
         isCircle={isCircle}
       >
         {!props.isPending ? (
-          props.defaultCamera ? (
+          icon ?? (props.defaultCamera ? (
             <RiCameraLine />
           ) : props.acceptDirectory ? (
             <RiFolderLine />
           ) : (
             <RiAttachment2 />
-          )
+          ))
         ) : (
           <Loader />
         )}

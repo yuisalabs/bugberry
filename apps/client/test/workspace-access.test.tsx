@@ -62,9 +62,18 @@ describe("WorkspaceAccessView", () => {
     expect(props.onDomain).toHaveBeenCalledWith({ joinDomain: null })
   })
 
-  test("a free mail domain can't be used", () => {
-    view({ ownDomain: null })
-    expect(screen.getByText("Your email domain can't be used for this")).toBeTruthy()
+  test("a free mail domain can't be used, and the box says which", () => {
+    render(
+      <WorkspaceAccessView
+        access={{ ...base, ownDomain: null }}
+        origin="https://bugberry.kantor.com"
+        busy={false}
+        onShareLink={mock()}
+        onDomain={mock()}
+        emailDomain="gmail.com"
+      />,
+    )
+    expect(screen.getByText("Not available for gmail.com")).toBeTruthy()
     expect(screen.queryByRole("switch", { name: /Let people with/ })).toBeNull()
   })
 })

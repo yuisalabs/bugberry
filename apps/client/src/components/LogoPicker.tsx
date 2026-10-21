@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react"
+import { RiUploadLine } from "@remixicon/react"
+import { type ReactNode, useEffect, useState } from "react"
 import { FileTrigger } from "@bugberry/ui/file-trigger"
 
 const MAX_BYTES = 2 * 1024 * 1024
@@ -24,6 +25,9 @@ export function LogoPicker({
   name,
   onChange,
   measure = measureImage,
+  large = false,
+  hint = LOGO_RULE,
+  actions,
 }: {
   file: File | null
   /** The logo already in use (Settings), shown until another file is chosen. */
@@ -31,6 +35,12 @@ export function LogoPicker({
   name: string
   onChange(file: File): void
   measure?: Measure
+  /** The bigger tile of the Settings page. */
+  large?: boolean
+  /** The line under the title; the rule by default. */
+  hint?: string
+  /** More buttons beside Upload (Remove logo). */
+  actions?: ReactNode
 }) {
   const [error, setError] = useState<string | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
@@ -52,21 +62,31 @@ export function LogoPicker({
 
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-3">
+      <div className={`flex flex-wrap items-center ${large ? "gap-4" : "gap-3"}`}>
         {preview ? (
-          <img src={preview} alt="" className="size-10 shrink-0 rounded-lg object-cover ring-1 ring-border" />
+          <img
+            src={preview}
+            alt=""
+            className={`shrink-0 object-cover ring-1 ring-border ${large ? "size-14 rounded-xl" : "size-10 rounded-lg"}`}
+          />
         ) : (
-          <span aria-hidden className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg bg-success text-base font-bold text-white">
+          <span
+            aria-hidden
+            className={`inline-flex shrink-0 items-center justify-center bg-success font-bold text-white ${large ? "size-14 rounded-xl text-xl" : "size-10 rounded-lg text-base"}`}
+          >
             {name.trim().charAt(0).toUpperCase() || "?"}
           </span>
         )}
         <span className="flex min-w-0 flex-1 flex-col">
           {!file && !current && <span className="text-sm text-foreground">Using the first letter for now</span>}
-          <span className="text-xs text-muted-foreground">{LOGO_RULE}</span>
+          <span className="text-xs text-muted-foreground">{hint}</span>
         </span>
-        <FileTrigger acceptedFileTypes={TYPES} onSelect={(files) => void choose(files)} size="sm">
-          Upload
-        </FileTrigger>
+        <span className="flex gap-2">
+          {actions}
+          <FileTrigger acceptedFileTypes={TYPES} onSelect={(files) => void choose(files)} size="sm" icon={<RiUploadLine aria-hidden />}>
+            Upload
+          </FileTrigger>
+        </span>
       </div>
       {error && (
         <p role="alert" className="text-xs text-danger-subtle-foreground">

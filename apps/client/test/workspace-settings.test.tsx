@@ -28,7 +28,7 @@ function view(overrides: Partial<Parameters<typeof WorkspaceSettingsView>[0]> = 
   return props
 }
 
-const save = () => screen.getByRole("button", { name: "Save" }) as HTMLButtonElement
+const save = () => screen.getByRole("button", { name: "Save changes" }) as HTMLButtonElement
 
 describe("WorkspaceSettingsView", () => {
   test("shows and saves name and URL", async () => {
@@ -64,5 +64,22 @@ describe("WorkspaceSettingsView", () => {
   test("Remove shows only with a logo", () => {
     view()
     expect(screen.queryByRole("button", { name: "Remove logo" })).toBeNull()
+  })
+
+  test("the footer says whether there is something to save", () => {
+    view({ saved: true })
+    expect(screen.getByRole("status").textContent).toBe("Saved")
+    fireEvent.change(screen.getByRole("textbox", { name: "Name" }), { target: { value: "Javan QA Team" } })
+    expect(screen.getByRole("status").textContent).toBe("Unsaved changes")
+    fireEvent.change(screen.getByRole("textbox", { name: "Name" }), { target: { value: "Javan QA" } })
+    expect(screen.getByRole("status").textContent).toBe("Saved")
+  })
+
+  test("each setting is labelled by its row", () => {
+    view()
+    expect(screen.getByRole("heading", { name: "General" })).toBeTruthy()
+    expect(screen.getByRole("heading", { name: "Logo" })).toBeTruthy()
+    expect(screen.getByText("Using the first letter for now")).toBeTruthy()
+    expect(screen.getByText("Upload a logo to replace it everywhere.")).toBeTruthy()
   })
 })
