@@ -73,7 +73,6 @@ let micTurnedOff: number
 let countdownResult: "done" | "cancel" | "unavailable"
 let countdowns: number
 let ui: Array<[number, boolean]>
-let popups: boolean[]
 let reviewTabs: number[]
 
 beforeEach(() => {
@@ -87,7 +86,6 @@ beforeEach(() => {
   countdownResult = "done"
   countdowns = 0
   ui = []
-  popups = []
   reviewTabs = []
   clock = 1000
   offscreenReply = (message) =>
@@ -130,7 +128,6 @@ beforeEach(() => {
       return countdownResult
     },
     showRecordingUi: async (tabId, on) => void ui.push([tabId, on]),
-    setActionPopup: async (on) => void popups.push(on),
     author: async () => "Dana",
     state,
     store,
@@ -152,6 +149,7 @@ describe("startVideoRecording", () => {
         draftId: "video-1",
         capture: { kind: "tab", streamId: "stream-7" },
         mic: false,
+        micDeviceId: null,
         maxBytes: 199_229_440,
       },
       { type: "bugberry:offscreen-begin" },
@@ -168,8 +166,8 @@ describe("startVideoRecording", () => {
       micOn: false,
       micAvailable: false,
       countdown: false,
+      source: "tab",
     })
-    expect(popups).toEqual([false])
     expect(ui).toEqual([[7, true]])
     expect(badges).toEqual([true])
     const draft = store.drafts.get("video-1")
@@ -185,6 +183,11 @@ describe("startVideoRecording", () => {
     expect(await recordingStatus(deps)).toEqual({ recording: true, draftId: "video-1", tabId: 7, startedAt: 1500 })
   })
 
+  test("the chosen microphone goes to the recorder", async () => {
+    await startVideoRecording(tab, { ...TAB_OPTIONS, micDeviceId: "abc" }, deps)
+    expect(sent[0]).toMatchObject({ type: "bugberry:offscreen-open", micDeviceId: "abc" })
+  })
+
   test("a screen recorded from a page that isn't a web page has no logs", async () => {
     const newTab = { ...tab, url: "chrome://newtab/" }
     let streamIds = 0
@@ -198,6 +201,7 @@ describe("startVideoRecording", () => {
       draftId: "video-1",
       capture: { kind: "display", surface: "monitor", systemAudio: true },
       mic: true,
+      micDeviceId: null,
       maxBytes: 1234,
     })
     expect(streamIds).toBe(0)
@@ -589,7 +593,7 @@ describe("recording controls", () => {
     expect(payload.events.map((event) => event.t)).toEqual([8000])
   })
 
-  test("Discard throws everything away and gives the icon its popup back", async () => {
+  test("Discard throws everything away", async () => {
     const controller = createRecordingController(deps)
     await controller.start(tab, TAB_OPTIONS)
     await controller.discard()
@@ -597,12 +601,59 @@ describe("recording controls", () => {
     expect(store.drafts.size).toBe(0)
     expect(state.peek()).toBeNull()
     expect(opened).toEqual([])
-    expect(popups).toEqual([false, true])
     expect(ui).toEqual([
       [7, true],
       [7, false],
     ])
     expect(badges).toEqual([true, false])
+  })
+
+  test("popupStatus reports source, time and counts", async () => {
+    deps.readPageCapture = async () => ({
+      status: "ok",
+      events: [
+        { kind: "console", t: 2000, level: "error", args: ["boom"] },
+        { kind: "network", t: 2100, method: "GET", url: "https://a.test/x", status: 404 },
+        { kind: "action", t: 2200, type: "click", target: "a" },
+        { kind: "action", t: 2300, type: "click", target: "b" },
+      ],
+      incomplete: [],
+    })
+    const controller = createRecordingController(deps)
+    expect(await controller.popupStatus()).toEqual({ recording: false })
+    await controller.start(tab, { ...TAB_OPTIONS, source: "screen" })
+    clock = 13_500
+    expect(await controller.popupStatus()).toEqual({
+      recording: true,
+      source: "screen",
+      tabId: 7,
+      elapsedMs: 12_000,
+      paused: false,
+      logs: true,
+      counts: { errors: 1, failedRequests: 1, actions: 2 },
+    })
+  })
+
+  test("popupStatus of a recording without logs says so", async () => {
+    const controller = createRecordingController(deps)
+    await controller.start({ ...tab, url: "chrome://newtab/" }, { ...TAB_OPTIONS, source: "screen" })
+    expect(await controller.popupStatus()).toMatchObject({ recording: true, logs: false, counts: { errors: 0, failedRequests: 0, actions: 0 } })
+  })
+
+  test("popupStatus while restarting is an empty take", async () => {
+    const controller = createRecordingController(deps)
+    await controller.start(tab, TAB_OPTIONS)
+    clock = 9000
+    await state.set({ ...(state.peek() as RecordingState), restarting: true })
+    expect(await controller.popupStatus()).toMatchObject({
+      recording: true,
+      elapsedMs: 0,
+      counts: { errors: 0, failedRequests: 0, actions: 0 },
+    })
+  })
+
+  test("old state without a source reads as a tab", () => {
+    expect(recordingStateFrom({ draftId: "d", tabId: 1, startedAt: 0 })?.source).toBe("tab")
   })
 
   test("Stop opens the review on the recorded tab", async () => {
@@ -611,7 +662,6 @@ describe("recording controls", () => {
     await controller.stop()
     expect(opened).toEqual(["video-1"])
     expect(reviewTabs).toEqual([7])
-    expect(popups).toEqual([false, true])
   })
 
   test("the microphone can be turned on mid-recording", async () => {

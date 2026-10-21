@@ -18,7 +18,15 @@ describe("capturePrefsFrom", () => {
       mic: false,
       systemAudio: true,
       countdown: true,
+      captureKind: "screenshot",
+      micDeviceId: null,
     })
+  })
+
+  test("old prefs without the new fields get their defaults", () => {
+    expect(capturePrefsFrom({ screenshotMode: "area" })).toMatchObject({ screenshotMode: "area", captureKind: "screenshot", micDeviceId: null })
+    expect(capturePrefsFrom({ captureKind: "record", micDeviceId: "abc" })).toMatchObject({ captureKind: "record", micDeviceId: "abc" })
+    expect(capturePrefsFrom({ captureKind: "nope", micDeviceId: 5 })).toMatchObject({ captureKind: "screenshot", micDeviceId: null })
   })
 
   test("each bad field falls back on its own", () => {
@@ -28,6 +36,8 @@ describe("capturePrefsFrom", () => {
       mic: false,
       systemAudio: true,
       countdown: true,
+      captureKind: "screenshot",
+      micDeviceId: null,
     })
   })
 })
@@ -38,7 +48,7 @@ describe("capture prefs storage", () => {
     const prefs = createCapturePrefsStorage(area)
     expect(await prefs.set({ mic: true })).toMatchObject({ mic: true, recordSource: "tab" })
     await prefs.set({ recordSource: "screen" })
-    expect(await prefs.get()).toEqual({ screenshotMode: "visible", recordSource: "screen", mic: true, systemAudio: true, countdown: true })
+    expect(await prefs.get()).toEqual({ ...DEFAULT_CAPTURE_PREFS, recordSource: "screen", mic: true })
     expect(Object.keys(area.items)).toEqual(["capturePrefs"])
   })
 })
@@ -48,6 +58,7 @@ describe("recordOptionsFor", () => {
     expect(recordOptionsFor({ ...DEFAULT_CAPTURE_PREFS, recordSource: "tab", systemAudio: true }, false)).toEqual({
       source: "window",
       mic: false,
+      micDeviceId: null,
       systemAudio: false,
       countdown: true,
     })
@@ -61,8 +72,13 @@ describe("recordOptionsFor", () => {
     expect(recordOptionsFor({ ...DEFAULT_CAPTURE_PREFS, recordSource: "screen", systemAudio: true, mic: true }, true)).toEqual({
       source: "screen",
       mic: true,
+      micDeviceId: null,
       systemAudio: true,
       countdown: true,
     })
+  })
+
+  test("recordOptionsFor carries the microphone id", () => {
+    expect(recordOptionsFor({ ...DEFAULT_CAPTURE_PREFS, micDeviceId: "abc" }, true).micDeviceId).toBe("abc")
   })
 })

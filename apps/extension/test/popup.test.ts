@@ -1,6 +1,19 @@
 import { describe, expect, test } from "bun:test"
 import { ApiError } from "../lib/api"
-import { canDelete, draftNote, isSignedOut, recordStartNote, replyResult, uncapturableNote } from "../lib/popup"
+import { DEFAULT_CAPTURE_PREFS } from "../lib/capture-prefs"
+import {
+  canDelete,
+  captureCopy,
+  choiceOf,
+  controlError,
+  countText,
+  draftNote,
+  isSignedOut,
+  recordingLabel,
+  recordStartNote,
+  replyResult,
+  uncapturableNote,
+} from "../lib/popup"
 import type { ReportDraft } from "../lib/types"
 
 const draft = (status: ReportDraft["status"]) => ({ id: "d1", status }) as ReportDraft
@@ -53,5 +66,74 @@ describe("recordStartNote", () => {
     expect(recordStartNote("tab", "chrome://newtab/")).toBe("This page can't be recorded. Open a regular web page (http/https).")
     expect(recordStartNote("screen", "chrome://newtab/")).toBeNull()
     expect(recordStartNote("tab", "https://app.kantor.test/")).toBeNull()
+  })
+})
+
+describe("popup copy", () => {
+  test("screenshots", () => {
+    expect(captureCopy({ kind: "screenshot", mode: "visible" }, null, true)).toEqual({
+      caption: "Capture visible area",
+      info: null,
+      footer: "Console and network attached",
+    })
+    expect(captureCopy({ kind: "screenshot", mode: "area" }, null, true).caption).toBe("Select an area")
+  })
+
+  test("a tab, without and with a microphone", () => {
+    expect(captureCopy({ kind: "record", source: "tab" }, null, true)).toEqual({
+      caption: "Record this tab",
+      info: "Only this tab is recorded. Other tabs and apps stay private.",
+      footer: "Console and network attached",
+    })
+    expect(captureCopy({ kind: "record", source: "tab" }, "Realtek Audio", true).info).toBe(
+      "Only this tab is recorded, with your voice from Realtek Audio. Other tabs and apps stay private.",
+    )
+  })
+
+  test("a screen and a window", () => {
+    expect(captureCopy({ kind: "record", source: "screen" }, null, true)).toEqual({
+      caption: "Record your screen",
+      info: "Your browser asks which screen to share. Logs come from this tab only.",
+      footer: "Logs from this tab only",
+    })
+    expect(captureCopy({ kind: "record", source: "window" }, null, true)).toEqual({
+      caption: "Record a window",
+      info: "Your browser asks which window to share. Logs come from this tab only.",
+      footer: "Logs from this tab only",
+    })
+  })
+
+  test("a page without logs says so in the footer", () => {
+    expect(captureCopy({ kind: "screenshot", mode: "visible" }, null, false).footer).toBe("Logs aren't available on this page")
+    expect(captureCopy({ kind: "record", source: "screen" }, null, false).footer).toBe("Logs aren't available on this page")
+  })
+
+  test("what is being recorded", () => {
+    expect(recordingLabel("tab", true)).toBe("Recording this tab")
+    expect(recordingLabel("tab", false)).toBe("Recording another tab")
+    expect(recordingLabel("screen", true)).toBe("Recording your screen")
+    expect(recordingLabel("window", false)).toBe("Recording a window")
+  })
+
+  test("counts", () => {
+    expect(countText(1, "error", "errors")).toBe("1 error")
+    expect(countText(0, "error", "errors")).toBe("0 errors")
+    expect(countText(9, "action", "actions")).toBe("9 actions")
+  })
+
+  test("the chosen row and tile", () => {
+    expect(choiceOf(DEFAULT_CAPTURE_PREFS, true)).toEqual({ kind: "screenshot", mode: "visible" })
+    expect(choiceOf({ ...DEFAULT_CAPTURE_PREFS, captureKind: "record", recordSource: "screen" }, true)).toEqual({ kind: "record", source: "screen" })
+    expect(choiceOf({ ...DEFAULT_CAPTURE_PREFS, captureKind: "record", recordSource: "tab" }, false)).toEqual({ kind: "record", source: "window" })
+  })
+})
+
+describe("controlError", () => {
+  test("only a real failure is reported", () => {
+    expect(controlError(undefined)).toBeNull()
+    expect(controlError({ ok: true, draftId: "d" })).toBeNull()
+    // Discard answers "cancelled": that is the recording thrown away, as asked.
+    expect(controlError({ ok: false, code: "cancelled", error: "Discarded" })).toBeNull()
+    expect(controlError({ ok: false, error: "No recording is running" })).toBe("No recording is running")
   })
 })

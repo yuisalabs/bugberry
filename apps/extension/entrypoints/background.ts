@@ -17,6 +17,7 @@ import {
   isBridgeUseServerRequest,
   isPageFlush,
   isPageStart,
+  isPopupRecordingRequest,
   isRecorderReadyNotice,
   isRecordingEndedNotice,
   isRecordStartRequest,
@@ -25,13 +26,14 @@ import {
   isScreenshotRequest,
   isUiStateRequest,
   type PageUiMessage,
+  type PopupRecordingAction,
   type RecordOptions,
 } from "../lib/messages"
 import { createRecordingController, type RecordingFlowDeps } from "../lib/recording-flow"
 import { createWindowRecorderHost, onRecorderClosed } from "../lib/recorder-window"
 import { openSessionToContentScripts } from "../lib/session-access"
 import { createReviewOpener } from "../lib/review-opener"
-import { fromExtensionPage, ofThisRecording } from "../lib/sender-rules"
+import { fromExtensionPage, fromPopup, ofThisRecording } from "../lib/sender-rules"
 import { createTakeAgain } from "../lib/take-again"
 import { isBugBerryServer } from "../lib/session"
 import { cropBox, pickArea } from "../lib/select-area"
@@ -247,9 +249,6 @@ export default defineBackground(() => {
       await toPage(tabId, { type: "bugberry:ui-recording", on, session }).catch(() => {})
     },
     openReview,
-    setActionPopup: async (on) => {
-      await browser.action.setPopup({ popup: on ? "popup.html" : "" })
-    },
     author,
     micUnavailable: async () => void (await capturePrefsStorage.set({ mic: false })),
     state: browserRecordingState,
@@ -285,7 +284,7 @@ export default defineBackground(() => {
   /** Without options (the shortcut) the popup's stored choices apply. */
   const record = async (tab: ActiveTab | null, options?: RecordOptions): Promise<CaptureResult> => {
     if (!tab) return { ok: false, error: "No active tab" }
-    const picked = options ? { ...options, recordSource: options.source } : await capturePrefsStorage.get()
+    const picked = options ? { ...options, recordSource: options.source, micDeviceId: options.micDeviceId ?? null } : await capturePrefsStorage.get()
     const chosen = recordOptionsFor(picked, tabRecorder)
     return flagFailure(tab.id, await recordings.start(tab, { ...chosen, maxBytes: await recordingBudget() }))
   }
@@ -358,6 +357,31 @@ export default defineBackground(() => {
     }
   }
 
+  /** The popup's view of a running recording, and the bar's controls from there. */
+  const popupAction = (action: PopupRecordingAction): Promise<unknown> => {
+    switch (action) {
+      case "status":
+        return recordings.popupStatus()
+      case "pause":
+        return recordings.pause()
+      case "resume":
+        return recordings.resume()
+      case "restart":
+        return restartFromPopup()
+      case "discard":
+        return recordings.discard()
+      case "stop":
+        return stopRecording()
+    }
+  }
+
+  /** The popup closes as the new take counts down, so a failed Restart goes on the badge. */
+  const restartFromPopup = async (): Promise<CaptureResult> => {
+    const status = await recordings.status()
+    const result = await recordings.restart()
+    return status.recording ? flagFailure(status.tabId, result) : result
+  }
+
   // Firefox: the reporter closed the recorder window. Before a source was picked the open is cancelled (the
   // host answers it); mid-recording the take is gone, and the recorded tab says so.
   if (windowHost) {
@@ -418,6 +442,9 @@ export default defineBackground(() => {
         ),
       )
     }
+    if (isPopupRecordingRequest(message)) {
+      return fromPopup(sender, browser.runtime.id, extensionOrigin) ? reply(popupAction(message.action)) : undefined
+    }
     if (isRecordStatusRequest(message)) return reply(recordings.status())
     // Only the recorded tab counts; flush scripts in other tabs also see that a recording runs.
     if (isPageStart(message)) {
@@ -440,12 +467,9 @@ export default defineBackground(() => {
     else if (command === "stop-recording") await stopRecording()
   })
 
-  // While recording the icon has no popup, so a click (or Ctrl+Shift+K) lands here: it stops the recording.
-  browser.action.onClicked.addListener(() => void stopRecording())
-  // A worker that starts with no recording running gives the icon its popup back (a crash mid-recording).
-  void browserRecordingState.get().then((state) => {
-    if (!state) void browser.action.setPopup({ popup: "popup.html" }).catch(() => {})
-  })
+  // The icon always opens the popup, also during a recording (it shows the recording's controls). Older
+  // versions took the popup away while recording; this gives it back to a browser they left without one.
+  void browser.action.setPopup({ popup: "popup.html" }).catch(() => {})
 
   // Older versions kept a token next to the server; the dashboard's sign-in replaces it.
   browser.runtime.onInstalled.addListener(() => void browserSettingsStorage.removeLegacyToken())

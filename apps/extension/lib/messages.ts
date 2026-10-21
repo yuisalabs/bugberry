@@ -12,6 +12,8 @@ export interface ScreenshotRequest {
 export interface RecordOptions {
   source: RecordSource
   mic: boolean
+  /** The microphone to record from; null or absent is the system's default one. */
+  micDeviceId?: string | null
   systemAudio: boolean
   countdown: boolean
 }
@@ -56,7 +58,7 @@ export type CaptureSource =
  * recording after the countdown. `maxBytes`: the recording ends by itself once the video reaches it.
  */
 export type OffscreenMessage =
-  | { type: "bugberry:offscreen-open"; draftId: string; capture: CaptureSource; mic: boolean; maxBytes: number }
+  | { type: "bugberry:offscreen-open"; draftId: string; capture: CaptureSource; mic: boolean; micDeviceId: string | null; maxBytes: number }
   | { type: "bugberry:offscreen-begin" }
   | { type: "bugberry:offscreen-pause" }
   | { type: "bugberry:offscreen-resume" }
@@ -110,6 +112,7 @@ function isRecordOptions(value: unknown): value is RecordOptions {
   return (
     (options.source === "tab" || options.source === "screen" || options.source === "window") &&
     typeof options.mic === "boolean" &&
+    (options.micDeviceId === undefined || options.micDeviceId === null || typeof options.micDeviceId === "string") &&
     typeof options.systemAudio === "boolean" &&
     typeof options.countdown === "boolean"
   )
@@ -147,6 +150,7 @@ export function isOffscreenMessage(message: unknown): message is OffscreenMessag
     typeof field(message, "draftId") === "string" &&
     isCaptureSource(field(message, "capture")) &&
     typeof field(message, "mic") === "boolean" &&
+    (field(message, "micDeviceId") === null || typeof field(message, "micDeviceId") === "string") &&
     typeof maxBytes === "number" &&
     Number.isFinite(maxBytes) &&
     maxBytes > 0
@@ -253,6 +257,20 @@ export function isBarRequest(message: unknown): message is BarRequest {
   if (type !== null && BARE_BAR.has(type)) return true
   if (type === "bugberry:record-mic") return typeof field(message, "on") === "boolean"
   return type === "bugberry:record-note" && typeof field(message, "text") === "string"
+}
+
+export type PopupRecordingAction = "status" | "pause" | "resume" | "restart" | "discard" | "stop"
+
+/** The toolbar popup → background, while a recording runs: its status, or one of the bar's controls. */
+export interface PopupRecordingRequest {
+  type: "bugberry:popup-recording"
+  action: PopupRecordingAction
+}
+
+const POPUP_ACTIONS: readonly string[] = ["status", "pause", "resume", "restart", "discard", "stop"]
+
+export function isPopupRecordingRequest(message: unknown): message is PopupRecordingRequest {
+  return typeOf(message) === "bugberry:popup-recording" && POPUP_ACTIONS.includes(field(message, "action") as string)
 }
 
 /** The review → background: delete this draft and take it again ("Record again", "Retake"). */

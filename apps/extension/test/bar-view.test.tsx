@@ -8,7 +8,6 @@ const RUNNING = { recording: true, elapsedMs: 42_000, paused: false, errors: 2, 
 function view(overrides: Partial<BarViewProps> = {}) {
   const props: BarViewProps = {
     status: RUNNING,
-    mac: false,
     drawing: false,
     tool: "pen",
     onPause: mock(),
@@ -121,14 +120,11 @@ describe("controls", () => {
     expect(props.onClear).toHaveBeenCalledTimes(1)
   })
 
-  test("Stop, and how to stop with the keyboard", () => {
-    const { props, unmount } = view()
+  test("Stop, with no stop shortcut hint", () => {
+    const { props } = view()
     fireEvent.click(button("Stop"))
     expect(props.onStop).toHaveBeenCalledTimes(1)
-    expect(screen.getByText("Press Ctrl+Shift+K again to stop")).toBeTruthy()
-    unmount()
-    view({ mac: true })
-    expect(screen.getByText("Press ⌘⇧K again to stop")).toBeTruthy()
+    expect(screen.queryByText(/to stop/)).toBeNull()
   })
 })
 

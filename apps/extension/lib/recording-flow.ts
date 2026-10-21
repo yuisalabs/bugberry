@@ -2,9 +2,10 @@ import { type CaptureEvent, DEBUGGER_PAYLOAD_VERSION, type DebuggerPayload, reda
 import { type ActiveTab, type CaptureResult, capturable, pagePayloadFor, sanitizePageCapture } from "./capture-flow"
 import { deviceInfoFrom } from "./device"
 import type { DraftStore } from "./draft-store"
+import type { RecordSource } from "./capture-prefs"
 import type { CaptureSource, OffscreenMessage, RecordOptions } from "./messages"
 import { capPages, mergePages, type PageCaptureRecord } from "./page-merge"
-import { applyPauses, errorsCaught, keptEvents, type PauseSpan, pauseMarks, videoTime } from "./review-data"
+import { applyPauses, errorsCaught, keptEvents, type LiveCounts, liveCounts, type PauseSpan, pauseMarks, videoTime } from "./review-data"
 import type { VideoDraft } from "./types"
 
 export type { RecordOptions } from "./messages"
@@ -27,6 +28,8 @@ export interface RecordingState {
   countdown: boolean
   /** Between a Restart and its new take: the bar shows a fresh, empty take. */
   restarting?: boolean
+  /** What is being recorded, for the popup's "Recording this tab". */
+  source: RecordSource
 }
 
 /** Kept in storage.session, so a recording survives the service worker going to sleep. */
@@ -39,6 +42,11 @@ export interface RecordingStateStore {
 export type RecordingStatus =
   | { recording: false }
   | { recording: true; draftId: string; tabId: number; startedAt: number }
+
+/** What the popup shows while a recording runs. */
+export type PopupRecordingStatus =
+  | { recording: false }
+  | { recording: true; source: RecordSource; tabId: number; elapsedMs: number; paused: boolean; logs: boolean; counts: LiveCounts }
 
 /** What the Recording Bar shows. */
 export interface BarStatus {
@@ -67,8 +75,6 @@ export interface RecordingFlowDeps {
   showRecordingUi(tabId: number, on: boolean): Promise<void>
   /** The review modal over the tab, or in a tab of its own when the page can't show it. */
   openReview(draftId: string, tabId: number): Promise<void>
-  /** Off while recording, so a click on the icon (or Ctrl+Shift+K) stops instead of opening the popup. */
-  setActionPopup(on: boolean): Promise<void>
   /** The signed-in name written on notes; "" when unknown. */
   author(): Promise<string>
   /** Brings the recorded tab's window to the front once the source is open (Firefox's recorder window took focus). */
@@ -108,6 +114,7 @@ export function recordingStateFrom(value: unknown): RecordingState | null {
     micAvailable: state.micAvailable === true,
     countdown: state.countdown === true,
     restarting: state.restarting === true,
+    source: state.source === "screen" || state.source === "window" ? state.source : "tab",
   }
 }
 
@@ -233,7 +240,7 @@ export async function startVideoRecording(
   let opened: OffscreenReply
   try {
     await deps.ensureOffscreen()
-    opened = await ask(deps, { type: "bugberry:offscreen-open", draftId: draft.id, capture, mic: options.mic, maxBytes: options.maxBytes })
+    opened = await ask(deps, { type: "bugberry:offscreen-open", draftId: draft.id, capture, mic: options.mic, micDeviceId: options.micDeviceId ?? null, maxBytes: options.maxBytes })
   } catch (error) {
     opened = { ok: false, error: messageOf(error) }
   }
@@ -269,9 +276,9 @@ export async function startVideoRecording(
     micOn: opened.micOn === true,
     micAvailable: opened.micAvailable,
     countdown: options.countdown,
+    source: options.source,
   })
   await deps.setBadge(true)
-  await deps.setActionPopup(false)
   await deps.showRecordingUi(tab.id, true)
   return { ok: true, draftId: draft.id }
 }
@@ -338,7 +345,6 @@ export async function discardRecording(deps: RecordingFlowDeps): Promise<Capture
   await deps.setBadge(false)
   await abandon(state.draftId, deps)
   await deps.showRecordingUi(state.tabId, false)
-  await deps.setActionPopup(true)
   return { ok: false, code: "cancelled", error: "Discarded" }
 }
 
@@ -364,7 +370,6 @@ export async function stopVideoRecording(deps: RecordingFlowDeps): Promise<Captu
   await deps.state.clear()
   await deps.setBadge(false)
   await deps.showRecordingUi(state.tabId, false)
-  await deps.setActionPopup(true)
 
   const reply = await ask(deps, { type: "bugberry:offscreen-stop" })
   await deps.closeOffscreen()
@@ -433,7 +438,10 @@ export interface RecordingController {
   restart(): Promise<CaptureResult>
   discard(): Promise<CaptureResult>
   barStatus(): Promise<BarStatus>
+  popupStatus(): Promise<PopupRecordingStatus>
 }
+
+const NO_COUNTS: LiveCounts = { errors: 0, failedRequests: 0, actions: 0 }
 
 const QUIET: BarStatus = { recording: false, elapsedMs: 0, paused: false, errors: 0, micOn: false, micAvailable: false }
 
@@ -489,6 +497,20 @@ export function createRecordingController(deps: RecordingFlowDeps): RecordingCon
         errors,
         micOn: state.micOn,
         micAvailable: state.micAvailable,
+      }
+    },
+    popupStatus: async () => {
+      const state = await deps.state.get()
+      if (!state) return { recording: false }
+      const base = { recording: true as const, source: state.source, tabId: state.tabId, logs: state.logs }
+      if (state.restarting) return { ...base, elapsedMs: 0, paused: false, counts: NO_COUNTS }
+      const now = deps.now()
+      const pauses = pausesUntil(state, now)
+      return {
+        ...base,
+        elapsedMs: videoTime(now, state.startedAt, pauses),
+        paused: state.pausedAt !== null,
+        counts: state.logs ? liveCounts(await liveEvents(state), state.startedAt, pauses) : NO_COUNTS,
       }
     },
   }

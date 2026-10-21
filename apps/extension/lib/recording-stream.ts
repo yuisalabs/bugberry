@@ -6,7 +6,8 @@ export interface StreamDeps {
   tabStream(streamId: string): Promise<MediaStream>
   /** Chrome's share picker; rejects with NotAllowedError when the reporter cancels it. */
   displayStream(surface: "monitor" | "window", systemAudio: boolean): Promise<MediaStream>
-  micStream(): Promise<MediaStream>
+  /** The chosen microphone, or the default one for null. */
+  micStream(deviceId: string | null): Promise<MediaStream>
   /** Plays a captured tab's sound to the speakers: Chrome mutes a captured tab otherwise. Returns a stop function. */
   playBack(stream: MediaStream): () => void
   /** One audio track from the sound of every stream. */
@@ -33,7 +34,12 @@ function isCancel(error: unknown): boolean {
 }
 
 /** The stream to record: the source's video plus one mixed audio track, when there is any sound. */
-export async function openRecordingStream(capture: CaptureSource, mic: boolean, deps: StreamDeps): Promise<OpenedStream> {
+export async function openRecordingStream(
+  capture: CaptureSource,
+  mic: boolean,
+  deps: StreamDeps,
+  micDeviceId: string | null = null,
+): Promise<OpenedStream> {
   let source: MediaStream
   let stopPlayback = () => {}
   if (capture.kind === "tab") {
@@ -50,7 +56,7 @@ export async function openRecordingStream(capture: CaptureSource, mic: boolean, 
 
   // Opened even when off, muted, so it can be turned on mid-recording. A microphone that is blocked,
   // unplugged or busy must not cost the reporter the recording.
-  const micSource = await deps.micStream().catch(() => null)
+  const micSource = await deps.micStream(micDeviceId).catch(() => null)
   const setMic = (on: boolean) => {
     if (!micSource) return false
     for (const track of micSource.getAudioTracks()) track.enabled = on

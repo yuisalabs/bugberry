@@ -99,3 +99,19 @@ export function reviewMarkers(events: readonly CaptureEvent[], startedAt: number
 export function errorsCaught(events: readonly CaptureEvent[], since: number, pauses: readonly PauseSpan[]): number {
   return events.filter((event) => event.t >= since && !pausedAt(event.t, pauses) && (isFailed(event) || isError(event))).length
 }
+
+export interface LiveCounts {
+  errors: number
+  failedRequests: number
+  actions: number
+}
+
+/** The popup's live counts, each on its own: since the start, leaving out paused moments. */
+export function liveCounts(events: readonly CaptureEvent[], since: number, pauses: readonly PauseSpan[]): LiveCounts {
+  const kept = keptEvents(events, since, pauses)
+  return {
+    errors: kept.filter(isError).length,
+    failedRequests: kept.filter(isFailed).length,
+    actions: kept.filter((event) => event.kind === "action").length,
+  }
+}

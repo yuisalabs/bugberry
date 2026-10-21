@@ -28,7 +28,6 @@ export function App({ session }: { session: string }) {
   const [drawing, setDrawing] = useState(false)
   const [tool, setTool] = useState<DrawTool>("pen")
   const channel = useRef<BroadcastChannel | null>(null)
-  const mac = /Mac/i.test(navigator.platform)
 
   useEffect(() => {
     channel.current = new BroadcastChannel(`bugberry-rec-${session}`)
@@ -74,7 +73,6 @@ export function App({ session }: { session: string }) {
   return (
     <BarView
       status={status}
-      mac={mac}
       drawing={drawing}
       tool={tool}
       onPause={() => act({ type: "bugberry:record-pause", session }, { paused: true })}

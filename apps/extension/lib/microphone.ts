@@ -10,12 +10,62 @@ export async function micAccess(query: (name: "microphone") => Promise<{ state: 
   }
 }
 
-/** The default microphone's name as the popup shows it; Chrome hides names until permission is granted. */
-export function micDeviceLabel(devices: Array<{ kind: string; deviceId: string; label: string }>): string {
-  const inputs = devices.filter((device) => device.kind === "audioinput")
-  const chosen = inputs.find((device) => device.deviceId === "default") ?? inputs[0]
-  const label = chosen?.label.replace(/^Default - /, "").trim()
-  return label || "Microphone"
+export type MicKind = "built-in" | "headset" | "usb" | "other"
+
+/** A microphone as the popup's picker shows it. */
+export interface MicDevice {
+  id: string
+  name: string
+  /** The line under the name: "Realtek(R) Audio · built-in", "Bluetooth headset". */
+  detail: string
+  /** The chip's name: "Realtek Audio". */
+  short: string
+  kind: MicKind
+}
+
+const USB_ID = /^[0-9a-f]{4}:[0-9a-f]{4}$/i
+/** Chrome's own entries, which repeat a real device under another id. */
+const PSEUDO = new Set(["default", "communications"])
+
+function kindOf(label: string): MicKind {
+  if (/bluetooth|airpods|headset|hands-free|buds/i.test(label)) return "headset"
+  if (/usb|yeti|[0-9a-f]{4}:[0-9a-f]{4}/i.test(label)) return "usb"
+  if (/array|built-in|internal|macbook/i.test(label)) return "built-in"
+  return "other"
+}
+
+function micDevice(deviceId: string, rawLabel: string): MicDevice {
+  const label = rawLabel.replace(/^Default - /, "").trim()
+  const grouped = /^(.*?)\s*\((.*)\)$/.exec(label)
+  const name = grouped?.[1] || label
+  const inner = grouped?.[2]
+  const part = inner && !USB_ID.test(inner) ? inner : null
+  const kind = kindOf(label)
+  const detail =
+    kind === "built-in" ? (part ? `${part} · built-in` : "Built-in") : kind === "headset" ? "Bluetooth headset" : kind === "usb" ? "USB microphone" : (part ?? "")
+  const short =
+    kind === "built-in" && part
+      ? part
+          .replace(/\((R|TM)\)|®|™/g, "")
+          .replace(/\s+/g, " ")
+          .trim()
+      : name
+  return { id: deviceId, name, detail, short, kind }
+}
+
+/**
+ * The microphones to choose from, and which one the system uses by default. Chrome hides the labels until
+ * the microphone may be used: then there is nothing to show.
+ */
+export function micDevices(devices: Array<{ kind: string; deviceId: string; groupId: string; label: string }>): {
+  devices: MicDevice[]
+  defaultId: string | null
+} {
+  const inputs = devices.filter((device) => device.kind === "audioinput" && device.label.trim() !== "")
+  const real = inputs.filter((device) => !PSEUDO.has(device.deviceId))
+  const fallback = inputs.find((device) => device.deviceId === "default")
+  const chosen = (fallback && real.find((device) => device.groupId === fallback.groupId)) ?? real[0]
+  return { devices: real.map((device) => micDevice(device.deviceId, device.label)), defaultId: chosen?.deviceId ?? null }
 }
 
 /** "Mic on" only while BugBerry may still use the microphone; a revoked permission shows as "Mic off". */
