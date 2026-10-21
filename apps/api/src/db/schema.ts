@@ -1,12 +1,13 @@
 import {
   CAPTURE_TYPES,
+  type ConnectionSettings,
   type DebuggerSummary,
   type DeviceInfo,
   PRIORITIES,
   REPORT_STATUSES,
   INTEGRATION_PROVIDERS,
-  type IntegrationConfig,
   UPLOAD_STATUSES,
+  type UseTarget,
   VISIBILITIES,
   WORKSPACE_ROLES,
 } from "@bugberry/shared"
@@ -332,6 +333,27 @@ export const reportActivity = pgTable(
   (table) => [index("report_activity_report_created_idx").on(table.reportId, table.createdAt)],
 )
 
+/** An account or channel a workspace admin connected once; projects use it through `integration` rows. */
+export const connection = pgTable(
+  "connection",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    provider: integrationProviderEnum("provider").notNull(),
+    name: text("name").notNull(),
+    /** The account's address or login; shown to admins, never to members. */
+    settings: jsonb("settings").$type<ConnectionSettings>().notNull().default({}),
+    /** AES-256-GCM ciphertext from SecretBox; never returned by the API. */
+    secretEncrypted: text("secret_encrypted").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [index("connection_workspace_idx").on(table.workspaceId)],
+)
+
+/** A project's use of a connection: where it sends (`config` holds only the target) and how. */
 export const integration = pgTable(
   "integration",
   {
@@ -339,10 +361,14 @@ export const integration = pgTable(
     projectId: text("project_id")
       .notNull()
       .references(() => project.id, { onDelete: "cascade" }),
+    connectionId: text("connection_id")
+      .notNull()
+      .references(() => connection.id, { onDelete: "cascade" }),
+    /** Copied from the connection, so tracker and notifier filters need no join. */
     provider: integrationProviderEnum("provider").notNull(),
-    config: jsonb("config").$type<IntegrationConfig>().notNull(),
-    /** AES-256-GCM ciphertext from SecretBox; never returned by the API. */
-    secretEncrypted: text("secret_encrypted").notNull(),
+    config: jsonb("config").$type<UseTarget>().notNull(),
+    /** targetKey() of the config; one use per (project, connection, key). */
+    targetKey: text("target_key").notNull(),
     autoSend: boolean("auto_send").notNull().default(false),
     /** A notification channel's last failed delivery, cleared by the next one that works. */
     lastError: text("last_error"),
@@ -350,7 +376,10 @@ export const integration = pgTable(
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (table) => [index("integration_project_idx").on(table.projectId)],
+  (table) => [
+    index("integration_project_idx").on(table.projectId),
+    uniqueIndex("integration_project_connection_target_idx").on(table.projectId, table.connectionId, table.targetKey),
+  ],
 )
 
 /**
@@ -364,9 +393,10 @@ export const reportExternalLink = pgTable(
     reportId: text("report_id")
       .notNull()
       .references(() => report.id, { onDelete: "cascade" }),
-    integrationId: text("integration_id")
-      .notNull()
-      .references(() => integration.id, { onDelete: "cascade" }),
+    /** Null once the use (or its connection) is gone; the link and its issue stay. */
+    integrationId: text("integration_id").references(() => integration.id, { onDelete: "set null" }),
+    /** Kept with the link so its issue still reads "GitHub #42" after the use is gone. */
+    provider: integrationProviderEnum("provider"),
     externalId: text("external_id"),
     externalUrl: text("external_url"),
     error: text("error"),
