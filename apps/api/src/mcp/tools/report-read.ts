@@ -153,17 +153,20 @@ export function registerReportReadTools(server: McpServer, ctx: McpContext): voi
       runTool(async () => {
         const resolved = await resolveReportRef(ctx, ref, workspace)
         requireMemberAccess(resolved)
-        const comments = await createCommentsService(ctx.deps).list(ctx.caller.user, resolved.id)
+        const comments = (await createCommentsService(ctx.deps).list(ctx.caller.user, resolved.id)).flatMap((thread) => [
+          thread,
+          ...thread.replies,
+        ])
         if (comments.length === 0) return textResult("No comments yet.", { comments: [] })
         const lines = comments.map((item) => {
           const names = new Map(item.mentions.map((person) => [person.id, person.name]))
           const via = item.viaAgent ? ` (via ${item.viaAgent})` : ""
-          return `[${item.id}] ${item.author.name}${via} · ${item.createdAt.toISOString()}\n${clip(renderMentions(item.body, names))}`
+          return `[${item.id}] ${item.author?.name ?? "(deleted comment)"}${via} · ${item.createdAt.toISOString()}\n${clip(renderMentions(item.body, names))}`
         })
         return textResult(lines.join("\n\n"), {
           comments: comments.map((item) => ({
             id: item.id,
-            author: item.author.name,
+            author: item.author?.name ?? "(deleted comment)",
             viaAgent: item.viaAgent,
             createdAt: item.createdAt.toISOString(),
             body: renderMentions(item.body, new Map(item.mentions.map((person) => [person.id, person.name]))),
