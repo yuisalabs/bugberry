@@ -9,6 +9,7 @@ import {
   isTrackerProvider,
   type JiraConfig,
   type LinearConfig,
+  type NotifierConfig,
   PROVIDER_LABELS,
   type TrackerConfig,
 } from "@bugberry/shared"
@@ -23,6 +24,8 @@ import { createSecretBox, SECRET_UNREADABLE, SecretError } from "../../lib/secre
 import { requireProjectRole } from "../../workspaces/access"
 import { TrackerError } from "../../lib/trackers/providers"
 import { trackerFactoryFor } from "../../lib/trackers/default"
+import { notifierFactoryFor } from "../../lib/notifiers/deliver"
+import { testMessage } from "../../lib/notifiers/message"
 import { createHostGuard, HostGuardError, PRIVATE_HOST_MESSAGE } from "../../lib/net/host-guard"
 
 const labels = t.Array(t.String({ minLength: 1, maxLength: 50 }), { maxItems: 10 })
@@ -204,6 +207,7 @@ export function integrationsModule(deps: AppDeps) {
   const { db } = deps
   const box = createSecretBox(deps.config.encryptionKey)
   const trackers = trackerFactoryFor(deps)
+  const notifiers = notifierFactoryFor(deps)
   const guard = createHostGuard({ allowPrivate: deps.config.allowPrivateIntegrationHosts })
   /** Refuses settings whose addresses point into a private network (unless the server allows it). */
   const checkAddresses = async (config: IntegrationConfig) => {
@@ -311,8 +315,13 @@ export function integrationsModule(deps: AppDeps) {
           throw error
         }
         try {
-          if (!isTrackerProvider(row.provider)) throw new TrackerError("This integration cannot be tested yet")
-          await trackers(row.provider, row.config as TrackerConfig, secret).test()
+          if (isTrackerProvider(row.provider)) {
+            await trackers(row.provider, row.config as TrackerConfig, secret).test()
+          } else {
+            // A notifier is tested by posting one message: no retries, so the admin sees the answer at once.
+            const [owner] = await db.select({ name: project.name }).from(project).where(eq(project.id, params.id)).limit(1)
+            await notifiers(row.provider, row.config as NotifierConfig, secret).send(testMessage(owner?.name ?? "", deps.config.appUrl))
+          }
         } catch (error) {
           throw unprocessable("integration_test_failed", error instanceof TrackerError ? error.message : "The connection test failed")
         }

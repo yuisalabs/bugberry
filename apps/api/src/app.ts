@@ -27,6 +27,7 @@ import { invitationsModule } from "./modules/invitations"
 import { joinModule } from "./modules/join"
 import { notificationsModule } from "./modules/notifications"
 import type { EmailSender } from "./email/sender"
+import type { NotifierFactory } from "./lib/notifiers/channels"
 import type { StorageDriver } from "./storage/types"
 
 export interface AppDeps {
@@ -36,6 +37,8 @@ export interface AppDeps {
   betterAuth: Auth
   /** Builds tracker clients; tests pass a fake, production uses real HTTP. */
   trackers?: TrackerFactory
+  /** Builds notification channel clients (Slack, Discord, Telegram, webhook); tests pass a fake. */
+  notifiers?: NotifierFactory
   /** Sends invitation emails; tests pass a fake. Defaults to the configured driver. */
   email?: EmailSender | null
   /** Receives work started in the background (auto-send after finalize); tests use it to wait for it. */

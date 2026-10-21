@@ -23,6 +23,7 @@ import { createUploadBody } from "./model"
 import { afterFinalize } from "./after-finalize"
 import { claimReportNumber } from "./numbers"
 import { trackerFactoryFor } from "../../lib/trackers/default"
+import { notifyNewReport } from "../../lib/notifiers/deliver"
 
 const UPLOAD_SESSIONS_PER_MINUTE = 30
 
@@ -177,7 +178,11 @@ export function reportUploadsModule(deps: AppDeps) {
             .where(eq(report.id, row.id))
         })
         // In the background: a slow tracker must not delay the extension.
-        afterFinalize(deps, row.id, () => dispatcher.autoSend(row.id))
+        afterFinalize(deps, row.id, async () => {
+          // Each on its own: a tracker that fails must not keep the channels from hearing about the report.
+          await dispatcher.autoSend(row.id).catch((error) => console.error("auto-send failed", { reportId: row.id, error }))
+          await notifyNewReport(deps, row.id).catch((error) => console.error("notify failed", { reportId: row.id, error }))
+        })
         return { id: row.id, uploadStatus: "ready" as const, ...linksFor(row) }
       },
       { auth: true },
