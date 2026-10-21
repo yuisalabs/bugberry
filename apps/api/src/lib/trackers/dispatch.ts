@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm"
+import { and, eq, inArray, sql } from "drizzle-orm"
 import type { Config } from "../../config"
 import type { Db } from "../../db/client"
 import { integration, report, reportExternalLink } from "../../db/schema"
@@ -10,7 +10,7 @@ import { buildIssueContent } from "./content"
 import { type ActivityActor, recordActivity } from "../../modules/activity/service"
 import { readTopErrors } from "./debugger-errors"
 import { type TrackerFactory, TrackerError } from "./providers"
-import { isTrackerProvider, type TrackerConfig } from "@bugberry/shared"
+import { isTrackerProvider, TRACKER_PROVIDERS, type TrackerConfig } from "@bugberry/shared"
 
 export interface TrackerLink {
   integrationId: string
@@ -76,7 +76,8 @@ export function createDispatcher(deps: { config: Config; db: Db; storage: Storag
       .from(integration)
       .where(and(eq(integration.id, integrationId), eq(integration.projectId, row.projectId)))
       .limit(1)
-    if (!target) throw notFound("integration_not_found", "Integration not found")
+    // A notification channel is no tracker: from here it does not exist.
+    if (!target || !isTrackerProvider(target.provider)) throw notFound("integration_not_found", "Integration not found")
 
     // Built before claiming, so only the bounded tracker request runs while the link is locked.
     const errors = row.debuggerKey ? await readTopErrors(deps.storage, row.debuggerKey) : []
@@ -117,7 +118,6 @@ export function createDispatcher(deps: { config: Config; db: Db; storage: Storag
       return finish({ error: SECRET_UNREADABLE })
     }
     try {
-      if (!isTrackerProvider(target.provider)) throw new TrackerError("This integration does not create issues")
       const issue = await deps.trackers(target.provider, target.config as TrackerConfig, secret).createIssue(content)
       const link = await finish({ externalId: issue.externalId, externalUrl: issue.url, error: null })
       await recordActivity(db, {
@@ -141,7 +141,9 @@ export function createDispatcher(deps: { config: Config; db: Db; storage: Storag
     const targets = await db
       .select({ id: integration.id })
       .from(integration)
-      .where(and(eq(integration.projectId, row.projectId), eq(integration.autoSend, true)))
+      .where(
+        and(eq(integration.projectId, row.projectId), eq(integration.autoSend, true), inArray(integration.provider, [...TRACKER_PROVIDERS])),
+      )
     for (const target of targets) {
       try {
         await send(reportId, target.id)

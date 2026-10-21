@@ -135,3 +135,73 @@ describe("integrations", () => {
     expect(error?.value).toMatchObject({ code: "secret_unreadable" })
   })
 })
+
+describe("every integration provider", () => {
+  const post = (body: Record<string, unknown>) =>
+    integrations().post(body as Parameters<ReturnType<typeof integrations>["post"]>[0], { headers: admin.headers })
+
+  test("each tracker provider saves with its settings", async () => {
+    const gitlab = await post({ provider: "gitlab", config: { baseUrl: "https://gitlab.kantor.test/", projectPath: "web/shop", labels: ["bug"] }, secret: "glpat" })
+    expect(gitlab.data).toMatchObject({ provider: "gitlab", kind: "tracker", config: { baseUrl: "https://gitlab.kantor.test", projectPath: "web/shop" }, label: "web/shop" })
+    const linear = await post({ provider: "linear", config: { teamKey: "eng", labels: [] }, secret: "lin_api" })
+    expect(linear.data).toMatchObject({ provider: "linear", config: { teamKey: "ENG" }, label: "Team ENG" })
+    const jira = await post({
+      provider: "jira",
+      config: { siteUrl: "https://kantor.atlassian.net", email: "dev@kantor.test", projectKey: "BUG", issueType: "Bug", labels: [] },
+      secret: "atl",
+    })
+    expect(jira.data).toMatchObject({ provider: "jira", config: { siteUrl: "https://kantor.atlassian.net", projectKey: "BUG" } })
+    const elsewhere = await post({
+      provider: "jira",
+      config: { siteUrl: "https://jira.kantor.test", email: "dev@kantor.test", projectKey: "BUG", issueType: "Bug", labels: [] },
+      secret: "atl",
+    })
+    expect(elsewhere.error?.value).toMatchObject({ code: "invalid_config" })
+  })
+
+  test("Slack and Discord accept only their own webhook hosts, and the URL is never returned", async () => {
+    const slack = await post({ provider: "slack", config: {}, secret: "https://hooks.slack.com/services/T0/B0/xyz" })
+    expect(slack.data).toMatchObject({ provider: "slack", kind: "notifier", autoSend: false, label: "Slack channel" })
+    expect(JSON.stringify(slack.data)).not.toContain("hooks.slack.com")
+    const discord = await post({ provider: "discord", config: {}, secret: "https://discord.com/api/webhooks/1/abc" })
+    expect(discord.data).toMatchObject({ provider: "discord", kind: "notifier" })
+    for (const [provider, secret] of [
+      ["slack", "https://hooks.slack.com.evil.test/services/x"],
+      ["slack", "http://hooks.slack.com/services/x"],
+      ["discord", "https://evil.test/api/webhooks/1/x"],
+    ]) {
+      const { error } = await post({ provider, config: {}, secret })
+      expect(error?.value).toMatchObject({ code: "invalid_webhook_url" })
+    }
+  })
+
+  test("Telegram needs a chat id; a webhook's signing secret is optional", async () => {
+    const telegram = await post({ provider: "telegram", config: { chatId: "-1001234567" }, secret: "123:bot-token" })
+    expect(telegram.data).toMatchObject({ provider: "telegram", label: "Chat -1001234567" })
+    const webhook = await post({ provider: "webhook", config: { url: "https://hooks.kantor.test/bugs" } })
+    expect(webhook.data).toMatchObject({ provider: "webhook", label: "hooks.kantor.test", lastError: null, lastDeliveredAt: null })
+  })
+
+  test("a notifier never sends every report as an issue", async () => {
+    const { data } = await post({ provider: "webhook", config: { url: "https://hooks.kantor.test/bugs" }, autoSend: true })
+    expect(data?.autoSend).toBe(false)
+  })
+})
+
+describe("private addresses", () => {
+  test("an integration pointing into a private network is refused unless the server allows it", async () => {
+    const strict = await setupTestApp({ allowPrivateIntegrationHosts: false }, { trackers: fakeTrackers().factory })
+    const owner = await createUserWithToken(strict.db, { role: "admin" })
+    const project = (await createProject(strict.db)).id
+    const { error } = await strict.api.api.projects({ id: project }).integrations.post(
+      { provider: "webhook", config: { url: "https://10.0.0.5/hook" } } as never,
+      { headers: owner.headers },
+    )
+    expect(error?.value).toMatchObject({ code: "private_address" })
+    const gitlab = await strict.api.api.projects({ id: project }).integrations.post(
+      { provider: "gitlab", config: { baseUrl: "https://192.168.1.20", projectPath: "web/shop", labels: [] }, secret: "glpat" } as never,
+      { headers: owner.headers },
+    )
+    expect(gitlab.error?.value).toMatchObject({ code: "private_address" })
+  })
+})

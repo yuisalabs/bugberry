@@ -1,5 +1,5 @@
-import { integrationLabel } from "@bugberry/shared"
-import { and, asc, eq } from "drizzle-orm"
+import { integrationLabel, TRACKER_PROVIDERS } from "@bugberry/shared"
+import { and, asc, eq, inArray } from "drizzle-orm"
 import { Elysia } from "elysia"
 import type { AppDeps } from "../../app"
 import { authPlugin } from "../../auth/plugin"
@@ -29,7 +29,7 @@ export function trackersModule(deps: AppDeps) {
         const rows = await db
           .select()
           .from(integration)
-          .where(eq(integration.projectId, row.projectId))
+          .where(and(eq(integration.projectId, row.projectId), inArray(integration.provider, [...TRACKER_PROVIDERS])))
           .orderBy(asc(integration.createdAt))
         return {
           integrations: rows.map((item) => ({

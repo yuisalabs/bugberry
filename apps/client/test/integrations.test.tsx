@@ -10,9 +10,12 @@ const existing: Integration = {
   id: "i1",
   projectId: "p1",
   provider: "github",
+  kind: "tracker",
   config: { owner: "kantor", repo: "web", labels: ["bug"] },
   autoSend: false,
   label: "kantor/web",
+  lastError: null,
+  lastDeliveredAt: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 }

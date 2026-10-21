@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js"
+import { eq } from "drizzle-orm"
+import { report } from "../src/db/schema"
 import { TrackerError } from "../src/lib/trackers/providers"
 import { createProject, createReadyReport, createUserWithToken, type FakeTrackers, fakeTrackers, setupTestApp } from "./helpers"
 import { callTool, mcpClient } from "./mcp-helpers"
@@ -56,5 +58,23 @@ describe("tracker tools", () => {
     const result = await callTool(client, "sendToTracker", { report: reportId, integrationId })
     expect(result.isError).toBe(true)
     expect(result.text).toContain("GitHub refused the token")
+  })
+})
+
+describe("notifiers are not trackers", () => {
+  test("a Slack integration is not listed or sent to as a tracker", async () => {
+    const admin = await createUserWithToken(ctx.db, { role: "admin" })
+    const projectId = (await ctx.db.select().from(report).where(eq(report.id, reportId)))[0]?.projectId ?? ""
+    const { data } = await ctx.api.api.projects({ id: projectId }).integrations.post(
+      { provider: "slack", config: {}, secret: "https://hooks.slack.com/services/T0/B0/xyz" } as never,
+      { headers: admin.headers },
+    )
+    const slackId = (data as { id: string } | null)?.id ?? ""
+    const listed = await ctx.api.api.reports({ id: reportId }).trackers.get({ headers: member.headers })
+    expect(listed.data?.integrations.map((item) => item.id)).not.toContain(slackId)
+    const { text } = await callTool(client, "listTrackers", { report: reportId })
+    expect(text).not.toContain(slackId)
+    const sent = await ctx.api.api.reports({ id: reportId }).trackers({ integrationId: slackId }).send.post(undefined, { headers: member.headers })
+    expect(sent.error?.status as number | undefined).toBe(404)
   })
 })
