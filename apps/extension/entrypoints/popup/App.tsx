@@ -8,13 +8,13 @@ import { type CapturePrefs, DEFAULT_CAPTURE_PREFS, recordOptionsFor } from "../.
 import { createIndexedDbDraftStore } from "../../lib/draft-store"
 import { fullWarning, limitsFor, usageLine } from "../../lib/limits"
 import type { RecordStartRequest, RecordStatusRequest, ScreenshotRequest } from "../../lib/messages"
-import { micAccess, micChoiceAfterCheck, micDeviceLabel } from "../../lib/microphone"
+import { type MicAccess, micAccess, micChoiceAfterCheck, micDevices } from "../../lib/microphone"
 import { recordStartNote, replyResult, uncapturableNote } from "../../lib/popup"
 import { pickEditorWorkspace } from "../../lib/report-form"
-import type { RecordingStatus } from "../../lib/recording-flow"
+import type { PopupRecordingStatus, RecordingStatus } from "../../lib/recording-flow"
 import { checkSession, type SessionState, serverLabel, signInUrl } from "../../lib/session"
 import { loadSettings, type Settings } from "../../lib/settings"
-import { PopupView } from "./PopupView"
+import { type MicState, PopupView } from "./PopupView"
 import { useConfirm } from "@bugberry/ui/confirm-dialog"
 
 const store = createIndexedDbDraftStore()
@@ -25,6 +25,8 @@ const MICROPHONE_PAGE = "/microphone.html" as Parameters<typeof browser.runtime.
 const tabRecorder = hasTabRecorder(browser)
 const ALL_SITES = { origins: ["<all_urls>"] }
 
+const queryMicAccess = () => micAccess((name) => navigator.permissions.query({ name: name as PermissionName }))
+
 export function App() {
   const { confirm, dialog } = useConfirm()
   const [settings, setSettings] = useState<Settings | null | undefined>(undefined)
@@ -33,8 +35,8 @@ export function App() {
   const [drafts, setDrafts] = useState<Awaited<ReturnType<typeof store.list>>>([])
   const [recording, setRecording] = useState<RecordingStatus | undefined>(undefined)
   const [activeTab, setActiveTab] = useState<{ id?: number; url?: string } | null>(null)
-  const [micLabel, setMicLabel] = useState("Microphone")
-  const [shortcut, setShortcut] = useState<string | null>(null)
+  const [mic, setMic] = useState<MicState>({ access: "prompt", devices: [], defaultId: null, level: 0 })
+  const [live, setLive] = useState<PopupRecordingStatus | undefined>(undefined)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [limitNotes, setLimitNotes] = useState<{ usage: string | null; screenshot: string | null; record: string | null }>({
@@ -42,6 +44,12 @@ export function App() {
     screenshot: null,
     record: null,
   })
+  /** Whether the microphone may be used, and the microphones Chrome names once it may. */
+  const readMic = async () => {
+    const access: MicAccess = await queryMicAccess()
+    const listed = await navigator.mediaDevices?.enumerateDevices().catch(() => []) ?? []
+    setMic((current) => ({ ...current, access, ...micDevices(listed) }))
+  }
   // Firefox lets the reporter take website access away; Chrome grants it with the install.
   const [hostAccess, setHostAccess] = useState(true)
   const readHostAccess = () =>
@@ -54,20 +62,13 @@ export function App() {
       void checkSession(loaded, () => createBugberryApi(loaded as Settings).me()).then(setSession)
     })
     // A permission revoked since the Mic was turned on shows as "Mic off" instead of recording silence.
-    void Promise.all([capturePrefsStorage.get(), micAccess((name) => navigator.permissions.query({ name: name as PermissionName }))]).then(
+    void Promise.all([capturePrefsStorage.get(), queryMicAccess()]).then(
       async ([stored, access]) =>
         setPrefs(stored.mic && !micChoiceAfterCheck(stored.mic, access) ? await capturePrefsStorage.set({ mic: false }) : stored),
     )
     store.list().then(setDrafts)
     browser.tabs.query({ active: true, currentWindow: true }).then(([tab]) => setActiveTab(tab ?? null))
-    browser.commands.getAll().then((commands) => {
-      setShortcut(commands.find((command) => command.name === "take-screenshot")?.shortcut || null)
-    })
-    // Chrome only names devices once the microphone may be used.
-    navigator.mediaDevices
-      ?.enumerateDevices()
-      .then((devices) => setMicLabel(micDeviceLabel(devices)))
-      .catch(() => {})
+    void readMic()
     const status: RecordStatusRequest = { type: "bugberry:record-status" }
     browser.runtime
       .sendMessage(status)
@@ -109,14 +110,16 @@ export function App() {
 
   const updatePrefs = async (patch: Partial<CapturePrefs>) => setPrefs(await capturePrefsStorage.set(patch))
 
-  const onMicToggle = async (on: boolean) => {
+  // The popup can't show Chrome's permission prompt; the page asks once and turns the microphone on.
+  const onMicAllow = () => void browser.tabs.create({ url: browser.runtime.getURL(MICROPHONE_PAGE) })
+
+  const onMicChoose = async (id: string | null) => {
     setError(null)
-    if (!on) return updatePrefs({ mic: false })
-    const access = await micAccess((name) => navigator.permissions.query({ name: name as PermissionName }))
-    if (access === "granted") return updatePrefs({ mic: true })
+    if (id === null) return updatePrefs({ mic: false })
+    const access = await queryMicAccess()
+    if (access === "granted") return updatePrefs({ mic: true, micDeviceId: id })
     if (access === "denied") return setError(MIC_BLOCKED)
-    // The popup can't show Chrome's permission prompt; the page asks once and turns the microphone on.
-    await browser.tabs.create({ url: browser.runtime.getURL(MICROPHONE_PAGE) })
+    onMicAllow()
   }
 
   const onScreenshot = () => {
@@ -166,9 +169,10 @@ export function App() {
         session={session}
         serverHost={settings ? serverLabel(settings.serverUrl, BUILD_SERVER_ORIGIN) : ""}
         prefs={prefs}
-        micLabel={micLabel}
-        screenshotShortcut={shortcut}
+        mic={mic}
         recording={recording}
+        live={live}
+        activeTabId={activeTab?.id ?? null}
         drafts={drafts}
         logsAvailable={capturable(activeTab?.url)}
         tabRecorder={tabRecorder}
@@ -176,7 +180,14 @@ export function App() {
         error={error}
         busy={busy}
         onPrefs={(patch) => void updatePrefs(patch)}
-        onMicToggle={(on) => void onMicToggle(on)}
+        onMicChoose={(id) => void onMicChoose(id)}
+        onMicAllow={onMicAllow}
+        onMicPicker={() => {}}
+        onPause={() => {}}
+        onResume={() => {}}
+        onRestart={() => {}}
+        onDiscard={() => {}}
+        onStop={() => {}}
         onScreenshot={onScreenshot}
         onRecord={onRecord}
         onSignIn={() => settings && void browser.tabs.create({ url: signInUrl(settings.serverUrl) })}

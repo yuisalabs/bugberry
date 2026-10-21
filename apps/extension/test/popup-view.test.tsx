@@ -12,9 +12,10 @@ function view(overrides: Partial<PopupViewProps> = {}) {
     session: { kind: "signed-in", name: "Ana", email: "ana@kantor.test" },
     serverHost: "bugberry.kantor.com",
     prefs: DEFAULT_CAPTURE_PREFS,
-    micLabel: "MacBook Pro Microphone",
-    screenshotShortcut: "Alt+Shift+C",
+    mic: { access: "granted", devices: [], defaultId: null, level: 0 },
     recording: { recording: false },
+    live: { recording: false },
+    activeTabId: 1,
     drafts: [],
     logsAvailable: true,
     tabRecorder: true,
@@ -22,9 +23,16 @@ function view(overrides: Partial<PopupViewProps> = {}) {
     error: null,
     busy: false,
     onPrefs: mock(),
-    onMicToggle: mock(),
+    onMicChoose: mock(),
+    onMicAllow: mock(),
+    onMicPicker: mock(),
     onScreenshot: mock(),
     onRecord: mock(),
+    onPause: mock(),
+    onResume: mock(),
+    onRestart: mock(),
+    onDiscard: mock(),
+    onStop: mock(),
     onSignIn: mock(),
     onRetry: mock(),
     onOpenSettings: mock(),
@@ -39,23 +47,119 @@ function view(overrides: Partial<PopupViewProps> = {}) {
 }
 
 const button = (name: string | RegExp) => screen.getByRole("button", { name })
+const radio = (name: string | RegExp) => screen.getByRole("radio", { name }) as HTMLInputElement
+const record = (source: "tab" | "screen" | "window") => ({ ...DEFAULT_CAPTURE_PREFS, captureKind: "record" as const, recordSource: source })
 
-describe("signed in", () => {
-  test("both rows, the shortcut, and the menu with the sign-in line and drafts", () => {
-    view({ drafts: [draft("d1", "Checkout"), draft("d2", "Login")] })
-    expect(button(/Capture screenshot/)).toBeTruthy()
-    expect(button(/Record tab/)).toBeTruthy()
-    expect(screen.getByText("Alt+Shift+C")).toBeTruthy()
+describe("tiles and dial", () => {
+  test("Visible area is chosen by default and the dial captures", () => {
+    const props = view()
+    expect(radio("Visible area").checked).toBe(true)
+    expect(radio("Tab").checked).toBe(false)
+    fireEvent.click(button("Capture visible area"))
+    expect(props.onScreenshot).toHaveBeenCalledTimes(1)
+    expect(screen.queryByText(/Alt\+Shift/)).toBeNull()
+  })
+
+  test("Select area: its caption", () => {
+    view({ prefs: { ...DEFAULT_CAPTURE_PREFS, screenshotMode: "area" } })
+    expect(button("Select an area")).toBeTruthy()
+  })
+
+  test("choosing a tile saves the row and the choice", () => {
+    const props = view()
+    fireEvent.click(radio("Screen"))
+    expect(props.onPrefs).toHaveBeenCalledWith({ captureKind: "record", recordSource: "screen" })
+    fireEvent.click(radio("Select area"))
+    expect(props.onPrefs).toHaveBeenCalledWith({ captureKind: "screenshot", screenshotMode: "area" })
+  })
+
+  test("Tab: mic and countdown chips, the tab info, the dial records", () => {
+    const props = view({ prefs: record("tab") })
+    expect(radio("Tab").checked).toBe(true)
+    expect(button(/Mic off/)).toBeTruthy()
+    expect(button("3s countdown").getAttribute("aria-pressed")).toBe("true")
+    expect(screen.getByText("Only this tab is recorded. Other tabs and apps stay private.")).toBeTruthy()
+    fireEvent.click(button("Record this tab"))
+    expect(props.onRecord).toHaveBeenCalledTimes(1)
+  })
+
+  test("Screen: 3s and System audio chips", () => {
+    const props = view({ prefs: record("screen") })
+    expect(button("3s")).toBeTruthy()
+    expect(button("System audio").getAttribute("aria-pressed")).toBe("true")
+    fireEvent.click(button("System audio"))
+    expect(props.onPrefs).toHaveBeenCalledWith({ systemAudio: false })
+    expect(screen.getByText("Your browser asks which screen to share. Logs come from this tab only.")).toBeTruthy()
+    expect(screen.getByText("Logs from this tab only")).toBeTruthy()
+  })
+
+  test("Window: no System audio", () => {
+    view({ prefs: record("window") })
+    expect(button("Record a window")).toBeTruthy()
+    expect(screen.queryByRole("button", { name: "System audio" })).toBeNull()
+  })
+
+  test("the countdown chip turns the countdown off", () => {
+    const props = view({ prefs: record("tab") })
+    fireEvent.click(button("3s countdown"))
+    expect(props.onPrefs).toHaveBeenCalledWith({ countdown: false })
+  })
+
+  test("without a tab recorder: no Tab tile, no System audio, a stored tab shows as window", () => {
+    view({ tabRecorder: false, prefs: record("tab") })
+    expect(screen.queryByRole("radio", { name: "Tab" })).toBeNull()
+    expect(radio("Window").checked).toBe(true)
+    expect(screen.queryByRole("button", { name: "System audio" })).toBeNull()
+  })
+
+  test("busy: the dial waits", () => {
+    view({ busy: true })
+    expect(button("Capture visible area").hasAttribute("disabled")).toBe(true)
+  })
+})
+
+describe("footer", () => {
+  test("Logs on, with console and network attached", () => {
+    view()
+    expect(screen.getByText("Console and network attached")).toBeTruthy()
+    expect(screen.getByText("Logs on")).toBeTruthy()
+  })
+
+  test("a page without logs: Logs off", () => {
+    view({ logsAvailable: false })
+    expect(screen.getByText("Logs aren't available on this page")).toBeTruthy()
+    expect(screen.getByText("Logs off")).toBeTruthy()
+  })
+})
+
+describe("the More menu", () => {
+  test("the account, the drafts and Settings", () => {
+    view({ drafts: [draft("d1", "Checkout"), draft("d2", "Login")], usage: "Screenshots 3/5 · Recordings 5/5" })
     fireEvent.click(button("More"))
-    expect(screen.getByText("Signed in as Ana · bugberry.kantor.com")).toBeTruthy()
-    expect(screen.getByRole("menuitem", { name: "Settings" })).toBeTruthy()
+    expect(screen.getByText("Signed in as")).toBeTruthy()
+    expect(screen.getByText("Ana")).toBeTruthy()
+    expect(screen.getByText("bugberry.kantor.com")).toBeTruthy()
+    expect(screen.getByText("Screenshots 3/5 · Recordings 5/5")).toBeTruthy()
     expect(screen.getByRole("menuitem", { name: "Unsent drafts (2)" })).toBeTruthy()
+    expect(screen.getByRole("menuitem", { name: /Settings/ })).toBeTruthy()
   })
 
   test("no drafts, no drafts item", () => {
     view()
     fireEvent.click(button("More"))
     expect(screen.queryByRole("menuitem", { name: /Unsent drafts/ })).toBeNull()
+  })
+
+  // Intent's Menu also closes on a click outside it; React Aria owns that, and happy-dom can't replay it.
+  test("closes on Esc, and once something is chosen", () => {
+    const props = view()
+    fireEvent.click(button("More"))
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" })
+    expect(screen.queryByRole("menu")).toBeNull()
+    fireEvent.click(button("More"))
+    fireEvent.click(screen.getByRole("menuitem", { name: /Settings/ }))
+    expect(props.onOpenSettings).toHaveBeenCalled()
+    expect(screen.queryByRole("menu")).toBeNull()
   })
 
   test("the drafts view opens, deletes, and goes back", () => {
@@ -68,24 +172,7 @@ describe("signed in", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Delete" })[1] as HTMLElement)
     expect(props.onDeleteDraft).toHaveBeenCalledWith("d2")
     fireEvent.click(button("Back"))
-    expect(button(/Capture screenshot/)).toBeTruthy()
-  })
-
-  test("shows the default workspace's usage and a warning under a full kind, without disabling it", () => {
-    const props = view({
-      usage: "Screenshots 3/5 · Recordings 5/5",
-      recordWarning: "This workspace is full for recordings. Delete one in the dashboard.",
-    })
-    expect(screen.getByText("Screenshots 3/5 · Recordings 5/5")).toBeTruthy()
-    expect(screen.getByText("This workspace is full for recordings. Delete one in the dashboard.")).toBeTruthy()
-    fireEvent.click(button(/^Record tab/))
-    expect(props.onRecord).toHaveBeenCalledTimes(1)
-  })
-
-  test("nothing about limits when there are none", () => {
-    view()
-    expect(screen.queryByText(/Screenshots \d+\/\d+/)).toBeNull()
-    expect(screen.queryByText(/is full for/)).toBeNull()
+    expect(button("Capture visible area")).toBeTruthy()
   })
 
   test("the grid icon opens the dashboard", () => {
@@ -95,14 +182,33 @@ describe("signed in", () => {
   })
 })
 
+describe("limits", () => {
+  test("a warning for the chosen kind when it is full, and the dial still works", () => {
+    const props = view({
+      prefs: record("tab"),
+      recordWarning: "This workspace is full for recordings. Delete one in the dashboard.",
+      screenshotWarning: "This workspace is full for screenshots.",
+    })
+    expect(screen.getByText("This workspace is full for recordings. Delete one in the dashboard.")).toBeTruthy()
+    expect(screen.queryByText("This workspace is full for screenshots.")).toBeNull()
+    fireEvent.click(button("Record this tab"))
+    expect(props.onRecord).toHaveBeenCalledTimes(1)
+  })
+
+  test("nothing about limits when there are none", () => {
+    view()
+    expect(screen.queryByText(/is full for/)).toBeNull()
+  })
+})
+
 describe("not ready to send", () => {
   test("signed out: only the sign-in card", () => {
     const props = view({ session: { kind: "signed-out" } })
     expect(screen.getByText("Sign in to BugBerry")).toBeTruthy()
     fireEvent.click(button("Sign in"))
     expect(props.onSignIn).toHaveBeenCalledTimes(1)
-    expect(screen.queryByRole("button", { name: /Capture screenshot/ })).toBeNull()
-    expect(screen.queryByRole("button", { name: /Record/ })).toBeNull()
+    expect(screen.queryByRole("radio")).toBeNull()
+    expect(screen.queryByRole("button", { name: "Capture visible area" })).toBeNull()
   })
 
   test("no server: the settings card", () => {
@@ -112,115 +218,17 @@ describe("not ready to send", () => {
     expect(props.onOpenSettings).toHaveBeenCalledTimes(1)
   })
 
-  test("unreachable: a warning with Try again, and the rows stay", () => {
+  test("unreachable: a warning with Try again, and the tiles stay", () => {
     const props = view({ session: { kind: "unreachable", host: "bugberry.kantor.com" } })
     expect(screen.getByText("Can't reach bugberry.kantor.com")).toBeTruthy()
     fireEvent.click(button("Try again"))
     expect(props.onRetry).toHaveBeenCalledTimes(1)
-    expect(button(/Capture screenshot/)).toBeTruthy()
-  })
-})
-
-describe("screenshot row", () => {
-  test("the row captures, the chevron opens the modes, and there is no Full page", () => {
-    const props = view()
-    fireEvent.click(button(/Capture screenshot/))
-    expect(props.onScreenshot).toHaveBeenCalledTimes(1)
-    fireEvent.click(button("Screenshot options"))
-    expect(screen.getByText("What to capture")).toBeTruthy()
-    expect(screen.getByText("What you see on screen right now")).toBeTruthy()
-    expect(screen.getByText("Console and network logs from this tab are attached automatically.")).toBeTruthy()
-    fireEvent.click(screen.getByRole("radio", { name: /Select area/ }))
-    expect(props.onPrefs).toHaveBeenCalledWith({ screenshotMode: "area" })
-    expect(screen.queryByText(/Full page/)).toBeNull()
-  })
-})
-
-describe("record row", () => {
-  test("a screen: its label, system audio and both notes", () => {
-    view({ prefs: { ...DEFAULT_CAPTURE_PREFS, recordSource: "screen" } })
-    expect(button(/Record screen/)).toBeTruthy()
-    fireEvent.click(button("Record options"))
-    expect(screen.getByRole("switch", { name: /System audio/ })).toBeTruthy()
-    expect(screen.getByText("Sound from apps and videos")).toBeTruthy()
-    expect(screen.getByText("Click “Record screen” and your browser will ask which screen to share.")).toBeTruthy()
-    expect(screen.getByText("Console and network logs come from this tab only.")).toBeTruthy()
+    expect(button("Capture visible area")).toBeTruthy()
   })
 
-  test("a window has no system audio", () => {
-    view({ prefs: { ...DEFAULT_CAPTURE_PREFS, recordSource: "window" } })
-    fireEvent.click(button("Record options"))
-    expect(screen.queryByRole("switch", { name: /System audio/ })).toBeNull()
-    expect(screen.getByText("Click “Record window” and your browser will ask which window to share.")).toBeTruthy()
-  })
-
-  test("without a tab recorder: no tab choice, no system audio, and a stored tab shows as window", () => {
-    view({ tabRecorder: false, prefs: { ...DEFAULT_CAPTURE_PREFS, recordSource: "tab", systemAudio: true } })
-    expect(button(/Record window/)).toBeTruthy()
-    fireEvent.click(button("Record options"))
-    expect(screen.queryByRole("radio", { name: "This tab" })).toBeNull()
-    expect(screen.getByRole("radio", { name: "Screen" })).toBeTruthy()
-    expect(screen.getByRole("radio", { name: "Window" }).getAttribute("aria-checked")).toBe("true")
-    expect(screen.getByText("Click “Record window” and your browser will ask which window to share.")).toBeTruthy()
-  })
-
-  test("without a tab recorder a screen has no system audio switch", () => {
-    view({ tabRecorder: false, prefs: { ...DEFAULT_CAPTURE_PREFS, recordSource: "screen" } })
-    fireEvent.click(button("Record options"))
-    expect(screen.queryByRole("switch", { name: /System audio/ })).toBeNull()
-  })
-
-  test("a screen from a page that isn't a web page says there are no logs", () => {
-    view({ prefs: { ...DEFAULT_CAPTURE_PREFS, recordSource: "screen" }, logsAvailable: false })
-    fireEvent.click(button("Record options"))
-    expect(screen.getByText("Console and network logs aren't available on this page.")).toBeTruthy()
-  })
-
-  test("choosing a source, the microphone and its badge", () => {
-    const props = view()
-    expect(screen.getByText("Mic off")).toBeTruthy()
-    fireEvent.click(button("Record options"))
-    fireEvent.click(screen.getByRole("radio", { name: "Window" }))
-    expect(props.onPrefs).toHaveBeenCalledWith({ recordSource: "window" })
-    expect(screen.getByText("MacBook Pro Microphone")).toBeTruthy()
-    fireEvent.click(screen.getByRole("switch", { name: /Microphone/ }))
-    expect(props.onMicToggle).toHaveBeenCalledWith(true)
-  })
-
-  test("the countdown can be turned off", () => {
-    const props = view()
-    fireEvent.click(button("Record options"))
-    const countdown = screen.getByRole("switch", { name: /3-second countdown/ })
-    expect((countdown as HTMLInputElement).checked).toBe(true)
-    fireEvent.click(countdown)
-    expect(props.onPrefs).toHaveBeenCalledWith({ countdown: false })
-  })
-
-  test("Mic on when the microphone is chosen; the row starts the recording", () => {
-    const props = view({ prefs: { ...DEFAULT_CAPTURE_PREFS, mic: true } })
-    expect(screen.getByText("Mic on")).toBeTruthy()
-    fireEvent.click(button(/Record tab/))
-    expect(props.onRecord).toHaveBeenCalledTimes(1)
-  })
-})
-
-test("an error shows as an alert", () => {
-  view({ error: "Microphone is blocked. Allow it for BugBerry in Chrome's site settings." })
-  expect(screen.getByRole("alert").textContent).toBe("Microphone is blocked. Allow it for BugBerry in Chrome's site settings.")
-})
-
-describe("the More menu", () => {
-  // Intent's Menu also closes on a click outside it; React Aria owns that, and happy-dom can't replay it.
-  test("closes on Esc, and once something is chosen", () => {
-    const props = view()
-    fireEvent.click(button("More"))
-    expect(screen.getByRole("menu")).toBeTruthy()
-    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" })
-    expect(screen.queryByRole("menu")).toBeNull()
-    fireEvent.click(button("More"))
-    fireEvent.click(screen.getByRole("menuitem", { name: "Settings" }))
-    expect(props.onOpenSettings).toHaveBeenCalled()
-    expect(screen.queryByRole("menu")).toBeNull()
+  test("an error shows as an alert", () => {
+    view({ error: "Microphone is blocked. Allow it for BugBerry in Chrome's site settings." })
+    expect(screen.getByRole("alert").textContent).toBe("Microphone is blocked. Allow it for BugBerry in Chrome's site settings.")
   })
 })
 
@@ -230,6 +238,7 @@ describe("website access", () => {
     fireEvent.click(button("Allow access to websites"))
     expect(props.onAllowHosts).toHaveBeenCalledTimes(1)
     expect(screen.getByText("BugBerry can't read this page. Allow access to websites to capture logs.")).toBeTruthy()
+    expect(screen.getByText("Logs off")).toBeTruthy()
   })
 
   test("no button while access is granted", () => {
