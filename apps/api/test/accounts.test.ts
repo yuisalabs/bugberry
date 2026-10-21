@@ -168,6 +168,30 @@ describe("Telegram", () => {
   })
 })
 
+describe("parent", () => {
+  test("a parent that is not a real target never reaches the provider", async () => {
+    const { fetcher, requests } = fakeFetch(() => json([]))
+    const accounts = createAccountFactory(fetcher, 5_000, NO_GUARD)
+    const github = accounts("github", {}, "x")
+    const gitlab = accounts("gitlab", { baseUrl: "https://gitlab.kantor.test" }, "x")
+    const linear = accounts("linear", {}, "x")
+    const jira = accounts("jira", { siteUrl: "https://kantor.atlassian.net", email: "a@b.c" }, "x")
+    const ac = accounts("activecollab", { baseUrl: "https://ac.kantor.test" }, "x")
+    for (const attempt of [
+      github.list("labels", { parent: "../../orgs/kantor" }),
+      github.list("labels", { parent: "kantor/.." }),
+      github.list("labels", { parent: "kantor" }),
+      gitlab.list("labels", { parent: "kantor/../../users" }),
+      linear.list("labels", { parent: "ENG\" } }" }),
+      jira.list("issueTypes", { parent: "../myself" }),
+      ac.list("taskLists", { parent: "12/../../users" }),
+    ]) {
+      await expect(attempt).rejects.toThrow("not valid")
+    }
+    expect(requests).toHaveLength(0)
+  })
+})
+
 describe("the guard", () => {
   test("every list goes through the guard", async () => {
     const { fetcher, requests } = fakeFetch(() => json([]))

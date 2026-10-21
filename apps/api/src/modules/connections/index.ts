@@ -7,7 +7,7 @@ import { connection, integration, project, workspace } from "../../db/schema"
 import { conflict, notFound, unprocessable } from "../../lib/errors"
 import { newId } from "../../lib/ids"
 import { accountFactoryFor, ListUnavailableError, OPTION_LISTS } from "../../lib/integrations/accounts"
-import { checkAddresses, checkWebhookSecret, normalizeSettings, settingsSchemas } from "../../lib/integrations/validate"
+import { checkAddresses, checkWebhookSecret, normalizeSettings, settingsBody, settingsSchemas } from "../../lib/integrations/validate"
 import { createHostGuard } from "../../lib/net/host-guard"
 import { notifierFactoryFor } from "../../lib/notifiers/deliver"
 import { testMessage } from "../../lib/notifiers/message"
@@ -27,7 +27,7 @@ const createBody = t.Union([
 ])
 const patchBody = t.Object({
   name: t.Optional(name),
-  settings: t.Optional(t.Union([settingsSchemas.address, settingsSchemas.jira, settingsSchemas.webhook, settingsSchemas.none])),
+  settings: t.Optional(settingsBody),
   /** Empty keeps the current secret. */
   secret: t.Optional(t.String({ maxLength: 500 })),
 })

@@ -96,6 +96,23 @@ describe("project uses of workspace connections", () => {
     expect(error?.value).toMatchObject({ code: "invalid_target" })
   })
 
+  test("a target that breaks a limit says which", async () => {
+    const labels = Array.from({ length: 11 }, (_, index) => `label-${index}`)
+    const many = await uses().post({ connectionId: github.connectionId, target: { owner: "kantor", repo: "web", labels } }, { headers: member.headers })
+    expect(many.error?.value).toMatchObject({ code: "invalid_target", message: "Use at most 10 labels of up to 50 characters each" })
+    const jira = await createIntegration(ctx.db, {
+      projectId: (await createProject(ctx.db)).id,
+      provider: "jira",
+      settings: { siteUrl: "https://kantor.atlassian.net", email: "dana@kantor.test" },
+      target: { projectKey: "BUG", issueType: "Bug", labels: [] },
+    })
+    const longKey = await uses().post(
+      { connectionId: jira.connectionId, target: { projectKey: "TOOLONGPROJECTKEY", issueType: "Bug", labels: [] } },
+      { headers: member.headers },
+    )
+    expect(longKey.error?.value).toMatchObject({ code: "invalid_target", message: "Enter the project key, such as BUG" })
+  })
+
   test("a notifier never sends every report as an issue", async () => {
     const slack = await createIntegration(ctx.db, { projectId: (await createProject(ctx.db)).id, provider: "slack" })
     const { data } = await uses().post({ connectionId: slack.connectionId, target: {}, autoSend: true }, { headers: member.headers })

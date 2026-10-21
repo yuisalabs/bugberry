@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Radio as CardRadio, RadioGroup as CardRadioGroup } from "react-aria-components"
 import { Button } from "@bugberry/ui/button"
 import { Checkbox, CheckboxField } from "@bugberry/ui/checkbox"
+import { Dialog, DialogBody, DialogHeader, DialogTitle } from "@bugberry/ui/dialog"
 import { Label } from "@bugberry/ui/field"
 import { Input } from "@bugberry/ui/input"
 import { Radio, RadioField, RadioGroup } from "@bugberry/ui/radio"
@@ -100,6 +101,8 @@ function OptionPicker({
   )
 }
 
+const MAX_LABELS = 10
+
 /** The target's own labels, ticked on or off. */
 function LabelPicker({
   connectionId,
@@ -135,12 +138,17 @@ function LabelPicker({
   if (!state.options?.length) return null
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-sm font-medium text-foreground">Labels</span>
+      <span className="flex items-baseline justify-between gap-3">
+        <span className="text-sm font-medium text-foreground">Labels</span>
+        <span className="text-xs text-muted-foreground">Up to {MAX_LABELS} labels</span>
+      </span>
       <div className="flex max-h-40 flex-wrap gap-x-5 gap-y-2 overflow-y-auto">
         {state.options.map((option) => (
           <CheckboxField
             key={option.value}
             isSelected={value.includes(option.value)}
+            // The server takes at most 10; past that only unticking works.
+            isDisabled={value.length >= MAX_LABELS && !value.includes(option.value)}
             onChange={(on) => onChange(on ? [...value, option.value] : value.filter((label) => label !== option.value))}
           >
             <Checkbox>{option.label}</Checkbox>
@@ -306,10 +314,29 @@ export function UseConnectionSteps({
         />
       )}
       {provider === "jira" && target && (
-        <OptionPicker label="Issue type" connectionId={chosen.id} list="issueTypes" parent={target} loadOptions={loadOptions} value={second} onChange={setSecond} />
+        // Keyed by the project, so another project's issue types never show while its own load.
+        <OptionPicker
+          key={`issueTypes-${target}`}
+          label="Issue type"
+          connectionId={chosen.id}
+          list="issueTypes"
+          parent={target}
+          loadOptions={loadOptions}
+          value={second}
+          onChange={setSecond}
+        />
       )}
       {provider === "activecollab" && target && (
-        <OptionPicker label="Task list" connectionId={chosen.id} list="taskLists" parent={target} loadOptions={loadOptions} value={second} onChange={setSecond} />
+        <OptionPicker
+          key={`taskLists-${target}`}
+          label="Task list"
+          connectionId={chosen.id}
+          list="taskLists"
+          parent={target}
+          loadOptions={loadOptions}
+          value={second}
+          onChange={setSecond}
+        />
       )}
       {tracker && provider !== "activecollab" && (provider === "jira" || target) && (
         <LabelPicker key={labelParent} connectionId={chosen.id} parent={labelParent} loadOptions={loadOptions} value={labels} onChange={setLabels} />
@@ -384,5 +411,50 @@ export function EditIntegrationSteps({
         </Button>
       </div>
     </div>
+  )
+}
+
+/**
+ * The dialog around the steps. Cancel, the close button and a click outside all go through `onClose`, so whatever the
+ * page clears on close (such as the last save error) is cleared however the dialog was left.
+ */
+export function UseConnectionModal({
+  isOpen,
+  error,
+  connections,
+  used,
+  loadOptions,
+  busy,
+  onSubmit,
+  onClose,
+}: {
+  isOpen: boolean
+  error: string | null
+  /** Undefined while the workspace's connections load. */
+  connections: Connection[] | undefined
+  used: Integration[]
+  loadOptions: LoadOptions
+  busy: boolean
+  onSubmit(body: IntegrationInput): void
+  onClose(): void
+}) {
+  return (
+    <Dialog isOpen={isOpen} onOpenChange={(open) => !open && onClose()} aria-label="Use a connection" size="lg">
+      <DialogHeader>
+        <DialogTitle>Use a connection</DialogTitle>
+      </DialogHeader>
+      <DialogBody className="pb-6">
+        {error && (
+          <p role="alert" className="mb-4 text-sm text-danger-subtle-foreground">
+            {error}
+          </p>
+        )}
+        {connections === undefined ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : (
+          <UseConnectionSteps connections={connections} used={used} loadOptions={loadOptions} busy={busy} onSubmit={onSubmit} onCancel={onClose} />
+        )}
+      </DialogBody>
+    </Dialog>
   )
 }

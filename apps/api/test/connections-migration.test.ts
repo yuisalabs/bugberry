@@ -66,7 +66,8 @@ test("migration 0022 moves each integration into a connection and keeps links", 
   const byId = Object.fromEntries(connections.map((row: { id: string }) => [row.id, row]))
   expect(byId.gh).toMatchObject({ provider: "github", name: "GitHub · kantor/web", settings: {} })
   expect(byId.ji).toMatchObject({ name: "Jira · BUG", settings: { siteUrl: "https://kantor.atlassian.net", email: "dana@kantor.test" } })
-  expect(byId.wh).toMatchObject({ name: "Webhook · hooks.kantor.test", settings: { url: "https://hooks.kantor.test/x" } })
+  // Names are shown to every member, so a webhook's address stays out of it.
+  expect(byId.wh).toMatchObject({ name: "Webhook", settings: { url: "https://hooks.kantor.test/x" } })
 
   const uses = await scratch.unsafe(`SELECT * FROM integration ORDER BY id`)
   for (const row of uses) expect(row.connection_id).toBe(row.id)

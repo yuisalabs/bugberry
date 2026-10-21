@@ -62,8 +62,19 @@ function unavailable(provider: IntegrationProvider, list: OptionList): never {
   throw new ListUnavailableError(`${PROVIDER_LABELS[provider]} has no ${list === "taskLists" ? "task lists" : list === "issueTypes" ? "issue types" : list} list`)
 }
 
-const needParent = (parent: string | undefined): string => {
+/** What a parent must look like, so a member's value can only name a target, never another path on the provider. */
+const PARENTS = {
+  repository: /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})\/[A-Za-z0-9._-]{1,100}$/,
+  project: /^[\w.-]+(?:\/[\w.-]+)+$/,
+  team: /^[A-Za-z][A-Za-z0-9_]{0,9}$/,
+  "project key": /^[A-Za-z][A-Za-z0-9_]{1,9}$/,
+  "project id": /^\d{1,12}$/,
+}
+
+const needParent = (parent: string | undefined, kind: keyof typeof PARENTS): string => {
   if (!parent) throw new ListUnavailableError("Pick the parent first")
+  const dotSegment = parent.split("/").some((segment) => segment === "." || segment === "..")
+  if (dotSegment || !PARENTS[kind].test(parent)) throw new ListUnavailableError(`That ${kind} is not valid`)
   return parent
 }
 
@@ -92,7 +103,7 @@ function github(token: string, http: Http): AccountClient {
         return finish(repos.map((repo) => same(repo.full_name)), q)
       }
       if (list === "labels") {
-        const repo = needParent(parent).split("/").map(encodeURIComponent).join("/")
+        const repo = needParent(parent, "repository").split("/").map(encodeURIComponent).join("/")
         const labels = await call<Array<{ name: string }>>(http, "GitHub", `${base}/repos/${repo}/labels?per_page=100`, init, fail)
         return finish(labels.map((label) => same(label.name)), q)
       }
@@ -117,7 +128,7 @@ function gitlab(settings: { baseUrl: string }, token: string, http: Http): Accou
         return finish(projects.map((project) => same(project.path_with_namespace)), q)
       }
       if (list === "labels") {
-        const url = `${base}/projects/${encodeURIComponent(needParent(parent))}/labels?per_page=100`
+        const url = `${base}/projects/${encodeURIComponent(needParent(parent, "project"))}/labels?per_page=100`
         const labels = await call<Array<{ name: string }>>(http, "GitLab", url, init, fail)
         return finish(labels.map((label) => same(label.name)), q)
       }
@@ -157,7 +168,7 @@ function linear(apiKey: string, http: Http): AccountClient {
       }
       if (list === "labels") {
         const data = await graphql<{ teams: { nodes: Array<{ labels: { nodes: Array<{ name: string }> } }> } }>(LINEAR_TEAM_LABELS, {
-          key: needParent(parent).toUpperCase(),
+          key: needParent(parent, "team").toUpperCase(),
         })
         const team = data.teams.nodes[0]
         if (!team) throw new TrackerError(`Linear team ${parent} was not found`)
@@ -192,7 +203,7 @@ function jira(settings: { siteUrl: string; email: string }, apiToken: string, ht
         const project = await call<{ issueTypes?: Array<{ name: string }> }>(
           http,
           "Jira",
-          `${site}/rest/api/3/project/${encodeURIComponent(needParent(parent))}`,
+          `${site}/rest/api/3/project/${encodeURIComponent(needParent(parent, "project key"))}`,
           init,
           fail,
         )
@@ -223,7 +234,7 @@ function activeCollab(settings: { baseUrl: string }, token: string, http: Http):
         return finish(projects.map((project) => ({ value: String(project.id), label: project.name })), q)
       }
       if (list === "taskLists") {
-        const url = `${base}/projects/${encodeURIComponent(needParent(parent))}/task-lists`
+        const url = `${base}/projects/${encodeURIComponent(needParent(parent, "project id"))}/task-lists`
         const lists = named(await call<Named | { task_lists?: Named }>(http, "ActiveCollab", url, init, fail))
         return finish(lists.map((item) => ({ value: String(item.id), label: item.name })), q)
       }

@@ -18,7 +18,7 @@ import { Dialog, DialogBody, DialogHeader, DialogTitle } from "@bugberry/ui/dial
 import { ProviderMark } from "../components/IntegrationForm"
 import { SettingsRowsSkeleton } from "../components/Skeletons"
 import { Badge, dangerText, EmptyState, ErrorState } from "../components/ui"
-import { EditIntegrationSteps, type LoadOptions, UseConnectionSteps } from "../components/UseConnectionDialog"
+import { EditIntegrationSteps, type LoadOptions, UseConnectionModal } from "../components/UseConnectionDialog"
 import { useNow } from "../hooks/useNow"
 import { errorMessage, type Integration, type IntegrationInput, type OptionList } from "../lib/api"
 import { api } from "../lib/client"
@@ -220,32 +220,19 @@ export function ProjectIntegrationsPage() {
         </ul>
       )}
 
-      <Dialog isOpen={adding} onOpenChange={(open) => (open ? setAdding(true) : (setAdding(false), add.reset()))} aria-label="Use a connection" size="lg">
-        <DialogHeader>
-          <DialogTitle>Use a connection</DialogTitle>
-        </DialogHeader>
-        <DialogBody className="pb-6">
-          {add.error && (
-            <p role="alert" className="mb-4 text-sm text-danger-subtle-foreground">
-              {errorMessage(add.error)}
-            </p>
-          )}
-          {connections.isPending ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
-          ) : connections.isError ? (
-            <ErrorState error={connections.error} onRetry={() => void connections.refetch()} />
-          ) : (
-            <UseConnectionSteps
-              connections={connections.data}
-              used={integrations.data ?? []}
-              loadOptions={loadOptions}
-              busy={add.isPending}
-              onSubmit={(body) => add.mutate(body)}
-              onCancel={() => setAdding(false)}
-            />
-          )}
-        </DialogBody>
-      </Dialog>
+      <UseConnectionModal
+        isOpen={adding}
+        error={add.error ? errorMessage(add.error) : connections.isError ? errorMessage(connections.error) : null}
+        connections={connections.data}
+        used={integrations.data ?? []}
+        loadOptions={loadOptions}
+        busy={add.isPending}
+        onSubmit={(body) => add.mutate(body)}
+        onClose={() => {
+          setAdding(false)
+          add.reset()
+        }}
+      />
 
       <Dialog isOpen={editing !== null} onOpenChange={(open) => !open && setEditing(null)} aria-label="Edit integration" size="md">
         <DialogHeader>

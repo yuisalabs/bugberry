@@ -26,7 +26,8 @@ SELECT i."id", p."workspace_id", i."provider",
 		WHEN 'jira' THEN 'Jira · ' || (i."config"->>'projectKey')
 		WHEN 'activecollab' THEN 'ActiveCollab · Project #' || (i."config"->>'projectId')
 		WHEN 'telegram' THEN 'Telegram · Chat ' || (i."config"->>'chatId')
-		WHEN 'webhook' THEN 'Webhook · ' || coalesce(substring(i."config"->>'url' from '^[A-Za-z]+://([^/?#]+)'), 'address')
+		-- Every member sees a connection's name; a webhook's address stays out of it.
+		WHEN 'webhook' THEN 'Webhook'
 		WHEN 'slack' THEN 'Slack channel'
 		WHEN 'discord' THEN 'Discord channel'
 	END,

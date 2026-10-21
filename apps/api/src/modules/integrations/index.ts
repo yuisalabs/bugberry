@@ -15,7 +15,7 @@ import { connection, integration, project } from "../../db/schema"
 import { conflict, notFound, unprocessable } from "../../lib/errors"
 import { newId } from "../../lib/ids"
 import { loadUse, type ResolvedUse, usesOfProject } from "../../lib/integrations/resolve"
-import { normalizeTarget, targetSchemas } from "../../lib/integrations/validate"
+import { normalizeTarget, targetBody } from "../../lib/integrations/validate"
 import { notifierFactoryFor } from "../../lib/notifiers/deliver"
 import { testMessage } from "../../lib/notifiers/message"
 import { createSecretBox, SECRET_UNREADABLE, SecretError } from "../../lib/secret-box"
@@ -25,15 +25,7 @@ import { requireProjectRole } from "../../workspaces/access"
 
 const createBody = t.Object({
   connectionId: t.String({ minLength: 1 }),
-  target: t.Union([
-    targetSchemas.github,
-    targetSchemas.gitlab,
-    targetSchemas.linear,
-    targetSchemas.jira,
-    targetSchemas.activecollab,
-    targetSchemas.telegram,
-    targetSchemas.none,
-  ]),
+  target: targetBody,
   autoSend: t.Optional(t.Boolean()),
 })
 /** A use's target never changes: changing it is removing the use and adding it again. */

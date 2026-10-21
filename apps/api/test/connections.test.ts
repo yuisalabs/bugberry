@@ -134,6 +134,15 @@ describe("workspace connections", () => {
     expect(trackersOfReport.data?.integrations).toEqual([])
   })
 
+  test("a wrong setting in an edit says which", async () => {
+    const { data } = await connections().post(JIRA, { headers: admin.headers })
+    const { error } = await one(data?.id ?? "").patch(
+      { settings: { siteUrl: "https://kantor.atlassian.net", email: "dana" } },
+      { headers: admin.headers },
+    )
+    expect(error?.value).toMatchObject({ code: "invalid_config", message: "Enter the email of the Atlassian account" })
+  })
+
   test("replacing the token keeps every use working", async () => {
     const project = await createProject(ctx.db)
     const use = await createIntegration(ctx.db, {

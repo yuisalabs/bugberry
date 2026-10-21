@@ -19,25 +19,11 @@ export const settingsSchemas = {
   webhook: t.Object({ url: t.String({ minLength: 1, maxLength: 500 }) }),
 }
 
-const labels = t.Array(t.String({ minLength: 1, maxLength: 50 }), { maxItems: 10 })
-export const targetSchemas = {
-  github: t.Object({ owner: t.String({ pattern: "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$" }), repo: t.String({ pattern: "^[A-Za-z0-9._-]{1,100}$" }), labels }),
-  gitlab: t.Object({ projectPath: t.String({ pattern: "^[\\w.-]+(?:/[\\w.-]+)+$", maxLength: 255 }), labels }),
-  linear: t.Object({ teamKey: t.String({ pattern: "^[A-Za-z][A-Za-z0-9_]{0,9}$" }), labels }),
-  jira: t.Object({
-    projectKey: t.String({ pattern: "^[A-Za-z][A-Za-z0-9_]{1,9}$" }),
-    issueType: t.String({ minLength: 1, maxLength: 60 }),
-    labels,
-  }),
-  activecollab: t.Object({ projectId: t.Integer({ minimum: 1 }), taskListId: t.Integer({ minimum: 1 }) }),
-  telegram: t.Object({ chatId: t.String({ pattern: "^(?:-?\\d{1,20}|@[A-Za-z0-9_]{5,32})$" }) }),
-  none: t.Object({}),
-}
-
 /** An https address (plain http only on this machine), with no login, query or fragment; returned without a trailing slash. */
 export function normalizeBaseUrl(raw: string, what: string): string {
   let url: URL
   try {
+    if (raw.length > 300) throw new Error("too long")
     url = new URL(raw.trim())
   } catch {
     throw unprocessable("invalid_base_url", `The ${what} address is not valid`)
@@ -51,6 +37,9 @@ export function normalizeBaseUrl(raw: string, what: string): string {
 
 const mismatch = () => unprocessable("invalid_config", "The settings don't match the integration provider")
 
+/** An edit's settings arrive loose and are checked field by field, for the same reason as a target's. */
+export const settingsBody = t.Record(t.String(), t.Unknown())
+
 /** Checks a connection's settings belong to its provider and returns them cleaned up. */
 export function normalizeSettings(provider: IntegrationProvider, settings: Record<string, unknown>): ConnectionSettings {
   const text = (key: string) => (typeof settings[key] === "string" ? (settings[key] as string) : null)
@@ -63,6 +52,9 @@ export function normalizeSettings(provider: IntegrationProvider, settings: Recor
     const siteUrl = text("siteUrl")
     const email = text("email")
     if (siteUrl === null || email === null) throw mismatch()
+    if (!/^[^\s@]+@[^\s@]+$/.test(email.trim()) || email.length > 254) {
+      throw unprocessable("invalid_config", "Enter the email of the Atlassian account")
+    }
     const site = normalizeBaseUrl(siteUrl, "Jira")
     // Jira Cloud only: https://<name>.atlassian.net, nothing after it.
     if (!/^https:\/\/[a-z0-9][a-z0-9-]*\.atlassian\.net$/i.test(site)) {
@@ -75,6 +67,7 @@ export function normalizeSettings(provider: IntegrationProvider, settings: Recor
     if (raw === null) throw mismatch()
     let url: URL
     try {
+      if (raw.length > 500) throw new Error("too long")
       url = new URL(raw.trim())
     } catch {
       throw unprocessable("invalid_webhook_url", "The webhook address is not valid")
@@ -91,24 +84,69 @@ export function normalizeSettings(provider: IntegrationProvider, settings: Recor
 
 const cleanLabels = (list: string[]) => [...new Set(list.map((label) => label.trim()).filter(Boolean))]
 
+const LABELS_LIMIT = "Use at most 10 labels of up to 50 characters each"
+const PATTERNS = {
+  owner: /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/,
+  repo: /^[A-Za-z0-9._-]{1,100}$/,
+  projectPath: /^[\w.-]+(?:\/[\w.-]+)+$/,
+  teamKey: /^[A-Za-z][A-Za-z0-9_]{0,9}$/,
+  projectKey: /^[A-Za-z][A-Za-z0-9_]{1,9}$/,
+  chatId: /^(?:-?\d{1,20}|@[A-Za-z0-9_]{5,32})$/,
+}
+
+/**
+ * A target arrives as a loose object and is checked here, field by field: a schema union would quietly turn a target
+ * that breaks one rule into {} and answer with a message about the wrong thing.
+ */
+export const targetBody = t.Record(t.String(), t.Unknown())
+
 /** Checks a use's target belongs to its provider and returns it cleaned up. */
 export function normalizeTarget(provider: IntegrationProvider, target: Record<string, unknown>): UseTarget {
-  const has = (...keys: string[]) => keys.every((key) => key in target)
-  const list = () => cleanLabels((target.labels as string[] | undefined) ?? [])
-  if (provider === "github" && has("owner", "repo")) return { owner: String(target.owner), repo: String(target.repo), labels: list() }
-  if (provider === "gitlab" && has("projectPath")) {
-    return { projectPath: String(target.projectPath).replace(/^\/+|\/+$/g, ""), labels: list() }
+  const invalid = (message: string) => unprocessable("invalid_target", message)
+  const text = (key: string, pattern: RegExp, message: string) => {
+    const value = typeof target[key] === "string" ? (target[key] as string).trim() : ""
+    if (!pattern.test(value)) throw invalid(message)
+    return value
   }
-  if (provider === "linear" && has("teamKey")) return { teamKey: String(target.teamKey).toUpperCase(), labels: list() }
-  if (provider === "jira" && has("projectKey", "issueType")) {
-    return { projectKey: String(target.projectKey).toUpperCase(), issueType: String(target.issueType).trim(), labels: list() }
+  const labels = () => {
+    const raw = target.labels ?? []
+    if (!Array.isArray(raw) || raw.some((label) => typeof label !== "string")) throw invalid(LABELS_LIMIT)
+    const clean = [...new Set((raw as string[]).map((label) => label.trim()).filter(Boolean))]
+    if (clean.length > 10 || clean.some((label) => label.length > 50)) throw invalid(LABELS_LIMIT)
+    return clean
   }
-  if (provider === "activecollab" && has("projectId", "taskListId")) {
-    return { projectId: Number(target.projectId), taskListId: Number(target.taskListId) }
+  const positive = (key: string) => {
+    const value = Number(target[key])
+    if (!Number.isInteger(value) || value < 1) throw invalid("Pick a project and a task list")
+    return value
   }
-  if (provider === "telegram" && has("chatId")) return { chatId: String(target.chatId).trim() }
-  if ((provider === "slack" || provider === "discord" || provider === "webhook") && Object.keys(target).length === 0) return {}
-  throw unprocessable("invalid_target", "The target doesn't match the connection's provider")
+  switch (provider) {
+    case "github":
+      return {
+        owner: text("owner", PATTERNS.owner, "That repository is not valid"),
+        repo: text("repo", PATTERNS.repo, "That repository is not valid"),
+        labels: labels(),
+      }
+    case "gitlab": {
+      const projectPath = typeof target.projectPath === "string" ? target.projectPath.trim().replace(/^\/+|\/+$/g, "") : ""
+      if (!PATTERNS.projectPath.test(projectPath) || projectPath.length > 255) throw invalid("That GitLab project is not valid")
+      return { projectPath, labels: labels() }
+    }
+    case "linear":
+      return { teamKey: text("teamKey", PATTERNS.teamKey, "Enter the team key, such as ENG").toUpperCase(), labels: labels() }
+    case "jira": {
+      const projectKey = text("projectKey", PATTERNS.projectKey, "Enter the project key, such as BUG").toUpperCase()
+      const issueType = text("issueType", /^.{1,60}$/, "Enter an issue type, such as Bug")
+      return { projectKey, issueType, labels: labels() }
+    }
+    case "activecollab":
+      return { projectId: positive("projectId"), taskListId: positive("taskListId") }
+    case "telegram":
+      return { chatId: text("chatId", PATTERNS.chatId, "Enter a chat id, such as -1001234567890, or a channel's @name") }
+    default:
+      if (Object.keys(target).length > 0) throw invalid("This connection takes no target")
+      return {}
+  }
 }
 
 /** A Slack or Discord webhook URL (the secret itself) must point at that service. */

@@ -11,9 +11,11 @@ import {
   createProject,
   createReadyReport,
   createUserWithToken,
+  fakeTrackers,
   putUpload,
   setupTestApp,
   uploadBody,
+  waitFor,
 } from "./helpers"
 
 interface Sent {
@@ -71,6 +73,30 @@ async function finalizeReport(projectId: string | null) {
 const rowOf = async (id: string) => (await ctx.db.select().from(integration).where(eq(integration.id, id)))[0]
 
 describe("new-report notifications", () => {
+  test("a slow tracker does not hold up the channels", async () => {
+    const trackers = fakeTrackers()
+    let release: () => void = () => {}
+    trackers.behaviour.createIssue = () =>
+      new Promise((resolve) => {
+        release = () => resolve({ externalId: "1", url: "https://tracker.test/issues/1" })
+      })
+    const pending: Promise<unknown>[] = []
+    const app = await setupTestApp({}, { trackers: trackers.factory, notifiers: notifiers.factory, background: (task) => pending.push(task) })
+    const reporter = await createUserWithToken(app.db)
+    const owner = await createProject(app.db)
+    await createIntegration(app.db, { projectId: owner.id, provider: "github", target: { owner: "kantor", repo: "web", labels: [] }, autoSend: true })
+    await createIntegration(app.db, { projectId: owner.id, provider: "slack", secret: SLACK })
+    const session = (await app.api.api.reports.uploads.post(uploadBody(owner.id), { headers: reporter.headers })).data
+    if (!session) throw new Error("no upload session")
+    await putUpload(app.app, session.mediaUpload, new Uint8Array([1, 2, 3, 4]))
+    await app.api.api.reports({ id: session.reportId }).finalize.post(undefined, { headers: reporter.headers })
+    // The tracker never answers until released, and the channel still gets its message.
+    await waitFor(async () => notifiers.sent.length === 1, 2000)
+    await waitFor(async () => trackers.created.length === 1, 2000)
+    release()
+    await Promise.all(pending)
+  })
+
   test("one Slack connection used by two projects posts once per project", async () => {
     const other = await createProject(ctx.db, { name: "Admin Panel" })
     const slack = await createIntegration(ctx.db, { projectId: project.id, provider: "slack", secret: SLACK })
