@@ -3,11 +3,20 @@ import type { App } from "@bugberry/api"
 import type {
   ActiveCollabConfig,
   CaptureType,
+  DiscordConfig,
   GithubConfig,
+  GitlabConfig,
+  IntegrationConfig,
+  IntegrationProvider,
+  JiraConfig,
+  LinearConfig,
   Priority,
   ReportStatus,
+  SlackConfig,
+  TelegramConfig,
   TrackerConfig,
   Visibility,
+  WebhookConfig,
   WorkspaceRole,
 } from "@bugberry/shared"
 
@@ -100,12 +109,21 @@ export interface ReportsQuery {
   perPage: number
 }
 
+type Input<P extends IntegrationProvider, C> = { provider: P; config: C; secret: string; autoSend?: boolean }
+
 export type IntegrationInput =
-  | { provider: "github"; config: GithubConfig; secret: string; autoSend?: boolean }
-  | { provider: "activecollab"; config: ActiveCollabConfig; secret: string; autoSend?: boolean }
+  | Input<"github", GithubConfig>
+  | Input<"activecollab", ActiveCollabConfig>
+  | Input<"gitlab", GitlabConfig>
+  | Input<"linear", LinearConfig>
+  | Input<"jira", JiraConfig>
+  | Input<"slack", SlackConfig>
+  | Input<"discord", DiscordConfig>
+  | Input<"telegram", TelegramConfig>
+  | Input<"webhook", WebhookConfig>
 
 export interface IntegrationPatch {
-  config?: GithubConfig | ActiveCollabConfig
+  config?: IntegrationConfig
   secret?: string
   autoSend?: boolean
 }

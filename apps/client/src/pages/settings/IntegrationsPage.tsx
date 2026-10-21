@@ -156,15 +156,14 @@ export function IntegrationsPage() {
   const integrations = useQuery(queries.integrations(projectId))
   const [{ editing, testResult }, dispatch] = useReducer(integrationsUi, INITIAL_INTEGRATIONS_UI)
   // The tracker chosen on the empty page's cards, for the new integration's form.
-  const [picked, setPicked] = useState<TrackerProvider>("github")
+  const [picked, setPicked] = useState<IntegrationProvider>("github")
   const refresh = () => queryClient.invalidateQueries({ queryKey: queries.integrations(projectId).queryKey })
 
   const save = useMutation({
     mutationFn: async ({ id, value }: { id: string | null; value: IntegrationSubmit }) => {
       if (id) {
         return api.updateIntegration(projectId, id, {
-          // Narrowed until the settings for the new providers arrive (the API accepts only these two for now).
-          config: value.config as Parameters<typeof api.updateIntegration>[2]["config"],
+          config: value.config,
           autoSend: value.autoSend,
           ...(value.secret ? { secret: value.secret } : {}),
         })
@@ -188,7 +187,7 @@ export function IntegrationsPage() {
     onError: (error, id) => dispatch({ type: "tested", id, ok: false, message: errorMessage(error) }),
   })
 
-  const start = (provider: TrackerProvider) => {
+  const start = (provider: IntegrationProvider) => {
     setPicked(provider)
     dispatch({ type: "edit", id: "new" })
   }
