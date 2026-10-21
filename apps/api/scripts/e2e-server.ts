@@ -51,6 +51,7 @@ const config: Config = {
   encryptionKey: Buffer.alloc(32, 3).toString("base64"),
   storage: { driver: "local", dir: mkdtempSync(join(tmpdir(), "bugberry-e2e-")) },
   accountLimits: null,
+      allowPrivateIntegrationHosts: true,
 }
 
 const db = createDb(config.databaseUrl)

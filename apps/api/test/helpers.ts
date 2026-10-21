@@ -90,6 +90,7 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
     encryptionKey: TEST_ENCRYPTION_KEY,
     storage: { driver: "local", dir: mkdtempSync(join(tmpdir(), "bugberry-test-")) },
     accountLimits: null,
+    allowPrivateIntegrationHosts: true,
     ...overrides,
   }
 }

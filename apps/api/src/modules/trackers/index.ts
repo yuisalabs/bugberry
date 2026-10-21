@@ -6,12 +6,12 @@ import { authPlugin } from "../../auth/plugin"
 import { integration, report } from "../../db/schema"
 import { notFound } from "../../lib/errors"
 import { createDispatcher } from "../../lib/trackers/dispatch"
-import { createTrackerFactory } from "../../lib/trackers/providers"
 import { requireReportMember } from "../../workspaces/access"
+import { trackerFactoryFor } from "../../lib/trackers/default"
 
 export function trackersModule(deps: AppDeps) {
   const { db } = deps
-  const dispatcher = createDispatcher({ ...deps, trackers: deps.trackers ?? createTrackerFactory() })
+  const dispatcher = createDispatcher({ ...deps, trackers: trackerFactoryFor(deps) })
 
   return new Elysia()
     .use(authPlugin(deps))

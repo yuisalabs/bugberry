@@ -1,5 +1,6 @@
 import type { ActiveCollabConfig, GithubConfig, TrackerConfig, TrackerProvider } from "@bugberry/shared"
 import { type IssueContent, renderHtml, renderMarkdown } from "./content"
+import { type HostGuard, HostGuardError, NO_GUARD } from "../net/host-guard"
 
 /** A failure whose message is safe to show to people (never contains the token). */
 export class TrackerError extends Error {
@@ -18,16 +19,23 @@ export interface TrackerClient {
 
 export type TrackerFactory = (provider: TrackerProvider, config: TrackerConfig, secret: string) => TrackerClient
 
-const DEFAULT_TIMEOUT_MS = 15_000
+export const DEFAULT_TIMEOUT_MS = 15_000
 
-interface Http {
+export interface Http {
   fetcher: typeof fetch
   timeoutMs: number
+  /** Checks each address (and each redirect's) before it is called. */
+  guard: HostGuard
 }
 
 const MAX_REDIRECTS = 3
 
 async function request(http: Http, name: string, url: string, init: RequestInit): Promise<Response> {
+  try {
+    await http.guard(url)
+  } catch (error) {
+    throw new TrackerError(error instanceof HostGuardError ? error.message : `${name} could not be reached`)
+  }
   try {
     return await http.fetcher(url, { ...init, redirect: "manual", signal: AbortSignal.timeout(http.timeoutMs) })
   } catch (error) {
@@ -47,7 +55,7 @@ async function request(http: Http, name: string, url: string, init: RequestInit)
  * Redirects are followed by hand and only on the same origin: the token travels in a custom header
  * that fetch would forward to any host, and a redirect could also lead off https.
  */
-async function send(http: Http, name: string, url: string, init: RequestInit): Promise<Response> {
+export async function guardedSend(http: Http, name: string, url: string, init: RequestInit): Promise<Response> {
   const origin = new URL(url).origin
   let current = url
   for (let hop = 0; ; hop++) {
@@ -98,7 +106,7 @@ function githubClient(config: GithubConfig, token: string, http: Http): TrackerC
      * Fine-grained tokens do not reveal their permissions; those are checked by the first send.
      */
     async test() {
-      const response = await send(http, "GitHub", base, { headers })
+      const response = await guardedSend(http, "GitHub", base, { headers })
       if (!response.ok) await fail(response)
       const repo = (await response.json().catch(() => ({}))) as { private?: unknown; has_issues?: unknown }
       if (repo.has_issues === false) throw new TrackerError("Issues are turned off for this repo")
@@ -116,7 +124,7 @@ function githubClient(config: GithubConfig, token: string, http: Http): TrackerC
       }
     },
     async createIssue(content) {
-      const response = await send(http, "GitHub", `${base}/issues`, {
+      const response = await guardedSend(http, "GitHub", `${base}/issues`, {
         method: "POST",
         headers: { ...headers, "content-type": "application/json" },
         body: JSON.stringify({ title: content.title.slice(0, 256), body: renderMarkdown(content), labels: config.labels }),
@@ -145,11 +153,11 @@ function activeCollabClient(config: ActiveCollabConfig, token: string, http: Htt
 
   return {
     async test() {
-      const response = await send(http, "ActiveCollab", projectApi, { headers })
+      const response = await guardedSend(http, "ActiveCollab", projectApi, { headers })
       if (!response.ok) await fail(response)
     },
     async createIssue(content) {
-      const response = await send(http, "ActiveCollab", `${projectApi}/tasks`, {
+      const response = await guardedSend(http, "ActiveCollab", `${projectApi}/tasks`, {
         method: "POST",
         headers: { ...headers, "content-type": "application/json" },
         body: JSON.stringify({ name: content.title.slice(0, 150), body: renderHtml(content), task_list_id: config.taskListId }),
@@ -166,8 +174,12 @@ function activeCollabClient(config: ActiveCollabConfig, token: string, http: Htt
   }
 }
 
-export function createTrackerFactory(fetcher: typeof fetch = fetch, timeoutMs = DEFAULT_TIMEOUT_MS): TrackerFactory {
-  const http = { fetcher, timeoutMs }
+export function createTrackerFactory(
+  fetcher: typeof fetch = fetch,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+  guard: HostGuard = NO_GUARD,
+): TrackerFactory {
+  const http = { fetcher, timeoutMs, guard }
   return (provider, config, secret) => {
     if (provider === "github" && "owner" in config) return githubClient(config, secret, http)
     if (provider === "activecollab" && "projectId" in config) return activeCollabClient(config, secret, http)

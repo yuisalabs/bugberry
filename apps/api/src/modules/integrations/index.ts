@@ -8,7 +8,8 @@ import { conflict, notFound, unprocessable } from "../../lib/errors"
 import { newId } from "../../lib/ids"
 import { createSecretBox, SECRET_UNREADABLE, SecretError } from "../../lib/secret-box"
 import { requireProjectRole } from "../../workspaces/access"
-import { createTrackerFactory, TrackerError } from "../../lib/trackers/providers"
+import { TrackerError } from "../../lib/trackers/providers"
+import { trackerFactoryFor } from "../../lib/trackers/default"
 
 const githubConfig = t.Object({
   owner: t.String({ pattern: "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$" }),
@@ -91,7 +92,7 @@ function publicIntegration(row: IntegrationRow) {
 export function integrationsModule(deps: AppDeps) {
   const { db } = deps
   const box = createSecretBox(deps.config.encryptionKey)
-  const trackers = deps.trackers ?? createTrackerFactory()
+  const trackers = trackerFactoryFor(deps)
 
   const find = async (projectId: string, id: string) => {
     const [row] = await db

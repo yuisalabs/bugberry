@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { IssueContent } from "../src/lib/trackers/content"
+import { HostGuardError, PRIVATE_HOST_MESSAGE } from "../src/lib/net/host-guard"
 import { createTrackerFactory, TrackerError } from "../src/lib/trackers/providers"
 
 const content: IssueContent = {
@@ -193,5 +194,16 @@ describe("network problems", () => {
     await expect(createTrackerFactory(offline)("activecollab", activecollab, "ac-token").test()).rejects.toThrow(
       /ActiveCollab could not be reached/,
     )
+  })
+})
+
+describe("guarded factory", () => {
+  test("checks the address before sending, and sends nothing when it is refused", async () => {
+    const { fetcher, requests } = fakeFetch(() => Response.json({}))
+    const refuse = async () => {
+      throw new HostGuardError(PRIVATE_HOST_MESSAGE)
+    }
+    await expect(createTrackerFactory(fetcher, 1000, refuse)("activecollab", activecollab, "token").test()).rejects.toThrow("private network")
+    expect(requests).toHaveLength(0)
   })
 })
