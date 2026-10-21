@@ -311,3 +311,58 @@ describe("microphone picker", () => {
     expect(button(/AirPods Pro/)).toBeTruthy()
   })
 })
+
+const recordingTab = {
+  recording: true as const,
+  source: "tab" as const,
+  tabId: 1,
+  elapsedMs: 12_000,
+  paused: false,
+  counts: { errors: 1, failedRequests: 0, actions: 9 },
+}
+
+describe("while recording", () => {
+  test("REC, what is recorded, the timer, the counts, and the tiles disabled", () => {
+    view({ live: recordingTab, activeTabId: 1 })
+    expect(screen.getByText("REC")).toBeTruthy()
+    expect(screen.getByText("Recording this tab")).toBeTruthy()
+    expect(screen.getByText("00:12")).toBeTruthy()
+    expect(screen.getByText("1 error")).toBeTruthy()
+    expect(screen.getByText("0 failed req.")).toBeTruthy()
+    expect(screen.getByText("9 actions")).toBeTruthy()
+    expect(radio("Visible area").disabled).toBe(true)
+    expect(radio("Tab").checked).toBe(true)
+    expect(screen.queryByRole("button", { name: "Capture visible area" })).toBeNull()
+    expect(screen.getByText("Closing this popup keeps recording. The bar on the page has the same controls.")).toBeTruthy()
+    expect(screen.getByText("Capturing console and network live")).toBeTruthy()
+  })
+
+  test("the controls", () => {
+    const props = view({ live: recordingTab })
+    fireEvent.click(button("Stop and review"))
+    expect(props.onStop).toHaveBeenCalledTimes(1)
+    fireEvent.click(button("Pause"))
+    expect(props.onPause).toHaveBeenCalledTimes(1)
+    fireEvent.click(button("Restart"))
+    expect(props.onRestart).toHaveBeenCalledTimes(1)
+    fireEvent.click(button("Discard"))
+    expect(props.onDiscard).toHaveBeenCalledTimes(1)
+  })
+
+  test("paused: Resume", () => {
+    const props = view({ live: { ...recordingTab, paused: true } })
+    fireEvent.click(button("Resume"))
+    expect(props.onResume).toHaveBeenCalledTimes(1)
+  })
+
+  test("another tab, and a screen", () => {
+    view({ live: recordingTab, activeTabId: 2 })
+    expect(screen.getByText("Recording another tab")).toBeTruthy()
+  })
+
+  test("signed out still shows the running recording", () => {
+    view({ live: { ...recordingTab, source: "screen" }, session: { kind: "signed-out" } })
+    expect(screen.getByText("Recording your screen")).toBeTruthy()
+    expect(radio("Screen").checked).toBe(true)
+  })
+})

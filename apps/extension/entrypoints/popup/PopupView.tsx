@@ -5,12 +5,13 @@ import { type ReactNode, useCallback, useRef, useState } from "react"
 import { Button as AriaButton } from "react-aria-components"
 import type { CapturePrefs } from "../../lib/capture-prefs"
 import type { MicAccess, MicDevice } from "../../lib/microphone"
-import { captureCopy, choiceOf } from "../../lib/popup"
+import { type CaptureChoice, captureCopy, choiceOf } from "../../lib/popup"
 import type { PopupRecordingStatus, RecordingStatus } from "../../lib/recording-flow"
 import type { SessionState } from "../../lib/session"
 import type { ReportDraft } from "../../lib/types"
 import { CaptureControls, Tiles } from "./CapturePanel"
 import { DraftList } from "./DraftList"
+import { RecordingPanel } from "./RecordingPanel"
 import { MicPicker } from "./MicPicker"
 import { Footer } from "./parts"
 
@@ -103,7 +104,9 @@ export function PopupView(props: PopupViewProps) {
 
   const { session, prefs } = props
   const blocked = session?.kind === "signed-out" || session?.kind === "no-server"
-  const choice = choiceOf(prefs, props.tabRecorder)
+  const live = props.live?.recording ? props.live : null
+  // While recording the tiles show what is being recorded, faded: nothing else can start.
+  const choice: CaptureChoice = live ? { kind: "record", source: live.source } : choiceOf(prefs, props.tabRecorder)
   const logsOn = props.logsAvailable && props.hostAccess
   const micShort = micShortName(prefs, props.mic)
   const warning = choice.kind === "screenshot" ? props.screenshotWarning : props.recordWarning
@@ -141,10 +144,33 @@ export function PopupView(props: PopupViewProps) {
         </Strip>
       )}
 
-      {session?.kind === "signed-out" && <StatusCard title="Sign in to BugBerry" action="Sign in" onAction={props.onSignIn} />}
-      {session?.kind === "no-server" && <StatusCard title="Choose your BugBerry server" action="Open settings" onAction={props.onOpenSettings} />}
+      {live && (
+        <>
+          <Tiles choice={choice} tabRecorder={props.tabRecorder} disabled onChoose={props.onPrefs} />
+          {props.error && (
+            <Strip tone="danger" alert>
+              {props.error}
+            </Strip>
+          )}
+          <section className="border-t border-border bg-muted">
+            <RecordingPanel
+              live={live}
+              activeTabId={props.activeTabId}
+              onPause={props.onPause}
+              onResume={props.onResume}
+              onRestart={props.onRestart}
+              onDiscard={props.onDiscard}
+              onStop={props.onStop}
+            />
+            <Footer text="Capturing console and network live" logsOn />
+          </section>
+        </>
+      )}
 
-      {!blocked && (
+      {!live && session?.kind === "signed-out" && <StatusCard title="Sign in to BugBerry" action="Sign in" onAction={props.onSignIn} />}
+      {!live && session?.kind === "no-server" && <StatusCard title="Choose your BugBerry server" action="Open settings" onAction={props.onOpenSettings} />}
+
+      {!live && !blocked && (
         <>
           <Tiles choice={choice} tabRecorder={props.tabRecorder} onChoose={props.onPrefs} />
           {warning && <Strip tone="warning">{warning}</Strip>}
@@ -190,7 +216,7 @@ export function PopupView(props: PopupViewProps) {
           </section>
         </>
       )}
-      {blocked && props.error && (
+      {!live && blocked && props.error && (
         <Strip tone="danger" alert>
           {props.error}
         </Strip>

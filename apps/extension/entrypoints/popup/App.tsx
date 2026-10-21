@@ -7,7 +7,7 @@ import { hasTabRecorder } from "../../lib/browser-support"
 import { type CapturePrefs, DEFAULT_CAPTURE_PREFS, recordOptionsFor } from "../../lib/capture-prefs"
 import { createIndexedDbDraftStore } from "../../lib/draft-store"
 import { fullWarning, limitsFor, usageLine } from "../../lib/limits"
-import type { RecordStartRequest, RecordStatusRequest, ScreenshotRequest } from "../../lib/messages"
+import type { PopupRecordingAction, PopupRecordingRequest, RecordStartRequest, RecordStatusRequest, ScreenshotRequest } from "../../lib/messages"
 import { type MicAccess, micAccess, micChoiceAfterCheck, micDevices } from "../../lib/microphone"
 import { recordStartNote, replyResult, uncapturableNote } from "../../lib/popup"
 import { pickEditorWorkspace } from "../../lib/report-form"
@@ -79,6 +79,32 @@ export function App() {
       .then((value) => setRecording((value as RecordingStatus | undefined) ?? { recording: false }))
       .catch(() => setRecording({ recording: false }))
   }, [])
+
+  /** The running recording, asked again every second while the popup is open: its timer and counts move. */
+  const askRecording = async (action: PopupRecordingAction) => {
+    const request: PopupRecordingRequest = { type: "bugberry:popup-recording", action }
+    return browser.runtime.sendMessage(request).catch(() => undefined)
+  }
+  const refreshLive = () =>
+    void askRecording("status").then((value) => setLive((value as PopupRecordingStatus | undefined) ?? { recording: false }))
+  useEffect(() => {
+    refreshLive()
+    const timer = setInterval(refreshLive, 1000)
+    return () => clearInterval(timer)
+  }, [])
+
+  /** Pause, Resume, Restart and Discard, as on the bar; the last two ask first, as the bar does. */
+  const control = async (action: Exclude<PopupRecordingAction, "status" | "stop">) => {
+    if (action === "restart" || action === "discard") {
+      const yes = await confirm({
+        title: action === "restart" ? "Delete this recording and start over?" : "Delete this recording?",
+        confirmLabel: "Delete",
+      })
+      if (!yes) return
+    }
+    await askRecording(action)
+    refreshLive()
+  }
 
   // The default workspace's usage under ACCOUNT_LIMITS: the one the review will pre-select. Silent on any failure.
   useEffect(() => {
@@ -190,11 +216,15 @@ export function App() {
           setMicPicker(open)
           if (open) void readMic()
         }}
-        onPause={() => {}}
-        onResume={() => {}}
-        onRestart={() => {}}
-        onDiscard={() => {}}
-        onStop={() => {}}
+        onPause={() => void control("pause")}
+        onResume={() => void control("resume")}
+        onRestart={() => void control("restart")}
+        onDiscard={() => void control("discard")}
+        onStop={() => {
+          // The review opens on the recorded tab; the popup is in the way.
+          void askRecording("stop")
+          window.close()
+        }}
         onScreenshot={onScreenshot}
         onRecord={onRecord}
         onSignIn={() => settings && void browser.tabs.create({ url: signInUrl(settings.serverUrl) })}
