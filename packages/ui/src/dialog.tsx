@@ -54,7 +54,8 @@ export function Dialog({
       isDismissable={isDismissable}
       className={cx(
         "fixed top-0 left-0 z-50 h-(--visual-viewport-height,100dvh) w-(--visual-viewport-width,100vw) overflow-clip sm:absolute sm:h-[max(var(--page-height),100dvh)] sm:w-[max(var(--page-width),100vw)]",
-        "bg-background/15 backdrop-blur-[1px] motion-reduce:backdrop-blur-none",
+        // A dark wash over the page (the theme's ink), so the eye goes to the modal.
+        "bg-foreground/45 backdrop-blur-[2px] motion-reduce:backdrop-blur-none",
         "entering:fade-in entering:animate-in entering:duration-300 entering:ease-out",
         "exiting:fade-out exiting:animate-out exiting:fill-mode-forwards exiting:ease-in",
         overlay?.className

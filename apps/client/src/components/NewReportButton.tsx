@@ -1,5 +1,5 @@
 import { RiAddLine } from "@remixicon/react"
-import { useState } from "react"
+import { type ReactNode, useState } from "react"
 import { Button as AriaButton } from "react-aria-components"
 import { Button } from "@bugberry/ui/button"
 import { Dialog, DialogBody, DialogHeader, DialogTitle } from "@bugberry/ui/dialog"
@@ -49,10 +49,20 @@ export function NewReportButton({
   installUrl,
   open = openThisPage,
   ask = askThisPage,
+  label = "New report",
+  icon = <RiAddLine aria-hidden />,
+  prominent = false,
+  className,
 }: {
   installUrl: string | null
   open?: () => Promise<boolean>
   ask?: () => Promise<ExtensionAnswer>
+  /** "Record a bug" on an empty report list. */
+  label?: string
+  icon?: ReactNode
+  /** Full size with its label on every screen, instead of the header's small button. */
+  prominent?: boolean
+  className?: string
 }) {
   const [guide, setGuide] = useState<ExtensionAnswer | null>(null)
   const known = useExtensionAnswer(ask)
@@ -64,9 +74,9 @@ export function NewReportButton({
 
   return (
     <>
-      <Button size="sm" aria-label="New report" onPress={() => void start()}>
-        <RiAddLine aria-hidden />
-        <span className="hidden sm:inline">New report</span>
+      <Button size={prominent ? "md" : "sm"} aria-label={label} onPress={() => void start()} className={className}>
+        {icon}
+        <span className={prominent ? undefined : "hidden sm:inline"}>{label}</span>
       </Button>
       <Dialog isOpen={guide !== null} onOpenChange={(isOpen) => !isOpen && setGuide(null)} aria-label="New report" size="sm">
         <DialogHeader>

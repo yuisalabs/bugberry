@@ -58,7 +58,10 @@ describe("ReportsView", () => {
     fireEvent.change(screen.getByRole("searchbox", { name: "Search reports" }), { target: { value: " pay " } })
     fireEvent.submit(screen.getByRole("search"))
     expect(onSearch).toHaveBeenLastCalledWith({ q: "pay" })
-    fireEvent.click(screen.getByRole("button", { name: "Invite" }))
+    // One Invite for phones (beside the title) and one for wider screens; CSS shows one of them.
+    const invites = screen.getAllByRole("button", { name: "Invite" })
+    expect(invites).toHaveLength(2)
+    fireEvent.click(invites[0] as HTMLElement)
     expect(onInvite).toHaveBeenCalled()
     expect(screen.getByRole("button", { name: "New report" })).toBeTruthy()
     rerender(<ReportsView {...props({ canInvite: false })} />)
@@ -67,11 +70,13 @@ describe("ReportsView", () => {
 
   test("sort menu", () => {
     const onSearch = mock()
-    render(<ReportsView {...props({ onSearch })} />)
-    fireEvent.click(screen.getByRole("button", { name: "Sort: Newest first" }))
+    render(<ReportsView {...props({ onSearch, list: listOf([listItemFixture({ id: "a" })]) })} />)
+    // The phone's row and the wider screens' filter row each have one; CSS shows one of them.
+    const sort = () => screen.getAllByRole("button", { name: "Sort: Newest first" })[0] as HTMLElement
+    fireEvent.click(sort())
     fireEvent.click(screen.getByRole("menuitemradio", { name: "Oldest first" }))
     expect(onSearch).toHaveBeenLastCalledWith({ sort: "oldest" })
-    fireEvent.click(screen.getByRole("button", { name: "Sort: Newest first" }))
+    fireEvent.click(sort())
     fireEvent.click(screen.getByRole("menuitemradio", { name: "Priority" }))
     expect(onSearch).toHaveBeenLastCalledWith({ sort: "priority" })
   })
@@ -97,9 +102,9 @@ describe("ReportsView", () => {
 
   test("explains an empty list and a filtered empty list", () => {
     const { rerender } = render(<ReportsView {...props()} />)
-    expect(screen.getByText("No reports yet")).toBeTruthy()
+    expect(screen.getByText("No bugs caught yet")).toBeTruthy()
     rerender(<ReportsView {...props({ search: { status: ["open"] } })} />)
-    expect(screen.getByText("No reports match these filters")).toBeTruthy()
+    expect(screen.getByText("No reports match your filters")).toBeTruthy()
   })
 
   test("shows loading and a retryable error", () => {

@@ -1,10 +1,11 @@
-import { RiCameraLine, RiImageLine, RiLink, RiPlayFill } from "@remixicon/react"
+import { RiCameraLine, RiFlag2Line, RiHashtag, RiImageLine, RiLink, RiPlayFill } from "@remixicon/react"
 import { Link } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { Button } from "@bugberry/ui/button"
 import { Avatar } from "@bugberry/ui/avatar"
 import type { ReportListItem } from "../lib/api"
 import { formatLength, formatRelative } from "../lib/format"
+import { PRIORITY_ICON_STYLES, PRIORITY_LABELS } from "../lib/labels"
 import { initialsOf } from "../lib/people"
 import { copiedDescription } from "../lib/share-access"
 import { toast } from "../lib/toast"
@@ -15,10 +16,13 @@ import { StatusBadge } from "./StatusBadge"
 export function ReportCardBody({
   item,
   now,
+  projectName = null,
   onPreviewError,
 }: {
   item: ReportListItem
   now: number
+  /** The report's project, shown under the title; null for none. */
+  projectName?: string | null
   /** The preview failed to load, most likely because its signed link expired; the list can fetch fresh ones. */
   onPreviewError?: () => void
 }) {
@@ -76,9 +80,28 @@ export function ReportCardBody({
           )}
         </span>
       </div>
-      <div className="flex items-baseline justify-between gap-3 px-1">
-        <p className="truncate text-sm font-medium text-foreground">{item.title}</p>
-        <p className="shrink-0 text-xs text-muted-foreground">{formatRelative(item.createdAt, now)}</p>
+      <div className="flex flex-col gap-1 px-1">
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="truncate text-sm font-medium text-foreground">{item.title}</p>
+          <p className="shrink-0 text-xs text-muted-foreground">{formatRelative(item.createdAt, now)}</p>
+        </div>
+        {(projectName || item.priority !== "none") && (
+          <p className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+            {projectName && (
+              <span className="flex min-w-0 items-center gap-1">
+                <RiHashtag aria-hidden className="size-3.5 shrink-0" />
+                <span className="truncate">{projectName}</span>
+              </span>
+            )}
+            {projectName && item.priority !== "none" && <span aria-hidden>·</span>}
+            {item.priority !== "none" && (
+              <span className="flex shrink-0 items-center gap-1 text-foreground">
+                <RiFlag2Line aria-hidden className={`size-3.5 ${PRIORITY_ICON_STYLES[item.priority]}`} />
+                {PRIORITY_LABELS[item.priority]}
+              </span>
+            )}
+          </p>
+        )}
       </div>
     </div>
   )
@@ -123,10 +146,12 @@ export function CardCopyLink({ item }: { item: ReportListItem }) {
 export function ReportCard({
   item,
   now,
+  projectName = null,
   onPreviewError,
 }: {
   item: ReportListItem
   now: number
+  projectName?: string | null
   onPreviewError?: () => void
 }) {
   return (
@@ -136,7 +161,7 @@ export function ReportCard({
         params={{ reportId: item.id }}
         className="block rounded-xl outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <ReportCardBody item={item} now={now} onPreviewError={onPreviewError} />
+        <ReportCardBody item={item} now={now} projectName={projectName} onPreviewError={onPreviewError} />
       </Link>
       <CardCopyLink item={item} />
     </div>

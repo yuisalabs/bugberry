@@ -7,7 +7,7 @@ import { FileTrigger } from "@bugberry/ui/file-trigger"
 import { Input } from "@bugberry/ui/input"
 import { TextField } from "@bugberry/ui/text-field"
 import { GithubIcon, GitlabIcon, GoogleIcon } from "../../components/LoginView"
-import { Badge, ErrorState } from "../../components/ui"
+import { Badge, dangerText, ErrorState } from "../../components/ui"
 import {
   SettingRow,
   SettingsCardHeader,
@@ -98,7 +98,7 @@ export function AccountSettingsView({
                   Upload photo
                 </FileTrigger>
                 {me.image && (
-                  <Button size="sm" intent="plain" isDisabled={busy} onPress={onRemovePhoto} className="text-danger hover:bg-danger-subtle">
+                  <Button size="sm" intent="plain" isDisabled={busy} onPress={onRemovePhoto} className={dangerText}>
                     <RiDeleteBinLine aria-hidden />
                     Remove
                   </Button>

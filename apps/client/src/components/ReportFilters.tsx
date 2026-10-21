@@ -11,7 +11,7 @@ import { ToggleGroup, ToggleGroupItem } from "@bugberry/ui/toggle-group"
 import type { Member, Project } from "../lib/api"
 import { CAPTURE_LABELS, PRIORITY_LABELS, STATUS_LABELS } from "../lib/labels"
 import type { ReportLayout } from "../lib/report-layout"
-import { hasFilters, NO_PROJECT, type ReportSearch, toggleValue } from "../lib/report-search"
+import { CLEARED_FILTERS, hasFilters, NO_PROJECT, type ReportSearch, toggleValue } from "../lib/report-search"
 import { ActiveIcon } from "./ActiveIcon"
 
 const ALL = "__all"
@@ -215,17 +215,7 @@ export function ReportFilters({
           <Button
             size="sm"
             intent="plain"
-            onPress={() =>
-              onChange({
-                status: undefined,
-                priority: undefined,
-                assigneeId: undefined,
-                reporterId: undefined,
-                captureType: undefined,
-                projectId: undefined,
-                q: undefined,
-              })
-            }
+            onPress={() => onChange(CLEARED_FILTERS)}
           >
             Clear filters
           </Button>
@@ -244,13 +234,22 @@ const SORTS = [
 ] as const
 
 /** Newest first, oldest first or by priority; newest is the default and stays out of the URL. */
-export function SortMenu({ sort, onChange }: { sort: ReportSearch["sort"]; onChange: (patch: Partial<ReportSearch>) => void }) {
+export function SortMenu({
+  sort,
+  onChange,
+  showLabel = false,
+}: {
+  sort: ReportSearch["sort"]
+  onChange: (patch: Partial<ReportSearch>) => void
+  /** Keep "Newest first" beside the icon on every screen, not only from sm up. */
+  showLabel?: boolean
+}) {
   const current = SORTS.find((option) => option.id === (sort ?? "newest")) ?? SORTS[0]
   return (
     <MenuTrigger>
       <Button intent="plain" size="sm" aria-label={`Sort: ${current.label}`} className="text-muted-foreground">
         <RiArrowUpDownLine aria-hidden />
-        <span className="hidden sm:inline">{current.label}</span>
+        <span className={showLabel ? undefined : "hidden sm:inline"}>{current.label}</span>
       </Button>
       <Menu
         aria-label="Sort"

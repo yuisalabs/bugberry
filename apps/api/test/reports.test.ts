@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm"
 import { comment, report } from "../src/db/schema"
 import { newId } from "../src/lib/ids"
 import { LocalStorageDriver } from "../src/storage/local"
-import { createProject, createReadyReport, createUser, createUserWithToken, setupTestApp } from "./helpers"
+import { createProject, createReadyReport, createUser, createUserWithToken, createWorkspaceRow, setupTestApp } from "./helpers"
 
 let ctx: Awaited<ReturnType<typeof setupTestApp>>
 let member: Awaited<ReturnType<typeof createUserWithToken>>
@@ -264,5 +264,28 @@ describe("single report", () => {
     expect(await ctx.storage.head(thumbnailKey)).toBeNull()
     const after = await ctx.api.api.reports({ id: created.id }).get({ headers: member.headers })
     expect(after.error?.status as number | undefined).toBe(404)
+  })
+})
+
+describe("GET /api/reports/counts", () => {
+  test("counts each status under the other filters, ignoring the status filter itself", async () => {
+    await make({ title: "a", status: "open", captureType: "video" })
+    await make({ title: "b", status: "open" })
+    await make({ title: "c", status: "in_progress" })
+    await make({ title: "d", status: "resolved" })
+    await make({ title: "still uploading", status: "open", uploadStatus: "uploading" })
+
+    const { data: all } = await ctx.api.api.reports.counts.get({ query: { status: ["resolved"] }, headers: member.headers })
+    expect(all).toEqual({ total: 4, byStatus: { open: 2, in_progress: 1, resolved: 1, closed: 0 } })
+
+    const { data: videos } = await ctx.api.api.reports.counts.get({ query: { captureType: "video" }, headers: member.headers })
+    expect(videos).toEqual({ total: 1, byStatus: { open: 1, in_progress: 0, resolved: 0, closed: 0 } })
+  })
+
+  test("only the caller's own workspace is counted", async () => {
+    await make({ title: "mine" })
+    const outsider = await createUserWithToken(ctx.db, { name: "Zed", workspaceId: (await createWorkspaceRow(ctx.db, "Elsewhere")).id })
+    const { data } = await ctx.api.api.reports.counts.get({ query: {}, headers: outsider.headers })
+    expect(data?.total).toBe(0)
   })
 })

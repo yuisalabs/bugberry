@@ -81,7 +81,8 @@ export function LogoPicker({
           {!file && !current && <span className="text-sm text-foreground">Using the first letter for now</span>}
           <span className="text-xs text-muted-foreground">{hint}</span>
         </span>
-        <span className="flex gap-2">
+        {/* On the settings page a phone puts the buttons on their own line, leaving the text the whole width. */}
+        <span className={`flex gap-2 ${large ? "basis-full sm:basis-auto" : ""}`}>
           {actions}
           <FileTrigger acceptedFileTypes={TYPES} onSelect={(files) => void choose(files)} size="sm" icon={<RiUploadLine aria-hidden />}>
             Upload

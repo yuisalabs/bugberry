@@ -163,6 +163,8 @@ export function createApi(origin: string = window.location.origin, fetcher: type
     updateProject: (id: string, body: ProjectInput) => unwrap(api.projects({ id }).patch(body)),
     deleteProject: (id: string) => unwrap(api.projects({ id }).delete()),
     reports: (workspaceId: string, query: ReportsQuery) => unwrap(api.reports.get({ query: { workspaceId, ...query } })),
+    reportCounts: (workspaceId: string, query: Omit<ReportsQuery, "page" | "perPage">) =>
+      unwrap(api.reports.counts.get({ query: { workspaceId, ...query } })),
     report: (id: string) => unwrap(api.reports({ id }).get()),
     updateReport: (id: string, patch: ReportPatch) => unwrap(api.reports({ id }).patch(patch)),
     deleteReport: (id: string) => unwrap(api.reports({ id }).delete()),
@@ -216,6 +218,7 @@ export type JoinRequest = Awaited<ReturnType<Api["joinRequests"]>>[number]
 export type InviteResult = Awaited<ReturnType<Api["invite"]>>[number]
 export type InvitationInfo = Awaited<ReturnType<Api["invitation"]>>
 export type ReportList = Awaited<ReturnType<Api["reports"]>>
+export type ReportCounts = Awaited<ReturnType<Api["reportCounts"]>>
 export type ReportListItem = ReportList["items"][number]
 export type ReportDetail = Awaited<ReturnType<Api["report"]>>
 export type Comment = Awaited<ReturnType<Api["comments"]>>[number]

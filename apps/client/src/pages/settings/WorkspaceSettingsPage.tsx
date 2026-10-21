@@ -107,13 +107,15 @@ export function WorkspaceSettingsView({
       </SettingRow>
 
       <SettingRow id={urlLabel} title="Workspace URL" description="Changing it breaks old links to this workspace.">
+        {/* On phones the address sits above the field, so the slug gets the whole box. */}
+        <span className="font-mono text-xs text-muted-foreground sm:hidden">{`${new URL(origin).host}/`}</span>
         <TextField aria-labelledby={urlLabel} value={slug} maxLength={40} onChange={(value) => setSlug(value.toLowerCase())}>
           {/* The host sits in front of the slug as a fixed part of the same box. */}
           <span
             data-slot="control"
             className="flex items-stretch overflow-hidden rounded-lg border border-input focus-within:border-ring/70 focus-within:ring-3 focus-within:ring-ring/20"
           >
-            <span className="flex shrink-0 items-center border-r border-input bg-muted px-3 font-mono text-sm text-muted-foreground">
+            <span className="hidden shrink-0 items-center border-r border-input bg-muted px-3 font-mono text-sm text-muted-foreground sm:flex">
               {`${new URL(origin).host}/`}
             </span>
             <Input className="rounded-none border-0 font-mono focus:ring-0" />
@@ -200,7 +202,10 @@ export function WorkspaceAccessView({
         )}
         {link && membersAllowed && (
           <div className="flex flex-wrap items-center gap-2">
-            <code className="min-w-0 flex-1 truncate rounded-lg border border-border bg-muted px-3 py-2 font-mono text-sm text-foreground">{link}</code>
+            {/* A line of its own on phones, with Copy and Reset under it. */}
+            <code className="w-full min-w-0 truncate rounded-lg border border-border bg-muted px-3 py-2 font-mono text-sm text-foreground sm:w-auto sm:flex-1">
+              {link}
+            </code>
             <Button size="sm" intent="outline" isDisabled={busy} onPress={() => void copy()}>
               <RiFileCopyLine aria-hidden />
               Copy

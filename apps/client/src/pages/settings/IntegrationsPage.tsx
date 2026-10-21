@@ -16,7 +16,7 @@ import { BugBerryLogo } from "../../components/BugBerryLogo"
 import { IntegrationForm, type IntegrationSubmit, ProviderMark } from "../../components/IntegrationForm"
 import { GithubIcon } from "../../components/LoginView"
 import { SettingsRowsSkeleton } from "../../components/Skeletons"
-import { Badge, ErrorState } from "../../components/ui"
+import { Badge, dangerText, ErrorState } from "../../components/ui"
 import { errorMessage, type Integration, type IntegrationInput } from "../../lib/api"
 import { api } from "../../lib/client"
 import { INITIAL_INTEGRATIONS_UI, integrationsUi, type TestResult } from "../../lib/integrations-ui"
@@ -116,7 +116,7 @@ export function IntegrationRow({
             isDisabled={removing}
             onPress={onDelete}
             aria-label={`Delete ${integration.label}`}
-            className="text-danger hover:bg-danger-subtle"
+            className={dangerText}
           >
             <RiDeleteBinLine aria-hidden />
             Delete

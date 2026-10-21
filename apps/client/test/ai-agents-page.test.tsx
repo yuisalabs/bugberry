@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, mock, spyOn, test } from "bun:test"
 import { fireEvent, render, screen, within } from "@testing-library/react"
-import { AiAgentsView, connectSnippets, exampleReportLink } from "../src/pages/settings/AiAgentsPage"
+import { AGENT_PROMPT, AiAgentsView, connectSnippets, reportLinkForms } from "../src/pages/settings/AiAgentsPage"
 
 const ORIGIN = "https://bugberry.kantor.test"
 const base = {
@@ -56,13 +56,18 @@ describe("AiAgentsView", () => {
       "2Add it to your AI app",
       "3Paste a report link into your agent",
     ])
-    expect(screen.getByText(exampleReportLink(ORIGIN))).toBeTruthy()
+    expect(screen.getByText(`${ORIGIN}/app/r/…`)).toBeTruthy()
+    expect(screen.getByText(`${ORIGIN}/s/…`)).toBeTruthy()
     expect(screen.getByRole("link", { name: "Read the docs" }).getAttribute("href")).toBe("https://bugberry.yuisalabs.com/docs/guide/ai-agents")
   })
 
-  test("the example prompt uses this server's address", () => {
-    expect(exampleReportLink("https://bugberry.kantor.test")).toBe("bugberry.kantor.test/app/r/8f3a91c2")
-    expect(exampleReportLink("http://localhost:5173")).toBe("localhost:5173/app/r/8f3a91c2")
+  test("both report link forms carry this server's full address", () => {
+    // The agent reads a link only with this server's full origin, so both forms carry it.
+    expect(reportLinkForms("https://bugberry.kantor.test").map((form) => form.link)).toEqual([
+      "https://bugberry.kantor.test/app/r/…",
+      "https://bugberry.kantor.test/s/…",
+    ])
+    expect(AGENT_PROMPT).toBe("Fix this bug: ")
   })
 
   test("creating a token shows it once and then lists it", () => {

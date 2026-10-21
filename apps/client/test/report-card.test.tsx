@@ -49,10 +49,16 @@ describe("ReportCardBody", () => {
     expect(screen.getByText("x".repeat(200)).className).toContain("truncate")
   })
 
-  test("shows the status but never priority or assignee", () => {
-    render(<ReportCardBody item={listItemFixture({ status: "open", priority: "high", assigneeId: "u2" })} now={NOW} />)
+  test("shows the status, and under the title the project and a priority that is set", () => {
+    const { rerender } = render(
+      <ReportCardBody item={listItemFixture({ status: "open", priority: "high", assigneeId: "u2" })} now={NOW} projectName="Quinella AI" />,
+    )
     expect(screen.getByText(STATUS_LABELS.open)).toBeTruthy()
-    expect(screen.queryByText(PRIORITY_LABELS.high)).toBeNull()
+    expect(screen.getByText("Quinella AI")).toBeTruthy()
+    expect(screen.getByText(PRIORITY_LABELS.high)).toBeTruthy()
+    // No priority and no project: no line for them.
+    rerender(<ReportCardBody item={listItemFixture({ priority: "none" })} now={NOW} />)
+    expect(screen.queryByText(PRIORITY_LABELS.none)).toBeNull()
   })
 })
 

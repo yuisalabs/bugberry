@@ -1,4 +1,4 @@
-import { FREE_EMAIL_DOMAINS, THUMBNAIL_CONTENT_TYPE } from "@bugberry/shared"
+import { FREE_EMAIL_DOMAINS, REPORT_STATUSES, type ReportStatus, THUMBNAIL_CONTENT_TYPE } from "@bugberry/shared"
 import { and, asc, count, desc, eq, exists, gt, gte, ilike, inArray, isNull, lt, or, type SQL, sql } from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"
 import type { AppDeps } from "../../app"
@@ -30,16 +30,16 @@ const summaryCount = (field: "errors" | "failedRequests") =>
 
 const reportNotFound = () => notFound("report_not_found", "Report not found")
 
-/** The report list a member sees in one workspace: finished uploads only, filtered, sorted and paged. */
-export async function listReports({ db, storage }: Deps, caller: CurrentUser, input: ListReportsInput) {
-  const workspaceId = await resolveWorkspace(db, caller, input.workspaceId)
-  const page = input.page ?? 1
-  const perPage = input.perPage ?? DEFAULT_PER_PAGE
+/**
+ * Which reports a list holds: one workspace's finished uploads, narrowed by the list's filters. The counts per
+ * status leave the status filter out (`withStatus: false`), so each status chip says what picking it would show.
+ */
+function reportConditions(db: Deps["db"], workspaceId: string, input: ListReportsInput, { withStatus = true } = {}): SQL[] {
   const conditions: SQL[] = [eq(report.workspaceId, workspaceId), eq(report.uploadStatus, "ready")]
   if (input.projectId === NO_PROJECT) conditions.push(isNull(report.projectId))
   else if (input.projectId) conditions.push(eq(report.projectId, input.projectId))
   if (input.captureType) conditions.push(eq(report.captureType, input.captureType))
-  if (input.status?.length) conditions.push(inArray(report.status, input.status))
+  if (withStatus && input.status?.length) conditions.push(inArray(report.status, input.status))
   if (input.priority?.length) conditions.push(inArray(report.priority, input.priority))
   if (input.assigneeId === NO_ASSIGNEE) conditions.push(isNull(report.assigneeId))
   else if (input.assigneeId) conditions.push(eq(report.assigneeId, input.assigneeId))
@@ -62,7 +62,28 @@ export async function listReports({ db, storage }: Deps, caller: CurrentUser, in
     const matches = or(ilike(report.title, pattern), ilike(report.pageUrl, pattern), ilike(report.description, pattern), inComments)
     if (matches) conditions.push(matches)
   }
-  const where = and(...conditions)
+  return conditions
+}
+
+/** How many reports each status holds under the list's other filters, and all of them together. */
+export async function countReportsByStatus({ db }: Deps, caller: CurrentUser, input: ListReportsInput) {
+  const workspaceId = await resolveWorkspace(db, caller, input.workspaceId)
+  const rows = await db
+    .select({ status: report.status, count: count() })
+    .from(report)
+    .where(and(...reportConditions(db, workspaceId, input, { withStatus: false })))
+    .groupBy(report.status)
+  const byStatus = Object.fromEntries(REPORT_STATUSES.map((status) => [status, 0])) as Record<ReportStatus, number>
+  for (const row of rows) byStatus[row.status] = row.count
+  return { total: rows.reduce((sum, row) => sum + row.count, 0), byStatus }
+}
+
+/** The report list a member sees in one workspace: finished uploads only, filtered, sorted and paged. */
+export async function listReports({ db, storage }: Deps, caller: CurrentUser, input: ListReportsInput) {
+  const workspaceId = await resolveWorkspace(db, caller, input.workspaceId)
+  const page = input.page ?? 1
+  const perPage = input.perPage ?? DEFAULT_PER_PAGE
+  const where = and(...reportConditions(db, workspaceId, input))
   const orderBy =
     input.sort === "priority"
       ? [desc(priorityRank), desc(report.createdAt), desc(report.id)]

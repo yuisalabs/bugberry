@@ -11,7 +11,7 @@ import { thumbnailKeyFor } from "../../storage/keys"
 import { nearestCity } from "../../lib/cities"
 import { loadReportDetail } from "./detail"
 import { listReportsQuery, reportLocationBody, updateReportBody } from "./model"
-import { listReports, updateReport } from "./service"
+import { countReportsByStatus, listReports, updateReport } from "./service"
 
 export function reportsModule(deps: AppDeps) {
   const { config, db, storage } = deps
@@ -20,6 +20,11 @@ export function reportsModule(deps: AppDeps) {
   return new Elysia()
     .use(authPlugin(deps))
     .get("/reports", ({ user: current, query }) => listReports(deps, current, query), { auth: true, query: listReportsQuery })
+    // The report list's status chips: how many reports each status holds under the other filters.
+    .get("/reports/counts", ({ user: current, query }) => countReportsByStatus(deps, current, query), {
+      auth: true,
+      query: listReportsQuery,
+    })
     .get(
       "/reports/:id",
       async ({ user: current, params }) => {

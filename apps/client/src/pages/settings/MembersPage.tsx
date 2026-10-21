@@ -16,7 +16,7 @@ import { Button } from "@bugberry/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@bugberry/ui/select"
 import { InviteForm } from "../../components/InviteDialog"
 import { SettingsRowsSkeleton } from "../../components/Skeletons"
-import { Badge, CopyButton, ErrorState } from "../../components/ui"
+import { Badge, CopyButton, dangerText, ErrorState } from "../../components/ui"
 import { errorMessage, type InviteResult, type JoinRequest, type Member, type PendingInvitation } from "../../lib/api"
 import { api } from "../../lib/client"
 import { formatDate, formatDateTime } from "../../lib/format"
@@ -99,7 +99,7 @@ function ActionButton({
   children: ReactNode
 }) {
   return (
-    <Button size="sm" intent="plain" aria-label={label} onPress={onPress} className={danger ? "text-danger hover:bg-danger-subtle" : undefined}>
+    <Button size="sm" intent="plain" aria-label={label} onPress={onPress} className={danger ? dangerText : undefined}>
       {icon}
       {children}
     </Button>

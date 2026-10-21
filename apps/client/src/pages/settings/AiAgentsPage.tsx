@@ -43,15 +43,25 @@ export function connectSnippets(url: string): Array<{ id: string; label: string;
 
 const when = (value: Date | string | null) => (value ? formatDateTime(value) : "never")
 
-/** What a report link looks like on this server, for the example prompt. */
-export function exampleReportLink(origin: string): string {
-  return `${new URL(origin).host}/app/r/8f3a91c2`
+/** The prompt step 3 offers to copy; the person adds their report's link after it. */
+export const AGENT_PROMPT = "Fix this bug: "
+
+/**
+ * The report links an agent can be given on this server, as the MCP server reads them (parseReportRef): the
+ * report page's address and a share link. Both need this server's full origin.
+ */
+export function reportLinkForms(origin: string): Array<{ link: string; what: string }> {
+  return [
+    { link: `${origin}/app/r/…`, what: "the report's page" },
+    { link: `${origin}/s/…`, what: "a share link" },
+  ]
 }
 
 const card = "flex flex-col gap-5 rounded-2xl border border-border bg-background p-6 shadow-xs"
 const cardTitle = "font-heading text-lg font-semibold text-foreground"
 // A terminal look (the theme's ink as the background), so a command reads as something to paste.
-const codeBlock = "relative rounded-xl bg-foreground p-4 pr-28 font-mono text-sm leading-6 text-background"
+// On phones Copy sits above the command (pt-14) so the command has the whole width; wider, it sits beside it.
+const codeBlock = "relative rounded-xl bg-foreground p-4 pt-14 font-mono text-sm leading-6 text-background sm:pt-4 sm:pr-28"
 
 function Step({ number, title, children }: { number: number; title: string; children: ReactNode }) {
   return (
@@ -184,12 +194,28 @@ export function AiAgentsView({
             </Step>
 
             <Step number={3} title="Paste a report link into your agent">
-              <p className="flex items-center gap-2.5 rounded-lg bg-muted px-3 py-2.5 text-sm text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
                 <RiChat3Line aria-hidden className="size-4 shrink-0" />
-                <span className="min-w-0 truncate">
-                  Fix this bug: <code className="font-mono text-primary">{exampleReportLink(origin)}</code>
+                <span className="min-w-0 flex-1">
+                  {AGENT_PROMPT}
+                  <span className="font-mono whitespace-nowrap text-primary">&lt;report link&gt;</span>
                 </span>
-              </p>
+                <CopyButton text={AGENT_PROMPT} label="Copy" className="bg-background" />
+              </div>
+              <div className="flex flex-col gap-1.5 text-sm text-muted-foreground">
+                <span>A report link is either:</span>
+                <ul className="flex flex-col gap-1">
+                  {reportLinkForms(origin).map((form) => (
+                    <li key={form.link} className="flex flex-wrap items-baseline gap-x-2">
+                      <code className="font-mono break-all text-foreground">{form.link}</code>
+                      <span>{form.what}</span>
+                    </li>
+                  ))}
+                </ul>
+                <span>
+                  A number like <code className="font-mono text-foreground">BB-123</code> works too.
+                </span>
+              </div>
             </Step>
           </ol>
         </div>

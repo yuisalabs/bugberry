@@ -80,6 +80,17 @@ export function toReportsQuery(scope: { projectId?: string }, search: ReportSear
   return query
 }
 
+/** Every filter off; the order stays as chosen. */
+export const CLEARED_FILTERS: Partial<ReportSearch> = {
+  status: undefined,
+  priority: undefined,
+  assigneeId: undefined,
+  reporterId: undefined,
+  captureType: undefined,
+  projectId: undefined,
+  q: undefined,
+}
+
 export function hasFilters(search: ReportSearch): boolean {
   return Boolean(
     search.status ||
