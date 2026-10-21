@@ -211,7 +211,7 @@ export function IntegrationsPage() {
 
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-6">
         <div className="flex flex-col gap-1">
-          <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">Integrations</h1>
+          <h1 className="font-heading text-xl font-bold tracking-tight text-foreground">Integrations</h1>
           <p className="text-muted-foreground">Reports in {projectName} can be sent to these trackers.</p>
         </div>
         {editing === null && (

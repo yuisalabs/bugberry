@@ -121,7 +121,7 @@ export function AiAgentsView({
     <section className="flex flex-col gap-8">
       <header className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-6">
         <div className="flex max-w-3xl flex-col gap-2">
-          <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">AI agents (MCP)</h1>
+          <h1 className="font-heading text-xl font-bold tracking-tight text-foreground">AI Agents (MCP)</h1>
           <p className="text-muted-foreground">
             Let AI apps like Claude Code or Cursor read your reports and work on them: paste a report link into the agent and it can see
             the console, network, user actions and the code that failed, then comment or update the report for you. Agents see only what

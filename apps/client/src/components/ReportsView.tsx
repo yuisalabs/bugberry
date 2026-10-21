@@ -166,7 +166,7 @@ export function ReportsView({
             row. From tablet width up: title, then search, actions, Invite and New report in one row. */}
         <header className="mb-4 flex flex-wrap items-center gap-3 border-b border-border pb-5 md:justify-between">
           <div className="order-1 flex min-w-0 flex-1 flex-col gap-0.5 md:flex-none">
-            <h1 className="truncate font-heading text-3xl font-bold tracking-tight text-foreground">{title}</h1>
+            <h1 className="truncate font-heading text-xl font-bold tracking-tight text-foreground">{title}</h1>
             {subtitle && <p className="truncate text-sm text-muted-foreground">{subtitle}</p>}
             {showCount && count && <p className="text-sm text-muted-foreground">{count}</p>}
             {usage && <p className="text-xs text-muted-foreground">{usage}</p>}

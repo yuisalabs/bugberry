@@ -338,9 +338,9 @@ export function MembersPage() {
     <section className="flex flex-col gap-8">
       <header className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-6">
         <div className="flex flex-col gap-1">
-          <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">Members</h1>
+          <h1 className="font-heading text-xl font-bold tracking-tight text-foreground">Members</h1>
           {workspace && members.data && (
-            <p className="text-muted-foreground">{membersSummary(members.data.length, workspace.name, invitations.data?.length ?? 0)}</p>
+            <p className="text-muted-foreground text-sm">{membersSummary(members.data.length, workspace.name, invitations.data?.length ?? 0)}</p>
           )}
         </div>
         {shareCode && <CopyButton text={`${window.location.origin}/join/${shareCode}`} label="Copy invite link" />}

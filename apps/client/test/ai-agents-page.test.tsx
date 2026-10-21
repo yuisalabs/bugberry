@@ -44,7 +44,7 @@ describe("connectSnippets", () => {
 describe("AiAgentsView", () => {
   test("shows the server URL and the Claude Code command", () => {
     render(<AiAgentsView {...base} />)
-    expect(screen.getByRole("heading", { name: "AI agents (MCP)" })).toBeTruthy()
+    expect(screen.getByRole("heading", { name: "AI Agents (MCP)" })).toBeTruthy()
     expect(screen.getAllByText(`${ORIGIN}/api/mcp`).length).toBeGreaterThan(0)
     expect(screen.getByText(`claude mcp add --transport http bugberry ${ORIGIN}/api/mcp`)).toBeTruthy()
   })
