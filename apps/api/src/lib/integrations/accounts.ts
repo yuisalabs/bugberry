@@ -26,6 +26,7 @@ export class ListUnavailableError extends Error {
 }
 
 const MAX_OPTIONS = 100
+const GITHUB_SEARCH_PAGES = 10
 
 /** Keeps options matching `q` (case-insensitive, value or label) and stops at 100. */
 function finish(options: Option[], q?: string): Option[] {
@@ -76,7 +77,18 @@ function github(token: string, http: Http): AccountClient {
     },
     async list(list, { q, parent }) {
       if (list === "targets") {
-        const repos = await call<Array<{ full_name: string }>>(http, "GitHub", `${base}/user/repos?per_page=100&sort=updated`, init, fail)
+        const url = `${base}/user/repos?per_page=100&sort=updated`
+        if (!q?.trim()) {
+          const repos = await call<Array<{ full_name: string }>>(http, "GitHub", url, init, fail)
+          return finish(repos.map((repo) => same(repo.full_name)), q)
+        }
+        // GitHub cannot search a token's own repositories, so a search reads up to 1,000 of them, newest first.
+        const repos: Array<{ full_name: string }> = []
+        for (let page = 1; page <= GITHUB_SEARCH_PAGES; page++) {
+          const batch = await call<Array<{ full_name: string }>>(http, "GitHub", `${url}&page=${page}`, init, fail)
+          repos.push(...batch)
+          if (batch.length < 100) break
+        }
         return finish(repos.map((repo) => same(repo.full_name)), q)
       }
       if (list === "labels") {

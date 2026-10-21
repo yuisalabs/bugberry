@@ -35,8 +35,17 @@ SELECT i."id", p."workspace_id", i."provider",
 	)),
 	i."secret_encrypted", i."created_at", i."updated_at"
 FROM "integration" i JOIN "project" p ON p."id" = i."project_id";--> statement-breakpoint
--- Each integration becomes that connection's use in its project; its own id keeps migrated uses unique.
-UPDATE "integration" SET "connection_id" = "id", "target_key" = "id", "config" = "config" - 'baseUrl' - 'siteUrl' - 'email' - 'url';--> statement-breakpoint
+-- Each integration becomes that connection's use in its project, keyed the way targetKey() keys a new use (one per target).
+UPDATE "integration" SET "connection_id" = "id",
+	"target_key" = coalesce(CASE "provider"::text
+		WHEN 'github' THEN lower(("config"->>'owner') || '/' || ("config"->>'repo'))
+		WHEN 'gitlab' THEN lower("config"->>'projectPath')
+		WHEN 'linear' THEN upper("config"->>'teamKey')
+		WHEN 'jira' THEN lower(("config"->>'projectKey') || '/' || ("config"->>'issueType'))
+		WHEN 'activecollab' THEN ("config"->>'projectId') || '/' || ("config"->>'taskListId')
+		WHEN 'telegram' THEN "config"->>'chatId'
+	END, ''),
+	"config" = "config" - 'baseUrl' - 'siteUrl' - 'email' - 'url';--> statement-breakpoint
 UPDATE "report_external_link" l SET "provider" = i."provider" FROM "integration" i WHERE l."integration_id" = i."id";--> statement-breakpoint
 ALTER TABLE "integration" ALTER COLUMN "connection_id" SET NOT NULL;--> statement-breakpoint
 ALTER TABLE "integration" ALTER COLUMN "target_key" SET NOT NULL;--> statement-breakpoint

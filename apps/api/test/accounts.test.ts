@@ -46,6 +46,21 @@ describe("GitHub", () => {
     )
   })
 
+  test("a search reaches repositories beyond the first 100", async () => {
+    const all = Array.from({ length: 250 }, (_, index) => ({ full_name: `kantor/repo-${index}` }))
+    const { fetcher, requests } = fakeFetch((request) => {
+      const page = Number(new URL(request.url).searchParams.get("page") ?? "1")
+      return json(all.slice((page - 1) * 100, page * 100))
+    })
+    const github = createAccountFactory(fetcher, 5_000, NO_GUARD)("github", {}, "x")
+    expect(await github.list("targets", { q: "repo-210" })).toEqual([{ value: "kantor/repo-210", label: "kantor/repo-210" }])
+    expect(requests.map((request) => new URL(request.url).searchParams.get("page"))).toEqual(["1", "2", "3"])
+    // Without a search the first page is enough.
+    requests.length = 0
+    expect(await github.list("targets", {})).toHaveLength(100)
+    expect(requests).toHaveLength(1)
+  })
+
   test("lists stop at 100", async () => {
     const repos = Array.from({ length: 150 }, (_, index) => ({ full_name: `kantor/repo-${index}` }))
     const { fetcher } = fakeFetch(() => json(repos))

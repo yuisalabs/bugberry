@@ -32,7 +32,7 @@ afterAll(async () => {
   await scratch?.close()
   await admin.unsafe(`DROP DATABASE IF EXISTS ${SCRATCH} WITH (FORCE)`)
   await admin.close()
-})
+}, 30_000)
 
 test("migration 0022 moves each integration into a connection and keeps links", async () => {
   const sealed = "v1.not.openable.here"
@@ -75,6 +75,22 @@ test("migration 0022 moves each integration into a connection and keeps links", 
   expect(useById.gh).toMatchObject({ config: { owner: "kantor", repo: "web", labels: ["bug"] }, auto_send: true })
   expect(useById.wh.config).toEqual({})
   expect("secret_encrypted" in useById.gh).toBe(false)
+
+  // Migrated uses carry the same target key a new use would, so the once-per-target rule holds after the upgrade.
+  expect(Object.fromEntries(uses.map((row: { id: string; target_key: string }) => [row.id, row.target_key]))).toEqual({
+    gh: "kantor/web",
+    ji: "bug/bug",
+    wh: "",
+  })
+  let duplicate: unknown = null
+  try {
+    await scratch.unsafe(
+      `INSERT INTO integration (id, project_id, connection_id, provider, config, target_key) VALUES ('dup', 'p1', 'gh', 'github', '{}', 'kantor/web')`,
+    )
+  } catch (error) {
+    duplicate = error
+  }
+  expect(String(duplicate)).toContain("integration_project_connection_target_idx")
 
   const [link] = await scratch.unsafe(`SELECT * FROM report_external_link WHERE id = 'l1'`)
   expect(link).toMatchObject({ provider: "github", integration_id: "gh", external_id: "42" })
