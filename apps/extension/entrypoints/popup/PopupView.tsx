@@ -85,6 +85,22 @@ export function meteredMicId(prefs: CapturePrefs, mic: MicState): string | null 
   return prefs.mic ? (micInUse(prefs, mic)?.id ?? mic.defaultId) : mic.defaultId
 }
 
+/**
+ * Whether the popup listens to the microphone for its level bars: only where they show (a record tile's
+ * chip, or the open picker), never during a recording, and only once the microphone may be used. Opening
+ * the microphone lights the system's mic indicator, so it stays off whenever nothing on screen needs it.
+ */
+export function micMeterOn(
+  prefs: CapturePrefs,
+  mic: MicState,
+  pickerOpen: boolean,
+  live: PopupRecordingStatus | undefined,
+  tabRecorder: boolean,
+): boolean {
+  if (mic.access !== "granted" || live === undefined || live.recording) return false
+  return choiceOf(prefs, tabRecorder).kind === "record" && (pickerOpen || prefs.mic)
+}
+
 /** The toolbar popup: tiles to choose what to capture, a dial to do it. No browser APIs here; App wires them. */
 export function PopupView(props: PopupViewProps) {
   const [showDrafts, setShowDrafts] = useState(false)

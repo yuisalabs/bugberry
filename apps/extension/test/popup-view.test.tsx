@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
-import { PopupView, type PopupViewProps } from "../entrypoints/popup/PopupView"
+import { micMeterOn, PopupView, type PopupViewProps } from "../entrypoints/popup/PopupView"
 import { DEFAULT_CAPTURE_PREFS } from "../lib/capture-prefs"
 import type { ReportDraft } from "../lib/types"
 
@@ -378,5 +378,30 @@ describe("while recording", () => {
     view({ live: { ...recordingTab, source: "screen" }, session: { kind: "signed-out" } })
     expect(screen.getByText("Recording your screen")).toBeTruthy()
     expect(radio("Screen").checked).toBe(true)
+  })
+})
+
+describe("the level meter", () => {
+  const granted = { access: "granted" as const, devices: [], defaultId: "a", level: 0 }
+  const idle = { recording: false as const }
+
+  test("listens while the picker is open or a microphone is chosen, on a record tile", () => {
+    expect(micMeterOn(record("tab"), granted, true, idle, true)).toBe(true)
+    expect(micMeterOn({ ...record("tab"), mic: true }, granted, false, idle, true)).toBe(true)
+    expect(micMeterOn(record("tab"), granted, false, idle, true)).toBe(false)
+  })
+
+  test("off on a screenshot tile, where no chip shows it", () => {
+    expect(micMeterOn({ ...DEFAULT_CAPTURE_PREFS, mic: true }, granted, false, idle, true)).toBe(false)
+  })
+
+  test("off while recording, and until the recording status is known", () => {
+    const prefs = { ...record("tab"), mic: true }
+    expect(micMeterOn(prefs, granted, false, recordingTab, true)).toBe(false)
+    expect(micMeterOn(prefs, granted, false, undefined, true)).toBe(false)
+  })
+
+  test("off without microphone access", () => {
+    expect(micMeterOn({ ...record("tab"), mic: true }, { ...granted, access: "prompt" }, true, idle, true)).toBe(false)
   })
 })

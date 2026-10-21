@@ -14,7 +14,7 @@ import { pickEditorWorkspace } from "../../lib/report-form"
 import type { PopupRecordingStatus, RecordingStatus } from "../../lib/recording-flow"
 import { checkSession, type SessionState, serverLabel, signInUrl } from "../../lib/session"
 import { loadSettings, type Settings } from "../../lib/settings"
-import { type MicState, meteredMicId, PopupView } from "./PopupView"
+import { type MicState, meteredMicId, micMeterOn, PopupView } from "./PopupView"
 import { useMicLevel } from "./use-mic-level"
 import { useConfirm } from "@bugberry/ui/confirm-dialog"
 
@@ -39,8 +39,7 @@ export function App() {
   const [mic, setMic] = useState<MicState>({ access: "prompt", devices: [], defaultId: null, level: 0 })
   const [live, setLive] = useState<PopupRecordingStatus | undefined>(undefined)
   const [micPicker, setMicPicker] = useState(false)
-  // Listens only while the picker is open or a microphone is chosen, and only once it may be used.
-  const level = useMicLevel(meteredMicId(prefs, mic), (micPicker || prefs.mic) && mic.access === "granted")
+  const level = useMicLevel(meteredMicId(prefs, mic), micMeterOn(prefs, mic, micPicker, live, tabRecorder))
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [limitNotes, setLimitNotes] = useState<{ usage: string | null; screenshot: string | null; record: string | null }>({
