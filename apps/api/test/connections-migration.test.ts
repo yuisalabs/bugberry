@@ -26,7 +26,7 @@ beforeAll(async () => {
   scratch = new SQL(url.href)
   const journal = (await Bun.file(new URL("meta/_journal.json", drizzleDir)).json()) as { entries: Array<{ idx: number; tag: string }> }
   for (const entry of journal.entries.filter((item) => item.idx <= 21)) await apply(scratch, entry.tag)
-})
+}, 60_000)
 
 afterAll(async () => {
   await scratch?.close()

@@ -18,7 +18,8 @@ ALTER TABLE "report_external_link" ADD COLUMN "provider" "tracker_provider";--> 
 -- Each integration becomes a connection of its own (same id), named after what it points at; the sealed secret is copied as it is.
 INSERT INTO "connection" ("id", "workspace_id", "provider", "name", "settings", "secret_encrypted", "created_at", "updated_at")
 SELECT i."id", p."workspace_id", i."provider",
-	CASE i."provider"
+	-- Compared as text: 0021 adds these enum values, and Postgres refuses new enum values used in the transaction that added them.
+	CASE i."provider"::text
 		WHEN 'github' THEN 'GitHub · ' || (i."config"->>'owner') || '/' || (i."config"->>'repo')
 		WHEN 'gitlab' THEN 'GitLab · ' || (i."config"->>'projectPath')
 		WHEN 'linear' THEN 'Linear · Team ' || (i."config"->>'teamKey')
