@@ -6,6 +6,7 @@ import { authPlugin } from "../../auth/plugin"
 import { connection, integration, project, workspace } from "../../db/schema"
 import { conflict, notFound, unprocessable } from "../../lib/errors"
 import { newId } from "../../lib/ids"
+import { accountFactoryFor, ListUnavailableError, OPTION_LISTS } from "../../lib/integrations/accounts"
 import { checkAddresses, checkWebhookSecret, normalizeSettings, settingsSchemas } from "../../lib/integrations/validate"
 import { createHostGuard } from "../../lib/net/host-guard"
 import { notifierFactoryFor } from "../../lib/notifiers/deliver"
@@ -73,6 +74,7 @@ export function connectionsModule(deps: AppDeps) {
   const { db } = deps
   const box = createSecretBox(deps.config.encryptionKey)
   const notifiers = notifierFactoryFor(deps)
+  const accounts = accountFactoryFor(deps)
   const guard = createHostGuard({ allowPrivate: deps.config.allowPrivateIntegrationHosts })
 
   const usesOf = async (ids: string[]): Promise<UseRow[]> =>
@@ -190,7 +192,9 @@ export function connectionsModule(deps: AppDeps) {
         const plain = openSecret(row)
         try {
           if (isTrackerProvider(row.provider) || row.provider === "telegram") {
-            throw new TrackerError("Not available yet")
+            // The account alone: a project's use checks its own target.
+            await accounts(row.provider, row.settings, plain).check()
+            return { ok: true }
           }
           // A channel with nothing to pick is tested by posting one message to it.
           const [owner] = await db.select({ name: workspace.name }).from(workspace).where(eq(workspace.id, params.id)).limit(1)
@@ -201,5 +205,28 @@ export function connectionsModule(deps: AppDeps) {
         return { ok: true }
       },
       { auth: true },
+    )
+    .get(
+      "/workspaces/:id/connections/:connectionId/options",
+      async ({ user, params, query }) => {
+        // Anyone in the workspace picks targets from these lists; the secret stays on the server.
+        await requireMember(db, user.id, params.id)
+        const row = await find(params.id, params.connectionId)
+        const plain = openSecret(row)
+        try {
+          return await accounts(row.provider, row.settings, plain).list(query.list, { q: query.q, parent: query.parent })
+        } catch (error) {
+          if (error instanceof ListUnavailableError) throw unprocessable("list_unavailable", error.message)
+          throw unprocessable("options_failed", error instanceof TrackerError ? error.message : "The list could not be loaded")
+        }
+      },
+      {
+        auth: true,
+        query: t.Object({
+          list: t.Union(OPTION_LISTS.map((list) => t.Literal(list))),
+          q: t.Optional(t.String({ maxLength: 100 })),
+          parent: t.Optional(t.String({ minLength: 1, maxLength: 300 })),
+        }),
+      },
     )
 }

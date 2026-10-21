@@ -3,6 +3,8 @@ import { eq } from "drizzle-orm"
 import { integration, reportExternalLink } from "../src/db/schema"
 import type { NotifierFactory } from "../src/lib/notifiers/channels"
 import type { NewReportMessage } from "../src/lib/notifiers/message"
+import type { AccountFactory } from "../src/lib/integrations/accounts"
+import { TrackerError } from "../src/lib/trackers/providers"
 import {
   createIntegration,
   createProject,
@@ -17,6 +19,8 @@ import {
 let ctx: Awaited<ReturnType<typeof setupTestApp>>
 let trackers: FakeTrackers
 let sent: Array<{ secret: string; message: NewReportMessage }>
+let accountCalls: Array<{ provider: string; secret: string; call: string; parent?: string }>
+let accountFails: string | null
 let admin: Awaited<ReturnType<typeof createUserWithToken>>
 let member: Awaited<ReturnType<typeof createUserWithToken>>
 
@@ -26,10 +30,24 @@ const notifiers: NotifierFactory = (_provider, _config, secret) => ({
   },
 })
 
+const accounts: AccountFactory = (provider, _settings, secret) => ({
+  async check() {
+    accountCalls.push({ provider, secret, call: "check" })
+    if (accountFails) throw new TrackerError(accountFails)
+  },
+  async list(list, opts) {
+    accountCalls.push({ provider, secret, call: list, parent: opts.parent })
+    if (accountFails) throw new TrackerError(accountFails)
+    return [{ value: "kantor/web", label: "kantor/web" }]
+  },
+})
+
 beforeEach(async () => {
   trackers = fakeTrackers()
   sent = []
-  ctx = await setupTestApp({}, { trackers: trackers.factory, notifiers })
+  accountCalls = []
+  accountFails = null
+  ctx = await setupTestApp({}, { trackers: trackers.factory, notifiers, accounts })
   admin = await createUserWithToken(ctx.db, { role: "admin" })
   member = await createUserWithToken(ctx.db)
 })
@@ -149,6 +167,32 @@ describe("workspace connections", () => {
     expect(tested.data).toEqual({ ok: true })
     expect(sent).toHaveLength(1)
     expect(sent[0]).toMatchObject({ secret: "https://hooks.slack.com/services/T0/B0/x", message: { test: true } })
+  })
+
+  test("members can list a connection's targets", async () => {
+    const project = await createProject(ctx.db)
+    const use = await createIntegration(ctx.db, { projectId: project.id, provider: "github", secret: "ghp_list", target: { owner: "a", repo: "b", labels: [] } })
+    const { data } = await one(use.connectionId).options.get({ query: { list: "labels", parent: "kantor/web" }, headers: member.headers })
+    expect(data).toEqual([{ value: "kantor/web", label: "kantor/web" }])
+    expect(accountCalls).toEqual([{ provider: "github", secret: "ghp_list", call: "labels", parent: "kantor/web" }])
+  })
+
+  test("a failing list answers options_failed with the reason", async () => {
+    const project = await createProject(ctx.db)
+    const use = await createIntegration(ctx.db, { projectId: project.id, provider: "github", target: { owner: "a", repo: "b", labels: [] } })
+    accountFails = "The GitHub token is invalid or has expired"
+    const { error } = await one(use.connectionId).options.get({ query: { list: "targets" }, headers: member.headers })
+    expect(error?.status as number | undefined).toBe(422)
+    expect(error?.value).toMatchObject({ code: "options_failed", message: "The GitHub token is invalid or has expired" })
+  })
+
+  test("the workspace test checks a tracker account", async () => {
+    const { data } = await connections().post(JIRA, { headers: admin.headers })
+    expect((await one(data?.id ?? "").test.post(undefined, { headers: admin.headers })).data).toEqual({ ok: true })
+    expect(accountCalls).toEqual([{ provider: "jira", secret: "atl_secret", call: "check" }])
+    accountFails = "The Jira email or API token is wrong"
+    const failed = await one(data?.id ?? "").test.post(undefined, { headers: admin.headers })
+    expect(failed.error?.value).toMatchObject({ code: "integration_test_failed", message: "The Jira email or API token is wrong" })
   })
 
   test("Slack and Discord only take their own webhook URLs", async () => {

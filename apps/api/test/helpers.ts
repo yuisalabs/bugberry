@@ -30,6 +30,7 @@ import { freeSlug } from "../src/workspaces/slug"
 import { createStorage } from "../src/storage"
 import type { UploadTarget } from "../src/storage/types"
 import type { NotifierFactory } from "../src/lib/notifiers/channels"
+import type { AccountFactory } from "../src/lib/integrations/accounts"
 
 export const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ?? "postgres://fdebag:fdebag@localhost:54329/fdebag_test"
@@ -110,6 +111,7 @@ export async function setupTestApp(
   extra: {
     trackers?: TrackerFactory
     notifiers?: NotifierFactory
+    accounts?: AccountFactory
     background?: (task: Promise<unknown>) => void
     email?: EmailSender
   } = {},
@@ -126,6 +128,7 @@ export async function setupTestApp(
     betterAuth,
     trackers: extra.trackers,
     notifiers: extra.notifiers,
+    accounts: extra.accounts,
     background: extra.background,
     email: extra.email,
   })
