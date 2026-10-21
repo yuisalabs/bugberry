@@ -8,7 +8,7 @@ import {
   isRecordStatusRequest,
   isBarRequest,
   isReviewAgainRequest,
-  isScreenshotRequest, isRecorderReadyNotice } from "../lib/messages"
+  isScreenshotRequest, isRecorderReadyNotice, isPopupRecordingRequest } from "../lib/messages"
 
 describe("messages", () => {
   test("background requests are recognised by type and shape", () => {
@@ -56,6 +56,14 @@ describe("messages", () => {
     expect(isOffscreenMessage({ type: "bugberry:offscreen-stop" })).toBe(true)
     expect(isOffscreenMessage({ type: "bugberry:record-stop" })).toBe(false)
   })
+})
+
+test("the popup's recording requests name a known action", () => {
+  for (const action of ["status", "pause", "resume", "restart", "discard", "stop"]) {
+    expect(isPopupRecordingRequest({ type: "bugberry:popup-recording", action })).toBe(true)
+  }
+  expect(isPopupRecordingRequest({ type: "bugberry:popup-recording", action: "bogus" })).toBe(false)
+  expect(isPopupRecordingRequest({ type: "bugberry:popup-recording" })).toBe(false)
 })
 
 test("the bar's and the drawing layer's requests name their recording", () => {

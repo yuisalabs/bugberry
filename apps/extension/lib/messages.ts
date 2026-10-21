@@ -259,6 +259,20 @@ export function isBarRequest(message: unknown): message is BarRequest {
   return type === "bugberry:record-note" && typeof field(message, "text") === "string"
 }
 
+export type PopupRecordingAction = "status" | "pause" | "resume" | "restart" | "discard" | "stop"
+
+/** The toolbar popup → background, while a recording runs: its status, or one of the bar's controls. */
+export interface PopupRecordingRequest {
+  type: "bugberry:popup-recording"
+  action: PopupRecordingAction
+}
+
+const POPUP_ACTIONS: readonly string[] = ["status", "pause", "resume", "restart", "discard", "stop"]
+
+export function isPopupRecordingRequest(message: unknown): message is PopupRecordingRequest {
+  return typeOf(message) === "bugberry:popup-recording" && POPUP_ACTIONS.includes(field(message, "action") as string)
+}
+
 /** The review → background: delete this draft and take it again ("Record again", "Retake"). */
 export interface ReviewAgainRequest {
   type: "bugberry:review-again"

@@ -22,7 +22,6 @@ const noop = () => {}
 function bar(overrides: Partial<BarViewProps>) {
   const props: BarViewProps = {
     status: { recording: true, elapsedMs: 0, paused: false, errors: 0, micOn: false, micAvailable: true },
-    mac: false,
     drawing: false,
     tool: "pen",
     onPause: noop,

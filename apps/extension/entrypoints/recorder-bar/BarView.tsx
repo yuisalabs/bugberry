@@ -24,8 +24,6 @@ export type DrawTool = "pen" | "arrow" | "circle" | "note"
 
 export interface BarViewProps {
   status: BarStatus
-  /** "⌘⇧K" instead of "Ctrl+Shift+K". */
-  mac: boolean
   drawing: boolean
   tool: DrawTool
   onPause(): void
@@ -201,9 +199,6 @@ export function BarView(props: BarViewProps) {
           Stop
         </Button>
       </div>
-      <p className="text-xs text-foreground/70 [text-shadow:0_0_6px_white]">
-        {props.mac ? "Press ⌘⇧K again to stop" : "Press Ctrl+Shift+K again to stop"}
-      </p>
     </div>
   )
 }

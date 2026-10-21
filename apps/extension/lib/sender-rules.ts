@@ -12,6 +12,11 @@ export function fromExtensionPage(sender: Sender, extensionId: string, extension
   return sender.id === extensionId && typeof sender.url === "string" && sender.url.startsWith(extensionOrigin)
 }
 
+/** The toolbar popup itself: no site can embed it (it isn't web accessible), and it has no tab. */
+export function fromPopup(sender: Sender, extensionId: string, extensionOrigin: string): boolean {
+  return fromExtensionPage(sender, extensionId, extensionOrigin) && sender.tab === undefined && sender.url?.startsWith(`${extensionOrigin}popup.html`) === true
+}
+
 /**
  * The bar and the drawing layer, inside the tab being recorded. The same pages embedded by another site (they
  * are web accessible) sit in another tab, so they can't stop the recording or turn the microphone on.

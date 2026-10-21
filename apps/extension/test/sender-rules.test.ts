@@ -1,10 +1,19 @@
 import { describe, expect, test } from "bun:test"
-import { fromExtensionPage, fromRecordedTab, ofThisRecording } from "../lib/sender-rules"
+import { fromExtensionPage, fromPopup, fromRecordedTab, ofThisRecording } from "../lib/sender-rules"
 
 const ID = "okfoeiknimknnemlonocaimclfnahiop"
 const ORIGIN = `chrome-extension://${ID}/`
 
 describe("who may drive a recording", () => {
+  test("only the toolbar popup", () => {
+    const popup = { id: ID, url: `${ORIGIN}popup.html` }
+    expect(fromPopup(popup, ID, ORIGIN)).toBe(true)
+    // The popup has no tab; an extension page inside a tab is something else (or embedded by a site).
+    expect(fromPopup({ ...popup, tab: { id: 3 } }, ID, ORIGIN)).toBe(false)
+    expect(fromPopup({ id: ID, url: `${ORIGIN}recorder-bar.html` }, ID, ORIGIN)).toBe(false)
+    expect(fromPopup({ id: "otherextensionid", url: "chrome-extension://otherextensionid/popup.html" }, ID, ORIGIN)).toBe(false)
+  })
+
   test("only the extension's own pages, not its content scripts or other extensions", () => {
     expect(fromExtensionPage({ id: ID, url: `chrome-extension://${ID}/recorder-bar.html?session=d1` }, ID, ORIGIN)).toBe(true)
     expect(fromExtensionPage({ id: ID, url: "https://shop.test/checkout" }, ID, ORIGIN)).toBe(false)
