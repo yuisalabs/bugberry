@@ -8,7 +8,7 @@ import {
   RiLayoutTopLine,
   RiMicLine,
   RiMicOffLine,
-  RiPictureInPicture2Line,
+  RiPictureInPictureLine,
   RiTimerLine,
   RiVolumeUpLine,
 } from "@remixicon/react"
@@ -27,7 +27,7 @@ const SHOTS: Array<{ id: ScreenshotMode; label: string; icon: ReactNode }> = [
 const SOURCES: Array<{ id: RecordSource; label: string; icon: ReactNode }> = [
   { id: "tab", label: "Tab", icon: <RiLayoutTopLine {...icon} /> },
   { id: "screen", label: "Screen", icon: <RiComputerLine {...icon} /> },
-  { id: "window", label: "Window", icon: <RiPictureInPicture2Line {...icon} /> },
+  { id: "window", label: "Window", icon: <RiPictureInPictureLine {...icon} /> },
 ]
 
 /** A tile: grey outline, or pink outline and tint once chosen. While recording they are all faded. */
@@ -134,7 +134,7 @@ export function CaptureControls(props: {
           {props.picker}
           <AriaButton ref={props.chipRef} aria-expanded={props.micOpen} onPress={props.onMicChip} className={`${chip(props.micShort !== null)} ${props.micOpen ? "ring-[1.5px] ring-primary" : ""}`}>
             {props.micShort !== null ? <RiMicLine size={16} aria-hidden /> : <RiMicOffLine size={16} aria-hidden />}
-            <span className={props.micShort !== null ? "" : "text-foreground/80"}>{props.micShort ?? "Mic off"}</span>
+            <span className={`max-w-[120px] truncate ${props.micShort !== null ? "" : "text-foreground/80"}`}>{props.micShort ?? "Mic off"}</span>
             {props.micShort !== null && <LevelBars level={props.level} />}
             {props.micOpen ? <RiArrowUpSLine size={16} aria-hidden /> : <RiArrowDownSLine size={16} aria-hidden />}
           </AriaButton>

@@ -32,13 +32,23 @@ export function MicPicker(props: {
 }) {
   const panel = useRef<HTMLDivElement>(null)
   const { onClose, chipRef } = props
+  // Capture phase: React Aria's buttons stop their presses from bubbling, and Esc must work wherever focus is.
   useEffect(() => {
     const outside = (event: PointerEvent) => {
       const target = event.target as Node
       if (!panel.current?.contains(target) && !chipRef.current?.contains(target)) onClose()
     }
-    document.addEventListener("pointerdown", outside)
-    return () => document.removeEventListener("pointerdown", outside)
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return
+      event.stopPropagation()
+      onClose()
+    }
+    document.addEventListener("pointerdown", outside, true)
+    document.addEventListener("keydown", escape, true)
+    return () => {
+      document.removeEventListener("pointerdown", outside, true)
+      document.removeEventListener("keydown", escape, true)
+    }
   }, [onClose, chipRef])
 
   const granted = props.access === "granted"
@@ -47,11 +57,6 @@ export function MicPicker(props: {
       ref={panel}
       role="dialog"
       aria-label="Microphone"
-      onKeyDown={(event) => {
-        if (event.key !== "Escape") return
-        event.stopPropagation()
-        onClose()
-      }}
       className="absolute bottom-full left-1/2 z-10 mb-2 w-[330px] -translate-x-1/2 rounded-2xl border border-border bg-background p-1.5 text-left shadow-[0_12px_32px_-8px_rgb(28_16_34/0.22)]"
     >
       <div className="flex items-center justify-between px-2.5 pt-1.5 pb-2">

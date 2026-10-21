@@ -298,6 +298,20 @@ describe("microphone picker", () => {
     expect(props.onMicPicker).toHaveBeenLastCalledWith(false)
   })
 
+  test("Esc closes it while the chip still has focus", () => {
+    view({ prefs: record("tab"), mic: { access: "granted", devices, defaultId: "a", level: 0 } })
+    fireEvent.click(button(/Mic off/))
+    fireEvent.keyDown(button(/Mic off/), { key: "Escape" })
+    expect(screen.queryByRole("dialog")).toBeNull()
+  })
+
+  test("a press on another button closes it", () => {
+    view({ prefs: record("tab"), mic: { access: "granted", devices, defaultId: "a", level: 0 } })
+    fireEvent.click(button(/Mic off/))
+    fireEvent.pointerDown(button("Open dashboard"))
+    expect(screen.queryByRole("dialog")).toBeNull()
+  })
+
   test("a chosen microphone shows on the chip and in the info", () => {
     view({ prefs: { ...record("tab"), mic: true, micDeviceId: "a" }, mic: { access: "granted", devices, defaultId: "h", level: 0 } })
     expect(button(/Realtek Audio/)).toBeTruthy()

@@ -1,6 +1,6 @@
 import { Button } from "@bugberry/ui/button"
 import { Menu, MenuHeader, MenuItem, MenuSection, MenuTrigger } from "@bugberry/ui/menu"
-import { RiArrowRightUpLine, RiLayoutGridLine, RiMoreLine, RiSettings3Line } from "@remixicon/react"
+import { RiArrowRightUpLine, RiFunctionLine, RiMoreLine, RiSettings3Line } from "@remixicon/react"
 import { type ReactNode, useCallback, useRef, useState } from "react"
 import { Button as AriaButton } from "react-aria-components"
 import type { CapturePrefs } from "../../lib/capture-prefs"
@@ -117,7 +117,7 @@ export function PopupView(props: PopupViewProps) {
         <img src="/assets/bugberry_logo_small.webp" alt="BugBerry" className="h-7 w-auto" />
         <span className="flex items-center gap-1">
           <Button intent="plain" size="sq-sm" aria-label="Open dashboard" onPress={props.onOpenDashboard}>
-            <RiLayoutGridLine size={18} aria-hidden />
+            <RiFunctionLine size={18} aria-hidden />
           </Button>
           <AccountMenu {...props} onShowDrafts={() => setShowDrafts(true)} />
         </span>
