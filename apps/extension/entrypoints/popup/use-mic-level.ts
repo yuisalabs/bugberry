@@ -1,15 +1,37 @@
 import { useEffect, useState } from "react"
+import type { LevelSource } from "./PopupView"
 
 const READ_MS = 100
+const BARS = 4
+
+/** A level the bars subscribe to; it only tells them when the number of lit bars changes. */
+function createLevelSource(): LevelSource & { set(level: number): void } {
+  let value = 0
+  const listeners = new Set<() => void>()
+  return {
+    get: () => value,
+    subscribe(listener) {
+      listeners.add(listener)
+      return () => void listeners.delete(listener)
+    },
+    set(level) {
+      const stepped = Math.ceil(Math.min(1, Math.max(0, level)) * BARS) / BARS
+      if (stepped === value) return
+      value = stepped
+      for (const listener of listeners) listener()
+    },
+  }
+}
 
 /**
- * How loud one microphone is right now, 0..1, read ten times a second while `on`. The microphone is
- * released (and the level drops to 0) as soon as `on` turns false or the popup closes.
+ * How loud one microphone is right now, read ten times a second while `on`. The microphone is released
+ * (and the level drops to 0) as soon as `on` turns false or the popup closes. Reading it never re-renders
+ * the popup: only the level bars subscribe.
  */
-export function useMicLevel(deviceId: string | null, on: boolean): number {
-  const [level, setLevel] = useState(0)
+export function useMicLevel(deviceId: string | null, on: boolean): LevelSource {
+  const [source] = useState(createLevelSource)
   useEffect(() => {
-    setLevel(0)
+    source.set(0)
     if (!on || !navigator.mediaDevices) return
     let stopped = false
     let release = () => {}
@@ -30,19 +52,20 @@ export function useMicLevel(deviceId: string | null, on: boolean): number {
           let peak = 0
           for (const sample of samples) peak = Math.max(peak, Math.abs(sample - 128))
           // Speech rarely peaks past 40% of full scale; scaled up so a normal voice lights most bars.
-          setLevel(Math.min(1, (peak / 128) * 2.5))
+          source.set((peak / 128) * 2.5)
         }, READ_MS)
         release = () => {
           clearInterval(timer)
           stopTracks()
           void context.close().catch(() => {})
+          source.set(0)
         }
       })
-      .catch(() => setLevel(0))
+      .catch(() => source.set(0))
     return () => {
       stopped = true
       release()
     }
-  }, [deviceId, on])
-  return level
+  }, [deviceId, on, source])
+  return source
 }

@@ -9,12 +9,12 @@ import { createIndexedDbDraftStore } from "../../lib/draft-store"
 import { fullWarning, limitsFor, usageLine } from "../../lib/limits"
 import type { PopupRecordingAction, PopupRecordingRequest, RecordStartRequest, RecordStatusRequest, ScreenshotRequest } from "../../lib/messages"
 import { type MicAccess, micAccess, micChoiceAfterCheck, micDevices } from "../../lib/microphone"
-import { recordStartNote, replyResult, uncapturableNote } from "../../lib/popup"
+import { controlError, recordStartNote, replyResult, uncapturableNote } from "../../lib/popup"
 import { pickEditorWorkspace } from "../../lib/report-form"
 import type { PopupRecordingStatus, RecordingStatus } from "../../lib/recording-flow"
 import { checkSession, type SessionState, serverLabel, signInUrl } from "../../lib/session"
 import { loadSettings, type Settings } from "../../lib/settings"
-import { type MicState, meteredMicId, micMeterOn, PopupView } from "./PopupView"
+import { type MicList, meteredMicId, micMeterOn, PopupView } from "./PopupView"
 import { useMicLevel } from "./use-mic-level"
 import { useConfirm } from "@bugberry/ui/confirm-dialog"
 
@@ -36,7 +36,7 @@ export function App() {
   const [drafts, setDrafts] = useState<Awaited<ReturnType<typeof store.list>>>([])
   const [recording, setRecording] = useState<RecordingStatus | undefined>(undefined)
   const [activeTab, setActiveTab] = useState<{ id?: number; url?: string } | null>(null)
-  const [mic, setMic] = useState<MicState>({ access: "prompt", devices: [], defaultId: null, level: 0 })
+  const [mic, setMic] = useState<MicList>({ access: "prompt", devices: [], defaultId: null })
   const [live, setLive] = useState<PopupRecordingStatus | undefined>(undefined)
   const [micPicker, setMicPicker] = useState(false)
   const level = useMicLevel(meteredMicId(prefs, mic), micMeterOn(prefs, mic, micPicker, live, tabRecorder))
@@ -69,23 +69,30 @@ export function App() {
       async ([stored, access]) =>
         setPrefs(stored.mic && !micChoiceAfterCheck(stored.mic, access) ? await capturePrefsStorage.set({ mic: false }) : stored),
     )
-    store.list().then(setDrafts)
     browser.tabs.query({ active: true, currentWindow: true }).then(([tab]) => setActiveTab(tab ?? null))
     void readMic()
+    readDrafts()
+  }, [])
+
+  /** The unsent drafts, and the recording they are checked against; read again once a Discard removed one. */
+  const readDrafts = () => {
+    store.list().then(setDrafts)
     const status: RecordStatusRequest = { type: "bugberry:record-status" }
     browser.runtime
       .sendMessage(status)
       .then((value) => setRecording((value as RecordingStatus | undefined) ?? { recording: false }))
       .catch(() => setRecording({ recording: false }))
-  }, [])
+  }
 
   /** The running recording, asked again every second while the popup is open: its timer and counts move. */
   const askRecording = async (action: PopupRecordingAction) => {
     const request: PopupRecordingRequest = { type: "bugberry:popup-recording", action }
-    return browser.runtime.sendMessage(request).catch(() => undefined)
+    return browser.runtime.sendMessage(request).catch(() => ({ ok: false, error: "The extension didn't respond. Try again." }))
   }
   const refreshLive = () =>
-    void askRecording("status").then((value) => setLive((value as PopupRecordingStatus | undefined) ?? { recording: false }))
+    void askRecording("status").then((value) =>
+      setLive(typeof (value as { recording?: unknown } | undefined)?.recording === "boolean" ? (value as PopupRecordingStatus) : { recording: false }),
+    )
   useEffect(() => {
     refreshLive()
     const timer = setInterval(refreshLive, 1000)
@@ -101,8 +108,17 @@ export function App() {
       })
       if (!yes) return
     }
-    await askRecording(action)
+    if (action === "restart") {
+      // The new take counts down on the page, and an open popup would take its Esc (as when starting).
+      // A Restart that fails goes on the badge.
+      void askRecording("restart")
+      return window.close()
+    }
+    setError(null)
+    const failed = controlError(await askRecording(action))
+    if (failed) setError(failed)
     refreshLive()
+    if (action === "discard") readDrafts()
   }
 
   // The default workspace's usage under ACCOUNT_LIMITS: the one the review will pre-select. Silent on any failure.

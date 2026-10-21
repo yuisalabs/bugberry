@@ -11,6 +11,8 @@ describe("who may drive a recording", () => {
     // The popup has no tab; an extension page inside a tab is something else (or embedded by a site).
     expect(fromPopup({ ...popup, tab: { id: 3 } }, ID, ORIGIN)).toBe(false)
     expect(fromPopup({ id: ID, url: `${ORIGIN}recorder-bar.html` }, ID, ORIGIN)).toBe(false)
+    expect(fromPopup({ id: ID, url: `${ORIGIN}popup.html2` }, ID, ORIGIN)).toBe(false)
+    expect(fromPopup({ id: ID, url: `${ORIGIN}popup.html?x=1` }, ID, ORIGIN)).toBe(true)
     expect(fromPopup({ id: "otherextensionid", url: "chrome-extension://otherextensionid/popup.html" }, ID, ORIGIN)).toBe(false)
   })
 

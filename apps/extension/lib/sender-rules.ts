@@ -14,7 +14,8 @@ export function fromExtensionPage(sender: Sender, extensionId: string, extension
 
 /** The toolbar popup itself: no site can embed it (it isn't web accessible), and it has no tab. */
 export function fromPopup(sender: Sender, extensionId: string, extensionOrigin: string): boolean {
-  return fromExtensionPage(sender, extensionId, extensionOrigin) && sender.tab === undefined && sender.url?.startsWith(`${extensionOrigin}popup.html`) === true
+  if (!fromExtensionPage(sender, extensionId, extensionOrigin) || sender.tab !== undefined) return false
+  return sender.url?.split(/[?#]/)[0] === `${extensionOrigin}popup.html`
 }
 
 /**

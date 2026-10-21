@@ -108,7 +108,7 @@ export interface LiveCounts {
 
 /** The popup's live counts, each on its own: since the start, leaving out paused moments. */
 export function liveCounts(events: readonly CaptureEvent[], since: number, pauses: readonly PauseSpan[]): LiveCounts {
-  const kept = events.filter((event) => event.t >= since && !pausedAt(event.t, pauses))
+  const kept = keptEvents(events, since, pauses)
   return {
     errors: kept.filter(isError).length,
     failedRequests: kept.filter(isFailed).length,

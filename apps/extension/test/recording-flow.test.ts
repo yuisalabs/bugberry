@@ -629,8 +629,15 @@ describe("recording controls", () => {
       tabId: 7,
       elapsedMs: 12_000,
       paused: false,
+      logs: true,
       counts: { errors: 1, failedRequests: 1, actions: 2 },
     })
+  })
+
+  test("popupStatus of a recording without logs says so", async () => {
+    const controller = createRecordingController(deps)
+    await controller.start({ ...tab, url: "chrome://newtab/" }, { ...TAB_OPTIONS, source: "screen" })
+    expect(await controller.popupStatus()).toMatchObject({ recording: true, logs: false, counts: { errors: 0, failedRequests: 0, actions: 0 } })
   })
 
   test("popupStatus while restarting is an empty take", async () => {

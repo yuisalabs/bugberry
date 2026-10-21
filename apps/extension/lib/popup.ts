@@ -92,3 +92,11 @@ export function recordingLabel(source: RecordSource, sameTab: boolean): string {
 export function countText(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`
 }
+
+/** What went wrong with Pause, Resume, Restart or Discard from the popup; null when nothing did. */
+export function controlError(reply: unknown): string | null {
+  const value = reply as Partial<{ ok: unknown; code: unknown; error: unknown }> | undefined
+  // A Discard answers "cancelled": the recording was thrown away, as asked.
+  if (value?.ok !== false || value.code === "cancelled") return null
+  return typeof value.error === "string" ? value.error : "Something went wrong. Try again."
+}

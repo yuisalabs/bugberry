@@ -3,6 +3,7 @@ import { type ReactNode, type RefObject, useEffect, useRef } from "react"
 import { Button as AriaButton, Radio, RadioGroup } from "react-aria-components"
 import type { MicAccess, MicDevice, MicKind } from "../../lib/microphone"
 import { LevelBars } from "./CapturePanel"
+import type { LevelSource } from "./PopupView"
 
 const NONE = "none"
 const ICONS: Record<MicKind, ReactNode> = {
@@ -23,7 +24,7 @@ export function MicPicker(props: {
   chosen: string | null
   /** The device the level bars listen to. */
   metered: string | null
-  level: number
+  level: LevelSource
   /** The Mic chip: a press there toggles the picker, so it doesn't count as a click outside. */
   chipRef: RefObject<HTMLElement | null>
   onChoose(id: string | null): void
@@ -106,7 +107,7 @@ export function MicPicker(props: {
   )
 }
 
-function Row(props: { id: string; name: string; detail: string; icon: ReactNode; level?: number | null }) {
+function Row(props: { id: string; name: string; detail: string; icon: ReactNode; level?: LevelSource | null }) {
   return (
     <Radio
       value={props.id}

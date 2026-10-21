@@ -367,12 +367,19 @@ export default defineBackground(() => {
       case "resume":
         return recordings.resume()
       case "restart":
-        return recordings.restart()
+        return restartFromPopup()
       case "discard":
         return recordings.discard()
       case "stop":
         return stopRecording()
     }
+  }
+
+  /** The popup closes as the new take counts down, so a failed Restart goes on the badge. */
+  const restartFromPopup = async (): Promise<CaptureResult> => {
+    const status = await recordings.status()
+    const result = await recordings.restart()
+    return status.recording ? flagFailure(status.tabId, result) : result
   }
 
   // Firefox: the reporter closed the recorder window. Before a source was picked the open is cancelled (the

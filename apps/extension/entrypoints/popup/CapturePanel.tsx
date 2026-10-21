@@ -12,11 +12,12 @@ import {
   RiTimerLine,
   RiVolumeUpLine,
 } from "@remixicon/react"
-import type { ReactNode, RefObject } from "react"
+import { type ReactNode, type RefObject, useSyncExternalStore } from "react"
 import { Button as AriaButton, Radio, RadioGroup, ToggleButton } from "react-aria-components"
 import type { CapturePrefs, RecordSource, ScreenshotMode } from "../../lib/capture-prefs"
 import { type CaptureChoice, captureCopy } from "../../lib/popup"
 import { Dial, InfoBox, SectionLabel } from "./parts"
+import type { LevelSource } from "./PopupView"
 
 const icon = { size: 18, "aria-hidden": true } as const
 
@@ -108,8 +109,8 @@ export function CaptureControls(props: {
   micShort: string | null
   micOpen: boolean
   busy: boolean
-  /** The microphone chip's level bars, 0..1. */
-  level: number
+  /** The microphone chip's level bars. */
+  level: LevelSource
   onPrefs(patch: Partial<CapturePrefs>): void
   onMicChip(): void
   onScreenshot(): void
@@ -159,13 +160,14 @@ export function CaptureControls(props: {
   )
 }
 
-/** Four bars, lit from the left as the microphone hears something. */
-export function LevelBars({ level }: { level: number }) {
+/** Four bars, lit from the left as the microphone hears something. Only they re-render as the level moves. */
+export function LevelBars({ level: source }: { level: LevelSource }) {
+  const level = useSyncExternalStore(source.subscribe, source.get)
   const lit = Math.ceil(Math.min(1, Math.max(0, level)) * 4)
   return (
     <span aria-hidden className="flex h-3.5 items-end gap-[2px]">
       {[5, 8, 11, 14].map((height, index) => (
-        <span key={height} style={{ height }} className={`w-[3px] rounded-full ${index < lit ? "bg-primary" : "bg-primary/25"}`} />
+        <span key={height} data-level-bar={index < lit ? "on" : "off"} style={{ height }} className={`w-[3px] rounded-full ${index < lit ? "bg-primary" : "bg-primary/25"}`} />
       ))}
     </span>
   )

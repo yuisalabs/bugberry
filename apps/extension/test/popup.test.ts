@@ -5,6 +5,7 @@ import {
   canDelete,
   captureCopy,
   choiceOf,
+  controlError,
   countText,
   draftNote,
   isSignedOut,
@@ -124,5 +125,15 @@ describe("popup copy", () => {
     expect(choiceOf(DEFAULT_CAPTURE_PREFS, true)).toEqual({ kind: "screenshot", mode: "visible" })
     expect(choiceOf({ ...DEFAULT_CAPTURE_PREFS, captureKind: "record", recordSource: "screen" }, true)).toEqual({ kind: "record", source: "screen" })
     expect(choiceOf({ ...DEFAULT_CAPTURE_PREFS, captureKind: "record", recordSource: "tab" }, false)).toEqual({ kind: "record", source: "window" })
+  })
+})
+
+describe("controlError", () => {
+  test("only a real failure is reported", () => {
+    expect(controlError(undefined)).toBeNull()
+    expect(controlError({ ok: true, draftId: "d" })).toBeNull()
+    // Discard answers "cancelled": that is the recording thrown away, as asked.
+    expect(controlError({ ok: false, code: "cancelled", error: "Discarded" })).toBeNull()
+    expect(controlError({ ok: false, error: "No recording is running" })).toBe("No recording is running")
   })
 })

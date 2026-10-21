@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test"
 import type { OffscreenMessage } from "../lib/messages"
 import type { RecordingDeps } from "../lib/recorder"
-import { createRecorderHandler } from "../lib/recorder-handler"
+import { createRecorderHandler, micConstraints } from "../lib/recorder-handler"
 import type { StreamDeps } from "../lib/recording-stream"
 import type { ReportDraft } from "../lib/types"
 
@@ -74,6 +74,11 @@ const open: OffscreenMessage = {
   micDeviceId: null,
   maxBytes: 1_000_000,
 }
+
+test("a chosen microphone is asked for as ideal, so an unplugged one falls back instead of failing", () => {
+  expect(micConstraints("abc")).toEqual({ audio: { deviceId: { ideal: "abc" } } })
+  expect(micConstraints(null)).toEqual({ audio: true })
+})
 
 describe("createRecorderHandler", () => {
   test("open then begin then stop saves the video into the draft", async () => {

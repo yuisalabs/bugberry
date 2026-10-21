@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test"
-import { fireEvent, render, screen } from "@testing-library/react"
+import { act, fireEvent, render, screen } from "@testing-library/react"
 import { micMeterOn, PopupView, type PopupViewProps } from "../entrypoints/popup/PopupView"
 import { DEFAULT_CAPTURE_PREFS } from "../lib/capture-prefs"
 import type { ReportDraft } from "../lib/types"
@@ -12,7 +12,7 @@ function view(overrides: Partial<PopupViewProps> = {}) {
     session: { kind: "signed-in", name: "Ana", email: "ana@kantor.test" },
     serverHost: "bugberry.kantor.com",
     prefs: DEFAULT_CAPTURE_PREFS,
-    mic: { access: "granted", devices: [], defaultId: null, level: 0 },
+    mic: { access: "granted", devices: [], defaultId: null, level: still(0) },
     recording: { recording: false },
     live: { recording: false },
     activeTabId: 1,
@@ -45,6 +45,9 @@ function view(overrides: Partial<PopupViewProps> = {}) {
   render(<PopupView {...props} />)
   return props
 }
+
+/** A level that never changes. */
+const still = (value: number) => ({ get: () => value, subscribe: () => () => {} })
 
 const button = (name: string | RegExp) => screen.getByRole("button", { name })
 const radio = (name: string | RegExp) => screen.getByRole("radio", { name }) as HTMLInputElement
@@ -255,7 +258,7 @@ const devices = [
 
 describe("microphone picker", () => {
   test("before access: No microphone and Allow microphone access", () => {
-    const props = view({ prefs: record("tab"), mic: { access: "prompt", devices: [], defaultId: null, level: 0 } })
+    const props = view({ prefs: record("tab"), mic: { access: "prompt", devices: [], defaultId: null, level: still(0) } })
     fireEvent.click(button(/Mic off/))
     expect(props.onMicPicker).toHaveBeenCalledWith(true)
     expect(radio(/No microphone/).checked).toBe(true)
@@ -266,14 +269,14 @@ describe("microphone picker", () => {
   })
 
   test("access blocked: an instruction instead of Allow", () => {
-    view({ prefs: record("tab"), mic: { access: "denied", devices: [], defaultId: null, level: 0 } })
+    view({ prefs: record("tab"), mic: { access: "denied", devices: [], defaultId: null, level: still(0) } })
     fireEvent.click(button(/Mic off/))
     expect(screen.getByText("Microphone is blocked. Allow it for BugBerry in Chrome's site settings.")).toBeTruthy()
     expect(screen.queryByRole("button", { name: /Allow microphone access/ })).toBeNull()
   })
 
   test("devices: the count, choosing one, the picker closes", () => {
-    const props = view({ prefs: record("tab"), mic: { access: "granted", devices, defaultId: "a", level: 0.5 } })
+    const props = view({ prefs: record("tab"), mic: { access: "granted", devices, defaultId: "a", level: still(0.5) } })
     fireEvent.click(button(/Mic off/))
     expect(screen.getByText("3 found")).toBeTruthy()
     expect(screen.getByText("Realtek(R) Audio · built-in")).toBeTruthy()
@@ -283,14 +286,14 @@ describe("microphone picker", () => {
   })
 
   test("No microphone turns it off", () => {
-    const props = view({ prefs: { ...record("tab"), mic: true, micDeviceId: "a" }, mic: { access: "granted", devices, defaultId: "a", level: 0 } })
+    const props = view({ prefs: { ...record("tab"), mic: true, micDeviceId: "a" }, mic: { access: "granted", devices, defaultId: "a", level: still(0) } })
     fireEvent.click(button(/Realtek Audio/))
     fireEvent.click(radio(/No microphone/))
     expect(props.onMicChoose).toHaveBeenCalledWith(null)
   })
 
   test("Esc closes without a choice", () => {
-    const props = view({ prefs: record("tab"), mic: { access: "granted", devices, defaultId: "a", level: 0 } })
+    const props = view({ prefs: record("tab"), mic: { access: "granted", devices, defaultId: "a", level: still(0) } })
     fireEvent.click(button(/Mic off/))
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" })
     expect(screen.queryByRole("dialog")).toBeNull()
@@ -299,29 +302,35 @@ describe("microphone picker", () => {
   })
 
   test("Esc closes it while the chip still has focus", () => {
-    view({ prefs: record("tab"), mic: { access: "granted", devices, defaultId: "a", level: 0 } })
+    view({ prefs: record("tab"), mic: { access: "granted", devices, defaultId: "a", level: still(0) } })
     fireEvent.click(button(/Mic off/))
     fireEvent.keyDown(button(/Mic off/), { key: "Escape" })
     expect(screen.queryByRole("dialog")).toBeNull()
   })
 
   test("a press on another button closes it", () => {
-    view({ prefs: record("tab"), mic: { access: "granted", devices, defaultId: "a", level: 0 } })
+    view({ prefs: record("tab"), mic: { access: "granted", devices, defaultId: "a", level: still(0) } })
     fireEvent.click(button(/Mic off/))
     fireEvent.pointerDown(button("Open dashboard"))
     expect(screen.queryByRole("dialog")).toBeNull()
   })
 
   test("a chosen microphone shows on the chip and in the info", () => {
-    view({ prefs: { ...record("tab"), mic: true, micDeviceId: "a" }, mic: { access: "granted", devices, defaultId: "h", level: 0 } })
+    view({ prefs: { ...record("tab"), mic: true, micDeviceId: "a" }, mic: { access: "granted", devices, defaultId: "h", level: still(0) } })
     expect(button(/Realtek Audio/)).toBeTruthy()
     expect(
       screen.getByText("Only this tab is recorded, with your voice from Realtek Audio. Other tabs and apps stay private."),
     ).toBeTruthy()
   })
 
+  test("Mic on with no microphone found: the chip and the picker both say none", () => {
+    view({ prefs: { ...record("tab"), mic: true }, mic: { access: "granted", devices: [], defaultId: null, level: still(0) } })
+    fireEvent.click(button(/Mic off/))
+    expect(radio(/No microphone/).checked).toBe(true)
+  })
+
   test("a chosen microphone that is gone falls back to the default one's name", () => {
-    view({ prefs: { ...record("tab"), mic: true, micDeviceId: "gone" }, mic: { access: "granted", devices, defaultId: "h", level: 0 } })
+    view({ prefs: { ...record("tab"), mic: true, micDeviceId: "gone" }, mic: { access: "granted", devices, defaultId: "h", level: still(0) } })
     expect(button(/AirPods Pro/)).toBeTruthy()
   })
 })
@@ -332,6 +341,7 @@ const recordingTab = {
   tabId: 1,
   elapsedMs: 12_000,
   paused: false,
+  logs: true,
   counts: { errors: 1, failedRequests: 0, actions: 9 },
 }
 
@@ -374,6 +384,20 @@ describe("while recording", () => {
     expect(screen.getByText("Recording another tab")).toBeTruthy()
   })
 
+  test("a recording without logs says Logs off", () => {
+    view({ live: { ...recordingTab, logs: false } })
+    expect(screen.getByText("Logs aren't available on this page")).toBeTruthy()
+    expect(screen.getByText("Logs off")).toBeTruthy()
+    expect(screen.queryByText("Capturing console and network live")).toBeNull()
+  })
+
+  test("until the recording status is known, neither the dial nor Stop shows", () => {
+    view({ live: undefined })
+    expect(screen.queryByRole("button", { name: "Capture visible area" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "Stop and review" })).toBeNull()
+    expect(radio("Visible area")).toBeTruthy()
+  })
+
   test("signed out still shows the running recording", () => {
     view({ live: { ...recordingTab, source: "screen" }, session: { kind: "signed-out" } })
     expect(screen.getByText("Recording your screen")).toBeTruthy()
@@ -382,7 +406,7 @@ describe("while recording", () => {
 })
 
 describe("the level meter", () => {
-  const granted = { access: "granted" as const, devices: [], defaultId: "a", level: 0 }
+  const granted = { access: "granted" as const, devices: [], defaultId: "a", level: still(0) }
   const idle = { recording: false as const }
 
   test("listens while the picker is open or a microphone is chosen, on a record tile", () => {
@@ -404,4 +428,18 @@ describe("the level meter", () => {
   test("off without microphone access", () => {
     expect(micMeterOn({ ...record("tab"), mic: true }, { ...granted, access: "prompt" }, true, idle, true)).toBe(false)
   })
+})
+
+test("the level bars follow the meter without the popup re-rendering", () => {
+  let value = 0
+  const listeners = new Set<() => void>()
+  const level = { get: () => value, subscribe: (listener: () => void) => (listeners.add(listener), () => listeners.delete(listener)) }
+  view({ prefs: { ...record("tab"), mic: true, micDeviceId: "a" }, mic: { access: "granted", devices, defaultId: "a", level } })
+  const lit = () => document.querySelectorAll("[data-level-bar='on']").length
+  expect(lit()).toBe(0)
+  act(() => {
+    value = 1
+    for (const listener of listeners) listener()
+  })
+  expect(lit()).toBe(4)
 })

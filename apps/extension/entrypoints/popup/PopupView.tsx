@@ -15,12 +15,22 @@ import { RecordingPanel } from "./RecordingPanel"
 import { MicPicker } from "./MicPicker"
 import { Footer } from "./parts"
 
-/** The microphones as the popup knows them; `level` is the metered device's loudness, 0..1. */
-export interface MicState {
+/** The metered microphone's loudness, 0..1. Only the level bars subscribe, so the rest of the popup stays put. */
+export interface LevelSource {
+  get(): number
+  subscribe(listener: () => void): () => void
+}
+
+/** The microphones as the popup knows them. */
+export interface MicState extends MicList {
+  level: LevelSource
+}
+
+/** The microphones without their level. */
+export interface MicList {
   access: MicAccess
   devices: MicDevice[]
   defaultId: string | null
-  level: number
 }
 
 export interface PopupViewProps {
@@ -70,18 +80,17 @@ export interface PopupViewProps {
 }
 
 /** The device recorded from: the chosen one, or the default one when it is unplugged or none was chosen. */
-function micInUse(prefs: CapturePrefs, mic: MicState) {
+function micInUse(prefs: CapturePrefs, mic: MicList) {
   return mic.devices.find((device) => device.id === prefs.micDeviceId) ?? mic.devices.find((device) => device.id === mic.defaultId)
 }
 
-/** The chosen microphone's short name for the chip and the note; null while the microphone is off. */
-export function micShortName(prefs: CapturePrefs, mic: MicState): string | null {
-  if (!prefs.mic) return null
-  return micInUse(prefs, mic)?.short ?? "Microphone"
+/** The chosen microphone's short name for the chip and the note; null while it is off, or when there is none to record from. */
+export function micShortName(prefs: CapturePrefs, mic: MicList): string | null {
+  return prefs.mic ? (micInUse(prefs, mic)?.short ?? null) : null
 }
 
 /** The device whose level the popup shows: the one in use, or the default one while the microphone is off. */
-export function meteredMicId(prefs: CapturePrefs, mic: MicState): string | null {
+export function meteredMicId(prefs: CapturePrefs, mic: MicList): string | null {
   return prefs.mic ? (micInUse(prefs, mic)?.id ?? mic.defaultId) : mic.defaultId
 }
 
@@ -92,7 +101,7 @@ export function meteredMicId(prefs: CapturePrefs, mic: MicState): string | null 
  */
 export function micMeterOn(
   prefs: CapturePrefs,
-  mic: MicState,
+  mic: MicList,
   pickerOpen: boolean,
   live: PopupRecordingStatus | undefined,
   tabRecorder: boolean,
@@ -178,15 +187,23 @@ export function PopupView(props: PopupViewProps) {
               onDiscard={props.onDiscard}
               onStop={props.onStop}
             />
-            <Footer text="Capturing console and network live" logsOn />
+            <Footer text={live.logs ? "Capturing console and network live" : "Logs aren't available on this page"} logsOn={live.logs} />
           </section>
+        </>
+      )}
+
+      {/* Until the background says whether a recording runs, nothing can be pressed by mistake. */}
+      {!props.live && !blocked && (
+        <>
+          <Tiles choice={choice} tabRecorder={props.tabRecorder} disabled onChoose={props.onPrefs} />
+          <section aria-busy className="h-[260px] border-t border-border bg-muted" />
         </>
       )}
 
       {!live && session?.kind === "signed-out" && <StatusCard title="Sign in to BugBerry" action="Sign in" onAction={props.onSignIn} />}
       {!live && session?.kind === "no-server" && <StatusCard title="Choose your BugBerry server" action="Open settings" onAction={props.onOpenSettings} />}
 
-      {!live && !blocked && (
+      {props.live && !live && !blocked && (
         <>
           <Tiles choice={choice} tabRecorder={props.tabRecorder} onChoose={props.onPrefs} />
           {warning && <Strip tone="warning">{warning}</Strip>}

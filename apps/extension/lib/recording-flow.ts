@@ -46,7 +46,7 @@ export type RecordingStatus =
 /** What the popup shows while a recording runs. */
 export type PopupRecordingStatus =
   | { recording: false }
-  | { recording: true; source: RecordSource; tabId: number; elapsedMs: number; paused: boolean; counts: LiveCounts }
+  | { recording: true; source: RecordSource; tabId: number; elapsedMs: number; paused: boolean; logs: boolean; counts: LiveCounts }
 
 /** What the Recording Bar shows. */
 export interface BarStatus {
@@ -502,7 +502,7 @@ export function createRecordingController(deps: RecordingFlowDeps): RecordingCon
     popupStatus: async () => {
       const state = await deps.state.get()
       if (!state) return { recording: false }
-      const base = { recording: true as const, source: state.source, tabId: state.tabId }
+      const base = { recording: true as const, source: state.source, tabId: state.tabId, logs: state.logs }
       if (state.restarting) return { ...base, elapsedMs: 0, paused: false, counts: NO_COUNTS }
       const now = deps.now()
       const pauses = pausesUntil(state, now)
