@@ -141,6 +141,13 @@
       "when": 1792489148484,
       "tag": "0019_user_unlimited",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1792562683619,
+      "tag": "0020_comments_v2",
+      "breakpoints": true
     }
   ]
 }
