@@ -57,19 +57,24 @@ function v6Groups(address: string): number[] {
   return [...left, ...Array(missing).fill("0"), ...right].map((group) => Number.parseInt(group || "0", 16))
 }
 
+/** The IPv4 address held in two 16-bit groups. */
+function v4From(high = 0, low = 0): string {
+  return `${high >> 8}.${high & 255}.${low >> 8}.${low & 255}`
+}
+
 function isPrivateV6(address: string): boolean {
   const groups = v6Groups(address)
-  const [first = 0] = groups
-  if (groups.every((group) => group === 0)) return true // ::
-  if (groups.slice(0, 7).every((group) => group === 0) && groups[7] === 1) return true // ::1
+  const [first = 0, second = 0] = groups
+  const zeros = (from: number, to: number) => groups.slice(from, to).every((group) => group === 0)
+  // ::a.b.c.d (IPv4-compatible, which also covers :: and ::1) and ::ffff:a.b.c.d (IPv4-mapped).
+  if (zeros(0, 6) || (zeros(0, 5) && groups[5] === 0xffff)) return isPrivateV4(v4From(groups[6], groups[7]))
+  // 64:ff9b::a.b.c.d (NAT64) and 2002:aabb:ccdd:: (6to4) reach the IPv4 address inside them.
+  if (first === 0x64 && second === 0xff9b && zeros(2, 6)) return isPrivateV4(v4From(groups[6], groups[7]))
+  if (first === 0x2002) return isPrivateV4(v4From(groups[1], groups[2]))
   if ((first & 0xfe00) === 0xfc00) return true // fc00::/7, unique local
   if ((first & 0xffc0) === 0xfe80) return true // fe80::/10, link-local
+  if ((first & 0xffc0) === 0xfec0) return true // fec0::/10, the old site-local
   if ((first & 0xff00) === 0xff00) return true // ff00::/8, multicast
-  // ::ffff:a.b.c.d, an IPv4 address in IPv6 clothing.
-  if (groups.slice(0, 5).every((group) => group === 0) && groups[5] === 0xffff) {
-    const v4 = `${(groups[6] ?? 0) >> 8}.${(groups[6] ?? 0) & 255}.${(groups[7] ?? 0) >> 8}.${(groups[7] ?? 0) & 255}`
-    return isPrivateV4(v4)
-  }
   return false
 }
 

@@ -108,6 +108,16 @@ describe("text from the report stays text", () => {
     const slackBody = await (slack.requests[0] as Request).text()
     expect(slackBody).toContain("&lt;b&gt;Pay&lt;/b&gt; &amp;")
     expect(slackBody).not.toContain("<!channel>")
+    const discord = fakeFetch(() => new Response(null, { status: 204 }))
+    await createNotifierFactory(discord.fetcher)("discord", {}, "https://discord.com/api/webhooks/1/a").send({
+      ...tricky,
+      reporterName: "[Session expired, sign in again](https://evil.example)",
+    })
+    const embed = ((await (discord.requests[0] as Request).json()) as { embeds: Array<{ title: string; fields: Array<{ value: string }> }> })
+      .embeds[0]
+    expect(embed?.title).toContain("\\*now\\* \\_x\\_ \\[a\\]\\(b\\)")
+    expect(embed?.title.startsWith("BB-42 · ")).toBe(true)
+    expect(embed?.fields.map((field) => field.value)).toContain("\\[Session expired, sign in again\\]\\(https://evil.example\\)")
     const telegram = fakeFetch(() => Response.json({ ok: true }))
     await createNotifierFactory(telegram.fetcher)("telegram", { chatId: "1" }, "t").send(tricky)
     const telegramText = ((await (telegram.requests[0] as Request).json()) as { text: string }).text

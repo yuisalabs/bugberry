@@ -68,9 +68,9 @@ export function testMessage(projectName: string, appUrl: string): NewReportMessa
 
 const MAX_TITLE = 200
 
-/** "BB-42 · Pay now fails", or the test message's own title. */
-export function messageHeading(message: NewReportMessage): string {
-  const title = message.title.length > MAX_TITLE ? `${message.title.slice(0, MAX_TITLE - 1)}…` : message.title
+/** "BB-42 · Pay now fails", or the test message's own title. `escape` makes the title inert for the channel. */
+export function messageHeading(message: NewReportMessage, escape: (text: string) => string = (text) => text): string {
+  const title = escape(message.title.length > MAX_TITLE ? `${message.title.slice(0, MAX_TITLE - 1)}…` : message.title)
   return message.test ? title : `BB-${message.number} · ${title}`
 }
 

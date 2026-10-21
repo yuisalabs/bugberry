@@ -23,6 +23,21 @@ describe("host guard", () => {
     }
   })
 
+  test("refuses an IPv4 address tucked into other IPv6 forms, and site-local IPv6", async () => {
+    for (const url of [
+      "https://[::127.0.0.1]/",
+      "https://[::a00:1]/",
+      "https://[64:ff9b::10.0.0.1]/",
+      "https://[2002:a00:1::1]/",
+      "https://[fec0::1]/",
+    ]) {
+      await expect(guard()(url)).rejects.toThrow("private network")
+    }
+    for (const url of ["https://[64:ff9b::8.8.8.8]/", "https://[2002:808:808::1]/", "https://[2606:4700::1111]/"]) {
+      await expect(guard()(url)).resolves.toBeUndefined()
+    }
+  })
+
   test("refuses a public-looking name that resolves to a private address", async () => {
     await expect(guard(resolvingTo("10.0.0.5"))("https://gitlab.kantor.com/")).rejects.toThrow("private network")
     await expect(guard(resolvingTo("140.82.112.3", "127.0.0.1"))("https://mixed.kantor.com/")).rejects.toThrow("private network")

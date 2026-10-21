@@ -13,7 +13,7 @@ import {
   PROVIDER_LABELS,
   type TrackerConfig,
 } from "@bugberry/shared"
-import { and, asc, eq } from "drizzle-orm"
+import { and, asc, eq, sql } from "drizzle-orm"
 import { Elysia, t } from "elysia"
 import type { AppDeps } from "../../app"
 import { authPlugin } from "../../auth/plugin"
@@ -321,6 +321,8 @@ export function integrationsModule(deps: AppDeps) {
             // A notifier is tested by posting one message: no retries, so the admin sees the answer at once.
             const [owner] = await db.select({ name: project.name }).from(project).where(eq(project.id, params.id)).limit(1)
             await notifiers(row.provider, row.config as NotifierConfig, secret).send(testMessage(owner?.name ?? "", deps.config.appUrl))
+            // It got through, so the channel works again: an old failure would mislead.
+            await db.update(integration).set({ lastError: null, lastDeliveredAt: sql`now()` }).where(eq(integration.id, row.id))
           }
         } catch (error) {
           throw unprocessable("integration_test_failed", error instanceof TrackerError ? error.message : "The connection test failed")

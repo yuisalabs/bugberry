@@ -106,8 +106,12 @@ describe("new-report notifications", () => {
     const slack = await addChannel("slack", SLACK)
     const sendTest = () =>
       ctx.api.api.projects({ id: project.id }).integrations({ integrationId: slack }).test.post(undefined, { headers: admin.headers })
+    await ctx.db.update(integration).set({ lastError: "Slack rejected the message (HTTP 404)" }).where(eq(integration.id, slack))
     const ok = await sendTest()
     expect(ok.data).toEqual({ ok: true })
+    // A passing test shows the channel works again.
+    expect(await rowOf(slack)).toMatchObject({ lastError: null })
+    expect((await rowOf(slack))?.lastDeliveredAt).toBeInstanceOf(Date)
     expect(notifiers.sent).toHaveLength(1)
     expect(notifiers.sent[0]?.message).toMatchObject({ test: true, title: "BugBerry test message", projectName: "Checkout Web" })
 

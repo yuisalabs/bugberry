@@ -43,6 +43,11 @@ function slackText(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
 }
 
+/** Discord renders markdown in embed titles and fields, masked links included; a backslash keeps each mark literal. */
+function discordText(value: string): string {
+  return value.replace(/[\\*_~`|>[\]()#-]/g, "\\$&")
+}
+
 function htmlText(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
 }
@@ -71,18 +76,18 @@ function slackClient(webhookUrl: string, http: Http): NotifierClient {
 function discordClient(webhookUrl: string, http: Http): NotifierClient {
   return {
     async send(message) {
-      const [where, details] = messageLines(message)
+      const [where, details] = messageLines(message).map(discordText)
       const fields = message.test
         ? []
         : [
-            { name: "Project", value: message.projectName, inline: true },
-            { name: "Reported by", value: message.reporterName, inline: true },
+            { name: "Project", value: discordText(message.projectName), inline: true },
+            { name: "Reported by", value: discordText(message.reporterName), inline: true },
             ...(details ? [{ name: "Details", value: details }] : []),
           ]
       const body = {
         embeds: [
           {
-            title: messageHeading(message),
+            title: messageHeading(message, discordText),
             url: message.reportUrl,
             ...(message.test ? { description: where } : {}),
             fields,
