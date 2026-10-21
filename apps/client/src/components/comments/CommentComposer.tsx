@@ -41,10 +41,9 @@ export function CommentComposer({
   const [text, setText] = useState(initial?.text ?? "")
   const [picked, setPicked] = useState<Picked[]>(initial?.picked ?? [])
   const box = useRef<MentionTextareaHandle>(null)
-  const submit = (event: FormEvent) => {
-    event.preventDefault()
+  const send = () => {
     const body = text.trim()
-    if (!body) return
+    if (!body || busy) return
     onSubmit(toStored(body, picked)).then(
       () => {
         setText("")
@@ -53,12 +52,16 @@ export function CommentComposer({
       () => {},
     )
   }
+  const submit = (event: FormEvent) => {
+    event.preventDefault()
+    send()
+  }
   const ready = Boolean(text.trim())
 
   return (
     <form
       onSubmit={submit}
-      className="flex items-end gap-1.5 rounded-xl border border-input bg-background p-1.5 focus-within:border-ring/70 focus-within:ring-3 focus-within:ring-ring/20"
+      className="group/composer flex items-end gap-1.5 rounded-xl border border-input bg-background p-1.5 focus-within:border-ring/70 focus-within:ring-3 focus-within:ring-ring/20"
     >
       {me.name && (
         <Avatar
@@ -81,8 +84,13 @@ export function CommentComposer({
           placeholder={placeholder}
           rows={1}
           autoFocus={autoFocus}
+          onEnter={send}
           className="min-h-9 resize-none border-0 bg-transparent px-1 focus:ring-0 sm:px-1"
         />
+        {/* Shown while writing: Enter sends, so a new line needs the modifier. */}
+        <p className={`px-1 pb-0.5 text-[11px] text-muted-foreground ${text ? "block" : "hidden group-focus-within/composer:block"}`}>
+          Ctrl + Enter for a new line
+        </p>
       </div>
       <div className="flex shrink-0 items-center gap-0.5 self-center">
         <Button

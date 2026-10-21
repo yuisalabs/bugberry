@@ -19,6 +19,11 @@ interface Props {
   /** Lets buttons beside the box write into it at the caret (the @ and emoji buttons). */
   handle?: Ref<MentionTextareaHandle>
   autoFocus?: boolean
+  /**
+   * Enter sends instead of starting a new line (Ctrl or Cmd + Enter, or Shift + Enter, adds one). While the
+   * mention list is open, Enter still picks the person.
+   */
+  onEnter?: () => void
 }
 
 export interface MentionTextareaHandle {
@@ -31,7 +36,20 @@ export interface MentionTextareaHandle {
  * Escape closes, a click picks. Picking writes "@Name " (or "@Name (email name) " when two people
  * share the name); the caller turns it into a token on save.
  */
-export function MentionTextarea({ value, onChange, people, selfId, onPick, label, placeholder, rows = 3, className, handle, autoFocus }: Props) {
+export function MentionTextarea({
+  value,
+  onChange,
+  people,
+  selfId,
+  onPick,
+  label,
+  placeholder,
+  rows = 3,
+  className,
+  handle,
+  autoFocus,
+  onEnter,
+}: Props) {
   const ref = useRef<HTMLTextAreaElement>(null)
   const listId = useId()
   const [caret, setCaret] = useState<number | null>(null)
@@ -53,24 +71,20 @@ export function MentionTextarea({ value, onChange, people, selfId, onPick, label
     nextCaret.current = null
   }, [value])
 
-  useImperativeHandle(
-    handle,
-    () => ({
-      insert(text: string) {
-        const box = ref.current
-        const start = box?.selectionStart ?? value.length
-        const end = box?.selectionEnd ?? start
-        const position = start + text.length
-        nextCaret.current = position
-        setCaret(position)
-        setDismissed(null)
-        setActive(0)
-        onChange(value.slice(0, start) + text + value.slice(end))
-        box?.focus()
-      },
-    }),
-    [value, onChange],
-  )
+  /** Writes `text` at the caret (over any selection) and puts the caret after it. */
+  const insertAtCaret = (text: string) => {
+    const box = ref.current
+    const start = box?.selectionStart ?? value.length
+    const end = box?.selectionEnd ?? start
+    const position = start + text.length
+    nextCaret.current = position
+    setCaret(position)
+    setDismissed(null)
+    setActive(0)
+    onChange(value.slice(0, start) + text + value.slice(end))
+    box?.focus()
+  }
+  useImperativeHandle(handle, () => ({ insert: insertAtCaret }), [value, onChange])
 
   const track = () => {
     const box = ref.current
@@ -89,6 +103,12 @@ export function MentionTextarea({ value, onChange, people, selfId, onPick, label
   }
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (onEnter && event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && !(open && typing)) {
+      event.preventDefault()
+      if (event.ctrlKey || event.metaKey) insertAtCaret("\n")
+      else onEnter()
+      return
+    }
     if (!open || !typing) return
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault()

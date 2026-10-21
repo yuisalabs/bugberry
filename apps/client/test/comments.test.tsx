@@ -73,6 +73,42 @@ describe("the comments section", () => {
     await waitFor(() => expect(box.value).toBe(""))
   })
 
+  test("Enter sends the comment; Ctrl or Cmd + Enter adds a new line; the box says so", () => {
+    const { props } = setup()
+    const box = screen.getByRole("textbox", { name: "New comment" }) as HTMLTextAreaElement
+    expect(screen.getByText("Ctrl + Enter for a new line")).toBeTruthy()
+    fireEvent.change(box, { target: { value: "Baris satu" } })
+    box.setSelectionRange(box.value.length, box.value.length)
+    fireEvent.keyDown(box, { key: "Enter", ctrlKey: true })
+    expect(box.value).toBe("Baris satu\n")
+    fireEvent.change(box, { target: { value: "Baris satu\nbaris dua" } })
+    box.setSelectionRange(box.value.length, box.value.length)
+    fireEvent.keyDown(box, { key: "Enter", metaKey: true })
+    expect(box.value).toBe("Baris satu\nbaris dua\n")
+    expect(props.onAdd).not.toHaveBeenCalled()
+    fireEvent.keyDown(box, { key: "Enter" })
+    expect(props.onAdd).toHaveBeenCalledWith("Baris satu\nbaris dua", undefined)
+  })
+
+  test("Enter does not send again while a comment is still saving", () => {
+    const { props } = setup({ busy: true })
+    const box = screen.getByRole("textbox", { name: "New comment" })
+    fireEvent.change(box, { target: { value: "Dua kali" } })
+    fireEvent.keyDown(box, { key: "Enter" })
+    expect(props.onAdd).not.toHaveBeenCalled()
+  })
+
+  test("Enter on an empty box sends nothing, and Enter in a reply box sends the reply", () => {
+    const { props } = setup()
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "New comment" }), { key: "Enter" })
+    expect(props.onAdd).not.toHaveBeenCalled()
+    fireEvent.click(within(commentEl("c1")).getByRole("button", { name: "Reply" }))
+    const reply = screen.getByRole("textbox", { name: "Reply" }) as HTMLTextAreaElement
+    fireEvent.change(reply, { target: { value: "Siap" } })
+    fireEvent.keyDown(reply, { key: "Enter" })
+    expect(props.onAdd).toHaveBeenCalledWith("Siap", "c1")
+  })
+
   test("You, edited and via AI show on a comment", () => {
     setup({
       threads: [threadFixture({ id: "c9", author: ana, edited: true, viaAgent: "Claude Code" })],
