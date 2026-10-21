@@ -13,6 +13,7 @@ import type { DebuggerFocus } from "./debugger/DebuggerTabs"
 import { MediaViewer } from "./MediaViewer"
 import { FlaggedIssues } from "./report/FlaggedIssues"
 import { ReportMeta } from "./report/ReportMeta"
+import { ReportVideoContext } from "./report/video-context"
 import { Badge } from "./ui"
 import { VideoReporter, VideoShareActions } from "./VideoOverlay"
 
@@ -86,6 +87,11 @@ export function ReportView({
     [report.captureType, currentMs, seek],
   )
   const onExpired = useCallback(() => void latestRefresh.current(), [])
+  // A "0:52" in a comment seeks the video; only a video report with a known length offers it.
+  const video = useMemo(
+    () => (report.captureType === "video" && report.durationMs !== null ? { seek, durationMs: report.durationMs } : null),
+    [report.captureType, report.durationMs, seek],
+  )
   const reporter = useMemo(() => <VideoReporter reporter={report.reporter} />, [report.reporter])
   const shareActions = useCallback(
     (seconds: number) => <VideoShareActions shareSlug={report.shareSlug} seconds={seconds} mediaUrl={report.mediaUrl} />,
@@ -172,7 +178,9 @@ export function ReportView({
       </aside>
       {children && (
         <div className="min-w-0 px-4 pt-8 pb-6 sm:px-6 xl:col-start-1 xl:row-start-2 xl:pt-0">
-          <div className="mx-auto w-full max-w-4xl">{children}</div>
+          <div className="mx-auto w-full max-w-4xl">
+            <ReportVideoContext.Provider value={video}>{children}</ReportVideoContext.Provider>
+          </div>
         </div>
       )}
       {footer && (

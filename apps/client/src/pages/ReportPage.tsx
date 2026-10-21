@@ -47,6 +47,7 @@ export function ReportPage() {
     onSuccess: (detail) => {
       queryClient.setQueryData(queries.report(reportId).queryKey, detail)
       void queryClient.invalidateQueries({ queryKey: ["reports"] })
+      void queryClient.invalidateQueries({ queryKey: queries.activity(reportId).queryKey })
     },
     onError: (error) => toast({ title: errorMessage(error), tone: "error" }),
   })

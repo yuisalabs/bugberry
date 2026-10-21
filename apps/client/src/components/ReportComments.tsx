@@ -1,19 +1,40 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useLocation } from "@tanstack/react-router"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { errorMessage } from "../lib/api"
 import { api } from "../lib/client"
 import { queries } from "../lib/queries"
 import { roleIn } from "../lib/workspace"
-import { CommentList } from "./CommentList"
+import { CommentsSection } from "./comments/CommentsSection"
 import { PeopleRowsSkeleton } from "./Skeletons"
 import { ErrorState } from "./ui"
 
+/** This browser remembers whether the feed shows All activity; Comments only is the default. */
+const TAB_KEY = "bugberry.commentsTab"
+
+function readShowActivity(): boolean {
+  try {
+    return localStorage.getItem(TAB_KEY) === "activity"
+  } catch {
+    return false
+  }
+}
+
+function saveShowActivity(on: boolean): void {
+  try {
+    localStorage.setItem(TAB_KEY, on ? "activity" : "comments")
+  } catch {
+    // Blocked storage just forgets the choice.
+  }
+}
+
 export function ReportComments({ reportId, workspaceId }: { reportId: string; workspaceId: string }) {
   const queryClient = useQueryClient()
+  const [showActivity, setShowActivity] = useState(readShowActivity)
   const me = useQuery(queries.me())
   const workspaces = useQuery(queries.workspaces())
   const comments = useQuery(queries.comments(reportId))
+  const activity = useQuery({ ...queries.activity(reportId), enabled: showActivity })
   const members = useQuery(queries.members(workspaceId))
   const hash = useLocation({ select: (location) => location.hash })
   const loaded = comments.isSuccess
@@ -23,22 +44,30 @@ export function ReportComments({ reportId, workspaceId }: { reportId: string; wo
     document.getElementById(hash)?.scrollIntoView({ block: "center", behavior: "smooth" })
   }, [loaded, hash])
   const refresh = () => queryClient.invalidateQueries({ queryKey: queries.comments(reportId).queryKey })
-  const add = useMutation({ mutationFn: (body: string) => api.addComment(reportId, body), onSuccess: refresh })
+  const add = useMutation({
+    mutationFn: ({ body, replyTo }: { body: string; replyTo?: string }) => api.addComment(reportId, body, replyTo),
+    onSuccess: refresh,
+  })
   const edit = useMutation({
     mutationFn: ({ id, body }: { id: string; body: string }) => api.editComment(id, body),
     onSuccess: refresh,
   })
   const remove = useMutation({ mutationFn: (id: string) => api.deleteComment(id), onSuccess: refresh })
+  const react = useMutation({
+    mutationFn: ({ commentId, emoji }: { commentId: string; emoji: string }) => api.react(commentId, emoji),
+    onSuccess: refresh,
+  })
 
   if (comments.isPending || me.isPending) return <PeopleRowsSkeleton label="Loading comments…" />
   if (comments.isError) return <ErrorState error={comments.error} onRetry={() => void comments.refetch()} />
   if (me.isError) return <ErrorState error={me.error} />
-  const error = add.error ?? edit.error ?? remove.error
+  const error = add.error ?? edit.error ?? remove.error ?? react.error
 
   return (
     <div className="flex flex-col gap-2">
-      <CommentList
-        comments={comments.data}
+      <CommentsSection
+        threads={comments.data}
+        activity={activity.data ?? null}
         people={(members.data ?? []).map(({ id, name, email }) => ({ id, name, email }))}
         me={{
           id: me.data.id,
@@ -47,9 +76,15 @@ export function ReportComments({ reportId, workspaceId }: { reportId: string; wo
           image: me.data.image,
         }}
         busy={add.isPending || edit.isPending || remove.isPending}
-        onAdd={(body) => add.mutateAsync(body)}
+        showActivity={showActivity}
+        onShowActivity={(on) => {
+          setShowActivity(on)
+          saveShowActivity(on)
+        }}
+        onAdd={(body, replyTo) => add.mutateAsync({ body, replyTo })}
         onEdit={(id, body) => edit.mutateAsync({ id, body })}
         onDelete={(id) => remove.mutate(id)}
+        onReact={(commentId, emoji) => react.mutate({ commentId, emoji })}
       />
       {error && (
         <p role="alert" className="text-sm text-danger-subtle-foreground">

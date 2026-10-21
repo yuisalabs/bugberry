@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useId, useLayoutEffect, useRef, useState } from "react"
+import { type KeyboardEvent, type Ref, useId, useImperativeHandle, useLayoutEffect, useRef, useState } from "react"
 import { Textarea } from "@bugberry/ui/textarea"
 import { type Mentionable, mentionLabel, mentionQuery, suggestions } from "../lib/mentions"
 
@@ -16,6 +16,14 @@ interface Props {
   /** Starting height in lines; the box grows with what is typed. */
   rows?: number
   className?: string
+  /** Lets buttons beside the box write into it at the caret (the @ and emoji buttons). */
+  handle?: Ref<MentionTextareaHandle>
+  autoFocus?: boolean
+}
+
+export interface MentionTextareaHandle {
+  /** Writes `text` at the caret (over any selection), puts the caret after it and focuses the box. */
+  insert(text: string): void
 }
 
 /**
@@ -23,7 +31,7 @@ interface Props {
  * Escape closes, a click picks. Picking writes "@Name " (or "@Name (email name) " when two people
  * share the name); the caller turns it into a token on save.
  */
-export function MentionTextarea({ value, onChange, people, selfId, onPick, label, placeholder, rows = 3, className }: Props) {
+export function MentionTextarea({ value, onChange, people, selfId, onPick, label, placeholder, rows = 3, className, handle, autoFocus }: Props) {
   const ref = useRef<HTMLTextAreaElement>(null)
   const listId = useId()
   const [caret, setCaret] = useState<number | null>(null)
@@ -44,6 +52,25 @@ export function MentionTextarea({ value, onChange, people, selfId, onPick, label
     ref.current.setSelectionRange(nextCaret.current, nextCaret.current)
     nextCaret.current = null
   }, [value])
+
+  useImperativeHandle(
+    handle,
+    () => ({
+      insert(text: string) {
+        const box = ref.current
+        const start = box?.selectionStart ?? value.length
+        const end = box?.selectionEnd ?? start
+        const position = start + text.length
+        nextCaret.current = position
+        setCaret(position)
+        setDismissed(null)
+        setActive(0)
+        onChange(value.slice(0, start) + text + value.slice(end))
+        box?.focus()
+      },
+    }),
+    [value, onChange],
+  )
 
   const track = () => {
     const box = ref.current
@@ -90,6 +117,8 @@ export function MentionTextarea({ value, onChange, people, selfId, onPick, label
         rows={rows}
         placeholder={placeholder}
         className={className}
+        // biome-ignore lint/a11y/noAutofocus: a reply box opens because the person just pressed Reply
+        autoFocus={autoFocus}
         onChange={(event) => {
           const position = event.target.selectionStart ?? event.target.value.length
           // Escape closes one "@word"; a different (or new) "@" opens the list again.
