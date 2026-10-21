@@ -3,7 +3,15 @@ import type { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { eq } from "drizzle-orm"
 import { report } from "../src/db/schema"
 import { TrackerError } from "../src/lib/trackers/providers"
-import { createProject, createReadyReport, createUserWithToken, type FakeTrackers, fakeTrackers, setupTestApp } from "./helpers"
+import {
+  createIntegration,
+  createProject,
+  createReadyReport,
+  createUserWithToken,
+  fakeTrackers,
+  setupTestApp,
+  type FakeTrackers,
+} from "./helpers"
 import { callTool, mcpClient } from "./mcp-helpers"
 
 let ctx: Awaited<ReturnType<typeof setupTestApp>>
@@ -19,11 +27,15 @@ beforeEach(async () => {
   const admin = await createUserWithToken(ctx.db, { role: "admin" })
   member = await createUserWithToken(ctx.db)
   const projectId = (await createProject(ctx.db)).id
-  const { data } = await ctx.api.api.projects({ id: projectId }).integrations.post(
-    { provider: "github", config: { owner: "kantor", repo: "web", labels: [] }, secret: "ghp_token" },
-    { headers: admin.headers },
-  )
-  integrationId = data?.id ?? ""
+  integrationId = (
+    await createIntegration(ctx.db, {
+      projectId,
+      provider: "github",
+      target: { owner: "kantor", repo: "web", labels: [] },
+      secret: "ghp_token",
+      name: "GitHub Kantor",
+    })
+  ).id
   reportId = (await createReadyReport(ctx.db, { projectId, reporterId: member.user.id, title: "Pay fails" })).id
   client = await mcpClient(ctx.app, member.headers)
 })
@@ -31,7 +43,7 @@ beforeEach(async () => {
 describe("tracker tools", () => {
   test("listTrackers shows the project's integrations and sent links", async () => {
     const { text } = await callTool(client, "listTrackers", { report: reportId })
-    expect(text).toContain(`${integrationId} · github · kantor/web`)
+    expect(text).toContain(`${integrationId} · github · GitHub Kantor · kantor/web`)
     expect(text).toContain("Not sent yet")
   })
 
@@ -65,11 +77,7 @@ describe("notifiers are not trackers", () => {
   test("a Slack integration is not listed or sent to as a tracker", async () => {
     const admin = await createUserWithToken(ctx.db, { role: "admin" })
     const projectId = (await ctx.db.select().from(report).where(eq(report.id, reportId)))[0]?.projectId ?? ""
-    const { data } = await ctx.api.api.projects({ id: projectId }).integrations.post(
-      { provider: "slack", config: {}, secret: "https://hooks.slack.com/services/T0/B0/xyz" } as never,
-      { headers: admin.headers },
-    )
-    const slackId = (data as { id: string } | null)?.id ?? ""
+    const slackId = (await createIntegration(ctx.db, { projectId, provider: "slack", secret: "https://hooks.slack.com/services/T0/B0/xyz" })).id
     const listed = await ctx.api.api.reports({ id: reportId }).trackers.get({ headers: member.headers })
     expect(listed.data?.integrations.map((item) => item.id)).not.toContain(slackId)
     const { text } = await callTool(client, "listTrackers", { report: reportId })

@@ -3,7 +3,15 @@ import { asc, eq } from "drizzle-orm"
 import { integration, reportActivity } from "../src/db/schema"
 import { createDispatcher } from "../src/lib/trackers/dispatch"
 import { TrackerError } from "../src/lib/trackers/providers"
-import { createProject, createReadyReport, createUserWithToken, type FakeTrackers, fakeTrackers, setupTestApp } from "./helpers"
+import {
+  createIntegration,
+  createProject,
+  createReadyReport,
+  createUserWithToken,
+  fakeTrackers,
+  setupTestApp,
+  type FakeTrackers,
+} from "./helpers"
 import { callTool, mcpClient } from "./mcp-helpers"
 
 let ctx: Awaited<ReturnType<typeof setupTestApp>>
@@ -61,12 +69,13 @@ describe("recording report changes", () => {
 
 describe("recording tracker sends", () => {
   const addIntegration = async (autoSend = false) => {
-    const { data } = await ctx.api.api.projects({ id: projectId }).integrations.post(
-      { provider: "github", config: { owner: "kantor", repo: "web", labels: [] }, secret: "ghp_token" },
-      { headers: ana.headers },
-    )
-    const id = data?.id ?? ""
-    if (autoSend) await ctx.db.update(integration).set({ autoSend: true }).where(eq(integration.id, id))
+    const { id } = await createIntegration(ctx.db, {
+      projectId,
+      provider: "github",
+      target: { owner: "kantor", repo: "web", labels: [] },
+      secret: "ghp_token",
+      autoSend,
+    })
     return id
   }
 

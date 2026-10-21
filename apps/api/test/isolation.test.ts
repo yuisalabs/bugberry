@@ -4,6 +4,7 @@ import { comment, integration, project, report, workspace, workspaceInvitation, 
 import { newId } from "../src/lib/ids"
 import { createSecretBox } from "../src/lib/secret-box"
 import {
+  createIntegration,
   createProject,
   createReadyReport,
   createUserWithToken,
@@ -39,13 +40,11 @@ beforeEach(async () => {
   const bWorkspace = await createWorkspaceRow(ctx.db, "B")
   const bAdmin = await createUserWithToken(ctx.db, { email: "b@b.test", workspaceId: bWorkspace.id, workspaceRole: "admin" })
   const bProject = await createProject(ctx.db, { workspaceId: bWorkspace.id, slug: "secret" })
-  const integrationId = newId()
-  await ctx.db.insert(integration).values({
-    id: integrationId,
+  const { id: integrationId } = await createIntegration(ctx.db, {
     projectId: bProject.id,
     provider: "github",
-    config: { owner: "b", repo: "secret", labels: [] },
-    secretEncrypted: createSecretBox(TEST_ENCRYPTION_KEY).seal("ghp_secret"),
+    target: { owner: "b", repo: "secret", labels: [] },
+    secret: "ghp_secret",
   })
   const bReport = await createReadyReport(ctx.db, {
     reporterId: bAdmin.user.id,

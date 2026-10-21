@@ -6,7 +6,15 @@ import type { NotifierFactory } from "../src/lib/notifiers/channels"
 import { notifyNewReport } from "../src/lib/notifiers/deliver"
 import type { NewReportMessage } from "../src/lib/notifiers/message"
 import { TrackerError } from "../src/lib/trackers/providers"
-import { createProject, createReadyReport, createUserWithToken, putUpload, setupTestApp, uploadBody } from "./helpers"
+import {
+  createIntegration,
+  createProject,
+  createReadyReport,
+  createUserWithToken,
+  putUpload,
+  setupTestApp,
+  uploadBody,
+} from "./helpers"
 
 interface Sent {
   provider: NotifierProvider
@@ -47,12 +55,8 @@ beforeEach(async () => {
   project = await createProject(ctx.db, { name: "Checkout Web" })
 })
 
-async function addChannel(provider: "slack" | "discord", secret: string) {
-  const { data, error } = await ctx.api.api
-    .projects({ id: project.id })
-    .integrations.post({ provider, config: {}, secret }, { headers: admin.headers })
-  if (!data) throw new Error(`could not add ${provider}: ${JSON.stringify(error?.value)}`)
-  return data.id
+async function addChannel(provider: "slack" | "discord", secret: string, projectId = project.id) {
+  return (await createIntegration(ctx.db, { projectId, provider, secret })).id
 }
 
 async function finalizeReport(projectId: string | null) {
@@ -67,6 +71,19 @@ async function finalizeReport(projectId: string | null) {
 const rowOf = async (id: string) => (await ctx.db.select().from(integration).where(eq(integration.id, id)))[0]
 
 describe("new-report notifications", () => {
+  test("one Slack connection used by two projects posts once per project", async () => {
+    const other = await createProject(ctx.db, { name: "Admin Panel" })
+    const slack = await createIntegration(ctx.db, { projectId: project.id, provider: "slack", secret: SLACK })
+    const second = await createIntegration(ctx.db, { projectId: other.id, provider: "slack", connectionId: slack.connectionId })
+    await finalizeReport(project.id)
+    expect(notifiers.sent).toHaveLength(1)
+    expect(notifiers.sent[0]).toMatchObject({ secret: SLACK, message: { projectName: "Checkout Web" } })
+    await finalizeReport(other.id)
+    expect(notifiers.sent).toHaveLength(2)
+    expect(notifiers.sent[1]).toMatchObject({ secret: SLACK, message: { projectName: "Admin Panel" } })
+    expect((await rowOf(second.id))?.lastDeliveredAt).toBeInstanceOf(Date)
+  })
+
   test("a finalized report notifies every channel of its project", async () => {
     const slack = await addChannel("slack", SLACK)
     await addChannel("discord", DISCORD)

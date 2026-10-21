@@ -3,7 +3,7 @@ import { INTEGRATION_PROVIDERS, integrationKind, integrationLabel, issueReferenc
 import { eq } from "drizzle-orm"
 import { integration } from "../src/db/schema"
 import { newId } from "../src/lib/ids"
-import { createProject, setupTestApp } from "./helpers"
+import { createIntegration, createProject, setupTestApp } from "./helpers"
 
 let ctx: Awaited<ReturnType<typeof setupTestApp>>
 
@@ -34,8 +34,7 @@ describe("integration providers", () => {
 
   test("a notifier is stored like any integration, with room for its last delivery", async () => {
     const project = await createProject(ctx.db)
-    const id = newId()
-    await ctx.db.insert(integration).values({ id, projectId: project.id, provider: "slack", config: {}, secretEncrypted: "sealed" })
+    const { id } = await createIntegration(ctx.db, { projectId: project.id, provider: "slack" })
     const [row] = await ctx.db.select().from(integration).where(eq(integration.id, id))
     expect(row).toMatchObject({ provider: "slack", lastError: null, lastDeliveredAt: null })
   })

@@ -4,7 +4,14 @@ import { integration, reportActivity, reportExternalLink } from "../src/db/schem
 import { createSecretBox } from "../src/lib/secret-box"
 import { newId } from "../src/lib/ids"
 import { BACKFILL_TRACKER_ACTIVITY, backfillTrackerActivity } from "../src/modules/activity/backfill"
-import { createProject, createReadyReport, createUserWithToken, setupTestApp, TEST_ENCRYPTION_KEY } from "./helpers"
+import {
+  createIntegration,
+  createProject,
+  createReadyReport,
+  createUserWithToken,
+  setupTestApp,
+  TEST_ENCRYPTION_KEY,
+} from "./helpers"
 
 let ctx: Awaited<ReturnType<typeof setupTestApp>>
 
@@ -21,13 +28,9 @@ test("earlier tracker sends become activity, failed ones do not", async () => {
   const ana = await createUserWithToken(ctx.db, { name: "Ana" })
   const project = await createProject(ctx.db)
   const report = await createReadyReport(ctx.db, { projectId: project.id, reporterId: ana.user.id })
-  const sealed = createSecretBox(TEST_ENCRYPTION_KEY).seal("ghp_secret")
-  const github = newId()
-  const failing = newId()
-  await ctx.db.insert(integration).values([
-    { id: github, projectId: project.id, provider: "github", config: { owner: "a", repo: "b", labels: [] }, secretEncrypted: sealed },
-    { id: failing, projectId: project.id, provider: "github", config: { owner: "a", repo: "c", labels: [] }, secretEncrypted: sealed },
-  ])
+  const github = (await createIntegration(ctx.db, { projectId: project.id, provider: "github", target: { owner: "a", repo: "b", labels: [] } })).id
+  const failing = (await createIntegration(ctx.db, { projectId: project.id, provider: "github", target: { owner: "a", repo: "c", labels: [] } }))
+    .id
   const sentAt = new Date("2026-10-01T10:00:00Z")
   await ctx.db.insert(reportExternalLink).values([
     {

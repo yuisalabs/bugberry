@@ -2,7 +2,15 @@ import { mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { treaty } from "@elysiajs/eden"
-import type { TrackerConfig, TrackerProvider, WorkspaceRole } from "@bugberry/shared"
+import {
+  type ConnectionSettings,
+  type IntegrationProvider,
+  type TrackerConfig,
+  type TrackerProvider,
+  targetKey,
+  type UseTarget,
+  type WorkspaceRole,
+} from "@bugberry/shared"
 import { sql } from "drizzle-orm"
 import { createApp } from "../src/app"
 import { createAuth } from "../src/auth/better-auth"
@@ -10,7 +18,8 @@ import type { EmailSender } from "../src/email/sender"
 import type { Config } from "../src/config"
 import { createDb, type Db } from "../src/db/client"
 import { runMigrations } from "../src/db/migrate"
-import { apiToken, project, report, user, workspace, workspaceMember } from "../src/db/schema"
+import { apiToken, connection, integration, project, report, user, workspace, workspaceMember } from "../src/db/schema"
+import { createSecretBox } from "../src/lib/secret-box"
 import { generateApiToken, hashToken } from "../src/lib/api-token"
 import { newId, newShareSlug } from "../src/lib/ids"
 import type { IssueContent } from "../src/lib/trackers/content"
@@ -294,6 +303,51 @@ export function fakeTrackers(): FakeTrackers {
     }),
   }
   return fake
+}
+
+/**
+ * A workspace connection and its use in a project, written straight to the database. Pass `connectionId` to add another
+ * use of an existing connection. The secret is sealed with TEST_ENCRYPTION_KEY.
+ */
+export async function createIntegration(
+  db: Db,
+  input: {
+    projectId: string
+    provider: IntegrationProvider
+    target?: UseTarget
+    settings?: ConnectionSettings
+    secret?: string
+    name?: string
+    autoSend?: boolean
+    connectionId?: string
+  },
+): Promise<{ id: string; connectionId: string }> {
+  let connectionId = input.connectionId
+  if (!connectionId) {
+    const [owner] = await db.select({ workspaceId: project.workspaceId }).from(project).where(sql`${project.id} = ${input.projectId}`)
+    if (!owner) throw new Error("no such project")
+    connectionId = newId()
+    await db.insert(connection).values({
+      id: connectionId,
+      workspaceId: owner.workspaceId,
+      provider: input.provider,
+      name: input.name ?? input.provider,
+      settings: input.settings ?? {},
+      secretEncrypted: createSecretBox(TEST_ENCRYPTION_KEY).seal(input.secret ?? "secret"),
+    })
+  }
+  const target = input.target ?? {}
+  const id = newId()
+  await db.insert(integration).values({
+    id,
+    projectId: input.projectId,
+    connectionId,
+    provider: input.provider,
+    config: target,
+    targetKey: targetKey(input.provider, target),
+    autoSend: input.autoSend ?? false,
+  })
+  return { id, connectionId }
 }
 
 /** Polls until `check` returns a value, for work the server does in the background. */
