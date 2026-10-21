@@ -11,7 +11,3 @@ export function slugify(name: string): string {
     .slice(0, MAX_SLUG_LENGTH)
     .replace(/-+$/, "")
 }
-
-export function parsePatterns(text: string): string[] {
-  return [...new Set(text.split("\n").map((line) => line.trim()).filter((line) => line.length > 0))]
-}
