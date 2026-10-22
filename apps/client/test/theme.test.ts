@@ -20,8 +20,19 @@ describe("BugBerry theme", () => {
       expect(root).toContain(`${token}: ${value};`)
     }
     expect(css).toContain('"DM Sans Variable"')
-    expect(css).toContain('"Outfit Variable"')
+    expect(css).toContain('"Sora Variable"')
+    expect(css).not.toContain("Outfit")
     expect(css).not.toContain("Inter Variable")
+  })
+
+  test("headings are Sora in the dashboard and the extension; code stays Geist Mono, notes stay Caveat", () => {
+    const client = read("src", "styles.css")
+    const extension = read("..", "extension", "assets", "style.css")
+    for (const css of [client, extension]) {
+      for (const font of ["sora", "dm-sans", "geist-mono"]) expect(css).toContain(`@fontsource-variable/${font}`)
+      expect(css).not.toContain("outfit")
+    }
+    expect(client).toContain("@fontsource-variable/caveat")
   })
 
   test("the browser tab says BugBerry", () => {

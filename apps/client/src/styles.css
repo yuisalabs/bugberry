@@ -2,7 +2,7 @@
 @import "@bugberry/ui/theme.css";
 /* Bundled with the app (no request to a font CDN); the theme names them first. */
 @import "@fontsource-variable/dm-sans";
-@import "@fontsource-variable/outfit";
+@import "@fontsource-variable/sora";
 @import "@fontsource-variable/geist-mono";
 @import "@fontsource-variable/caveat";
 
