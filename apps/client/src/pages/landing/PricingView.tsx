@@ -305,11 +305,11 @@ const FAQS: Array<[string, string]> = [
   ],
   [
     "What counts toward the 5 + 5 limit?",
-    "Each screenshot report and each video report sent to your workspace counts once. Drafts you discard in the extension don’t count.",
+    "The screenshot and video reports your workspace keeps right now. Delete one and its place is free again; drafts you discard in the extension never count.",
   ],
   [
     "What happens when I hit the limit?",
-    "The extension tells you before you capture, and new reports of that kind wait. Everything you already sent stays readable, shareable and connected to your tools.",
+    "The extension tells you before you capture. To send a new one, delete one of that kind in the dashboard. Everything you keep stays readable, shareable and connected to your tools.",
   ],
   ["Do I need a credit card?", "No. Sign in and start recording; there is nothing to pay during early access."],
   [

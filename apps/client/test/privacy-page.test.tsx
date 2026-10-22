@@ -40,8 +40,9 @@ describe("privacy policy", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Privacy Policy" })).toBeTruthy()
   })
 
-  test("on BugBerry cloud it sits in the public site", () => {
-    render(<PrivacyView signedIn={false} publicSite />)
+  test("on BugBerry cloud it sits in the public site, with the server's install link", () => {
+    render(<PrivacyView signedIn={false} publicSite installUrl="https://chromewebstore.google.com/detail/x" />)
+    expect([...document.querySelectorAll("a")].map((link) => link.getAttribute("href"))).toContain("https://chromewebstore.google.com/detail/x")
     expect([...document.querySelectorAll("a")].map((link) => link.getAttribute("href"))).toContain("/pricing")
   })
 

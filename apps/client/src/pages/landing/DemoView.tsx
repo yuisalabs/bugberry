@@ -12,7 +12,7 @@ import {
 import { DEMO_TEAM_SIZES, DEMO_TRACKERS, type DemoRequestInput } from "@bugberry/shared"
 import { type FormEvent, useId, useState } from "react"
 import { Link } from "@bugberry/ui/link"
-import { errorMessage } from "../../lib/api"
+import { ApiError, errorMessage } from "../../lib/api"
 import { Reveal } from "./Reveal"
 import { SiteChrome } from "./SiteChrome"
 import { installHref, siteContainer } from "./site-links"
@@ -37,14 +37,50 @@ const POINTS: Array<{ icon: RemixiconComponentType; title: string; body: string 
 
 const label = "text-[13px] font-semibold text-[#2A2030]"
 const field =
-  "h-11 w-full rounded-[10px] bg-[#FFFFFF] px-3.5 text-[14px] text-[#1C1022] outline outline-1 -outline-offset-1 outline-[#E6E1EC] placeholder:text-[#9A90A3] focus:outline-2 focus:-outline-offset-1 focus:outline-[#D61F69]"
+  "h-11 w-full rounded-[10px] bg-[#FFFFFF] px-3.5 text-[14px] text-[#1C1022] outline outline-1 -outline-offset-1 outline-[#E6E1EC] placeholder:text-[#9A90A3] focus:outline-2 focus:-outline-offset-1 focus:outline-[#D61F69] aria-invalid:outline-[#C2353A]"
 
 type Status = { kind: "idle" } | { kind: "sending" } | { kind: "sent" } | { kind: "failed"; message: string }
 
+/** The form's fields as people read them, for messages that name one. */
+const FIELD_NAMES: Record<string, string> = {
+  firstName: "first name",
+  lastName: "last name",
+  email: "work email",
+  company: "company",
+  tracker: "issue tracker",
+  teamSize: "team size",
+  message: "message",
+}
+/** One-line fields the browser lets through as spaces; checked here so the visitor learns which one. */
+const NEEDS_TEXT = ["firstName", "lastName", "company"]
+
+/** "first name", "first name and company", "first name, company and team size". */
+const listed = (names: string[]) => (names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`)
+
+/** The fields a 422 from the server turned down, by their path ("/company"). */
+function refusedFields(error: unknown): string[] {
+  if (!(error instanceof ApiError) || error.status !== 422 || !Array.isArray(error.body.details)) return []
+  const paths = (error.body.details as Array<{ path?: unknown }>).map((detail) => String(detail.path ?? "").replace(/^\//, ""))
+  return [...new Set(paths)].filter((name) => name in FIELD_NAMES)
+}
+
 function DemoForm({ submit }: { submit: (input: DemoRequestInput) => Promise<unknown> }) {
   const [status, setStatus] = useState<Status>({ kind: "idle" })
+  const [problems, setProblems] = useState<Record<string, string>>({})
   const id = useId()
   const at = (name: string) => `${id}-${name}`
+  /** Marks a field the visitor has to fix, and says why under it; typing in it clears the mark. */
+  const checked = (name: string) => ({
+    "aria-invalid": problems[name] ? true : undefined,
+    "aria-describedby": problems[name] ? at(`${name}-problem`) : undefined,
+    onChange: () => problems[name] && setProblems(({ [name]: _, ...rest }) => rest),
+  })
+  const problem = (name: string) =>
+    problems[name] && (
+      <p id={at(`${name}-problem`)} className="text-[12px] text-[#C2353A]">
+        {problems[name]}
+      </p>
+    )
 
   if (status.kind === "sent") {
     return (
@@ -60,12 +96,18 @@ function DemoForm({ submit }: { submit: (input: DemoRequestInput) => Promise<unk
     event.preventDefault()
     const form = event.currentTarget
     if (status.kind === "sending") return
+    const fields = form.elements
+    const value = (name: string) => String((fields.namedItem(name) as HTMLInputElement | RadioNodeList | null)?.value ?? "").trim()
+    const blank = NEEDS_TEXT.filter((name) => !value(name))
+    if (blank.length > 0) {
+      setProblems(Object.fromEntries(blank.map((name) => [name, `Enter your ${FIELD_NAMES[name]}.`])))
+      ;(fields.namedItem(blank[0]!) as HTMLInputElement).focus()
+      return
+    }
     if (!form.checkValidity()) {
       form.reportValidity()
       return
     }
-    const fields = form.elements
-    const value = (name: string) => String((fields.namedItem(name) as HTMLInputElement | RadioNodeList | null)?.value ?? "").trim()
     setStatus({ kind: "sending" })
     try {
       await submit({
@@ -81,7 +123,10 @@ function DemoForm({ submit }: { submit: (input: DemoRequestInput) => Promise<unk
       })
       setStatus({ kind: "sent" })
     } catch (error) {
-      setStatus({ kind: "failed", message: errorMessage(error) })
+      const refused = refusedFields(error)
+      setProblems(Object.fromEntries(refused.map((name) => [name, `Check your ${FIELD_NAMES[name]}.`])))
+      const message = refused.length > 0 ? `Check your ${listed(refused.map((name) => FIELD_NAMES[name]!))} and try again.` : errorMessage(error)
+      setStatus({ kind: "failed", message })
     }
   }
 
@@ -97,13 +142,15 @@ function DemoForm({ submit }: { submit: (input: DemoRequestInput) => Promise<unk
           <label htmlFor={at("first")} className={label}>
             First name
           </label>
-          <input id={at("first")} name="firstName" required maxLength={80} autoComplete="given-name" placeholder="Hannan" className={field} />
+          <input id={at("first")} name="firstName" required maxLength={80} autoComplete="given-name" placeholder="Hannan" className={field} {...checked("firstName")} />
+          {problem("firstName")}
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor={at("last")} className={label}>
             Last name
           </label>
-          <input id={at("last")} name="lastName" required maxLength={80} autoComplete="family-name" placeholder="Rozen" className={field} />
+          <input id={at("last")} name="lastName" required maxLength={80} autoComplete="family-name" placeholder="Rozen" className={field} {...checked("lastName")} />
+          {problem("lastName")}
         </div>
       </div>
       <div className="flex flex-col gap-1.5">
@@ -119,14 +166,26 @@ function DemoForm({ submit }: { submit: (input: DemoRequestInput) => Promise<unk
           autoComplete="email"
           placeholder="you@company.com"
           className={field}
+          {...checked("email")}
         />
+        {problem("email")}
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <label htmlFor={at("company")} className={label}>
             Company
           </label>
-          <input id={at("company")} name="company" required maxLength={120} autoComplete="organization" placeholder="Northwind Commerce" className={field} />
+          <input
+            id={at("company")}
+            name="company"
+            required
+            maxLength={120}
+            autoComplete="organization"
+            placeholder="Northwind Commerce"
+            className={field}
+            {...checked("company")}
+          />
+          {problem("company")}
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor={at("tracker")} className={label}>

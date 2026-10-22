@@ -49,6 +49,17 @@ describe("PricingView", () => {
     expect(text()).toContain("No usage limits")
   })
 
+  test("the limit counts reports kept, so deleting one makes room", () => {
+    render(<PricingView signedIn={false} installUrl={null} />)
+    const answer = (question: string) => {
+      const button = screen.getByRole("button", { name: question })
+      if (button.getAttribute("aria-expanded") === "false") fireEvent.click(button)
+      return document.getElementById(button.getAttribute("aria-controls") ?? "")?.textContent ?? ""
+    }
+    expect(answer("What counts toward the 5 + 5 limit?")).toContain("Delete one and its place is free again")
+    expect(answer("What happens when I hit the limit?")).toContain("delete one")
+  })
+
   test("every question has an answer", () => {
     render(<PricingView signedIn={false} installUrl={null} />)
     const questions = screen.getAllByRole("button", { name: /\?$/ })

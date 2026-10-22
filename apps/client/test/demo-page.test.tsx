@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test"
 import type { DemoRequestInput } from "@bugberry/shared"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { ApiError } from "../src/lib/api"
 import { DemoView } from "../src/pages/landing/DemoView"
+import { CHROME_WEB_STORE_URL } from "../src/pages/landing/site-links"
 
 function fill() {
   fireEvent.change(screen.getByLabelText("First name"), { target: { value: " Hannan " } })
@@ -63,13 +65,40 @@ describe("DemoView", () => {
     expect(sent).toEqual([])
   })
 
+  test("a name of only spaces is caught here, with a message on that field", () => {
+    const sent: DemoRequestInput[] = []
+    render(<DemoView signedIn={false} installUrl={null} submit={async (input) => void sent.push(input)} />)
+    fill()
+    fireEvent.change(screen.getByLabelText("First name"), { target: { value: "   " } })
+    fireEvent.click(screen.getByRole("button", { name: "Book my demo" }))
+    expect(sent).toEqual([])
+    const field = screen.getByLabelText("First name")
+    expect(field.getAttribute("aria-invalid")).toBe("true")
+    expect(document.getElementById(field.getAttribute("aria-describedby") ?? "")?.textContent).toBe("Enter your first name.")
+    // Fixing it clears the message.
+    fireEvent.change(field, { target: { value: "Hannan" } })
+    expect(field.getAttribute("aria-invalid")).toBeNull()
+  })
+
+  test("when the server turns a field down, the message names it", async () => {
+    const refused = new ApiError(422, "validation", "Invalid request", {
+      code: "validation",
+      details: [{ path: "/company", message: "Expected string to match pattern" }],
+    })
+    render(<DemoView signedIn={false} installUrl={null} submit={() => Promise.reject(refused)} />)
+    fill()
+    fireEvent.click(screen.getByRole("button", { name: "Book my demo" }))
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe("Check your company and try again."))
+    expect(screen.getByLabelText("Company").getAttribute("aria-invalid")).toBe("true")
+  })
+
   test("the quote is Hannan Rozen's, and the page offers trying it alone", () => {
     render(<DemoView signedIn={false} installUrl={null} submit={async () => {}} />)
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("See BugBerry on your own bugs")
     const text = document.body.textContent ?? ""
     expect(text).toContain("Hannan Rozen")
     for (const gone of ["Rozen Han", "15-min", "Try it with your team"]) expect(text).not.toContain(gone)
-    expect(screen.getByRole("link", { name: /Add BugBerry to Chrome, it’s free/ }).getAttribute("href")).toBe("/login")
+    expect(screen.getByRole("link", { name: /Add BugBerry to Chrome, it’s free/ }).getAttribute("href")).toBe(CHROME_WEB_STORE_URL)
     // Example values are hints, never typed in for the visitor.
     expect((screen.getByLabelText("First name") as HTMLInputElement).value).toBe("")
   })

@@ -3,6 +3,7 @@ import { Link } from "@bugberry/ui/link"
 import type { ReactNode } from "react"
 import { queries } from "../lib/queries"
 import { SiteChrome } from "./landing/SiteChrome"
+import { SiteNavigation } from "./landing/SiteNavigation"
 import { usePageMeta } from "./landing/usePageMeta"
 
 const CONTACT = "yuisalabs@gmail.com"
@@ -166,9 +167,17 @@ export function PrivacyPolicy() {
  * The policy in the public site's chrome. A self-hosted server (no public site) gets the minimal chrome, so the
  * page links only what that server has.
  */
-export function PrivacyView({ signedIn, publicSite }: { signedIn: boolean; publicSite: boolean }) {
+export function PrivacyView({
+  signedIn,
+  publicSite,
+  installUrl = null,
+}: {
+  signedIn: boolean
+  publicSite: boolean
+  installUrl?: string | null
+}) {
   return (
-    <SiteChrome signedIn={signedIn} installUrl={null} minimal={!publicSite}>
+    <SiteChrome signedIn={signedIn} installUrl={installUrl} minimal={!publicSite}>
       <div className="px-4 py-14 sm:px-6 md:py-20">
         <div className="mx-auto w-full max-w-2xl rounded-2xl bg-[#FFFFFF] p-6 outline outline-1 -outline-offset-1 outline-[#E6E1EC] sm:p-10">
           <PrivacyPolicy />
@@ -183,5 +192,9 @@ export function PrivacyPage() {
   const me = useQuery({ ...queries.me(), retry: false, meta: { signedOutIsFine: true } })
   const config = useQuery(queries.clientConfig())
   usePageMeta("Privacy Policy", "What BugBerry collects, how it is kept safe, and the terms of using the service.")
-  return <PrivacyView signedIn={me.isSuccess} publicSite={config.data?.publicSite === true} />
+  return (
+    <SiteNavigation>
+      <PrivacyView signedIn={me.isSuccess} publicSite={config.data?.publicSite === true} installUrl={config.data?.extensionInstallUrl ?? null} />
+    </SiteNavigation>
+  )
 }

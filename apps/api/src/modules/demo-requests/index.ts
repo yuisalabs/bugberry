@@ -13,8 +13,8 @@ import { clientIp } from "../share"
 /** Enough for someone who mistyped and sent again; not enough to fill the table. */
 const REQUESTS_PER_IP_PER_HOUR = 5
 
-/** Needs at least one character that isn't a space. */
-const filled = (maxLength: number) => t.String({ minLength: 1, maxLength, pattern: "\\S" })
+/** One line with at least one character that isn't a space; these go into the email's subject. */
+const filled = (maxLength: number) => t.String({ minLength: 1, maxLength, pattern: "^[^\\r\\n]*\\S[^\\r\\n]*$" })
 
 /** Public: "Book your demo" on the public site. Stored, then emailed to DEMO_REQUEST_EMAIL when it is set. */
 export function demoRequestsModule(deps: AppDeps) {
@@ -47,7 +47,7 @@ export function demoRequestsModule(deps: AppDeps) {
       if (to && sender) {
         // The request is kept whatever the mail service does; a failure only reaches the log.
         const task = sender
-          .send({ to, ...demoRequestEmail({ ...input, receivedAt }) })
+          .send({ to, replyTo: input.email, ...demoRequestEmail({ ...input, receivedAt }) })
           .catch((error: unknown) => console.error(`Demo request email failed: ${error instanceof Error ? error.message : String(error)}`))
         deps.background?.(task)
       }

@@ -64,6 +64,8 @@ describe("demo requests", () => {
     })
     expect(sent).toHaveLength(1)
     expect(sent[0]?.to).toBe("sales@bugberry.test")
+    // The team answers the visitor straight from the notification.
+    expect(sent[0]?.replyTo).toBe("hannan@northwind.test")
     for (const part of ["Northwind Commerce", "hannan@northwind.test", "11–50", "Self-hosting: yes"]) {
       expect(sent[0]?.text).toContain(part)
     }
@@ -84,6 +86,10 @@ describe("demo requests", () => {
       { firstName: "   " },
       { message: "x".repeat(2001) },
       { company: "x".repeat(121) },
+      // One-line fields go into the email's subject; a line break there is never typed by a person.
+      { firstName: "Han\nnan" },
+      { lastName: "Ro\rzen" },
+      { company: "Acme\r\nBcc: someone@else.test" },
     ]) {
       expect((await post({ ...valid, ...bad })).status).toBe(422)
     }

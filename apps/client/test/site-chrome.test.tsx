@@ -3,7 +3,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react"
 import { DOCS_URL } from "../src/lib/docs-url"
 import { FinalCta } from "../src/pages/landing/FinalCta"
 import { SiteChrome } from "../src/pages/landing/SiteChrome"
-import { CHANGELOG, installHref } from "../src/pages/landing/site-links"
+import { CHANGELOG, CHROME_WEB_STORE_URL, installHref } from "../src/pages/landing/site-links"
 
 const STORE = "https://chromewebstore.google.com/detail/x"
 const PUBLIC_ROUTES = ["/", "/login", "/app", "/pricing", "/integrations", "/ai-agents", "/demo", "/privacy"]
@@ -21,7 +21,8 @@ describe("site chrome", () => {
         href.startsWith("/#") ||
         href.startsWith("/integrations#") ||
         href.startsWith(DOCS_URL) ||
-        href === STORE
+        href === STORE ||
+        href === CHROME_WEB_STORE_URL
       expect(ok ? href : `unexpected ${href}`).toBe(href)
     }
   })
@@ -79,11 +80,12 @@ describe("site chrome", () => {
     expect(product.getAttribute("aria-expanded")).toBe("false")
   })
 
-  test("Add to Chrome goes to sign-in when there is no install link", () => {
-    expect(installHref(null)).toBe("/login")
+  test("Add to Chrome goes to BugBerry's Chrome Web Store page when the server names no install link", () => {
+    expect(CHROME_WEB_STORE_URL).toBe("https://chromewebstore.google.com/detail/bugberry/cccfgmgmmejlciecjipkcbabhdljhihi")
+    expect(installHref(null)).toBe(CHROME_WEB_STORE_URL)
     expect(installHref(STORE)).toBe(STORE)
     render(<SiteChrome signedIn={false} installUrl={null}>page</SiteChrome>)
-    expect(linkNamed(screen.getByRole("contentinfo"), "Chrome Web Store")?.getAttribute("href")).toBe("/login")
+    expect(linkNamed(screen.getByRole("contentinfo"), "Chrome Web Store")?.getAttribute("href")).toBe(CHROME_WEB_STORE_URL)
   })
 
   test("the main menu offers sign-up and a demo; a signed-in visitor gets the dashboard instead", () => {
@@ -121,7 +123,7 @@ describe("FinalCta", () => {
   test("offers the extension and a 30-minute demo, with no reporter limit", () => {
     render(<FinalCta installUrl={null} />)
     expect(screen.getByRole("heading", { level: 2 }).textContent).toBe("Stop describing bugs.Start showing them.")
-    expect(screen.getByRole("link", { name: /Add to Chrome/ }).getAttribute("href")).toBe("/login")
+    expect(screen.getByRole("link", { name: /Add to Chrome/ }).getAttribute("href")).toBe(CHROME_WEB_STORE_URL)
     expect(screen.getByRole("link", { name: "Book a 30-minute demo" }).getAttribute("href")).toBe("/demo")
     const text = document.body.textContent ?? ""
     expect(text).not.toContain("15-min")

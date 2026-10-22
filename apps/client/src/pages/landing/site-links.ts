@@ -9,9 +9,12 @@ export const WORKSPACE_DOCS = `${DOCS_URL}/guide/workspaces-and-access`
 export const SELF_HOST_DOCS = `${DOCS_URL}/self-host`
 export const CHANGELOG = `${DOCS_URL}/changelog`
 
-/** Where "Add to Chrome" goes: the store listing, or sign-in (which offers the extension) when there is none. */
+/** BugBerry's extension on the Chrome Web Store. */
+export const CHROME_WEB_STORE_URL = "https://chromewebstore.google.com/detail/bugberry/cccfgmgmmejlciecjipkcbabhdljhihi"
+
+/** Where "Add to Chrome" goes: the server's own install link (EXTENSION_INSTALL_URL), or BugBerry's store page. */
 export function installHref(installUrl: string | null): string {
-  return installUrl ?? "/login"
+  return installUrl ?? CHROME_WEB_STORE_URL
 }
 
 /** The public pages' width: the designs are 1440 px wide with 160 px either side. */

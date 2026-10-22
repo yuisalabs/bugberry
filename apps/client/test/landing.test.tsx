@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { render, screen } from "@testing-library/react"
 import { HomeView } from "../src/pages/landing/HomeView"
+import { CHROME_WEB_STORE_URL } from "../src/pages/landing/site-links"
 
 const STORE = "https://chromewebstore.google.com/detail/x"
 const text = () => document.body.textContent ?? ""
@@ -22,9 +23,9 @@ describe("HomeView", () => {
     expect(screen.getByRole("link", { name: /Connect your AI agent in 2 minutes/ }).getAttribute("href")).toBe("/ai-agents")
   })
 
-  test("without an install link, Add to Chrome goes to sign-in", () => {
+  test("without an install link from the server, Add to Chrome goes to the Chrome Web Store page", () => {
     render(<HomeView signedIn={false} installUrl={null} />)
-    for (const link of screen.getAllByRole("link", { name: /Add to Chrome/ })) expect(link.getAttribute("href")).toBe("/login")
+    for (const link of screen.getAllByRole("link", { name: /Add to Chrome/ })) expect(link.getAttribute("href")).toBe(CHROME_WEB_STORE_URL)
   })
 
   test("has the sections the Product menu and the footer point at", () => {
