@@ -29,6 +29,16 @@ export function Loading({ label = "Loading…" }: { label?: string }) {
   )
 }
 
+/** A page with nothing else to show yet (sign-in, a share link): the loading sits in the middle of the screen. */
+export function PageLoading({ label = "Loading…" }: { label?: string }) {
+  return (
+    <div role="status" className="flex min-h-dvh items-center justify-center gap-2 p-6 text-sm text-muted-foreground">
+      <Loader aria-label={label} />
+      {label}
+    </div>
+  )
+}
+
 export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
   return (
     <div

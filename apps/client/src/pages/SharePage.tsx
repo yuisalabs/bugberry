@@ -5,7 +5,7 @@ import { CopyLinkButton } from "../components/report/CopyLinkButton"
 import { ReportHeader } from "../components/report/ReportHeader"
 import { ReportTitle } from "../components/report/ReportTitle"
 import { ReportView } from "../components/ReportView"
-import { EmptyState, ErrorState, Loading } from "../components/ui"
+import { EmptyState, ErrorState, PageLoading } from "../components/ui"
 import { ApiError } from "../lib/api"
 import { queries } from "../lib/queries"
 import { sharePageTarget } from "../lib/report-page"
@@ -28,14 +28,13 @@ export function SharePage() {
     if (target) void navigate({ ...target, search: { t }, replace: true })
   }, [target?.params.reportId, t, navigate])
 
-  if (share.isPending || target) return <Loading />
+  if (share.isPending || target) return <PageLoading />
+  if (share.error instanceof ApiError && share.error.status === 401) return <PageLoading label="Redirecting to sign in…" />
   if (share.isError) {
     return (
       <main className="mx-auto max-w-3xl p-6">
         {share.error instanceof ApiError && share.error.status === 404 ? (
           <EmptyState title="Report not found">This link is wrong, was replaced, or the report isn't shared.</EmptyState>
-        ) : share.error instanceof ApiError && share.error.status === 401 ? (
-          <Loading label="Redirecting to sign in…" />
         ) : (
           <ErrorState error={share.error} onRetry={() => void share.refetch()} />
         )}

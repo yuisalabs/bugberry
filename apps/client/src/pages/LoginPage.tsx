@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query"
 import { getRouteApi, useRouter } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { LoginView } from "../components/LoginView"
-import { ErrorState, Loading } from "../components/ui"
+import { ErrorState, PageLoading } from "../components/ui"
 import { sendLoginCode, signInWithProvider, verifyLoginCode } from "../lib/auth"
 import { loginErrorMessage } from "../lib/login"
 import { loginTarget, oauthResumeUrl } from "../lib/oauth"
@@ -28,7 +28,7 @@ export function LoginPage() {
     else router.history.replace(safeNext(next))
   }, [me.isSuccess, error, next, router, resumesOAuth, target])
 
-  if (methods.isPending) return <Loading />
+  if (methods.isPending) return <PageLoading />
   if (methods.isError) {
     return (
       <div className="p-6">
