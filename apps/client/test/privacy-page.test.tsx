@@ -18,6 +18,12 @@ describe("privacy policy", () => {
     for (const link of screen.getAllByRole("link", { name: "yuisalabs@gmail.com" })) expect(link.getAttribute("href")).toBe("mailto:yuisalabs@gmail.com")
   })
 
+  test("says what a demo request keeps, and for how long", () => {
+    render(<PrivacyPolicy />)
+    const section = screen.getByRole("heading", { level: 2, name: "If you request a demo" }).parentElement!
+    for (const part of ["work email", "company", "deleted"]) expect(section.textContent).toContain(part)
+  })
+
   test("covers security and the terms of use too", () => {
     render(<PrivacyPolicy />)
     expect(screen.getByRole("heading", { level: 2, name: "Security" })).toBeTruthy()

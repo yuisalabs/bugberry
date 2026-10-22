@@ -21,8 +21,7 @@ describe("site chrome", () => {
         href.startsWith("/#") ||
         href.startsWith("/integrations#") ||
         href.startsWith(DOCS_URL) ||
-        href === STORE ||
-        href === "https://github.com/yuisalabs/bugberry"
+        href === STORE
       expect(ok ? href : `unexpected ${href}`).toBe(href)
     }
   })
@@ -59,6 +58,17 @@ describe("site chrome", () => {
     expect(linkNamed(menu, "See all integrations")?.getAttribute("href")).toBe("/integrations")
     fireEvent.keyDown(document, { key: "Escape" })
     expect(product.getAttribute("aria-expanded")).toBe("false")
+  })
+
+  test("the menu comes right after Product for the keyboard, and Escape puts focus back on Product", () => {
+    render(<SiteChrome signedIn={false} installUrl={null}>page</SiteChrome>)
+    const product = screen.getByRole("button", { name: "Product" })
+    fireEvent.click(product)
+    const focusable = [...document.querySelectorAll<HTMLElement>("a[href], button")]
+    expect(focusable[focusable.indexOf(product) + 1]?.textContent).toContain("Browser extension")
+    focusable[focusable.indexOf(product) + 1]?.focus()
+    fireEvent.keyDown(document, { key: "Escape" })
+    expect(document.activeElement).toBe(product)
   })
 
   test("a click outside closes the Product menu", () => {

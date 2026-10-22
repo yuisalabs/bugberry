@@ -185,8 +185,8 @@ const CAPABILITIES: Array<{ icon: RemixiconComponentType; title: string; body: s
   {
     icon: RiFlagLine,
     title: "Update status & priority",
-    body: "Move a report to In review once a fix is ready, or bump priority.",
-    example: "Open → In review · Priority: High",
+    body: "Move a report to Resolved once the fix is in, or bump its priority.",
+    example: "Open → Resolved · Priority: High",
   },
 ]
 

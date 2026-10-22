@@ -102,6 +102,14 @@ export function PrivacyPolicy() {
         </p>
       </Section>
 
+      <Section title="If you request a demo">
+        <p>
+          The demo form on bugberry.yuisalabs.com keeps your name, work email, company, issue tracker, team size, what
+          you would like to see and whether you are interested in self-hosting. We use it only to set up and hold your
+          demo, and it is emailed to our team for that. It is deleted whenever you ask us to.
+        </p>
+      </Section>
+
       <Section title="Security">
         <ul className={list}>
           <li>Everything between your browser, the extension and BugBerry travels over HTTPS.</li>

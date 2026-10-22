@@ -1,8 +1,8 @@
-import { RiChromeFill, RiGithubFill } from "@remixicon/react"
+import { RiChromeFill } from "@remixicon/react"
 import { Link } from "@bugberry/ui/link"
 import { BugBerryLogo } from "../../components/BugBerryLogo"
 import { DOCS_URL } from "../../lib/docs-url"
-import { CHANGELOG, installHref, MCP_GUIDE, QUICK_START, SOURCE_URL, siteContainer, WEBHOOK_DOCS } from "./site-links"
+import { CHANGELOG, installHref, MCP_GUIDE, QUICK_START, siteContainer, WEBHOOK_DOCS } from "./site-links"
 
 const COLUMNS: Array<{ label: string; links: Array<[string, string]> }> = [
   {
@@ -96,9 +96,6 @@ export function SiteFooter({ installUrl, minimal = false }: { installUrl: string
               <Link href={installHref(installUrl)} className={chip}>
                 <RiChromeFill className="size-[15px]" aria-hidden />
                 Chrome Web Store
-              </Link>
-              <Link href={SOURCE_URL} aria-label="BugBerry on GitHub" className={`${chip} w-9 justify-center px-0`}>
-                <RiGithubFill className="size-[17px]" aria-hidden />
               </Link>
             </div>
           )}

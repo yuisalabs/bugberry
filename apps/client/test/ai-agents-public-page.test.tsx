@@ -36,5 +36,7 @@ describe("AiAgentsView", () => {
     render(<AiAgentsView signedIn={false} installUrl={null} origin={ORIGIN} />)
     for (const overclaim of ["card numbers", "masked before anything leaves the browser", "15-min", "up to 5 reporters"]) expect(text()).not.toContain(overclaim)
     expect(text()).toContain("Update status & priority")
+    // BugBerry's statuses are Open, In progress, Resolved and Closed.
+    expect(text()).not.toContain("In review")
   })
 })

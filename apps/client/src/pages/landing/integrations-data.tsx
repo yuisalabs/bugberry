@@ -11,12 +11,12 @@ export interface IntegrationInfo {
 
 /** BugBerry's ten integrations (apps/api/src/lib/trackers and lib/notifiers): six trackers, four notifications. */
 export const TRACKERS: IntegrationInfo[] = [
-  { name: "GitHub", kind: "Issues", short: "Open issues with logs, video and repro steps" },
-  { name: "GitLab", kind: "Issues", short: "Open issues with the replay attached" },
-  { name: "Jira", kind: "Tickets", short: "Create tickets with the full repro attached" },
+  { name: "GitHub", kind: "Issues", short: "Open issues with the errors and a link to the replay" },
+  { name: "GitLab", kind: "Issues", short: "Open issues with a link to the full report" },
+  { name: "Jira", kind: "Tickets", short: "Create tickets with the page, browser and errors" },
   { name: "Linear", kind: "Issues", short: "Send reports to the right team as issues" },
   { name: "ActiveCollab", kind: "Tasks", short: "Turn reports into tasks in your projects" },
-  { name: "Plane", kind: "Work items", short: "File bugs as work items with the replay" },
+  { name: "Plane", kind: "Work items", short: "File bugs as work items, the replay one click away" },
 ]
 export const NOTIFIERS: IntegrationInfo[] = [
   { name: "Slack", kind: "Alerts", short: "Post every new report to a channel" },

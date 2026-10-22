@@ -19,12 +19,14 @@ const PAGES = [
   { label: "Docs", href: DOCS_URL },
 ]
 
-/** Closes `open` on Escape and on a press outside `area`. */
-function useDismiss(open: boolean, close: () => void, area: React.RefObject<HTMLElement | null>) {
+/** Closes `open` on Escape (then `onEscape`) and on a press outside `area`. */
+function useDismiss(open: boolean, close: () => void, area: React.RefObject<HTMLElement | null>, onEscape: () => void) {
   useEffect(() => {
     if (!open) return
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") close()
+      if (event.key !== "Escape") return
+      close()
+      onEscape()
     }
     const onPointer = (event: PointerEvent) => {
       if (area.current && !area.current.contains(event.target as Node)) close()
@@ -35,7 +37,7 @@ function useDismiss(open: boolean, close: () => void, area: React.RefObject<HTML
       document.removeEventListener("keydown", onKey)
       document.removeEventListener("pointerdown", onPointer)
     }
-  }, [open, close, area])
+  }, [open, close, area, onEscape])
 }
 
 /** The public site's top bar: pages, the Product menu, and sign-up (or the dashboard, for someone signed in). */
@@ -43,7 +45,13 @@ export function SiteHeader({ signedIn, installUrl, minimal = false }: { signedIn
   const [menu, setMenu] = useState<"product" | "mobile" | null>(null)
   const close = useRef(() => setMenu(null)).current
   const header = useRef<HTMLElement>(null)
-  useDismiss(menu !== null, close, header)
+  const productButton = useRef<HTMLButtonElement>(null)
+  const mobileButton = useRef<HTMLButtonElement>(null)
+  const openMenu = useRef(menu)
+  openMenu.current = menu
+  // Escape hands focus back to the button that opened the menu, not to the page.
+  const refocus = useRef(() => (openMenu.current === "product" ? productButton : mobileButton).current?.focus()).current
+  useDismiss(menu !== null, close, header, refocus)
   const productId = useId()
   const mobileId = useId()
 
@@ -67,6 +75,7 @@ export function SiteHeader({ signedIn, installUrl, minimal = false }: { signedIn
           {!minimal && (
             <div className="hidden items-center gap-7 lg:flex">
               <button
+                ref={productButton}
                 type="button"
                 aria-expanded={menu === "product"}
                 aria-controls={productId}
@@ -76,6 +85,12 @@ export function SiteHeader({ signedIn, installUrl, minimal = false }: { signedIn
                 Product
                 <RiArrowDownSLine className={`size-4 text-[#B6A7BE] transition ${menu === "product" ? "rotate-180" : ""}`} aria-hidden />
               </button>
+              {/* Right after its button, so the keyboard reaches it next; placed under the header bar. */}
+              {menu === "product" && (
+                <div className={`${siteContainer} absolute inset-x-0 top-full z-50 pt-2`}>
+                  <ProductMenu id={productId} installUrl={installUrl} onPick={close} />
+                </div>
+              )}
               {PAGES.map((page) => (
                 <Link key={page.label} href={page.href} className={navLink}>
                   {page.label}
@@ -107,6 +122,7 @@ export function SiteHeader({ signedIn, installUrl, minimal = false }: { signedIn
                 </Link>
               </div>
               <button
+                ref={mobileButton}
                 type="button"
                 aria-label="Menu"
                 aria-expanded={menu === "mobile"}
@@ -120,12 +136,6 @@ export function SiteHeader({ signedIn, installUrl, minimal = false }: { signedIn
           )}
         </div>
       </nav>
-
-      {menu === "product" && (
-        <div className={`${siteContainer} absolute inset-x-0 top-full z-50 hidden pt-2 lg:block`}>
-          <ProductMenu id={productId} installUrl={installUrl} onPick={close} />
-        </div>
-      )}
 
       {menu === "mobile" && (
         <div id={mobileId} className="absolute inset-x-0 top-full z-50 max-h-[calc(100dvh-68px)] overflow-y-auto border-t border-[#3D2B46] bg-[#1C1022] lg:hidden">

@@ -38,6 +38,11 @@ describe("PricingView", () => {
     expect(cells[2]?.textContent).toContain("Coming soon")
   })
 
+  test("the comparison never calls Free's reports unlimited", () => {
+    render(<PricingView signedIn={false} installUrl={null} />)
+    expect([...document.querySelectorAll("th[scope=row]")].map((cell) => cell.textContent)).not.toContain("History")
+  })
+
   test("self-hosting has no limits and a person to talk to", () => {
     render(<PricingView signedIn={false} installUrl={null} />)
     expect(screen.getByRole("link", { name: "Talk to us about self-hosting" }).getAttribute("href")).toBe("/demo")

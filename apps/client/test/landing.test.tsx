@@ -51,6 +51,10 @@ describe("HomeView", () => {
       "card numbers",
       "scoped by project",
       "app.bugberry.dev",
+      // Tracker issues carry the errors and a link to the report, nothing attached.
+      "logs, video and repro steps",
+      "with the replay attached",
+      "full repro attached",
     ]) {
       expect(text()).not.toContain(overclaim)
     }

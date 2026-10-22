@@ -8,7 +8,6 @@ export const WEBHOOK_DOCS = `${DOCS_URL}/self-host/integrations#webhook`
 export const WORKSPACE_DOCS = `${DOCS_URL}/guide/workspaces-and-access`
 export const SELF_HOST_DOCS = `${DOCS_URL}/self-host`
 export const CHANGELOG = `${DOCS_URL}/changelog`
-export const SOURCE_URL = "https://github.com/yuisalabs/bugberry"
 
 /** Where "Add to Chrome" goes: the store listing, or sign-in (which offers the extension) when there is none. */
 export function installHref(installUrl: string | null): string {

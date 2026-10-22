@@ -3,6 +3,7 @@ import { QueryClient } from "@tanstack/react-query"
 import { isRedirect } from "@tanstack/react-router"
 import { api } from "../src/lib/client"
 import { publicSiteGate } from "../src/lib/public-site"
+import { createQueryClient } from "../src/lib/query-client"
 import { createAppRouter } from "../src/router"
 
 const PUBLIC_PAGES = ["/", "/pricing", "/integrations", "/ai-agents", "/demo"]
@@ -39,6 +40,29 @@ describe("public site routes", () => {
       expect(offline).toHaveBeenCalled()
     } finally {
       offline.mockRestore()
+    }
+  })
+
+  test("with the app's own query client, a failing config is asked once, not retried", async () => {
+    const offline = spyOn(api, "clientConfig").mockRejectedValue(new TypeError("offline"))
+    try {
+      const started = Date.now()
+      expect(await publicSiteGate({ context: { queryClient: createQueryClient(() => {}) } })).toBeUndefined()
+      expect(offline).toHaveBeenCalledTimes(1)
+      expect(Date.now() - started).toBeLessThan(500)
+    } finally {
+      offline.mockRestore()
+    }
+  })
+
+  test("a config request that hangs shows the page after a short wait instead of a blank screen", async () => {
+    const hung = spyOn(api, "clientConfig").mockReturnValue(new Promise(() => {}))
+    try {
+      const started = Date.now()
+      expect(await publicSiteGate({ context: { queryClient: createQueryClient(() => {}) } })).toBeUndefined()
+      expect(Date.now() - started).toBeLessThan(2500)
+    } finally {
+      hung.mockRestore()
     }
   })
 

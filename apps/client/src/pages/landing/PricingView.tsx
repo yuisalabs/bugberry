@@ -212,7 +212,6 @@ const COMPARE: Array<{ group: string; rows: Array<[string, ReactNode, ReactNode,
     rows: [
       ["Console & network logs", yes, yes, yes],
       ["User steps", yes, yes, yes],
-      ["History", "Unlimited", "Unlimited", "Unlimited"],
     ],
   },
   {
