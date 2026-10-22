@@ -12,6 +12,7 @@ import { LayoutToggle, ReportFilters, SortMenu } from "./ReportFilters"
 import { ReportSearchBox } from "./ReportSearchBox"
 import { ReportTable } from "./ReportTable"
 import { LoadingSkeleton, ReportListSkeleton } from "./Skeletons"
+import { BugBerryLogo } from "./BugBerryLogo"
 import { ErrorState } from "./ui"
 
 export type ReportListState = ReportFeed | "loading" | { error: unknown; retry: () => void }
@@ -116,7 +117,7 @@ export function ReportsView({
   title: string
   /** "12 reports" under the title once the list is in (a project's page). */
   showCount?: boolean
-  /** A line under the title (the workspace's name on All reports). */
+  /** The workspace's name on All reports: "27 reports in Cuy Workspaces" under the title. */
   subtitle?: string
   /** How many reports each status holds, for the phone's status chips; null until known. */
   statusCounts?: ReportCounts | null
@@ -134,10 +135,11 @@ export function ReportsView({
   list: ReportListState
   now: number
   actions?: ReactNode
-  /** Admins only: the Invite button. */
+  /** Admins only: the Invite button beside the title on phones (wider screens have it in the top bar). */
   canInvite: boolean
   onInvite(): void
-  newReport: ReactNode
+  /** A New report button in the header; the app's top bar has its own, so pages leave it out. */
+  newReport?: ReactNode
   /** Under ACCOUNT_LIMITS: "3 of 5 screenshots · 5 of 5 recordings". */
   usage?: string | null
   layout: ReportLayout
@@ -161,15 +163,23 @@ export function ReportsView({
       {/* The title, search and filters stay at the top of the main column while the reports scroll under them.
           The bar reaches out over the column's padding so nothing shows above or beside it; a sticky element stops
           below that padding, so it sticks 24 px higher (-top-6) to reach the very top. */}
-      <div data-sticky-bar className="flow-root bg-background md:sticky md:-top-6 md:z-20 md:-mx-8 md:-mt-6 md:px-8 md:pt-6">
+      <div data-sticky-bar className="flow-root bg-sidebar md:sticky md:-top-6 md:z-20 md:-mx-8 md:-mt-6 md:px-8 md:pt-6">
         {/* One header for every screen. On phones: title with Invite beside it, then search and Filters on their own
-            row. From tablet width up: title, then search, actions, Invite and New report in one row. */}
+            row. From tablet width up: title, then search and actions in one row; Invite sits in the app's top bar. */}
         <header className="mb-4 flex flex-wrap items-center gap-3 border-b border-border pb-5 md:justify-between">
-          <div className="order-1 flex min-w-0 flex-1 flex-col gap-0.5 md:flex-none">
-            <h1 className="truncate font-heading text-xl font-bold tracking-tight text-foreground">{title}</h1>
-            {subtitle && <p className="truncate text-sm text-muted-foreground">{subtitle}</p>}
-            {showCount && count && <p className="text-sm text-muted-foreground">{count}</p>}
-            {usage && <p className="text-xs text-muted-foreground">{usage}</p>}
+          <div className="order-1 flex min-w-0 flex-1 items-center gap-5 md:flex-none">
+            <span className="hidden shrink-0 border-r border-border pr-5 md:inline-flex">
+              <BugBerryLogo className="h-9" />
+            </span>
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <h1 className="truncate font-heading text-xl font-bold tracking-tight text-foreground">{title}</h1>
+              {subtitle ? (
+                <p className="truncate text-sm text-muted-foreground">{count ? `${count} in ${subtitle}` : subtitle}</p>
+              ) : (
+                showCount && count && <p className="text-sm text-muted-foreground">{count}</p>
+              )}
+              {usage && <p className="text-xs text-muted-foreground">{usage}</p>}
+            </div>
           </div>
           <div className="order-3 flex w-full items-center gap-2 md:order-2 md:w-auto">
             <ReportSearchBox value={search.q} onSearch={(q) => onSearch({ q })} />
@@ -178,12 +188,6 @@ export function ReportsView({
             </span>
             <span className="hidden items-center gap-2 md:flex">
               {actions}
-              {canInvite && (
-                <Button intent="outline" size="sm" aria-label="Invite" onPress={onInvite} className="bg-background">
-                  <RiUserAddLine aria-hidden />
-                  Invite
-                </Button>
-              )}
               {newReport}
             </span>
           </div>
@@ -254,7 +258,7 @@ export function ReportsView({
           {layout === "list" ? (
             renderTable(loaded.items, tableProjects ?? projects)
           ) : (
-            <ul className="grid grid-cols-1 gap-x-5 gap-y-6 sm:grid-cols-2 xl:grid-cols-3">
+            <ul className="grid grid-cols-1 gap-x-5 gap-y-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {/* Cards far outside the window are not drawn until scrolled near, so a long list scrolls as smoothly as
                   a short one. The padding gives the focus ring room inside the card's own drawing area. */}
               {loaded.items.map((item) => (

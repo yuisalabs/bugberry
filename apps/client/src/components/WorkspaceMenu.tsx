@@ -1,16 +1,14 @@
-import { RiAccountCircleLine, RiAddLine, RiExpandUpDownLine, RiLoginBoxLine, RiLogoutBoxRLine, RiSearchLine } from "@remixicon/react"
+import { RiAddLine, RiArrowDownSLine, RiLoginBoxLine, RiSearchLine, RiSettings3Line, RiUserAddLine } from "@remixicon/react"
 import type { WorkspaceRole } from "@bugberry/shared"
 import { useState } from "react"
-import { Dialog, DialogTrigger, Header, useFilter } from "react-aria-components"
+import { Dialog, DialogTrigger, useFilter } from "react-aria-components"
 import { Autocomplete } from "react-aria-components/Autocomplete"
 import { Menu as MenuPrimitive } from "react-aria-components/Menu"
-import { Avatar } from "@bugberry/ui/avatar"
 import { Button } from "@bugberry/ui/button"
 import { Input, InputGroup } from "@bugberry/ui/input"
 import { MenuItem, MenuLabel, MenuSection, MenuSeparator, menuStyles } from "@bugberry/ui/menu"
 import { Popover } from "@bugberry/ui/popover"
 import { SearchField } from "@bugberry/ui/search-field"
-import { initialsOf } from "../lib/people"
 import { roleLabel, workspaceColor } from "../lib/workspace"
 
 export interface MenuWorkspace {
@@ -24,13 +22,14 @@ export interface MenuWorkspace {
 interface PanelProps {
   workspaces: readonly MenuWorkspace[]
   currentId: string
-  me: { name: string; email: string; image: string | null }
   onSwitch(id: string): void
   /** Left out when the account can't own another workspace (ACCOUNT_LIMITS). */
   onCreate?(): void
   onJoin(): void
-  onAccount(): void
-  onLogout(): void
+  /** Admins only: the workspace's settings page. */
+  onSettings?(): void
+  /** Admins only, while the plan has seats left: the Invite dialog. */
+  onInvite?(): void
 }
 
 /** The workspace's logo, or its first letter on its own colour, as in the switcher and its trigger. */
@@ -54,8 +53,8 @@ export function WorkspaceTile({
   )
 }
 
-/** What the workspace menu shows: find and switch workspaces, create or join one, and the account. */
-export function WorkspaceMenuPanel({ workspaces, currentId, me, onSwitch, onCreate, onJoin, onAccount, onLogout }: PanelProps) {
+/** What the workspace menu shows: find and switch workspaces, create or join one, and the workspace's own settings. */
+export function WorkspaceMenuPanel({ workspaces, currentId, onSwitch, onCreate, onJoin, onSettings, onInvite }: PanelProps) {
   const { contains } = useFilter({ sensitivity: "base" })
 
   return (
@@ -104,31 +103,32 @@ export function WorkspaceMenuPanel({ workspaces, currentId, me, onSwitch, onCrea
               <MenuLabel>Join workspace</MenuLabel>
             </MenuItem>
           </MenuSection>
-          <MenuSeparator />
-          <MenuSection aria-label="Account">
-            <Header className="col-span-full flex items-center gap-2 px-2.5 py-1.5">
-              <Avatar src={me.image} initials={initialsOf(me.name)} alt="" size="sm" className="bg-secondary text-secondary-foreground" />
-              <span className="flex min-w-0 flex-col">
-                <span className="truncate text-sm font-medium text-foreground">{me.name}</span>
-                <span className="truncate text-xs text-muted-foreground">{me.email}</span>
-              </span>
-            </Header>
-            <MenuItem textValue="Account settings" onAction={onAccount}>
-              <RiAccountCircleLine aria-hidden />
-              <MenuLabel>Account settings</MenuLabel>
-            </MenuItem>
-            <MenuItem intent="danger" textValue="Log out" onAction={onLogout}>
-              <RiLogoutBoxRLine aria-hidden />
-              <MenuLabel>Log out</MenuLabel>
-            </MenuItem>
-          </MenuSection>
+          {(onSettings || onInvite) && (
+            <>
+              <MenuSeparator />
+              <MenuSection aria-label="This workspace">
+                {onSettings && (
+                  <MenuItem textValue="Workspace settings" onAction={onSettings}>
+                    <RiSettings3Line aria-hidden />
+                    <MenuLabel>Workspace settings</MenuLabel>
+                  </MenuItem>
+                )}
+                {onInvite && (
+                  <MenuItem textValue="Invite members" onAction={onInvite}>
+                    <RiUserAddLine aria-hidden />
+                    <MenuLabel>Invite members</MenuLabel>
+                  </MenuItem>
+                )}
+              </MenuSection>
+            </>
+          )}
         </MenuPrimitive>
       </Autocomplete>
     </div>
   )
 }
 
-/** The sidebar's workspace button; its menu closes after any choice. */
+/** The top bar's workspace button; its menu closes after any choice. */
 export function WorkspaceMenu(props: PanelProps) {
   const [open, setOpen] = useState(false)
   const current = props.workspaces.find((workspace) => workspace.id === props.currentId)
@@ -141,10 +141,10 @@ export function WorkspaceMenu(props: PanelProps) {
 
   return (
     <DialogTrigger isOpen={open} onOpenChange={setOpen}>
-      <Button intent="outline" size="sm" className="w-full justify-start bg-background">
-        {current && <WorkspaceTile workspace={current} />}
-        <span className="min-w-0 flex-1 truncate text-left">{current?.name ?? "Workspace"}</span>
-        <RiExpandUpDownLine aria-hidden />
+      <Button intent="plain" size="sm" className="max-w-56 min-w-0 justify-start gap-2.5 px-1.5 text-base font-semibold">
+        {current && <WorkspaceTile workspace={current} size="size-7" />}
+        <span className="hidden min-w-0 truncate text-left sm:inline">{current?.name ?? "Workspace"}</span>
+        <RiArrowDownSLine aria-hidden className={`text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
       </Button>
       <Popover placement="bottom start" className="max-w-none">
         <Dialog aria-label="Workspace menu" className="outline-hidden">
@@ -153,8 +153,8 @@ export function WorkspaceMenu(props: PanelProps) {
             onSwitch={close(props.onSwitch)}
             onCreate={props.onCreate && close(props.onCreate)}
             onJoin={close(props.onJoin)}
-            onAccount={close(props.onAccount)}
-            onLogout={close(props.onLogout)}
+            onSettings={props.onSettings && close(props.onSettings)}
+            onInvite={props.onInvite && close(props.onInvite)}
           />
         </Dialog>
       </Popover>
