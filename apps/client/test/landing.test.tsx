@@ -2,102 +2,67 @@ import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { render, screen } from "@testing-library/react"
-import { DOCS_URL } from "../src/lib/docs-url"
-import { LandingView } from "../src/pages/landing/LandingView"
-import { HeroMockup } from "../src/pages/landing/HeroMockup"
+import { HomeView } from "../src/pages/landing/HomeView"
 
-describe("LandingView", () => {
-  test("pitches BugBerry and sends visitors to sign up", () => {
-    render(<LandingView signedIn={false} />)
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Stop describing bugs. Show them.")
-    const getStarted = screen.getAllByRole("link", { name: "Get started free" })
-    expect(getStarted.length).toBeGreaterThan(0)
-    for (const link of getStarted) expect(link.getAttribute("href")).toBe("/login")
-    for (const link of screen.getAllByRole("link", { name: "Sign in" })) expect(link.getAttribute("href")).toBe("/login")
-    expect(screen.getByRole("link", { name: "See how it works" }).getAttribute("href")).toBe("#how-it-works")
-    expect(document.getElementById("how-it-works")).toBeTruthy()
-    expect(document.getElementById("features")).toBeTruthy()
+const STORE = "https://chromewebstore.google.com/detail/x"
+const text = () => document.body.textContent ?? ""
+/** The smallest element whose text contains `needle`. */
+const holder = (needle: string) =>
+  Array.from(document.querySelectorAll("li, p, div, article"))
+    .filter((element) => element.textContent?.includes(needle))
+    .sort((a, b) => (a.textContent?.length ?? 0) - (b.textContent?.length ?? 0))[0]
+
+describe("HomeView", () => {
+  test("says what BugBerry is and offers the extension and a person to talk to", () => {
+    render(<HomeView signedIn={false} installUrl={STORE} />)
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Bug reporting for teams, and the agents that fix them")
+    const install = screen.getAllByRole("link", { name: /Add to Chrome, it’s free/ })
+    for (const link of install) expect(link.getAttribute("href")).toBe(STORE)
+    expect(screen.getByRole("link", { name: /Talk to a human/ }).getAttribute("href")).toBe("/demo")
+    expect(screen.getByRole("link", { name: /Connect your AI agent in 2 minutes/ }).getAttribute("href")).toBe("/ai-agents")
   })
 
-  test("the footer links the privacy policy", () => {
-    render(<LandingView signedIn={false} />)
-    const footer = screen.getByRole("navigation", { name: "Footer" })
-    const privacy = Array.from(footer.querySelectorAll("a")).find((link) => link.textContent === "Privacy Policy")
-    expect(privacy?.getAttribute("href")).toBe("/privacy")
+  test("without an install link, Add to Chrome goes to sign-in", () => {
+    render(<HomeView signedIn={false} installUrl={null} />)
+    for (const link of screen.getAllByRole("link", { name: /Add to Chrome/ })) expect(link.getAttribute("href")).toBe("/login")
   })
 
-  test("the header and the footer link the docs by their full address, which self-hosted servers don't serve", () => {
-    render(<LandingView signedIn={false} />)
-    for (const name of ["Main", "Footer"]) {
-      const nav = screen.getByRole("navigation", { name })
-      const docs = Array.from(nav.querySelectorAll("a")).find((link) => link.textContent === "Docs")
-      expect(docs?.getAttribute("href")).toBe(DOCS_URL)
-    }
-    expect(DOCS_URL).toBe("https://bugberry.yuisalabs.com/docs")
+  test("has the sections the Product menu and the footer point at", () => {
+    render(<HomeView signedIn={false} installUrl={null} />)
+    for (const id of ["capture", "debug", "collaborate", "ai-agents", "integrations"]) expect(document.getElementById(id)).toBeTruthy()
   })
 
-  test("a signed-in visitor gets a way back to the dashboard instead of sign-up", () => {
-    render(<LandingView signedIn />)
-    expect(screen.getAllByRole("link", { name: "Open dashboard" })[0]?.getAttribute("href")).toBe("/app")
-    expect(screen.queryByRole("link", { name: "Sign in" })).toBeNull()
-  })
-
-  test("never mentions features BugBerry does not have", () => {
-    render(<LandingView signedIn={false} />)
-    const text = document.body.textContent ?? ""
-    for (const claim of ["SOC 2", "Pricing", "Instant replay", "Linear", "Jira", "Slack", "widget", "Trusted by", "Kanban", "writes the repro"]) {
-      expect(text).not.toContain(claim)
+  test("features BugBerry doesn't have yet say Coming soon", () => {
+    render(<HomeView signedIn={false} installUrl={null} />)
+    for (const claim of ["clients and QA vendors as guests", "SSO, roles and audit logs", "open a PR", "from Slack"]) {
+      expect(holder(claim)?.textContent).toContain("Coming soon")
     }
   })
 
-  test("describes privacy and captured details only as far as BugBerry really goes", () => {
-    render(<LandingView signedIn={false} />)
-    const text = document.body.textContent ?? ""
-    for (const overclaim of ["masked before anything leaves the browser", "4242 •••• 4242", "131.0.6778", "15.2 Sequoia", "Every request"]) {
-      expect(text).not.toContain(overclaim)
-    }
-    expect(text).toContain("Blur anything sensitive in a screenshot before you send it.")
-  })
-
-  test("the header fits a phone: nav links never wrap and Sign in steps aside on narrow screens", () => {
-    render(<LandingView signedIn={false} />)
-    const nav = screen.getByRole("navigation", { name: "Main" })
-    for (const link of Array.from(nav.querySelectorAll("a"))) expect(link.className).toContain("whitespace-nowrap")
-    const signIn = Array.from(nav.querySelectorAll("a")).find((link) => link.textContent === "Sign in")
-    expect(signIn?.className).toContain("hidden")
-    expect(signIn?.className).toContain("sm:inline")
-  })
-})
-
-describe("HeroMockup", () => {
-  test("its shadow rises up and out, never below the flat bottom edge where the next section starts", () => {
-    const { container } = render(<HeroMockup />)
-    const shadow = /shadow-\[0_(-?\d+)px_(\d+)px_(-?\d+)px_/.exec((container.firstElementChild as HTMLElement).className)
-    expect(shadow).toBeTruthy()
-    const [, y, blur, spread] = shadow!.map(Number)
-    // How far the shadow reaches past the bottom edge: offset plus blur, less what the spread pulls in.
-    expect((y ?? 0) + (blur ?? 0) + (spread ?? 0)).toBeLessThanOrEqual(8)
-  })
-})
-
-describe("the sign-up buttons", () => {
-  test("the header's and the hero's are leaf green, like the 'bug' of the logo; the banner's stays white on pink", () => {
-    for (const signedIn of [false, true]) {
-      const { unmount } = render(<LandingView signedIn={signedIn} />)
-      const [header, hero, banner] = screen.getAllByRole("link", { name: signedIn ? "Open dashboard" : "Get started free" })
-      for (const link of [header, hero]) {
-        expect(link?.className).toContain("bg-leaf")
-        expect(link?.className).not.toContain("bg-primary")
-      }
-      expect(banner?.className).toContain("bg-background")
-      unmount()
+  test("never promises what BugBerry doesn't do", () => {
+    render(<HomeView signedIn={false} installUrl={null} />)
+    for (const overclaim of [
+      "Unlimited members",
+      "Free for every member",
+      "up to 5 reporters",
+      "15-min",
+      "SOC 2",
+      "Trusted by",
+      "card numbers",
+      "scoped by project",
+      "app.bugberry.dev",
+    ]) {
+      expect(text()).not.toContain(overclaim)
     }
   })
 
-  test("the green is a theme token taken from the wordmark", () => {
-    // The theme is shared with the extension, in packages/ui.
-    const css = readFileSync(join(import.meta.dir, "..", "..", "..", "packages", "ui", "src", "theme.css"), "utf8")
-    expect(css).toContain("--color-leaf: var(--leaf);")
-    expect(css).toContain("--leaf: #4FA024;")
+  test("the webhook sample uses the fields BugBerry really sends", () => {
+    render(<HomeView signedIn={false} installUrl={null} />)
+    const sample = screen.getByTestId("webhook-sample").textContent ?? ""
+    const sent = readFileSync(join(import.meta.dir, "..", "..", "api", "src", "lib", "notifiers", "channels.ts"), "utf8")
+    const body = sent.slice(sent.indexOf("function webhookClient"), sent.indexOf("x-bugberry-event"))
+    const keys = [...sample.matchAll(/"(\w+)":/g)].map((match) => match[1]!)
+    expect(keys.length).toBeGreaterThan(5)
+    for (const key of keys) expect(body).toContain(`${key}:`)
   })
 })
