@@ -13,6 +13,7 @@ export function EmailChips({
   onChange,
   label = "Invite teammates",
   placeholder = "name@company.com",
+  tall = false,
 }: {
   emails: readonly string[]
   onChange(emails: string[]): void
@@ -20,6 +21,8 @@ export function EmailChips({
   label?: string
   /** Shown while no address is in yet. */
   placeholder?: string
+  /** A taller box, like a text area, with the chips from its top (the Members page). */
+  tall?: boolean
 }) {
   const [text, setText] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -47,7 +50,7 @@ export function EmailChips({
 
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-input bg-background px-2 py-1.5 focus-within:border-ring/70 focus-within:ring-3 focus-within:ring-ring/20 *:data-[slot=control]:min-w-32 *:data-[slot=control]:flex-1">
+      <div className={`flex flex-wrap gap-1.5 rounded-lg border ${tall ? "min-h-28 content-start items-start" : "items-center"} border-input bg-background px-2 py-1.5 focus-within:border-ring/70 focus-within:ring-3 focus-within:ring-ring/20 *:data-[slot=control]:min-w-32 *:data-[slot=control]:flex-1`}>
         {emails.length > 0 && (
           <TagGroup aria-label="Emails to invite" onRemove={(keys) => onChange(emails.filter((item) => !keys.has(item)))} className="contents">
             <TagList items={emails.map((email) => ({ email }))} className="contents">

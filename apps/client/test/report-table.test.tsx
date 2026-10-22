@@ -4,7 +4,7 @@ import { ReportTableBody } from "../src/components/ReportTable"
 import { listItemFixture, NOW } from "./fixtures"
 
 const members = [{ id: "u2", name: "Budi", email: "budi@kantor.test", image: null, role: "member" as const, owner: false, joinedAt: new Date("2026-09-12T00:00:00Z") }]
-const projects = [{ id: "p1", name: "Checkout Web", slug: "checkout", workspaceId: "w1", urlPatterns: [] as string[], createdAt: new Date() }]
+const projects = [{ id: "p1", name: "Checkout Web", slug: "checkout", workspaceId: "w1", urlPatterns: [] as string[], logoUrl: null, createdAt: new Date() }]
 
 describe("ReportTableBody", () => {
   test("columns fold away before the title gets squeezed on laptop widths", () => {

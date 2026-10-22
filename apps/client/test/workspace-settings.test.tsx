@@ -1,5 +1,7 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { RiSettings3Line, RiUserAddLine } from "@remixicon/react"
+import { SettingsTabs } from "../src/components/SettingsTabs"
 import { WorkspaceSettingsView } from "../src/pages/settings/WorkspaceSettingsPage"
 import type { SlugAnswer } from "../src/lib/workspace-slug"
 import { fileInput } from "./fields"
@@ -86,5 +88,27 @@ describe("WorkspaceSettingsView", () => {
     expect(screen.getByRole("heading", { name: "Logo" })).toBeTruthy()
     expect(screen.getByText("Using the first letter for now")).toBeTruthy()
     expect(screen.getByText("Upload a logo to replace it everywhere.")).toBeTruthy()
+  })
+})
+
+describe("SettingsTabs", () => {
+  test("shows one part at a time, picked from the list beside it", () => {
+    window.history.replaceState(null, "", window.location.pathname)
+    render(
+      <SettingsTabs
+        label="Workspace settings"
+        sections={[
+          { id: "general", label: "General", icon: RiSettings3Line, panel: <p>General form</p> },
+          { id: "joining", label: "Joining", icon: RiUserAddLine, panel: <p>Joining form</p> },
+        ]}
+      />,
+    )
+    expect(screen.getByRole("tab", { name: "General" }).getAttribute("aria-selected")).toBe("true")
+    expect(screen.getByText("General form")).toBeTruthy()
+    expect(screen.queryByText("Joining form")).toBeNull()
+    fireEvent.click(screen.getByRole("tab", { name: "Joining" }))
+    expect(screen.getByText("Joining form")).toBeTruthy()
+    expect(screen.queryByText("General form")).toBeNull()
+    expect(window.location.hash).toBe("#joining")
   })
 })

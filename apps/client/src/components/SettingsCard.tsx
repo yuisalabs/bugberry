@@ -2,7 +2,7 @@ import type { ReactNode } from "react"
 import { Button } from "@bugberry/ui/button"
 
 /** The settings pages' card: General, Joining, Profile, Sign-in methods. */
-export const settingsCard = "flex flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-xs"
+export const settingsCard = "flex flex-col overflow-hidden rounded-3xl border border-border bg-background"
 export const settingsPadding = "px-6 sm:px-8"
 
 /** A settings page's title over a line, as Workspace and Account settings open. */
@@ -18,7 +18,7 @@ export function SettingsPageHeader({ title, description }: { title: string; desc
 export function SettingsCardHeader({ title, description }: { title: string; description?: string }) {
   return (
     <div className={`flex flex-col gap-1 py-5 ${settingsPadding}`}>
-      <h2 className="font-heading text-lg font-semibold text-foreground">{title}</h2>
+      <h2 className="font-heading text-xl font-semibold text-foreground">{title}</h2>
       {description && <p className="text-sm text-muted-foreground">{description}</p>}
     </div>
   )

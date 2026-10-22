@@ -31,7 +31,7 @@ function ExtensionChip({ answer }: { answer: ExtensionAnswer }) {
   )
 }
 
-/** What the account menu shows: who is signed in, their settings, the extension, the docs and Log out. */
+/** What the account menu shows: who is signed in, their settings, the docs, then the extension and Log out. */
 export function AccountMenuPanel({ me, extension, onAccount, onExtension, onLogout }: PanelProps) {
   return (
     <div className="flex w-76 max-w-[calc(100vw-24px)] flex-col">
@@ -51,13 +51,6 @@ export function AccountMenuPanel({ me, extension, onAccount, onExtension, onLogo
             <RiAccountCircleLine aria-hidden />
             <MenuLabel>Account settings</MenuLabel>
           </MenuItem>
-          <MenuItem textValue="Browser extension" onAction={onExtension} isDisabled={!onExtension} className="disabled:opacity-100">
-            <RiPuzzle2Line aria-hidden />
-            <MenuLabel className="flex items-center gap-2">
-              Browser extension
-              <ExtensionChip answer={extension} />
-            </MenuLabel>
-          </MenuItem>
           <MenuItem textValue="Help & docs" href={DOCS_URL} target="_blank" rel="noreferrer">
             <RiLifebuoyLine aria-hidden />
             <MenuLabel className="flex items-center gap-2">
@@ -67,7 +60,15 @@ export function AccountMenuPanel({ me, extension, onAccount, onExtension, onLogo
           </MenuItem>
         </MenuSection>
         <MenuSeparator />
+        {/* The extension's state sits just above Log out, apart from the links. */}
         <MenuSection aria-label="Session">
+          <MenuItem textValue="Browser extension" onAction={onExtension} isDisabled={!onExtension} className="disabled:opacity-100">
+            <RiPuzzle2Line aria-hidden />
+            <MenuLabel className="flex items-center gap-2">
+              Browser extension
+              <ExtensionChip answer={extension} />
+            </MenuLabel>
+          </MenuItem>
           <MenuItem intent="danger" textValue="Log out" onAction={onLogout}>
             <RiLogoutBoxRLine aria-hidden />
             <MenuLabel>Log out</MenuLabel>

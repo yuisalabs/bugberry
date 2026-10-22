@@ -7,7 +7,7 @@ import { choose } from "./fields"
 
 const members = [{ id: "u1", name: "Ana", email: "ana@kantor.test", image: null, role: "member" as const, owner: false, joinedAt: new Date("2026-09-12T00:00:00Z") }]
 
-const projects = [{ id: "p1", name: "Checkout Web", slug: "checkout", workspaceId: "w1", urlPatterns: [] as string[], createdAt: new Date() }]
+const projects = [{ id: "p1", name: "Checkout Web", slug: "checkout", workspaceId: "w1", urlPatterns: [] as string[], logoUrl: null, createdAt: new Date() }]
 
 /** React Aria presses fire on pointer events; a plain click is enough for happy-dom. */
 function press(element: HTMLElement) {

@@ -160,7 +160,8 @@ export function createApi(origin: string = window.location.origin, fetcher: type
     removeMember: (workspaceId: string, userId: string) =>
       unwrap(api.workspaces({ id: workspaceId }).members({ userId }).delete()),
     invitations: (workspaceId: string) => unwrap(api.workspaces({ id: workspaceId }).invitations.get()),
-    invite: (workspaceId: string, emails: string[]) => unwrap(api.workspaces({ id: workspaceId }).invitations.post({ emails })),
+    invite: (workspaceId: string, emails: string[], role?: "member" | "admin") =>
+      unwrap(api.workspaces({ id: workspaceId }).invitations.post(role ? { emails, role } : { emails })),
     revokeInvitation: (workspaceId: string, id: string) =>
       unwrap(api.workspaces({ id: workspaceId }).invitations({ invitationId: id }).delete()),
     resendInvitation: (workspaceId: string, id: string) =>
@@ -192,6 +193,11 @@ export function createApi(origin: string = window.location.origin, fetcher: type
     createProject: (workspaceId: string, body: ProjectInput) => unwrap(api.projects.post({ workspaceId, ...body })),
     updateProject: (id: string, body: ProjectInput) => unwrap(api.projects({ id }).patch(body)),
     deleteProject: (id: string) => unwrap(api.projects({ id }).delete()),
+    projectLogoUploadTarget: (projectId: string, contentType: "image/png" | "image/jpeg", size: number) =>
+      unwrap(api.projects({ id: projectId }).logo.post({ contentType, size })),
+    confirmProjectLogo: (projectId: string, logoId: string) => unwrap(api.projects({ id: projectId }).logo({ logoId }).post()),
+    removeProjectLogo: (projectId: string) => unwrap(api.projects({ id: projectId }).logo.delete()),
+    projectsOverview: (workspaceId: string) => unwrap(api.projects.overview.get({ query: { workspaceId } })),
     reports: (workspaceId: string, query: ReportsQuery) => unwrap(api.reports.get({ query: { workspaceId, ...query } })),
     reportCounts: (workspaceId: string, query: Omit<ReportsQuery, "page" | "perPage">) =>
       unwrap(api.reports.counts.get({ query: { workspaceId, ...query } })),

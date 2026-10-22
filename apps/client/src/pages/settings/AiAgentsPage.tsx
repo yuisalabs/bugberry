@@ -1,10 +1,23 @@
-import { RiBookOpenLine, RiChat3Line, RiPlugLine, RiServerLine, RiTerminalBoxLine } from "@remixicon/react"
+import {
+  RiBookOpenLine,
+  RiChat3Line,
+  RiCursorLine,
+  RiKey2Line,
+  RiMessage2Line,
+  RiPlugLine,
+  RiProgress4Line,
+  RiServerLine,
+  RiTerminalBoxLine,
+  RiTerminalLine,
+  type RemixiconComponentType,
+} from "@remixicon/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { type ReactNode, useState } from "react"
 import { Tab, TabList, TabPanel, Tabs } from "react-aria-components"
 import { Button, buttonStyles } from "@bugberry/ui/button"
 import { Input } from "@bugberry/ui/input"
 import { TextField } from "@bugberry/ui/text-field"
+import { BrandedHeader } from "../../components/BrandedHeader"
 import { SettingsPageSkeleton } from "../../components/Skeletons"
 import { CopyButton, ErrorState } from "../../components/ui"
 import { errorMessage } from "../../lib/api"
@@ -58,8 +71,16 @@ export function reportLinkForms(origin: string): Array<{ link: string; what: str
   ]
 }
 
-const card = "flex flex-col gap-5 rounded-2xl border border-border bg-background p-6 shadow-xs"
+const card = "flex flex-col gap-5 rounded-3xl border border-border bg-background p-6"
 const cardTitle = "font-heading text-lg font-semibold text-foreground"
+
+/** What an agent can do with a report once it is connected, as the side card lists it. */
+const AGENT_CAN: Array<{ icon: RemixiconComponentType; title: string; text: string }> = [
+  { icon: RiTerminalLine, title: "Read console & network logs", text: "Errors, failed requests and stack traces" },
+  { icon: RiCursorLine, title: "Replay user steps", text: "Every click and keystroke before the bug" },
+  { icon: RiMessage2Line, title: "Comment on reports", text: "Post findings and fixes back to your team" },
+  { icon: RiProgress4Line, title: "Update status & priority", text: "Move a report to In review when a fix is ready" },
+]
 // A terminal look (the theme's ink as the background), so a command reads as something to paste.
 // On phones Copy sits above the command (pt-14) so the command has the whole width; wider, it sits beside it.
 const codeBlock = "relative rounded-xl bg-foreground p-4 pt-14 font-mono text-sm leading-6 text-background sm:pt-4 sm:pr-28"
@@ -121,20 +142,21 @@ export function AiAgentsView({
 
   return (
     <section className="flex flex-col gap-8">
-      <header className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-6">
-        <div className="flex max-w-3xl flex-col gap-2">
-          <h1 className="font-heading text-xl font-bold tracking-tight text-foreground">AI Agents (MCP)</h1>
-          <p className="text-muted-foreground">
-            Let AI apps like Claude Code or Cursor read your reports and work on them: paste a report link into the agent and it can see
-            the console, network, user actions and the code that failed, then comment or update the report for you. Agents see only what
-            you can see.
-          </p>
-        </div>
-        <a href={`${DOCS_URL}/guide/ai-agents`} target="_blank" rel="noreferrer" className={buttonStyles({ intent: "outline", size: "sm" })}>
-          <RiBookOpenLine aria-hidden />
-          Read the docs
-        </a>
-      </header>
+      <BrandedHeader
+        title="AI Agents (MCP)"
+        description="Let AI apps like Claude Code or Cursor read your reports and work on them. Agents see only what you can see."
+        action={
+          <a
+            href={`${DOCS_URL}/guide/ai-agents`}
+            target="_blank"
+            rel="noreferrer"
+            className={buttonStyles({ intent: "outline", size: "md", className: "bg-background" })}
+          >
+            <RiBookOpenLine aria-hidden />
+            Read the docs
+          </a>
+        }
+      />
 
       {error && (
         <p role="alert" className="text-sm text-danger-subtle-foreground">
@@ -196,7 +218,7 @@ export function AiAgentsView({
             </Step>
 
             <Step number={3} title="Paste a report link into your agent">
-              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">
                 <RiChat3Line aria-hidden className="size-4 shrink-0" />
                 <span className="min-w-0 flex-1">
                   {AGENT_PROMPT}
@@ -204,67 +226,25 @@ export function AiAgentsView({
                 </span>
                 <CopyButton text={AGENT_PROMPT} label="Copy" className="bg-background" />
               </div>
-              <div className="flex flex-col gap-1.5 text-sm text-muted-foreground">
-                <span>A report link is either:</span>
-                <ul className="flex flex-col gap-1">
-                  {reportLinkForms(origin).map((form) => (
-                    <li key={form.link} className="flex flex-wrap items-baseline gap-x-2">
-                      <code className="font-mono break-all text-foreground">{form.link}</code>
-                      <span>{form.what}</span>
-                    </li>
-                  ))}
-                </ul>
-                <span>
-                  A number like <code className="font-mono text-foreground">BB-123</code> works too.
-                </span>
-              </div>
             </Step>
           </ol>
+          <div className="flex flex-col gap-1.5 border-t border-border pt-5 text-sm text-muted-foreground">
+            <span>A report link is either:</span>
+            <ul className="flex flex-col gap-1">
+              {reportLinkForms(origin).map((form) => (
+                <li key={form.link} className="flex flex-wrap items-baseline gap-x-2">
+                  <code className="font-mono break-all text-foreground">{form.link}</code>
+                  <span>{form.what}</span>
+                </li>
+              ))}
+            </ul>
+            <span>
+              A number like <code className="font-mono text-foreground">BB-123</code> works too.
+            </span>
+          </div>
         </div>
 
         <div className="flex flex-col gap-6">
-          <div className={card}>
-            <h2 className={cardTitle}>Connected apps</h2>
-            {apps.length === 0 ? (
-              <div className="flex items-center gap-3">
-                <span aria-hidden className="grid size-11 shrink-0 place-content-center rounded-xl border border-border bg-muted text-muted-foreground">
-                  <RiPlugLine className="size-5" />
-                </span>
-                <div className="flex flex-col">
-                  <p className="text-sm font-medium text-foreground">No AI apps connected yet</p>
-                  <p className="text-sm text-muted-foreground">Apps show up here once you sign in from them.</p>
-                </div>
-              </div>
-            ) : (
-              <ul className="flex flex-col divide-y divide-border">
-                {apps.map((app) => (
-                  <ListRow
-                    key={app.clientId}
-                    title={app.name}
-                    meta={`${app.scopes.includes("bugberry:write") ? "Can read and change" : "Can read"} · allowed ${when(app.grantedAt)} · last renewed ${when(app.lastUsedAt)}`}
-                    action={
-                      <Button
-                        size="sm"
-                        intent="outline"
-                        isDisabled={busy}
-                        onPress={async () => {
-                          const yes = await confirm({
-                            title: `Disconnect ${app.name}?`,
-                            description: "It loses access right away.",
-                            confirmLabel: "Disconnect",
-                          })
-                          if (yes) onRevokeApp(app.clientId)
-                        }}
-                      >
-                        Disconnect
-                      </Button>
-                    }
-                  />
-                ))}
-              </ul>
-            )}
-          </div>
-
           <div className={card}>
             <div className="flex flex-col gap-1">
               <h2 className={cardTitle}>Personal tokens</h2>
@@ -301,11 +281,14 @@ export function AiAgentsView({
                 Create
               </Button>
             </form>
-            <p className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
+            <p className="rounded-xl bg-muted px-4 py-3 text-xs text-muted-foreground">
               Send as <code className="font-mono text-sm text-foreground">Authorization: Bearer &lt;token&gt;</code>
             </p>
             {tokens.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No personal tokens yet.</p>
+              <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                <RiKey2Line aria-hidden className="size-4 shrink-0" />
+                No personal tokens yet.
+              </p>
             ) : (
               <ul className="flex flex-col divide-y divide-border">
                 {tokens.map((token) => (
@@ -334,6 +317,64 @@ export function AiAgentsView({
                 ))}
               </ul>
             )}
+          </div>
+          <div className={card}>
+            <h2 className={cardTitle}>Connected apps</h2>
+            {apps.length === 0 ? (
+              <div className="flex items-center gap-4 rounded-2xl bg-muted p-4">
+                <span aria-hidden className="grid size-11 shrink-0 place-content-center rounded-xl border border-border bg-background text-foreground">
+                  <RiPlugLine className="size-5" />
+                </span>
+                <div className="flex flex-col">
+                  <p className="font-medium text-foreground">No AI apps connected yet</p>
+                  <p className="text-sm text-muted-foreground">Apps show up here once you sign in from them.</p>
+                </div>
+              </div>
+            ) : (
+              <ul className="flex flex-col divide-y divide-border">
+                {apps.map((app) => (
+                  <ListRow
+                    key={app.clientId}
+                    title={app.name}
+                    meta={`${app.scopes.includes("bugberry:write") ? "Can read and change" : "Can read"} · allowed ${when(app.grantedAt)} · last renewed ${when(app.lastUsedAt)}`}
+                    action={
+                      <Button
+                        size="sm"
+                        intent="outline"
+                        isDisabled={busy}
+                        onPress={async () => {
+                          const yes = await confirm({
+                            title: `Disconnect ${app.name}?`,
+                            description: "It loses access right away.",
+                            confirmLabel: "Disconnect",
+                          })
+                          if (yes) onRevokeApp(app.clientId)
+                        }}
+                      >
+                        Disconnect
+                      </Button>
+                    }
+                  />
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className={card}>
+            <h2 className={cardTitle}>What agents can do</h2>
+            <ul className="flex flex-col gap-4">
+              {AGENT_CAN.map(({ icon: Icon, title, text }) => (
+                <li key={title} className="flex items-start gap-3.5">
+                  <span aria-hidden className="grid size-10 shrink-0 place-content-center rounded-xl bg-primary-subtle text-primary">
+                    <Icon className="size-5" />
+                  </span>
+                  <span className="flex min-w-0 flex-col">
+                    <span className="font-medium text-foreground">{title}</span>
+                    <span className="text-sm text-muted-foreground">{text}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </div>

@@ -8,7 +8,7 @@ const members = [
   { id: "u1", name: "Yuisa Labs", email: "y@x.test", image: null, role: "admin" as const, owner: false, joinedAt: new Date("2026-09-12T00:00:00Z") },
   { id: "u2", name: "Ers G Four", email: "e@x.test", image: null, role: "member" as const, owner: false, joinedAt: new Date("2026-10-03T00:00:00Z") },
 ]
-const projects = [{ id: "p1", name: "Quinella AI", slug: "quinella-ai", workspaceId: "w1", urlPatterns: [] as string[], createdAt: new Date() }]
+const projects = [{ id: "p1", name: "Quinella AI", slug: "quinella-ai", workspaceId: "w1", urlPatterns: [] as string[], logoUrl: null, createdAt: new Date() }]
 
 describe("the phone's report filters", () => {
   test("the Filters badge counts the kinds of filter that are on", () => {

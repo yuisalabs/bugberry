@@ -32,7 +32,7 @@ export function ReportsEmpty({ record, invite }: { record?: ReactNode; invite?: 
           <span className="mt-1 ml-1 h-24 w-14 bg-primary [mask:url(/assets/arrow_curve.svg)_center/contain_no-repeat]" />
         </div>
       </div>
-      <h2 className="font-heading text-2xl font-bold tracking-tight text-foreground sm:text-3xl">No bugs caught yet</h2>
+      <h2 className="font-heading text-xl font-bold tracking-tight text-foreground sm:text-3xl">No bugs caught yet</h2>
       <p className="max-w-md text-muted-foreground">
         Your jar is still empty. Record your first bug and it'll land here, with the video, console logs and network requests bundled
         into one link.
@@ -60,7 +60,7 @@ export function ReportsNoMatch({ checked, onClear }: { checked: number | null; o
   return (
     <div className="flex flex-col items-center gap-3 px-4 py-10 text-center">
       <img src="/assets/no_match_reports.webp" alt="" width={500} height={380} className="h-auto w-72 max-w-full" />
-      <h2 className="font-heading text-2xl font-bold tracking-tight text-foreground sm:text-3xl">No reports match your filters</h2>
+      <h2 className="font-heading text-xl font-bold tracking-tight text-foreground sm:text-3xl">No reports match your filters</h2>
       <p className="max-w-md text-muted-foreground">
         {checkedText(checked)} Try loosening one. The bug might be hiding just outside the net.
       </p>

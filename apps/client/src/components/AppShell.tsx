@@ -1,11 +1,8 @@
 import {
-  RiArrowDownSLine,
   RiCloseLine,
-  RiFolderFill,
   RiFolderLine,
   RiGroupFill,
   RiGroupLine,
-  RiHashtag,
   RiLayoutGridFill,
   RiLayoutGridLine,
   RiMenuLine,
@@ -20,9 +17,7 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, Outlet, useMatchRoute, useNavigate } from "@tanstack/react-router"
 import { useState } from "react"
-import { Button as AriaButton, MenuTrigger } from "react-aria-components"
 import { Button } from "@bugberry/ui/button"
-import { Menu, MenuItem, MenuLabel, MenuSection, MenuSeparator } from "@bugberry/ui/menu"
 import { Sheet } from "@bugberry/ui/sheet"
 import { usePageDrawer } from "../hooks/usePageDrawer"
 import { APP_MAIN_ID } from "../lib/app-scroll"
@@ -42,6 +37,8 @@ import { InviteDialog } from "./InviteDialog"
 import { JoinWorkspaceDialog } from "./JoinWorkspaceDialog"
 import { NewReportButton } from "./NewReportButton"
 import { NotificationBell } from "./NotificationBell"
+import { ProjectsMenu } from "./ProjectsMenu"
+import { ProjectTile } from "./ProjectTile"
 import { ReportDetailSkeleton, ReportsPageSkeleton } from "./Skeletons"
 import { WorkspaceMenu } from "./WorkspaceMenu"
 
@@ -49,7 +46,7 @@ const sectionTitle = "px-2 pb-1 text-xs font-medium text-muted-foreground"
 // Colours live in the active and inactive styles only, so the open page's link never turns grey on hover.
 // The top bar's links are pills; the phone drawer lists the same pages as rows.
 const pill =
-  "flex items-center gap-2 rounded-full px-3.5 py-2 text-[15px] whitespace-nowrap outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+  "flex items-center gap-2 rounded-full px-3 py-2 text-sm whitespace-nowrap 2xl:px-3.5 2xl:text-[15px] outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
 const pillOn = "bg-sidebar-primary font-medium text-sidebar-primary-foreground [&_svg]:text-sidebar-primary-foreground"
 const pillOff = "text-foreground/80 hover:bg-muted hover:text-foreground"
 const topLink = { className: pill, activeProps: { className: pillOn }, inactiveProps: { className: pillOff } }
@@ -71,57 +68,6 @@ function WaitingBadge({ count }: { count: number }) {
     >
       {count}
     </span>
-  )
-}
-
-/** The top bar's Projects: a menu of the workspace's projects, and for admins the page that manages them. */
-function ProjectsMenu({
-  projects,
-  active,
-  isAdmin,
-  onOpen,
-  onManage,
-}: {
-  projects: readonly { id: string; name: string; slug: string }[] | undefined
-  active: boolean
-  isAdmin: boolean
-  onOpen(slug: string): void
-  onManage(): void
-}) {
-  const [open, setOpen] = useState(false)
-  return (
-    <MenuTrigger isOpen={open} onOpenChange={setOpen}>
-      <AriaButton className={`${pill} ${active ? pillOn : pillOff}`}>
-        <ActiveIcon active={active} line={RiFolderLine} fill={RiFolderFill} className={pillIcon} />
-        Projects
-        <RiArrowDownSLine aria-hidden className={`size-4 opacity-60 transition-transform ${open ? "rotate-180" : ""}`} />
-      </AriaButton>
-      <Menu placement="bottom" popover={{ className: "min-w-56" }}>
-        <MenuSection aria-label="Projects" className="max-h-72 overflow-y-auto">
-          {projects && projects.length > 0 ? (
-            projects.map((project) => (
-              <MenuItem key={project.id} id={project.id} textValue={project.name} onAction={() => onOpen(project.slug)}>
-                <RiHashtag aria-hidden />
-                <MenuLabel className="truncate">{project.name}</MenuLabel>
-              </MenuItem>
-            ))
-          ) : (
-            <MenuItem id="none" isDisabled textValue="No projects yet">
-              <MenuLabel>{projects ? "No projects yet" : "Loading…"}</MenuLabel>
-            </MenuItem>
-          )}
-        </MenuSection>
-        {isAdmin && <MenuSeparator />}
-        {isAdmin && (
-          <MenuSection aria-label="Manage">
-            <MenuItem id="manage" textValue="Manage projects" onAction={onManage}>
-              <RiSettings3Line aria-hidden />
-              <MenuLabel>Manage projects</MenuLabel>
-            </MenuItem>
-          </MenuSection>
-        )}
-      </Menu>
-    </MenuTrigger>
   )
 }
 
@@ -168,8 +114,8 @@ export function AppShell() {
   if (fullWidth) return <div className="min-h-screen bg-background">{content}</div>
   const isAdmin = workspace?.role === "admin"
   const canInvite = isAdmin && invitesAllowed(limits.data)
-  const projectsActive =
-    Boolean(matchRoute({ to: "/app/p/$projectSlug", fuzzy: true })) || Boolean(matchRoute({ to: "/app/settings/projects", fuzzy: true }))
+  const openProject = matchRoute({ to: "/app/p/$projectSlug", fuzzy: true })
+  const projectsActive = Boolean(openProject) || Boolean(matchRoute({ to: "/app/settings/projects", fuzzy: true }))
   // Browser extension in the account menu: install it, or point it at this server; once it works there's nothing to do.
   const onExtension = !extension.installed
     ? installUrl
@@ -252,7 +198,7 @@ export function AppShell() {
             <p className={sectionTitle}>Projects</p>
             {projects.data?.map((project) => (
               <Link key={project.id} to="/app/p/$projectSlug" params={{ projectSlug: project.slug }} {...drawerLink}>
-                <RiHashtag aria-hidden className={navIcon} />
+                <ProjectTile project={project} />
                 <span className="truncate">{project.name}</span>
               </Link>
             ))}
@@ -273,21 +219,25 @@ export function AppShell() {
     // From tablet width up the window itself never scrolls: the top bar stays put and only the main panel moves.
     <div className="flex min-h-screen flex-col bg-background md:h-screen md:overflow-hidden">
       <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-2 border-b border-sidebar-border bg-background px-3 md:h-[76px] md:border-b-0 md:px-6">
-        <Button intent="plain" size="sq-sm" aria-label="Open menu" onPress={() => setDrawer(true)} className="hover:bg-sidebar-accent xl:hidden">
-          <RiMenuLine aria-hidden />
-        </Button>
-        {me.data && (
-          <WorkspaceMenu
-            workspaces={workspaces}
-            currentId={workspace?.id ?? ""}
-            onSwitch={(id) => void switchWorkspace(id)}
-            onCreate={myLimits.data?.canCreateWorkspace === false ? undefined : () => setCreating(true)}
-            onJoin={() => setJoining(true)}
-            onSettings={isAdmin ? () => void navigate({ to: "/app/settings/workspace" }) : undefined}
-            onInvite={canInvite ? () => setInviting(true) : undefined}
-          />
-        )}
-        <div className="flex min-w-0 flex-1 justify-center">
+        {/* The two sides share the leftover width equally, so the links sit in the middle of the screen however wide
+            each side is. */}
+        <div className="flex min-w-0 flex-1 basis-0 items-center gap-2">
+          <Button intent="plain" size="sq-sm" aria-label="Open menu" onPress={() => setDrawer(true)} className="hover:bg-sidebar-accent xl:hidden">
+            <RiMenuLine aria-hidden />
+          </Button>
+          {me.data && (
+            <WorkspaceMenu
+              workspaces={workspaces}
+              currentId={workspace?.id ?? ""}
+              onSwitch={(id) => void switchWorkspace(id)}
+              onCreate={myLimits.data?.canCreateWorkspace === false ? undefined : () => setCreating(true)}
+              onJoin={() => setJoining(true)}
+              onSettings={isAdmin ? () => void navigate({ to: "/app/settings/workspace" }) : undefined}
+              onInvite={canInvite ? () => setInviting(true) : undefined}
+            />
+          )}
+        </div>
+        <div className="flex shrink-0 justify-center">
           {workspace && (
             <nav aria-label="Main" className="hidden items-center gap-1 xl:flex">
               <Link to="/app" {...topLink} activeOptions={{ exact: true, includeSearch: false }}>
@@ -308,10 +258,11 @@ export function AppShell() {
               </Link>
               <ProjectsMenu
                 projects={projects.data}
+                currentSlug={openProject ? openProject.projectSlug : undefined}
                 active={projectsActive}
-                isAdmin={isAdmin}
+                className={`${pill} ${projectsActive ? pillOn : pillOff}`}
                 onOpen={(projectSlug) => void navigate({ to: "/app/p/$projectSlug", params: { projectSlug } })}
-                onManage={() => void navigate({ to: "/app/settings/projects" })}
+                onManage={isAdmin ? () => void navigate({ to: "/app/settings/projects" }) : undefined}
               />
               <Link to="/app/settings/members" {...topLink}>
                 {({ isActive }) => (
@@ -335,13 +286,20 @@ export function AppShell() {
             </nav>
           )}
         </div>
-        <div className="flex items-center gap-2 md:gap-3">
+        <div className="flex min-w-0 flex-1 basis-0 items-center justify-end gap-2 md:gap-3">
           <NotificationBell />
           <span aria-hidden className="hidden h-6 w-px bg-border sm:block" />
           {canInvite && (
-            <Button intent="outline" size="md" onPress={() => setInviting(true)} className="hidden rounded-full bg-background px-4 md:inline-flex">
+            // Just the icon until the widest screens, so the centred links keep some room beside it.
+            <Button
+              intent="outline"
+              size="md"
+              aria-label="Invite"
+              onPress={() => setInviting(true)}
+              className="hidden rounded-full bg-background px-3 md:inline-flex 2xl:px-4"
+            >
               <RiUserAddLine aria-hidden />
-              Invite
+              <span className="hidden 2xl:inline">Invite</span>
             </Button>
           )}
           {workspace && (

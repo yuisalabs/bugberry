@@ -40,10 +40,11 @@ export function ReportSearchBox({
 
   return (
     <form role="search" onSubmit={submit} className="min-w-0 flex-1 sm:flex-none">
-      <SearchField aria-label="Search reports" value={q} onChange={setQ} className="sm:w-60">
+      {/* White on the grey page so it stands out, and wide enough for a real query. */}
+      <SearchField aria-label="Search reports" value={q} onChange={setQ} className="sm:w-80 lg:w-96">
         <InputGroup className="[--input-gutter-end:--spacing(14)]">
           <RiSearchLine aria-hidden data-slot="icon" />
-          <Input ref={box} placeholder="Search reports" />
+          <Input ref={box} placeholder="Search reports" className="bg-background" />
           {/* The slot fills the input's height to centre the hint; the small box is drawn around the text only. */}
           <Keyboard className="place-content-center font-sans text-muted-foreground sm:grid lg:grid">
             <span className="rounded border border-border px-1 text-[10px]/4">{searchShortcut(mac)}</span>

@@ -1,10 +1,17 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { ProjectForm, UrlPatternsForm } from "../src/components/projects/ProjectDialogs"
-import { cleanPatterns, patternExamples, savePatternsLabel, testUrl } from "../src/lib/url-patterns"
-import { integrationsText, ProjectCardView } from "../src/pages/settings/ProjectsSettingsPage"
+import { formatAgo } from "../src/lib/format"
+import { cleanPatterns, patternExamples, patternForPage, savePatternsLabel, testProjects, testUrl } from "../src/lib/url-patterns"
+import {
+  integrationsText,
+  pageMeta,
+  ProjectCardView,
+  TestUrlCard,
+  UnmatchedPagesCard,
+} from "../src/pages/settings/ProjectsSettingsPage"
 
-const project = { id: "p1", workspaceId: "w1", name: "Quinella AI", slug: "quinella-ai", urlPatterns: [] as string[], createdAt: new Date("2026-10-01T00:00:00Z") }
+const project = { id: "p1", workspaceId: "w1", name: "Quinella AI", slug: "quinella-ai", urlPatterns: [] as string[], logoUrl: null, createdAt: new Date("2026-10-01T00:00:00Z") }
 
 describe("URL pattern helpers", () => {
   test("only real, distinct patterns are saved", () => {
@@ -102,6 +109,27 @@ describe("ProjectCardView", () => {
     expect(screen.getByText("2 integrations connected")).toBeTruthy()
   })
 
+  test("its reports, open ones and the newest; dashes while they load", () => {
+    const now = new Date("2026-10-23T12:00:00Z").getTime()
+    render(
+      <ul>
+        <ProjectCardView
+          project={project}
+          stats={{ reports: 18, open: 7, lastReportAt: new Date(now - 2 * 60_000) }}
+          now={now}
+          integrationCount={1}
+          integrationsLink={null}
+          onEditPatterns={mock()}
+          onEdit={mock()}
+          onDelete={mock()}
+        />
+      </ul>,
+    )
+    expect(screen.getByText("18")).toBeTruthy()
+    expect(screen.getByText("7")).toBeTruthy()
+    expect(screen.getByText("2m ago")).toBeTruthy()
+  })
+
   test("integration counts read naturally", () => {
     expect(integrationsText(null)).toBe("")
     expect(integrationsText(0)).toBe("No integrations connected")
@@ -116,6 +144,63 @@ describe("ProjectForm", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "Name" }), { target: { value: "Checkout Web" } })
     expect((screen.getByRole("textbox", { name: "Slug" }) as HTMLInputElement).value).toBe("checkout-web")
     fireEvent.click(screen.getByRole("button", { name: "Create project" }))
-    expect(onSave).toHaveBeenCalledWith({ name: "Checkout Web", slug: "checkout-web" })
+    expect(onSave).toHaveBeenCalledWith({ name: "Checkout Web", slug: "checkout-web", logo: null, removeLogo: false })
+  })
+})
+
+describe("Test a URL and pages without a project", () => {
+  const shop = { ...project, id: "shop", name: "Quinella AI", urlPatterns: ["*.yuisalabs.com/*", "app.quinella.ai/*"] }
+  const docs = { ...project, id: "docs", name: "Test nama project", slug: "test", urlPatterns: ["app.quinella.ai/checkout*"] }
+
+  test("the most specific pattern of any project decides", () => {
+    expect(testProjects([shop, docs], "https://app.quinella.ai/checkout?step=pay")).toMatchObject({
+      status: "match",
+      project: { id: "docs" },
+      pattern: "app.quinella.ai/checkout*",
+    })
+    expect(testProjects([shop, docs], "docs.yuisalabs.com/start")).toMatchObject({ status: "match", project: { id: "shop" } })
+    expect(testProjects([shop, docs], "https://quinella.ai/")).toEqual({ status: "none" })
+    expect(testProjects([shop, docs], "  ")).toEqual({ status: "empty" })
+  })
+
+  test("the card says which project a pasted URL goes to", () => {
+    render(<TestUrlCard projects={[shop]} />)
+    fireEvent.change(screen.getByRole("textbox", { name: "Page address" }), { target: { value: "https://app.quinella.ai/checkout" } })
+    expect(screen.getByRole("status").textContent).toBe("MatchesQQuinella AIvia app.quinella.ai/*")
+  })
+
+  test("a page's pattern covers it and what is under it", () => {
+    expect(patternForPage("staging.quinella.ai/checkout")).toBe("staging.quinella.ai/checkout*")
+    expect(patternForPage("localhost:3000")).toBe("localhost:3000/*")
+  })
+
+  test("short times for tight places", () => {
+    const now = new Date("2026-10-23T12:00:00Z").getTime()
+    expect(formatAgo(now - 3 * 3_600_000, now)).toBe("3h ago")
+    expect(formatAgo(now - 30 * 3_600_000, now)).toBe("yesterday")
+    expect(formatAgo(now - 3 * 86_400_000, now)).toBe("3d ago")
+    expect(pageMeta({ reports: 4, lastReportAt: new Date(now - 3 * 3_600_000) }, now)).toBe("4 reports · last 3h ago")
+  })
+
+  test("each page suggests a project and adds the page's pattern to it", () => {
+    const onAdd = mock()
+    const now = new Date("2026-10-23T12:00:00Z").getTime()
+    render(
+      <UnmatchedPagesCard
+        pages={[{ page: "staging.quinella.ai/checkout", reports: 4, lastReportAt: new Date(now - 3 * 3_600_000), suggestedProjectId: "shop" }]}
+        projects={[shop, docs]}
+        now={now}
+        onAdd={onAdd}
+      />,
+    )
+    expect(screen.getByRole("heading", { name: /Pages without a project/ })).toBeTruthy()
+    expect(screen.getByText("4 reports · last 3h ago")).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: "Add pattern for staging.quinella.ai/checkout" }))
+    expect(onAdd).toHaveBeenCalledWith(shop, "staging.quinella.ai/checkout*")
+  })
+
+  test("with every page covered the card is gone", () => {
+    const { container } = render(<UnmatchedPagesCard pages={[]} projects={[shop]} now={0} onAdd={mock()} />)
+    expect(container.textContent).toBe("")
   })
 })

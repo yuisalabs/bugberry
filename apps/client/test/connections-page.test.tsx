@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import { ConnectionForm } from "../src/components/ConnectionForm"
 import { GITHUB_TOKEN_URL, IssuePreview } from "../src/components/IntegrationForm"
 import type { Connection } from "../src/lib/api"
-import { ConnectionRow, ConnectionsEmpty, deleteDescription } from "../src/pages/settings/ConnectionsPage"
+import { AllIntegrations, catalogueOrder, ConnectionRow, deleteDescription, EmptyGroup, usageText } from "../src/pages/settings/ConnectionsPage"
 
 const slack: Connection = {
   id: "c1",
@@ -23,13 +23,27 @@ const type = (label: string, value: string) => fireEvent.change(screen.getByLabe
 const save = () => fireEvent.click(screen.getByRole("button", { name: "Save connection" }))
 
 describe("the workspace Integrations page", () => {
-  test("the empty page offers trackers and notification channels in two groups", () => {
+  test("every provider has a card; the ones in use say how many and offer another", () => {
     const onPick = mock()
-    render(<ConnectionsEmpty onPick={onPick} />)
-    expect(screen.getByRole("heading", { name: "Issue trackers" })).toBeTruthy()
-    expect(screen.getByRole("heading", { name: "Notifications" })).toBeTruthy()
-    fireEvent.click(screen.getByRole("button", { name: /Slack/ }))
+    render(<AllIntegrations providers={["github", "slack", "webhook"]} connected={{ github: 2 }} onPick={onPick} />)
+    expect(screen.getByRole("heading", { name: /All integrations/ }).textContent).toContain("3")
+    expect(screen.getByText("Custom endpoint")).toBeTruthy()
+    expect(screen.getByText("2 connected")).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: "Connect Slack" }))
     expect(onPick).toHaveBeenCalledWith("slack")
+    fireEvent.click(screen.getByRole("button", { name: "Add another GitHub connection" }))
+    expect(onPick).toHaveBeenCalledWith("github")
+  })
+
+  test("providers not connected yet come first, each group keeping its order", () => {
+    expect(catalogueOrder(["github", "gitlab", "slack", "webhook"], { github: 1, slack: 3 })).toEqual(["gitlab", "webhook", "github", "slack"])
+  })
+
+  test("a group with nothing connected says what it is for", () => {
+    const onPick = mock()
+    render(<EmptyGroup providers={["slack"]} title="No chat channels yet" text="Post new reports." action="Connect a channel" onPick={onPick} />)
+    fireEvent.click(screen.getByRole("button", { name: "Connect a channel" }))
+    expect(onPick).toHaveBeenCalled()
   })
 
   test("a Jira connection takes the site, the account email and the token", () => {
@@ -107,12 +121,18 @@ describe("the workspace Integrations page", () => {
         <ConnectionRow connection={slack} testResult={null} testing={false} removing={false} {...actions} />
       </ul>,
     )
-    expect(screen.getByText("Slack · used in 2 projects")).toBeTruthy()
+    expect(screen.getByText("Slack #qa · used in 2 projects (Checkout Web, Admin Panel)")).toBeTruthy()
+    expect(screen.getByText("Failing")).toBeTruthy()
     expect(screen.getByText("Last message failed in 2 projects: Slack rejected the message (HTTP 404)")).toBeTruthy()
     fireEvent.click(screen.getByRole("button", { name: "Send test message" }))
     fireEvent.click(screen.getByRole("button", { name: "Delete Slack #qa" }))
     expect(actions.onTest).toHaveBeenCalled()
     expect(actions.onDelete).toHaveBeenCalled()
+  })
+
+  test("usage names the projects", () => {
+    expect(usageText({ ...slack, usedIn: 0, usedBy: [] })).toBe("not used yet")
+    expect(usageText({ ...slack, usedIn: 1, usedBy: [{ projectId: "p1", projectName: "Quinella AI" }] })).toBe("used in 1 project (Quinella AI)")
   })
 
   test("deleting asks with the names of the projects that use it", () => {

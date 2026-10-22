@@ -15,9 +15,13 @@ function view(overrides: Partial<Parameters<typeof AccountSettingsView>[0]> = {}
     onRemovePhoto: mock(),
     ...overrides,
   }
+  // Each test starts on the first tab; a tab picked earlier would otherwise stay in the address.
+  window.history.replaceState(null, "", window.location.pathname)
   render(<AccountSettingsView {...props} />)
   return props
 }
+
+const openSignIn = () => fireEvent.click(screen.getByRole("tab", { name: "Sign-in methods" }))
 
 const pick = (input: HTMLElement, file: File) => fireEvent.change(input, { target: { files: [file] } })
 
@@ -37,6 +41,9 @@ describe("AccountSettingsView", () => {
     expect(email.value).toBe("budi@kantor.test")
     expect(email.readOnly).toBe(true)
     expect(screen.getByText("Comes from how you sign in, so it can't be changed here.")).toBeTruthy()
+    // Sign-in methods are their own tab.
+    expect(screen.queryByRole("list", { name: "Sign-in methods" })).toBeNull()
+    openSignIn()
     const methods = screen.getByRole("list", { name: "Sign-in methods" })
     expect(methods.textContent).toContain("Google")
     expect(methods.textContent).toContain("Email code")
@@ -58,6 +65,7 @@ describe("AccountSettingsView", () => {
 
   test("each sign-in method says what it is and that it works", () => {
     view()
+    openSignIn()
     const rows = screen.getAllByRole("listitem").map((row) => row.textContent)
     expect(rows).toEqual([
       "GoogleSign in with your Google accountConnected",

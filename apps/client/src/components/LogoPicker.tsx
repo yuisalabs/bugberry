@@ -16,7 +16,7 @@ const measureImage: Measure = async (file) => {
 }
 
 /**
- * The workspace logo field: a preview of the chosen file, or the first letter until one is chosen.
+ * A workspace's or project's logo field: a preview of the chosen file, or the first letter until one is chosen.
  * Type, size and the 128 px minimum are checked here; the server checks the type again on upload.
  */
 export function LogoPicker({
@@ -28,6 +28,7 @@ export function LogoPicker({
   large = false,
   hint = LOGO_RULE,
   actions,
+  color = "bg-success",
 }: {
   file: File | null
   /** The logo already in use (Settings), shown until another file is chosen. */
@@ -41,6 +42,8 @@ export function LogoPicker({
   hint?: string
   /** More buttons beside Upload (Remove logo). */
   actions?: ReactNode
+  /** The letter's background while there is no logo. */
+  color?: string
 }) {
   const [error, setError] = useState<string | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
@@ -72,7 +75,7 @@ export function LogoPicker({
         ) : (
           <span
             aria-hidden
-            className={`inline-flex shrink-0 items-center justify-center bg-success font-bold text-white ${large ? "size-14 rounded-xl text-xl" : "size-10 rounded-lg text-base"}`}
+            className={`inline-flex shrink-0 items-center justify-center ${color} font-bold text-white ${large ? "size-14 rounded-xl text-xl" : "size-10 rounded-lg text-base"}`}
           >
             {name.trim().charAt(0).toUpperCase() || "?"}
           </span>
