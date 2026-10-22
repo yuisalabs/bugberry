@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { act, render, screen, waitFor } from "@testing-library/react"
-import { LandingView } from "../src/pages/landing/LandingView"
+import { HomeView } from "../src/pages/landing/HomeView"
 import { type RevealOptions, useReveal } from "../src/pages/landing/useReveal"
 
 /** Stands in for the browser's IntersectionObserver; `scrollIntoView()` says the newest target came into view. */
@@ -82,22 +82,20 @@ describe("useReveal", () => {
   })
 })
 
-describe("the landing page's motion", () => {
+describe("the home page's motion", () => {
   test("the hero plays on first show, in order; the sections wait for the scroll", async () => {
-    render(<LandingView signedIn={false} />)
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Stop describing bugs. Show them.")
+    render(<HomeView signedIn={false} installUrl={null} />)
     const delays = (selector: string) =>
       [...document.querySelectorAll<HTMLElement>(selector)].map((element) => Number.parseInt(element.style.getPropertyValue("--reveal-delay"), 10))
-    const hero = delays("header[data-reveal], h1 [data-reveal], main > section:first-child [data-reveal]")
+    const hero = delays("#capture [data-reveal]")
     expect(hero.length).toBeGreaterThanOrEqual(5)
     expect([...hero].sort((a, b) => a - b)).toEqual(hero)
-    await waitFor(() => expect(document.querySelectorAll("h1 [data-shown]")).toHaveLength(2))
-    // The three steps and the four cards each reveal on their own, one after another.
-    expect(delays("#how-it-works li[data-reveal]")).toEqual([0, 120, 240])
-    expect(document.querySelectorAll("#features .grid > [data-reveal]")).toHaveLength(4)
-    expect(document.querySelector("#how-it-works li[data-shown]")).toBeNull()
+    await waitFor(() => expect(document.querySelectorAll("#capture [data-shown]")).toHaveLength(hero.length))
+    // The three ideas each reveal on their own, one after another, once scrolled to.
+    const ideas = [...document.querySelectorAll<HTMLElement>("[data-reveal]")].filter((element) => /^0[123]/.test(element.textContent ?? ""))
+    expect(ideas.map((element) => Number.parseInt(element.style.getPropertyValue("--reveal-delay"), 10))).toEqual([0, 80, 160])
+    expect(ideas.some((element) => element.hasAttribute("data-shown"))).toBe(false)
   })
-
   test("people who asked for less motion see it all still: every rule sits inside a no-preference query", () => {
     const css = readFileSync(join(import.meta.dir, "..", "src", "styles.css"), "utf8")
     const block = css.slice(css.indexOf("@media (prefers-reduced-motion: no-preference)"))

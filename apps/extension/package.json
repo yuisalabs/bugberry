@@ -1,6 +1,6 @@
 {
   "name": "@bugberry/extension",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "private": true,
   "license": "AGPL-3.0-only",
   "type": "module",
@@ -30,7 +30,7 @@
     "@bugberry/ui": "workspace:*",
     "@fontsource-variable/dm-sans": "5.3.0",
     "@fontsource-variable/geist-mono": "5.3.0",
-    "@fontsource-variable/outfit": "5.3.0",
+    "@fontsource-variable/sora": "5.3.0",
     "@remixicon/react": "4.9.0",
     "cn": "0.5.0",
     "react": "19.3.1",

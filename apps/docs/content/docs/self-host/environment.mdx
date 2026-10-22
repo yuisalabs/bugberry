@@ -83,6 +83,15 @@ See [Account limits](/self-host/account-limits).
 | `LIMIT_RECORDINGS` | `5` | Recordings per workspace. |
 | `LIMIT_OWNED_WORKSPACES` | `1` | Workspaces one account can own. |
 
+## Public site
+
+For BugBerry cloud only. Leave these unset on your own server: the home page then goes straight to sign-in.
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `PUBLIC_SITE` | off | `true` shows the marketing pages (`/`, `/pricing`, `/integrations`, `/ai-agents`, `/demo`) and takes demo requests. |
+| `DEMO_REQUEST_EMAIL` | unset | Address that gets an email for each demo request. Requests are stored either way. |
+
 ## Set by Compose
 
 `docker-compose.yml` sets these for the `api` container; change them there, not in `.env`.

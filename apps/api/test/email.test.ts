@@ -32,6 +32,24 @@ describe("createEmailSender", () => {
     expect(await requests[0]?.json()).toEqual({ from: "BugBerry <a@b.c>", to: ["x@y.z"], subject: "S", html: "<p>H</p>", text: "T" })
   })
 
+  test("a reply goes where the message says, through Resend and SMTP", async () => {
+    const requests: Request[] = []
+    const fetcher = (async (input: string, init: RequestInit) => {
+      requests.push(new Request(input, init))
+      return Response.json({ id: "1" })
+    }) as unknown as typeof fetch
+    const message = { to: "team@b.c", replyTo: "visitor@d.e", subject: "S", html: "H", text: "T" }
+    await createEmailSender({ driver: "resend", from: "a@b.c", apiKey: "re_1" }, { fetch: fetcher }).send(message)
+    expect(await requests[0]?.json()).toMatchObject({ to: ["team@b.c"], reply_to: ["visitor@d.e"] })
+    const sent: object[] = []
+    const smtp = createEmailSender(
+      { driver: "smtp", from: "a@b.c", host: "smtp.b.c", port: 587, user: null, password: null, secure: false },
+      { smtpTransport: () => ({ sendMail: async (mail: object) => void sent.push(mail) }) },
+    )
+    await smtp.send(message)
+    expect(sent[0]).toMatchObject({ to: "team@b.c", replyTo: "visitor@d.e" })
+  })
+
   test("a refused Resend call is an error", async () => {
     const fetcher = (async () => Response.json({ message: "bad" }, { status: 422 })) as unknown as typeof fetch
     const sender = createEmailSender({ driver: "resend", from: "a@b.c", apiKey: "re_1" }, { fetch: fetcher })

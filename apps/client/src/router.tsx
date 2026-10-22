@@ -14,6 +14,7 @@ import { EmptyState, ErrorState } from "./components/ui"
 import { requireWorkspaceAdmin } from "./lib/admin-guard"
 import { ApiError } from "./lib/api"
 import { legacyAppPath } from "./lib/legacy-paths"
+import { publicSiteGate } from "./lib/public-site"
 import { startSecondsFrom } from "./lib/urls"
 import { validateLoginSearch } from "./lib/login"
 import { queries } from "./lib/queries"
@@ -172,8 +173,14 @@ const workspaceSettingsRoute = createRoute({
   component: lazyRouteComponent(() => import("./pages/settings/WorkspaceSettingsPage"), "WorkspaceSettingsPage"),
 })
 
-/** Public: the BugBerry landing page. */
-const landingRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", component: LandingPage })
+/** Public, on BugBerry cloud only (publicSiteGate): the home page and the marketing pages. */
+const landingRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", beforeLoad: publicSiteGate, component: LandingPage })
+const publicPage = (path: string, component: () => Promise<Record<string, unknown>>, name: string) =>
+  createRoute({ getParentRoute: () => rootRoute, path, beforeLoad: publicSiteGate, component: lazyRouteComponent(component, name) })
+const pricingRoute = publicPage("/pricing", () => import("./pages/PricingPage"), "PricingPage")
+const integrationsPublicRoute = publicPage("/integrations", () => import("./pages/IntegrationsPage"), "IntegrationsPage")
+const aiAgentsPublicRoute = publicPage("/ai-agents", () => import("./pages/AiAgentsPublicPage"), "AiAgentsPublicPage")
+const demoRoute = publicPage("/demo", () => import("./pages/DemoPage"), "DemoPage")
 
 /** Old dashboard addresses (before /app) redirect, keeping their query and hash. */
 const legacyRedirect = ({ location }: { location: ParsedLocation }) => {
@@ -188,6 +195,10 @@ const legacyRoutes = ["/p/$", "/r/$", "/settings", "/settings/$", "/extension/co
 
 const routeTree = rootRoute.addChildren([
   landingRoute,
+  pricingRoute,
+  integrationsPublicRoute,
+  aiAgentsPublicRoute,
+  demoRoute,
   ...legacyRoutes,
   loginRoute,
   shareRoute,

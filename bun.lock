@@ -46,7 +46,7 @@
         "@fontsource-variable/caveat": "5.3.0",
         "@fontsource-variable/dm-sans": "5.3.0",
         "@fontsource-variable/geist-mono": "5.3.0",
-        "@fontsource-variable/outfit": "5.3.0",
+        "@fontsource-variable/sora": "5.3.0",
         "@remixicon/react": "4.9.0",
         "@tanstack/react-query": "5.104.3",
         "@tanstack/react-router": "1.170.44",
@@ -77,7 +77,7 @@
     },
     "apps/extension": {
       "name": "@bugberry/extension",
-      "version": "0.2.5",
+      "version": "0.2.6",
       "dependencies": {
         "@bugberry/capture": "workspace:*",
         "@bugberry/player": "workspace:*",
@@ -86,7 +86,7 @@
         "@elysiajs/eden": "1.4.9",
         "@fontsource-variable/dm-sans": "5.3.0",
         "@fontsource-variable/geist-mono": "5.3.0",
-        "@fontsource-variable/outfit": "5.3.0",
+        "@fontsource-variable/sora": "5.3.0",
         "@remixicon/react": "4.9.0",
         "cn": "0.5.0",
         "react": "19.3.1",
@@ -327,7 +327,7 @@
 
     "@fontsource-variable/geist-mono": ["@fontsource-variable/geist-mono@5.3.0", "", {}, "sha512-vBbuwDEo9AkrqADMXOrlAR3DFcJi4/JxeuU43FoiQERnNwsfXNnvxvReZG02cQKmyk4DZkZdBZX3oTDvy2zBAw=="],
 
-    "@fontsource-variable/outfit": ["@fontsource-variable/outfit@5.3.0", "", {}, "sha512-fPb5XnYK0k7SbR++HEmm4+ZqDszmLKQ+sPRUr8oQ/KNC0vy6r6hazJFe8iYozv4cqlHbvJ/JECkJWrfDodUMVQ=="],
+    "@fontsource-variable/sora": ["@fontsource-variable/sora@5.3.0", "", {}, "sha512-h8kHta4Z8SkfUGeI82TUy1n3rbrKpBRGwuk4t4qCwto5oEHxlbOFD2yGP+Df5fbmTXwKGn+o667vYp0E4K8Whw=="],
 
     "@fregante/relaxed-json": ["@fregante/relaxed-json@2.0.0", "", {}, "sha512-PyUXQWB42s4jBli435TDiYuVsadwRHnMc27YaLouINktvTWsL3FcKrRMGawTayFk46X+n5bE23RjUTWQwrukWw=="],
 

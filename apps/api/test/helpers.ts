@@ -37,6 +37,7 @@ export const TEST_DATABASE_URL =
 
 /** Every table in the public schema. Add new tables here when later plans create them. */
 const TABLES = [
+  "demo_request",
   "oauth_client_assertion",
   "oauth_consent",
   "oauth_access_token",
@@ -102,6 +103,8 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
     storage: { driver: "local", dir: mkdtempSync(join(tmpdir(), "bugberry-test-")) },
     accountLimits: null,
     allowPrivateIntegrationHosts: true,
+    publicSite: false,
+    demoRequestEmail: null,
     ...overrides,
   }
 }

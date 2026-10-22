@@ -1,6 +1,6 @@
 /*
  * Intent UI's theme in BugBerry's colours, shared by the dashboard and the extension. Each app imports it
- * after "tailwindcss" and loads the fonts it names (DM Sans, Outfit, Geist Mono) itself.
+ * after "tailwindcss" and loads the fonts it names (Sora, DM Sans, Geist Mono) itself.
  */
 @import "tw-animate-css";
 
@@ -12,7 +12,7 @@
 @source ".";
 
 @theme inline {
-    --font-heading: "Outfit Variable", "Outfit", ui-sans-serif, system-ui, sans-serif;
+    --font-heading: "Sora Variable", "Sora", ui-sans-serif, system-ui, sans-serif;
     --font-sans: "DM Sans Variable", "DM Sans", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
     --font-mono: "Geist Mono Variable", "Geist Mono", 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', '"Liberation Mono"', '"Courier New"', 'monospace';
     --font-mono--font-feature-settings: "ss02", "zero";
@@ -225,7 +225,7 @@
     z-index: 9999;
     }
 }
-/* BugBerry: headings in Outfit, like the landing page. */
+/* BugBerry: headings in Sora, body in DM Sans. */
 @layer base {
     h1,
     h2,

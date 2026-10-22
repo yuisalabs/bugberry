@@ -3,6 +3,7 @@ import type { App } from "@bugberry/api"
 import type {
   CaptureType,
   ConnectionSettings,
+  DemoRequestInput,
   IntegrationProvider,
   Priority,
   ReportStatus,
@@ -61,6 +62,8 @@ export type SignInMethod = "google" | "github" | "gitlab" | "email"
 export interface ClientConfig {
   extensionInstallUrl: string | null
   maxUploadMb: number
+  /** False on self-hosted servers: the marketing pages go to sign-in there. */
+  publicSite: boolean
 }
 
 export interface AuthMethods {
@@ -205,6 +208,8 @@ export function createApi(origin: string = window.location.origin, fetcher: type
     removeAvatar: () => unwrap(api.me.avatar.delete()),
     signInMethods: () => unwrap(api.me["sign-in-methods"].get()),
     clientConfig: async (): Promise<ClientConfig> => (await unwrap(api["client-config"].get())) as ClientConfig,
+    /** "Book your demo" on the public site. */
+    requestDemo: (input: DemoRequestInput) => unwrap(api["demo-requests"].post(input)),
     notifications: () => unwrap(api.notifications.get()),
     readNotification: (id: string) => unwrap(api.notifications({ id }).read.post()),
     readAllNotifications: () => unwrap(api.notifications["read-all"].post()),

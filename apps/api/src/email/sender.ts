@@ -3,6 +3,8 @@ import type { EmailConfig } from "../config"
 
 export interface EmailMessage {
   to: string
+  /** Where a reply goes, when not to the sender (a demo request: the visitor). */
+  replyTo?: string
   subject: string
   html: string
   text: string
@@ -40,7 +42,14 @@ export function createEmailSender(config: EmailConfig, deps: EmailSenderDeps = {
         const response = await fetcher(RESEND_URL, {
           method: "POST",
           headers: { authorization: `Bearer ${config.apiKey}`, "content-type": "application/json" },
-          body: JSON.stringify({ from: config.from, to: [message.to], subject: message.subject, html: message.html, text: message.text }),
+          body: JSON.stringify({
+            from: config.from,
+            to: [message.to],
+            ...(message.replyTo ? { reply_to: [message.replyTo] } : {}),
+            subject: message.subject,
+            html: message.html,
+            text: message.text,
+          }),
         })
         if (!response.ok) throw new Error(`Resend refused the email (HTTP ${response.status})`)
       },
