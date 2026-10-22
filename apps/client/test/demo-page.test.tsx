@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test"
 import type { DemoRequestInput } from "@bugberry/shared"
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { ApiError } from "../src/lib/api"
 import { DemoView } from "../src/pages/landing/DemoView"
+import { choose } from "./fields"
 import { CHROME_WEB_STORE_URL } from "../src/pages/landing/site-links"
 
 function fill() {
@@ -10,8 +11,8 @@ function fill() {
   fireEvent.change(screen.getByLabelText("Last name"), { target: { value: "Rozen" } })
   fireEvent.change(screen.getByLabelText("Work email"), { target: { value: "hannan@northwind.test" } })
   fireEvent.change(screen.getByLabelText("Company"), { target: { value: "Northwind Commerce" } })
-  fireEvent.change(screen.getByLabelText("Issue tracker"), { target: { value: "Jira" } })
-  fireEvent.click(screen.getByLabelText("11–50"))
+  choose("Issue tracker", "Jira")
+  fireEvent.click(screen.getByRole("radio", { name: "11–50" }))
   fireEvent.change(screen.getByLabelText("What would you like to see?"), { target: { value: "Checkout bugs to Jira" } })
   fireEvent.click(screen.getByLabelText("I’m interested in self-hosting BugBerry"))
 }
@@ -63,6 +64,39 @@ describe("DemoView", () => {
     fireEvent.change(screen.getByLabelText("Work email"), { target: { value: "" } })
     fireEvent.click(screen.getByRole("button", { name: "Book my demo" }))
     expect(sent).toEqual([])
+  })
+
+  test("the form is built from the app's Intent UI fields", () => {
+    render(<DemoView signedIn={false} installUrl={null} submit={async () => {}} />)
+    for (const name of ["First name", "Last name", "Work email", "Company", "What would you like to see?"]) {
+      expect(screen.getByLabelText(name).closest("[data-slot=control]")).toBeTruthy()
+    }
+    const sizes = screen.getByRole("radiogroup", { name: "Team size" })
+    expect(within(sizes).getAllByRole("radio").map((size) => size.textContent)).toEqual(["1–10", "11–50", "51–200", "200+"])
+    fireEvent.click(screen.getByLabelText("Issue tracker"))
+    expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual([
+      "GitHub",
+      "GitLab",
+      "Jira",
+      "Linear",
+      "Plane",
+      "ActiveCollab",
+      "Other",
+      "None yet",
+    ])
+  })
+
+  test("leaving the tracker and team size unpicked says so on those fields", () => {
+    const sent: DemoRequestInput[] = []
+    render(<DemoView signedIn={false} installUrl={null} submit={async (input) => void sent.push(input)} />)
+    fireEvent.change(screen.getByLabelText("First name"), { target: { value: "Hannan" } })
+    fireEvent.change(screen.getByLabelText("Last name"), { target: { value: "Rozen" } })
+    fireEvent.change(screen.getByLabelText("Work email"), { target: { value: "hannan@northwind.test" } })
+    fireEvent.change(screen.getByLabelText("Company"), { target: { value: "Northwind" } })
+    fireEvent.click(screen.getByRole("button", { name: "Book my demo" }))
+    expect(sent).toEqual([])
+    expect(screen.getByText("Choose your issue tracker.")).toBeTruthy()
+    expect(screen.getByText("Choose your team size.")).toBeTruthy()
   })
 
   test("a name of only spaces is caught here, with a message on that field", () => {

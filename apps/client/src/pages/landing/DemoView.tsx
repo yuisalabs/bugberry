@@ -10,8 +10,16 @@ import {
   type RemixiconComponentType,
 } from "@remixicon/react"
 import { DEMO_TEAM_SIZES, DEMO_TRACKERS, type DemoRequestInput } from "@bugberry/shared"
-import { type FormEvent, useId, useState } from "react"
+import { type FormEvent, useId, useRef, useState } from "react"
+import { Button } from "@bugberry/ui/button"
+import { Checkbox, CheckboxField } from "@bugberry/ui/checkbox"
+import { FieldError, Label } from "@bugberry/ui/field"
+import { Input } from "@bugberry/ui/input"
 import { Link } from "@bugberry/ui/link"
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@bugberry/ui/select"
+import { TextField } from "@bugberry/ui/text-field"
+import { Textarea } from "@bugberry/ui/textarea"
+import { ToggleGroup, ToggleGroupItem } from "@bugberry/ui/toggle-group"
 import { ApiError, errorMessage } from "../../lib/api"
 import { Reveal } from "./Reveal"
 import { SiteChrome } from "./SiteChrome"
@@ -35,9 +43,8 @@ const POINTS: Array<{ icon: RemixiconComponentType; title: string; body: string 
   },
 ]
 
-const label = "text-[13px] font-semibold text-[#2A2030]"
-const field =
-  "h-11 w-full rounded-[10px] bg-[#FFFFFF] px-3.5 text-[14px] text-[#1C1022] outline outline-1 -outline-offset-1 outline-[#E6E1EC] placeholder:text-[#9A90A3] focus:outline-2 focus:-outline-offset-1 focus:outline-[#D61F69] aria-invalid:outline-[#C2353A]"
+/** The same check as the API's (format: email): something, an @, something, a dot, something. */
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 type Status = { kind: "idle" } | { kind: "sending" } | { kind: "sent" } | { kind: "failed"; message: string }
 
@@ -64,23 +71,31 @@ function refusedFields(error: unknown): string[] {
   return [...new Set(paths)].filter((name) => name in FIELD_NAMES)
 }
 
+type TextName = "firstName" | "lastName" | "email" | "company" | "message"
+
 function DemoForm({ submit }: { submit: (input: DemoRequestInput) => Promise<unknown> }) {
   const [status, setStatus] = useState<Status>({ kind: "idle" })
+  const [values, setValues] = useState<Record<TextName, string>>({ firstName: "", lastName: "", email: "", company: "", message: "" })
+  const [tracker, setTracker] = useState<string | null>(null)
+  const [teamSize, setTeamSize] = useState<string | null>(null)
+  const [selfHosting, setSelfHosting] = useState(false)
   const [problems, setProblems] = useState<Record<string, string>>({})
+  const honeypot = useRef<HTMLInputElement>(null)
   const id = useId()
-  const at = (name: string) => `${id}-${name}`
-  /** Marks a field the visitor has to fix, and says why under it; typing in it clears the mark. */
-  const checked = (name: string) => ({
-    "aria-invalid": problems[name] ? true : undefined,
-    "aria-describedby": problems[name] ? at(`${name}-problem`) : undefined,
-    onChange: () => problems[name] && setProblems(({ [name]: _, ...rest }) => rest),
+  const sizeLabel = `${id}-size`
+  const sizeProblem = `${id}-size-problem`
+
+  /** Typing in or picking a field clears what was wrong with it. */
+  const clear = (name: string) => problems[name] && setProblems(({ [name]: _, ...rest }) => rest)
+  const text = (name: TextName) => ({
+    name,
+    value: values[name],
+    onChange: (value: string) => {
+      setValues((now) => ({ ...now, [name]: value }))
+      clear(name)
+    },
+    isInvalid: Boolean(problems[name]),
   })
-  const problem = (name: string) =>
-    problems[name] && (
-      <p id={at(`${name}-problem`)} className="text-[12px] text-[#C2353A]">
-        {problems[name]}
-      </p>
-    )
 
   if (status.kind === "sent") {
     return (
@@ -94,32 +109,27 @@ function DemoForm({ submit }: { submit: (input: DemoRequestInput) => Promise<unk
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const form = event.currentTarget
     if (status.kind === "sending") return
-    const fields = form.elements
-    const value = (name: string) => String((fields.namedItem(name) as HTMLInputElement | RadioNodeList | null)?.value ?? "").trim()
-    const blank = NEEDS_TEXT.filter((name) => !value(name))
-    if (blank.length > 0) {
-      setProblems(Object.fromEntries(blank.map((name) => [name, `Enter your ${FIELD_NAMES[name]}.`])))
-      ;(fields.namedItem(blank[0]!) as HTMLInputElement).focus()
-      return
-    }
-    if (!form.checkValidity()) {
-      form.reportValidity()
+    const trimmed = Object.fromEntries(Object.entries(values).map(([name, value]) => [name, value.trim()])) as Record<TextName, string>
+    const found: Record<string, string> = {}
+    for (const name of NEEDS_TEXT) if (!trimmed[name as TextName]) found[name] = `Enter your ${FIELD_NAMES[name]}.`
+    if (!trimmed.email) found.email = "Enter your work email."
+    else if (!EMAIL.test(trimmed.email)) found.email = "Enter a work email like you@company.com."
+    if (!tracker) found.tracker = "Choose your issue tracker."
+    if (!teamSize) found.teamSize = "Choose your team size."
+    if (Object.keys(found).length > 0) {
+      setProblems(found)
+      event.currentTarget.querySelector<HTMLElement>(`[name="${Object.keys(found)[0]}"]`)?.focus()
       return
     }
     setStatus({ kind: "sending" })
     try {
       await submit({
-        firstName: value("firstName"),
-        lastName: value("lastName"),
-        email: value("email"),
-        company: value("company"),
-        tracker: value("tracker") as DemoRequestInput["tracker"],
-        teamSize: value("teamSize") as DemoRequestInput["teamSize"],
-        message: value("message"),
-        selfHosting: (fields.namedItem("selfHosting") as HTMLInputElement).checked,
-        website: value("website"),
+        ...trimmed,
+        tracker: tracker as DemoRequestInput["tracker"],
+        teamSize: teamSize as DemoRequestInput["teamSize"],
+        selfHosting,
+        website: honeypot.current?.value.trim() ?? "",
       })
       setStatus({ kind: "sent" })
     } catch (error) {
@@ -132,125 +142,103 @@ function DemoForm({ submit }: { submit: (input: DemoRequestInput) => Promise<unk
 
   const sending = status.kind === "sending"
   return (
-    <form noValidate onSubmit={onSubmit} className="flex flex-col gap-[18px]">
+    <form noValidate onSubmit={onSubmit} className="flex flex-col gap-5">
       <div className="flex flex-col gap-1.5">
         <h2 className="font-heading text-[24px] font-semibold">Book your demo</h2>
         <p className="text-[14px] text-[#635A6B]">Tell us a bit about your team. We’ll reply within one business day.</p>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor={at("first")} className={label}>
-            First name
-          </label>
-          <input id={at("first")} name="firstName" required maxLength={80} autoComplete="given-name" placeholder="Hannan" className={field} {...checked("firstName")} />
-          {problem("firstName")}
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor={at("last")} className={label}>
-            Last name
-          </label>
-          <input id={at("last")} name="lastName" required maxLength={80} autoComplete="family-name" placeholder="Rozen" className={field} {...checked("lastName")} />
-          {problem("lastName")}
-        </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <TextField {...text("firstName")} maxLength={80} autoComplete="given-name">
+          <Label>First name</Label>
+          <Input placeholder="Hannan" />
+          <FieldError>{problems.firstName}</FieldError>
+        </TextField>
+        <TextField {...text("lastName")} maxLength={80} autoComplete="family-name">
+          <Label>Last name</Label>
+          <Input placeholder="Rozen" />
+          <FieldError>{problems.lastName}</FieldError>
+        </TextField>
       </div>
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor={at("email")} className={label}>
-          Work email
-        </label>
-        <input
-          id={at("email")}
-          name="email"
-          type="email"
-          required
-          maxLength={254}
-          autoComplete="email"
-          placeholder="you@company.com"
-          className={field}
-          {...checked("email")}
-        />
-        {problem("email")}
+      <TextField {...text("email")} type="email" maxLength={254} autoComplete="email">
+        <Label>Work email</Label>
+        <Input placeholder="you@company.com" />
+        <FieldError>{problems.email}</FieldError>
+      </TextField>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <TextField {...text("company")} maxLength={120} autoComplete="organization">
+          <Label>Company</Label>
+          <Input placeholder="Northwind Commerce" />
+          <FieldError>{problems.company}</FieldError>
+        </TextField>
+        <Select
+          name="tracker"
+          placeholder="Choose one"
+          selectedKey={tracker}
+          onSelectionChange={(key) => {
+            setTracker(key === null ? null : String(key))
+            clear("tracker")
+          }}
+          isInvalid={Boolean(problems.tracker)}
+        >
+          <Label>Issue tracker</Label>
+          <SelectTrigger />
+          <SelectContent items={DEMO_TRACKERS.map((name) => ({ id: name }))}>
+            {(item) => (
+              <SelectItem id={item.id} textValue={item.id}>
+                {item.id}
+              </SelectItem>
+            )}
+          </SelectContent>
+          <FieldError>{problems.tracker}</FieldError>
+        </Select>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor={at("company")} className={label}>
-            Company
-          </label>
-          <input
-            id={at("company")}
-            name="company"
-            required
-            maxLength={120}
-            autoComplete="organization"
-            placeholder="Northwind Commerce"
-            className={field}
-            {...checked("company")}
-          />
-          {problem("company")}
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor={at("tracker")} className={label}>
-            Issue tracker
-          </label>
-          <select id={at("tracker")} name="tracker" required defaultValue="" className={`${field} cursor-pointer`}>
-            <option value="" disabled>
-              Choose one
-            </option>
-            {DEMO_TRACKERS.map((tracker) => (
-              <option key={tracker} value={tracker}>
-                {tracker}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-      <fieldset className="flex flex-col gap-2">
-        <legend className={`${label} pb-2`}>Team size</legend>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="flex flex-col gap-2">
+        <Label id={sizeLabel}>Team size</Label>
+        <ToggleGroup
+          aria-labelledby={sizeLabel}
+          aria-describedby={problems.teamSize ? sizeProblem : undefined}
+          selectionMode="single"
+          selectedKeys={teamSize ? [teamSize] : []}
+          onSelectionChange={(keys) => {
+            const [picked] = [...keys]
+            setTeamSize(picked === undefined ? null : String(picked))
+            clear("teamSize")
+          }}
+          className="grid w-full grid-cols-2 sm:grid-cols-4"
+        >
           {DEMO_TEAM_SIZES.map((size) => (
-            <label key={size} className="cursor-pointer">
-              <input type="radio" name="teamSize" value={size} required className="peer sr-only" />
-              <span className="flex h-10 items-center justify-center rounded-[10px] text-[14px] font-medium text-[#4A4152] outline outline-1 -outline-offset-1 outline-[#E6E1EC] transition peer-checked:bg-[#FCE3EE] peer-checked:font-semibold peer-checked:text-[#D61F69] peer-checked:outline-[1.5px] peer-checked:outline-[#D61F69] peer-focus-visible:outline-2 peer-focus-visible:outline-[#D61F69]">
-                {size}
-              </span>
-            </label>
+            <ToggleGroupItem key={size} id={size} className="justify-center">
+              {size}
+            </ToggleGroupItem>
           ))}
-        </div>
-      </fieldset>
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor={at("message")} className={label}>
-          What would you like to see?
-        </label>
-        <textarea
-          id={at("message")}
-          name="message"
-          rows={3}
-          maxLength={2000}
-          placeholder="Recording checkout bugs and sending them to Jira with the network logs…"
-          className={`${field} h-[88px] resize-y py-3`}
-        />
+        </ToggleGroup>
+        {problems.teamSize && (
+          <p id={sizeProblem} className="text-sm/6 text-danger-subtle-foreground">
+            {problems.teamSize}
+          </p>
+        )}
       </div>
+      <TextField {...text("message")} maxLength={2000}>
+        <Label>What would you like to see?</Label>
+        <Textarea rows={3} placeholder="Recording checkout bugs and sending them to Jira with the network logs…" />
+      </TextField>
       {/* People never see this field; bots fill it in. */}
       <div aria-hidden className="absolute -left-[9999px] h-px w-px overflow-hidden">
-        <label htmlFor={at("website")}>Website</label>
-        <input id={at("website")} name="website" tabIndex={-1} autoComplete="off" />
+        <label htmlFor={`${id}-website`}>Website</label>
+        <input ref={honeypot} id={`${id}-website`} name="website" tabIndex={-1} autoComplete="off" />
       </div>
-      <label className="flex cursor-pointer items-center gap-2.5 text-[14px] text-[#2A2030]">
-        <input type="checkbox" name="selfHosting" className="size-[18px] cursor-pointer accent-[#D61F69]" />
-        I’m interested in self-hosting BugBerry
-      </label>
+      <CheckboxField isSelected={selfHosting} onChange={setSelfHosting}>
+        <Checkbox>I’m interested in self-hosting BugBerry</Checkbox>
+      </CheckboxField>
       {status.kind === "failed" && (
-        <p role="alert" className="rounded-[10px] bg-[#FDE7E8] px-3.5 py-2.5 text-[13px] text-[#C2353A]">
+        <p role="alert" className="rounded-lg bg-danger-subtle px-3.5 py-2.5 text-sm text-danger-subtle-foreground">
           {status.message}
         </p>
       )}
-      <button
-        type="submit"
-        disabled={sending}
-        className="inline-flex h-[50px] cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#D61F69] text-[16px] font-semibold text-white transition hover:bg-[#C01A5E] disabled:cursor-default disabled:opacity-70"
-      >
+      <Button type="submit" intent="primary" size="lg" isDisabled={sending} className="w-full">
         {sending ? "Sending…" : "Book my demo"}
-        {!sending && <RiArrowRightLine className="size-[18px]" aria-hidden />}
-      </button>
+        {!sending && <RiArrowRightLine data-slot="icon" aria-hidden />}
+      </Button>
       <p className="text-center text-[12px] text-[#635A6B]">No spam. We only use this to set up your demo.</p>
     </form>
   )
