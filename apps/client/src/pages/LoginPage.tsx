@@ -2,7 +2,8 @@ import { useQuery } from "@tanstack/react-query"
 import { getRouteApi, useRouter } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { LoginView } from "../components/LoginView"
-import { ErrorState, PageLoading } from "../components/ui"
+import { ErrorPage } from "../components/status/ErrorPage"
+import { PageLoading } from "../components/ui"
 import { sendLoginCode, signInWithProvider, verifyLoginCode } from "../lib/auth"
 import { loginErrorMessage } from "../lib/login"
 import { loginTarget, oauthResumeUrl } from "../lib/oauth"
@@ -29,13 +30,7 @@ export function LoginPage() {
   }, [me.isSuccess, error, next, router, resumesOAuth, target])
 
   if (methods.isPending) return <PageLoading />
-  if (methods.isError) {
-    return (
-      <div className="p-6">
-        <ErrorState error={methods.error} onRetry={() => void methods.refetch()} />
-      </div>
-    )
-  }
+  if (methods.isError) return <ErrorPage error={methods.error} onRetry={() => void methods.refetch()} />
 
   return (
     <LoginView

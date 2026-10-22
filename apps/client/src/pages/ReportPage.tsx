@@ -10,7 +10,7 @@ import { ReportTitle } from "../components/report/ReportTitle"
 import { ReportComments } from "../components/ReportComments"
 import { ReportView } from "../components/ReportView"
 import { ReportDetailSkeleton } from "../components/Skeletons"
-import { ErrorState } from "../components/ui"
+import { ErrorPage } from "../components/status/ErrorPage"
 import { ApiError, errorMessage, type ReportPatch } from "../lib/api"
 import { api } from "../lib/client"
 import { queries } from "../lib/queries"
@@ -20,14 +20,9 @@ import { useCurrentWorkspace } from "../lib/workspace"
 
 const routeApi = getRouteApi("/_authed/app/r/$reportId")
 
-/** The report page has no sidebar, so an error still offers the way back to the reports. */
+/** A report that can't be shown: its status page, whose Home leads back to the reports. */
 export function ReportUnavailable({ error, onRetry }: { error: unknown; onRetry(): void }) {
-  return (
-    <div className="flex flex-col gap-4 px-4 py-4 sm:px-6">
-      <ReportHeader back={{ to: "/app" }}>{null}</ReportHeader>
-      <ErrorState error={error} onRetry={onRetry} />
-    </div>
-  )
+  return <ErrorPage error={error} onRetry={onRetry} description="This report was deleted, or it isn't in a workspace you're in." />
 }
 
 export function ReportPage() {

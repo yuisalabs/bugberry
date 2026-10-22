@@ -1,5 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query"
-import { redirect } from "@tanstack/react-router"
+import { ApiError } from "./api"
 import { queries } from "./queries"
 import { pickWorkspace } from "./workspace"
 
@@ -18,5 +18,8 @@ export async function requireWorkspaceAdmin(
     queryClient.fetchQuery({ ...options.me, staleTime: 0 }),
     queryClient.fetchQuery({ ...options.workspaces, staleTime: 0 }),
   ])
-  if (pickWorkspace(workspaces, me.lastWorkspaceId)?.role !== "admin") throw redirect({ to: "/app" })
+  // The router shows the 403 page for it.
+  if (pickWorkspace(workspaces, me.lastWorkspaceId)?.role !== "admin") {
+    throw new ApiError(403, "forbidden", "Only workspace admins can open this page")
+  }
 }

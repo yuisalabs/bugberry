@@ -51,6 +51,9 @@ services:
       # Localhost only: the reverse proxy is the way in. BUGBERRY_BIND=0.0.0.0 exposes it directly.
       # The older FDEBAG_* names in an existing .env still work.
       - "${BUGBERRY_BIND:-${FDEBAG_BIND:-127.0.0.1}}:${BUGBERRY_PORT:-${FDEBAG_PORT:-3000}}:80"
+    volumes:
+      # Maintenance mode: put maintenance.json here (see docker/maintenance.example.json), delete it to end.
+      - ./maintenance:/etc/nginx/maintenance:ro
     depends_on:
       api:
         condition: service_healthy

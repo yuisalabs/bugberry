@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test"
-import { answerConsent, fetchOAuthClient, loginTarget, oauthResumeUrl, redirectHost, scopeLines } from "../src/lib/oauth"
+import { answerConsent, fetchOAuthClient, incompleteConsentRequest, loginTarget, oauthResumeUrl, redirectHost, scopeLines } from "../src/lib/oauth"
 
 const SIGNED = "?response_type=code&client_id=abc&scope=openid+bugberry%3Aread&exp=1&sig=xyz"
 
@@ -80,5 +80,20 @@ describe("redirectHost", () => {
     expect(redirectHost("?redirect_uri=http%3A%2F%2Flocalhost%3A9999%2Fcallback")).toBe("localhost:9999")
     expect(redirectHost("?redirect_uri=com.example.app%3A%2Fcb")).toBe("com.example.app:/cb")
     expect(redirectHost("?client_id=a")).toBeNull()
+  })
+})
+
+describe("incompleteConsentRequest", () => {
+  test("lists what the link carried and marks the missing client_id", () => {
+    expect(incompleteConsentRequest("?response_type=code&scope=openid")).toEqual({
+      method: "GET",
+      path: "/oauth/consent",
+      lines: [{ text: "response_type=code" }, { text: "scope=openid" }, { text: "", mark: "client_id", note: "missing" }],
+    })
+  })
+
+  test("a long value is cut short", () => {
+    const [line] = incompleteConsentRequest(`?sig=${"a".repeat(80)}`).lines
+    expect(line?.text).toBe(`sig=${"a".repeat(32)}…`)
   })
 })

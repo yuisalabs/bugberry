@@ -5,9 +5,19 @@ import { join, relative } from "node:path"
 const SRC = join(import.meta.dir, "..", "src")
 /**
  * Drawn by hand on purpose: the sign-in buttons' brand logos, and Intent UI's own shapes (the avatar's
- * placeholder, the spinner, the popover's and tooltip's arrows, the empty table's picture and drag handle).
+ * placeholder, the spinner, the popover's and tooltip's arrows, the empty table's picture and drag handle), and the
+ * status pages' drawings (their hand-drawn arrows and the 504's vines).
  */
-const OWN_SVG = new Set(["components/LoginView.tsx", "components/ui/avatar.tsx", "components/ui/loader.tsx", "components/ui/popover.tsx", "components/ui/tooltip.tsx", "components/ui/table.tsx"])
+const OWN_SVG = new Set([
+  "components/LoginView.tsx",
+  "components/ui/avatar.tsx",
+  "components/ui/loader.tsx",
+  "components/ui/popover.tsx",
+  "components/ui/tooltip.tsx",
+  "components/ui/table.tsx",
+  "components/status/StatusFrame.tsx",
+  "components/status/StatusPage.tsx",
+])
 
 function sources(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {

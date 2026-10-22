@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { ApiError, createApi, errorMessage } from "../src/lib/api"
 import { shouldRetry } from "../src/lib/query-client"
+import { maintenanceOf } from "../src/lib/status"
 
 const ORIGIN = "https://bugberry.kantor.test"
 
@@ -76,6 +77,25 @@ describe("createApi", () => {
     })
     const error = await createApi(ORIGIN, fetcher).me().catch((caught) => caught)
     expect(error).toMatchObject({ status: 0, code: "network" })
+  })
+
+  test("a gateway timeout says how long the request waited", async () => {
+    const { fetcher } = fakeFetch(async () => {
+      await Bun.sleep(30)
+      return new Response("<html>504 Gateway Time-out</html>", { status: 504, headers: { "content-type": "text/html" } })
+    })
+    const error = await createApi(ORIGIN, fetcher).me().catch((caught) => caught)
+    expect(error).toMatchObject({ status: 504 })
+    expect(error.waitedMs).toBeGreaterThanOrEqual(25)
+  })
+
+  test("nginx's maintenance notice keeps its message and time", async () => {
+    const notice = { code: "maintenance", message: "Upgrading the database", until: "2026-10-24T14:30:00Z" }
+    const { fetcher } = fakeFetch(() => Response.json(notice, { status: 503 }))
+    const error = await createApi(ORIGIN, fetcher).me().catch((caught) => caught)
+    expect(error).toMatchObject({ status: 503, code: "maintenance" })
+    // Eden reads the ISO time as a Date; maintenanceOf takes either.
+    expect(maintenanceOf(error)).toEqual({ message: "Upgrading the database", until: new Date("2026-10-24T14:30:00Z") })
   })
 })
 
