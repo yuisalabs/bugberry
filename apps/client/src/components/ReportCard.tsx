@@ -1,5 +1,5 @@
 import { RiCameraLine, RiFlag2Line, RiHashtag, RiImageLine, RiLink, RiPlayFill } from "@remixicon/react"
-import { Link } from "@tanstack/react-router"
+import { Link, useParams } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { Button } from "@bugberry/ui/button"
 import { Avatar } from "@bugberry/ui/avatar"
@@ -9,6 +9,7 @@ import { PRIORITY_ICON_STYLES, PRIORITY_LABELS } from "../lib/labels"
 import { initialsOf } from "../lib/people"
 import { copiedDescription } from "../lib/share-access"
 import { toast } from "../lib/toast"
+import type { ReportsFrom } from "../lib/report-page"
 import { shareUrl } from "../lib/urls"
 import { StatusBadge } from "./StatusBadge"
 
@@ -143,6 +144,12 @@ export function CardCopyLink({ item }: { item: ReportListItem }) {
   )
 }
 
+/** The list showing this card or row: a project's page (its slug), or every report. The report page leads back to it. */
+export function useReportsFrom(): ReportsFrom {
+  const { projectSlug } = useParams({ strict: false })
+  return projectSlug ? { projectSlug } : "all"
+}
+
 export function ReportCard({
   item,
   now,
@@ -154,11 +161,13 @@ export function ReportCard({
   projectName?: string | null
   onPreviewError?: () => void
 }) {
+  const from = useReportsFrom()
   return (
     <div className="group relative">
       <Link
         to="/app/r/$reportId"
         params={{ reportId: item.id }}
+        state={(previous) => ({ ...previous, reportsFrom: from })}
         className="block rounded-xl outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
       >
         <ReportCardBody item={item} now={now} projectName={projectName} onPreviewError={onPreviewError} />

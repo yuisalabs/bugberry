@@ -12,7 +12,7 @@ import {
   RiShareForwardLine,
 } from "@remixicon/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useNavigate } from "@tanstack/react-router"
+import { useLocation, useNavigate } from "@tanstack/react-router"
 import { type ReactNode, useState } from "react"
 import { Button } from "@bugberry/ui/button"
 import { useConfirm } from "@bugberry/ui/confirm-dialog"
@@ -317,6 +317,8 @@ function MoreSheet({
 export function MoreMenu({ report }: { report: ReportDetail }) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  // After a delete, back to the list the report was opened from.
+  const reportsFrom = useLocation({ select: (location) => location.state.reportsFrom })
   const { confirm, dialog } = useConfirm()
   const workspaces = useQuery(queries.workspaces())
   const projects = useQuery(queries.projects(report.workspaceId))
@@ -372,7 +374,7 @@ export function MoreMenu({ report }: { report: ReportDetail }) {
   const remove = useMutation({
     mutationFn: () => api.deleteReport(report.id),
     onSuccess: async () => {
-      await navigate(backTarget(report, projects.data ?? []))
+      await navigate(backTarget(report, projects.data ?? [], reportsFrom))
       queryClient.removeQueries({ queryKey: reportKey })
       void queryClient.invalidateQueries({ queryKey: ["reports"] })
       // A deleted report frees a slot under ACCOUNT_LIMITS.

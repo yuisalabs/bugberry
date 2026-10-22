@@ -9,13 +9,38 @@ export function sharePageTarget(share: {
   return share.viewerIsMember ? { to: "/app/r/$reportId", params: { reportId: share.id } } : null
 }
 
-/** "All reports" leads to the report's project when it has one, else to every report. */
-export function backTarget(
+/** The report list a report was opened from: every report, or one project's (by its slug). */
+export type ReportsFrom = "all" | { projectSlug: string }
+
+type BackProject = { id: string; slug: string; name?: string; logoUrl?: string | null }
+
+/**
+ * Where the report page's back link leads, and what it says: the list the report was opened from, when known
+ * ("All reports", or the project's name); else the report's project when it has one, else every report.
+ */
+export function backLink<P extends BackProject>(
   report: { projectId: string | null },
-  projects: ReadonlyArray<{ id: string; slug: string }>,
-): { to: "/app" } | { to: "/app/p/$projectSlug"; params: { projectSlug: string } } {
-  const project = report.projectId ? projects.find((item) => item.id === report.projectId) : undefined
-  return project ? { to: "/app/p/$projectSlug", params: { projectSlug: project.slug } } : { to: "/app" }
+  projects: readonly P[],
+  from?: ReportsFrom,
+):
+  | { link: { to: "/app" }; label: string; project: null }
+  | { link: { to: "/app/p/$projectSlug"; params: { projectSlug: string } }; label: string; project: P } {
+  const project =
+    from === "all"
+      ? undefined
+      : from
+        ? projects.find((item) => item.slug === from.projectSlug)
+        : report.projectId
+          ? projects.find((item) => item.id === report.projectId)
+          : undefined
+  return project
+    ? { link: { to: "/app/p/$projectSlug", params: { projectSlug: project.slug } }, label: project.name ?? "Project", project }
+    : { link: { to: "/app" }, label: "All reports", project: null }
+}
+
+/** Just where the back link leads (after deleting a report, too). */
+export function backTarget(report: { projectId: string | null }, projects: readonly BackProject[], from?: ReportsFrom) {
+  return backLink(report, projects, from).link
 }
 
 export interface SentIssue {

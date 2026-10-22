@@ -243,8 +243,14 @@ export function createAppRouter(queryClient: QueryClient) {
   })
 }
 
+import type { ReportsFrom } from "./lib/report-page"
+
 declare module "@tanstack/react-router" {
   interface Register {
     router: ReturnType<typeof createAppRouter>
+  }
+  interface HistoryState {
+    /** The report list a report was opened from, so its page leads back there: a project's slug, or every report. */
+    reportsFrom?: ReportsFrom
   }
 }
