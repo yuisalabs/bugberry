@@ -33,7 +33,7 @@ describe("PricingView", () => {
   test("the comparison says guests are not in Free and are coming to the paid plans", () => {
     render(<PricingView signedIn={false} installUrl={null} />)
     const cells = within(row("Reporters & guests")).getAllByRole("cell")
-    expect(cells[0]?.textContent).toBe("—")
+    expect(cells[0]?.textContent).toBe("Not included")
     expect(cells[1]?.textContent).toContain("Coming soon")
     expect(cells[2]?.textContent).toContain("Coming soon")
   })

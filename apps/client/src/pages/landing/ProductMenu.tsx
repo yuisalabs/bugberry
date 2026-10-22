@@ -57,14 +57,14 @@ function MenuItem({ item, onPick }: { item: ProductItem; onPick: () => void }) {
     <Link
       href={item.href}
       onPress={onPick}
-      className="group flex gap-3.5 rounded-xl p-3 transition hover:bg-[#FFFFFF]/[0.06] focus-visible:bg-[#FFFFFF]/[0.06]"
+      className="group flex gap-3 rounded-xl p-3 transition hover:bg-[#FFFFFF]/[0.06] focus-visible:bg-[#FFFFFF]/[0.06]"
     >
-      <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-[#FFFFFF]/[0.04] text-[#D9CFE0] outline outline-1 -outline-offset-1 outline-white/10 transition group-hover:bg-[#D61F69] group-hover:text-white group-hover:outline-transparent">
-        <Icon className="size-5" aria-hidden />
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-[#FFFFFF]/[0.04] text-[#D9CFE0] outline outline-1 -outline-offset-1 outline-white/10 transition group-hover:bg-[#D61F69] group-hover:text-white group-hover:outline-transparent">
+        <Icon className="size-[18px]" aria-hidden />
       </span>
       <span className="flex flex-col gap-1">
-        <span className="text-[17px] font-semibold text-white">{item.title}</span>
-        <span className="text-[14px]/[22px] font-normal text-[#B6A7BE]">{item.body}</span>
+        <span className="text-[15px] font-semibold text-white">{item.title}</span>
+        <span className="text-[13px]/[19px] font-normal text-[#B6A7BE]">{item.body}</span>
       </span>
     </Link>
   )
@@ -81,23 +81,23 @@ export function ProductMenu({ id, installUrl, onPick }: { id: string; installUrl
         <div className="grid flex-1 grid-cols-3 gap-x-4">
           {PRODUCT_MENU.map((column) => (
             <div key={column.label} className="flex flex-col gap-1">
-              <p className="px-3 pt-2 pb-2 text-[13px] font-medium tracking-[1.4px] text-[#B6A7BE] uppercase">{column.label}</p>
+              <p className="px-3 pt-2 pb-2 text-[12px] font-medium tracking-[1.4px] text-[#B6A7BE] uppercase">{column.label}</p>
               {column.items.map((item) => (
                 <MenuItem key={item.title} item={item} onPick={onPick} />
               ))}
             </div>
           ))}
         </div>
-        <div className="flex w-[300px] shrink-0 flex-col justify-between rounded-2xl bg-[url(/assets/site/cta-gradient.webp)] bg-cover bg-center p-7">
+        <div className="flex w-[280px] shrink-0 flex-col justify-between rounded-2xl bg-[url(/assets/site/cta-gradient.webp)] bg-cover bg-center p-7">
           <div className="flex flex-col gap-4">
             <span className="w-fit rounded-full bg-[#FFFFFF]/20 px-3 py-1 text-[13px] font-semibold text-white">Free for Chrome</span>
-            <p className="font-heading text-[24px]/[30px] font-semibold tracking-[-0.5px] text-white">Report your first bug in under a minute</p>
+            <p className="font-heading text-[22px]/[28px] font-semibold tracking-[-0.5px] text-white">Report your first bug in under a minute</p>
             <p className="text-[14px]/[22px] text-white/90">Install the extension, hit record, and BugBerry writes the report for you.</p>
           </div>
           <Link
             href={installHref(installUrl)}
             onPress={onPick}
-            className="mt-8 inline-flex h-12 w-fit items-center gap-2 rounded-xl bg-[#FFFFFF] px-5 text-[16px] font-semibold text-[#1C1022] transition hover:bg-[#FFFFFF]/90"
+            className="mt-8 inline-flex h-11 w-fit items-center gap-2 rounded-xl bg-[#FFFFFF] px-5 text-[15px] font-semibold text-[#1C1022] transition hover:bg-[#FFFFFF]/90"
           >
             <RiChromeFill className="size-[18px]" aria-hidden />
             Add to Chrome

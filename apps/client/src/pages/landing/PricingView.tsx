@@ -221,7 +221,7 @@ const COMPARE: Array<{ group: string; rows: Array<[string, ReactNode, ReactNode,
       ["Projects", "Unlimited", "Unlimited", "Unlimited"],
       ["Comments & @mentions", yes, yes, yes],
       ["Share links", yes, yes, yes],
-      ["Reporters & guests", "—", soon, soon],
+      ["Reporters & guests", no, soon, soon],
     ],
   },
   {
