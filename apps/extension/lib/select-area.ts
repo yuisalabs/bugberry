@@ -34,7 +34,11 @@ export function pickArea(): Promise<AreaPick> {
     // The huge shadow dims everything outside the box, so the chosen part shows at full brightness.
     box.style.cssText =
       "position:fixed;display:none;border:2px solid #d6246e;box-shadow:0 0 0 100vmax rgba(0,0,0,0.4);box-sizing:border-box"
-    root.append(shade, box)
+    // The box's size, next to the cursor, so the reporter sees how big the screenshot will be.
+    const size = document.createElement("div")
+    size.style.cssText =
+      "position:fixed;display:none;padding:3px 8px;border-radius:6px;background:rgba(17,12,20,0.88);color:#fff;font:600 12px/1.4 system-ui,sans-serif;font-variant-numeric:tabular-nums;white-space:nowrap;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,0.3)"
+    root.append(shade, box, size)
     document.documentElement.append(host)
 
     let start: { x: number; y: number } | null = null
@@ -63,6 +67,14 @@ export function pickArea(): Promise<AreaPick> {
       box.style.top = `${rect.y}px`
       box.style.width = `${rect.width}px`
       box.style.height = `${rect.height}px`
+      size.textContent = `${Math.round(rect.width)} × ${Math.round(rect.height)}`
+      size.style.display = "block"
+      // Below and right of the cursor; flipped to the other side near the window's right or bottom edge.
+      const gap = 14
+      const right = event.clientX + gap + size.offsetWidth > window.innerWidth
+      const below = event.clientY + gap + size.offsetHeight <= window.innerHeight
+      size.style.left = `${right ? event.clientX - gap - size.offsetWidth : event.clientX + gap}px`
+      size.style.top = `${below ? event.clientY + gap : event.clientY - gap - size.offsetHeight}px`
     }
     const onUp = (event: MouseEvent) => {
       swallow(event)
