@@ -1,34 +1,43 @@
+import { useQuery } from "@tanstack/react-query"
 import { Link } from "@bugberry/ui/link"
 import type { ReactNode } from "react"
-import { BugBerryLogo } from "../components/BugBerryLogo"
+import { queries } from "../lib/queries"
+import { SiteChrome } from "./landing/SiteChrome"
+import { usePageMeta } from "./landing/usePageMeta"
 
 const CONTACT = "yuisalabs@gmail.com"
-const UPDATED = "20 October 2026"
+const UPDATED = "22 October 2026"
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-2">
-      <h2 className="font-heading text-lg font-semibold text-foreground">{title}</h2>
+      <h2 className="font-heading text-lg font-semibold text-[#1C1022]">{title}</h2>
       {children}
     </section>
   )
 }
 
 const list = "flex list-disc flex-col gap-1 pl-5"
+const mail = (
+  <Link href={`mailto:${CONTACT}`} className="font-semibold text-[#D61F69] hover:underline">
+    {CONTACT}
+  </Link>
+)
 
-/** The policy itself; the Chrome Web Store and addons.mozilla.org link here. */
+/** The policy itself, with security and the terms of use; the Chrome Web Store and addons.mozilla.org link here. */
 export function PrivacyPolicy() {
   return (
-    <article className="flex flex-col gap-6 text-sm/6 text-muted-foreground">
+    <article className="flex flex-col gap-6 text-sm/6 text-[#635A6B]">
       <header className="flex flex-col gap-1">
-        <h1 className="font-heading text-2xl font-bold text-foreground">Privacy Policy</h1>
+        <h1 className="font-heading text-2xl font-bold text-[#1C1022]">Privacy Policy</h1>
         <p>Last updated {UPDATED}</p>
       </header>
 
       <p>
         BugBerry turns a bug on a web page into a report: a screenshot or a recording, with what the page logged and
         what you did before it happened. This policy covers the BugBerry browser extension (Chrome, Opera and
-        Firefox) and the BugBerry service at bugberry.yuisalabs.com.
+        Firefox) and the BugBerry service at bugberry.yuisalabs.com. The security and terms sections below apply to the
+        same service.
       </p>
 
       <Section title="What the browser extension collects">
@@ -43,8 +52,13 @@ export function PrivacyPolicy() {
           <li>The title, description, notes and drawings you add.</li>
         </ul>
         <p>
-          Passwords, card numbers, tokens, cookies and authorization headers are masked before anything is stored.
-          Fields a website marks as private are masked too.
+          Before anything is stored, cookies, authorization headers and fields named like passwords, tokens or secrets
+          are replaced with “[redacted]” in the network data and in objects the page logs. Text typed into fields shows
+          as dots in the steps, and areas a website marks as private are left out of them.
+        </p>
+        <p>
+          The screenshot and the recording show the screen as it was. Blur anything sensitive on a screenshot before
+          you send it, or pause the recording while it is visible.
         </p>
         <p>
           The page's logs are kept in the page while you browse so a report can show what led to the bug, and they stay
@@ -88,26 +102,78 @@ export function PrivacyPolicy() {
         </p>
       </Section>
 
+      <Section title="Security">
+        <ul className={list}>
+          <li>Everything between your browser, the extension and BugBerry travels over HTTPS.</li>
+          <li>Tokens for the trackers and channels a workspace connects are stored encrypted.</li>
+          <li>
+            A report is seen by the members of its workspace, plus whoever its access level lets in through the share
+            link: people with the same company email domain, or anyone. Only the reporter or a workspace admin can change
+            it.
+          </li>
+          <li>
+            AI agents connected through MCP sign in as their person and see exactly what that person sees. Personal
+            tokens work with the MCP server only, and can be revoked at any time.
+          </li>
+          <li>If your company needs reports to stay on its own servers, BugBerry can be self-hosted.</li>
+        </ul>
+        <p>To report a vulnerability, write to {mail}. We reply within one business day.</p>
+      </Section>
+
+      <Section title="Terms of use">
+        <p>By using BugBerry you agree to these terms.</p>
+        <ul className={list}>
+          <li>
+            BugBerry is in early access. It is free, it is provided as is, and features may change. We will give at
+            least 30 days' notice before paid plans start.
+          </li>
+          <li>
+            Accounts on the BugBerry service have the limits shown on the pricing page, currently 1 workspace with 5
+            screenshots and 5 video recordings.
+          </li>
+          <li>
+            Record only pages you are allowed to, and do not send other people's personal data you have no right to
+            share. Do not use BugBerry to attack, overload or get around the limits of the service.
+          </li>
+          <li>
+            Your reports remain yours. You allow us to store and show them only to run the service for you and the
+            people you share them with.
+          </li>
+          <li>
+            You can stop using BugBerry and ask us to delete your account at any time. We may suspend accounts that
+            break these terms.
+          </li>
+          <li>To the extent the law allows, we are not liable for indirect losses from using the service.</li>
+        </ul>
+      </Section>
+
       <Section title="Contact">
-        <p>
-          Questions or requests:{" "}
-          <Link href={`mailto:${CONTACT}`} className="font-semibold text-primary hover:underline">
-            {CONTACT}
-          </Link>
-        </p>
+        <p>Questions or requests: {mail}</p>
       </Section>
     </article>
   )
 }
 
-/** Public: readable without signing in. */
-export function PrivacyPage() {
+/**
+ * The policy in the public site's chrome. A self-hosted server (no public site) gets the minimal chrome, so the
+ * page links only what that server has.
+ */
+export function PrivacyView({ signedIn, publicSite }: { signedIn: boolean; publicSite: boolean }) {
   return (
-    <div className="flex min-h-screen flex-col items-center bg-muted px-4 py-16">
-      <div className="flex w-full max-w-2xl flex-col gap-8 rounded-2xl border border-border bg-background p-8">
-        <BugBerryLogo />
-        <PrivacyPolicy />
+    <SiteChrome signedIn={signedIn} installUrl={null} minimal={!publicSite}>
+      <div className="px-4 py-14 sm:px-6 md:py-20">
+        <div className="mx-auto w-full max-w-2xl rounded-2xl bg-[#FFFFFF] p-6 outline outline-1 -outline-offset-1 outline-[#E6E1EC] sm:p-10">
+          <PrivacyPolicy />
+        </div>
       </div>
-    </div>
+    </SiteChrome>
   )
+}
+
+/** Public: readable without signing in, on every server. */
+export function PrivacyPage() {
+  const me = useQuery({ ...queries.me(), retry: false, meta: { signedOutIsFine: true } })
+  const config = useQuery(queries.clientConfig())
+  usePageMeta("Privacy Policy", "What BugBerry collects, how it is kept safe, and the terms of using the service.")
+  return <PrivacyView signedIn={me.isSuccess} publicSite={config.data?.publicSite === true} />
 }
