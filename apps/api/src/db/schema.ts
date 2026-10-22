@@ -655,3 +655,17 @@ export const oauthClientAssertion = pgTable("oauth_client_assertion", {
   id: text("id").primaryKey(),
   expiresAt: ts("expires_at").notNull(),
 })
+
+/** Someone asked for a demo on the public site (PUBLIC_SITE); the team is emailed and replies. */
+export const demoRequest = pgTable("demo_request", {
+  id: text("id").primaryKey(),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  email: text("email").notNull(),
+  company: text("company").notNull(),
+  tracker: text("tracker").notNull(),
+  teamSize: text("team_size").notNull(),
+  message: text("message").default("").notNull(),
+  selfHosting: boolean("self_hosting").default(false).notNull(),
+  createdAt: createdAt(),
+})

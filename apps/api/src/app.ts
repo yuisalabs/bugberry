@@ -10,6 +10,7 @@ import { wellKnownModule } from "./well-known"
 import type { TrackerFactory } from "./lib/trackers/providers"
 import { activityModule } from "./modules/activity"
 import { commentsModule } from "./modules/comments"
+import { demoRequestsModule } from "./modules/demo-requests"
 import { integrationsModule } from "./modules/integrations"
 import { connectionsModule } from "./modules/connections"
 import { localFilesModule } from "./modules/local-files"
@@ -143,6 +144,7 @@ export function createApp(deps: AppDeps) {
     .use(connectionsModule(deps))
     .use(trackersModule(deps))
     .use(mcpModule(deps))
+    .use(demoRequestsModule(deps))
 
   // OAuth discovery must sit at the site root; everything else is under /api.
   return new Elysia().use(wellKnownModule(deps)).use(api)
