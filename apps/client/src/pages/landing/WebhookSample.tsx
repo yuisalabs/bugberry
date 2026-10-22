@@ -17,9 +17,10 @@ const LINES: Array<[string, string]> = [
   ["}", "plain"],
 ]
 
-export function WebhookSample({ className = "" }: { className?: string }) {
+/** `surface` is the box colour: dark on a light card, a lighter dark on a dark section. */
+export function WebhookSample({ className = "", surface = "bg-[#1C1022]" }: { className?: string; surface?: string }) {
   return (
-    <div data-testid="webhook-sample" className={`flex flex-col gap-1.5 overflow-x-auto rounded-[14px] bg-[#1C1022] p-5 font-mono text-[12.5px] ${className}`}>
+    <div data-testid="webhook-sample" className={`flex flex-col gap-1.5 overflow-x-auto rounded-[14px] ${surface} p-5 font-mono text-[12.5px] ${className}`}>
       <div className="flex justify-between gap-4 pb-2 text-[12px]">
         <span className="text-[#F37BAA]">POST your-app.com/hooks/bugberry</span>
         <span className="text-[#4CA62C]">200 OK</span>
