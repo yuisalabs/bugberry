@@ -1,7 +1,7 @@
-import { RiAddLine } from "@remixicon/react"
+import { RiAddLine, RiChromeLine } from "@remixicon/react"
 import { type ReactNode, useState } from "react"
 import { Button as AriaButton } from "react-aria-components"
-import { Button } from "@bugberry/ui/button"
+import { Button, buttonStyles } from "@bugberry/ui/button"
 import { Dialog, DialogBody, DialogHeader, DialogTitle } from "@bugberry/ui/dialog"
 import { Link } from "@bugberry/ui/link"
 import { askExtension, type ExtensionAnswer, openExtensionPopup, useServerInExtension } from "../lib/extension-bridge"
@@ -37,8 +37,30 @@ export function NewReportGuide({
   )
 }
 
-const openThisPage = () => openExtensionPopup(window)
 const askThisPage = () => askExtension(window)
+
+/**
+ * "Add to Chrome": the store page, opened in a new tab, while this browser has no BugBerry extension. Nothing when
+ * the extension answers, or when the server names no store page (EXTENSION_INSTALL_URL).
+ */
+export function InstallExtensionButton({
+  installUrl,
+  ask = askThisPage,
+}: {
+  installUrl: string | null
+  ask?: () => Promise<ExtensionAnswer>
+}) {
+  const answer = useExtensionAnswer(ask)
+  if (answer.installed || !installUrl) return null
+  return (
+    <a href={installUrl} target="_blank" rel="noreferrer" className={buttonStyles({ intent: "outline", className: "bg-background" })}>
+      <RiChromeLine aria-hidden />
+      Add to Chrome
+    </a>
+  )
+}
+
+const openThisPage = () => openExtensionPopup(window)
 
 /**
  * "New report": asks the extension to open its popup. When it can't (not installed, another server, an

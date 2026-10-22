@@ -41,6 +41,7 @@ import { ProjectsMenu } from "./ProjectsMenu"
 import { ProjectTile } from "./ProjectTile"
 import { ReportDetailSkeleton, ReportsPageSkeleton } from "./Skeletons"
 import { WorkspaceMenu } from "./WorkspaceMenu"
+import { installHref } from "../pages/landing/site-links"
 
 const sectionTitle = "px-2 pb-1 text-xs font-medium text-muted-foreground"
 // Colours live in the active and inactive styles only, so the open page's link never turns grey on hover.
@@ -85,7 +86,8 @@ export function AppShell() {
   const myLimits = useQuery(queries.myLimits())
   const limits = useQuery({ ...queries.workspaceLimits(workspace?.id ?? ""), enabled: workspace?.role === "admin" })
   const config = useQuery(queries.clientConfig())
-  const installUrl = config.data?.extensionInstallUrl ?? null
+  // The server's own install link, else BugBerry's Chrome Web Store page, as on the public site.
+  const installUrl = installHref(config.data?.extensionInstallUrl ?? null)
   const extension = useExtensionAnswer()
   const { open: drawer, setOpen: setDrawer } = usePageDrawer()
   const [creating, setCreating] = useState(false)
@@ -118,9 +120,7 @@ export function AppShell() {
   const projectsActive = Boolean(openProject) || Boolean(matchRoute({ to: "/app/settings/projects", fuzzy: true }))
   // Browser extension in the account menu: install it, or point it at this server; once it works there's nothing to do.
   const onExtension = !extension.installed
-    ? installUrl
-      ? () => window.open(installUrl, "_blank", "noreferrer")
-      : undefined
+    ? () => window.open(installUrl, "_blank", "noreferrer")
     : extension.active
       ? undefined
       : () => useServerInExtension(window)

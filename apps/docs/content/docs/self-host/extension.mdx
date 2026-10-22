@@ -14,7 +14,7 @@ There are two ways to give your team the extension. Most servers use the store e
 <StoreLinks />
 
 1. In `.env`, set `EXTENSION_ID` to the store extension's ID (the long string of letters in its Chrome Web Store address).
-2. Optionally set `EXTENSION_INSTALL_URL` to the store page. The dashboard's **New report** button then sends people there when the extension isn't installed; without it, they see "Ask your admin".
+2. Optionally set `EXTENSION_INSTALL_URL` to your store page. The dashboard's **New report**, **Add to Chrome** and **Install** then send people there when the extension isn't installed; without it, they go to BugBerry's own page on the Chrome Web Store.
 3. Restart: `docker compose up -d`.
 
 Each person installs it, signs in to your dashboard in the same browser, and clicks **Use the extension with this server** in the sidebar (or opens the extension's settings and chooses **Change server**). Signing out of the dashboard signs the extension out too: there are no tokens to paste.

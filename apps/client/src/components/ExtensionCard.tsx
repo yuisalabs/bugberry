@@ -5,6 +5,7 @@ import { Button as AriaButton } from "react-aria-components"
 import { Link } from "@bugberry/ui/link"
 import { askExtension, type ExtensionAnswer, useServerInExtension } from "../lib/extension-bridge"
 import { queries } from "../lib/queries"
+import { installHref } from "../pages/landing/site-links"
 
 /** The extension's state at the bottom of the sidebar: installed, sending elsewhere, or missing. */
 export function ExtensionCardView({
@@ -80,7 +81,7 @@ export function ExtensionCard() {
   return (
     <ExtensionCardView
       answer={answer}
-      installUrl={config.data?.extensionInstallUrl ?? null}
+      installUrl={installHref(config.data?.extensionInstallUrl ?? null)}
       onUseServer={() => useServerInExtension(window)}
     />
   )

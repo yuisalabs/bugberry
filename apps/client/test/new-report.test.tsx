@@ -1,6 +1,7 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { NewReportButton, NewReportGuide } from "../src/components/NewReportButton"
+import { InstallExtensionButton, NewReportButton, NewReportGuide } from "../src/components/NewReportButton"
+import { ReportsEmpty } from "../src/components/ReportsView"
 import type { ExtensionAnswer } from "../src/lib/extension-bridge"
 import { readLayout, saveLayout } from "../src/lib/report-layout"
 
@@ -59,5 +60,34 @@ describe("New report", () => {
     } finally {
       if (original) Object.defineProperty(window, "localStorage", original)
     }
+  })
+})
+
+describe("Add to Chrome", () => {
+  const STORE = "https://chromewebstore.google.com/detail/bugberry/abc"
+
+  test("without the extension, it links to the store page in a new tab", async () => {
+    render(<InstallExtensionButton installUrl={STORE} ask={async () => ({ installed: false })} />)
+    const link = await screen.findByRole("link", { name: "Add to Chrome" })
+    expect(link.getAttribute("href")).toBe(STORE)
+    expect(link.getAttribute("target")).toBe("_blank")
+  })
+
+  test("hidden once the extension answers, and when the server names no store page", async () => {
+    const ask = mock(async (): Promise<ExtensionAnswer> => ({ installed: true, active: true, version: "0.3.0" }))
+    const { unmount } = render(<InstallExtensionButton installUrl={STORE} ask={ask} />)
+    await waitFor(() => expect(ask).toHaveBeenCalled())
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(screen.queryByRole("link", { name: "Add to Chrome" })).toBeNull()
+    unmount()
+    render(<InstallExtensionButton installUrl={null} ask={async () => ({ installed: false })} />)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(screen.queryByRole("link", { name: "Add to Chrome" })).toBeNull()
+  })
+
+  test("the empty report list puts it between Record and Invite", () => {
+    render(<ReportsEmpty record={<button type="button">Record</button>} install={<a href={STORE}>Add to Chrome</a>} invite={<button type="button">Invite</button>} />)
+    const actions = screen.getByRole("link", { name: "Add to Chrome" }).parentElement as HTMLElement
+    expect([...actions.children].map((child) => child.textContent)).toEqual(["Record", "Add to Chrome", "Invite"])
   })
 })
