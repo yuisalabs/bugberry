@@ -5,8 +5,8 @@ import type { ReportDraft } from "./types"
 export interface BridgeDeps {
   isBugBerryServer(origin: string): Promise<boolean>
   currentServer(): Promise<string | null>
-  /** Opens the extension's own confirmation page; only a click there changes the server. */
-  openConfirm(origin: string): Promise<void>
+  /** Asks over the dashboard's tab (or in a tab of its own); only a click there changes the server. */
+  openConfirm(origin: string, tabId: number | null): Promise<void>
   /** Opens the toolbar popup (chrome.action.openPopup, Chrome 127+). */
   openPopup(): Promise<void>
   version(): string
@@ -42,9 +42,9 @@ export function createBridge(deps: BridgeDeps) {
         return false
       }
     },
-    async useServer(origin: string): Promise<boolean> {
+    async useServer(origin: string, tabId: number | null = null): Promise<boolean> {
       if (!(await isBugBerry(origin))) return false
-      await deps.openConfirm(origin)
+      await deps.openConfirm(origin, tabId)
       return true
     },
   }
@@ -98,39 +98,6 @@ export function pageRequest(data: unknown, userActive: boolean): "hello" | "use-
   if (type === BRIDGE_USE_SERVER && userActive) return "use-server"
   if (type === BRIDGE_OPEN_POPUP && userActive) return "open-popup"
   return null
-}
-
-export interface ConfirmTab {
-  id: number
-  url: string
-  windowId: number
-}
-
-export interface ConfirmTabs {
-  /** The confirmation page's URL, without a query. */
-  pageUrl: string
-  find(): Promise<ConfirmTab | null>
-  create(url: string): Promise<void>
-  focus(tab: ConfirmTab): Promise<void>
-}
-
-/**
- * Opens the confirmation page, one at a time. An open prompt is only brought forward again: it is never
- * pointed at another server, so a click meant for one server cannot confirm a different one.
- */
-export function createConfirmOpener(tabs: ConfirmTabs): (origin: string) => Promise<void> {
-  let queue: Promise<void> = Promise.resolve()
-  return (origin) => {
-    const run = async () => {
-      const open = await tabs.find()
-      if (!open) return tabs.create(`${tabs.pageUrl}?server=${encodeURIComponent(origin)}`)
-      if (new URL(open.url).searchParams.get("server") === origin) await tabs.focus(open)
-    }
-    // Requests run one after another, so two at once cannot both find no tab and open two.
-    const next = queue.then(run, run)
-    queue = next.catch(() => {})
-    return next
-  }
 }
 
 /**

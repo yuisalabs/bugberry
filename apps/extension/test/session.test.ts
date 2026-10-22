@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { ApiError } from "../lib/api"
 import { checkSession, isBugBerryServer, serverLabel, signInUrl } from "../lib/session"
+import { sessionFrom } from "../lib/browser-settings"
 
 const settings = { serverUrl: "https://bugberry.kantor.com" }
 const me = { name: "Ana", email: "ana@kantor.test" }
@@ -67,5 +68,16 @@ describe("signInUrl and serverLabel", () => {
     expect(serverLabel("https://app.bugberry.dev", "https://app.bugberry.dev")).toBe("BugBerry cloud")
     expect(serverLabel("https://bugberry.kantor.com", "https://app.bugberry.dev")).toBe("bugberry.kantor.com")
     expect(serverLabel("http://localhost:5173", "")).toBe("localhost:5173")
+  })
+})
+
+describe("sessionFrom", () => {
+  test("a stored session the popup can start from; anything else is none", () => {
+    expect(sessionFrom({ kind: "signed-out" })).toEqual({ kind: "signed-out" })
+    expect(sessionFrom({ kind: "signed-in", name: "Dana", email: "dana@acme.io", extra: 1 })).toEqual({ kind: "signed-in", name: "Dana", email: "dana@acme.io" })
+    expect(sessionFrom({ kind: "signed-in", name: "Dana" })).toBeNull()
+    expect(sessionFrom({ kind: "unreachable", host: "b.test" })).toEqual({ kind: "unreachable", host: "b.test" })
+    expect(sessionFrom(undefined)).toBeNull()
+    expect(sessionFrom("signed-out")).toBeNull()
   })
 })

@@ -207,11 +207,22 @@ export type PageUiMessage =
   | { type: "bugberry:ui-review"; draftId: string }
   /** Takes the review off the page, before "Retake" or "Record again" captures it. */
   | { type: "bugberry:ui-review-close" }
+  /** Answered with { ok: true } once the prompt (allow the microphone, switch servers) is shown over the page. */
+  | { type: "bugberry:ui-prompt"; page: PromptPage; token: string }
+
+/** The extension pages shown over the page the reporter is on: questions, and the settings. */
+export type PromptPage = "microphone" | "confirm-server" | "options"
+
+const PROMPT_PAGES: readonly unknown[] = ["microphone", "confirm-server", "options"]
 
 export function isPageUiMessage(message: unknown): message is PageUiMessage {
   const type = typeOf(message)
   if (type === "bugberry:ui-countdown" || type === "bugberry:ui-review-close") return true
   if (type === "bugberry:ui-review") return typeof field(message, "draftId") === "string"
+  if (type === "bugberry:ui-prompt") {
+    const page = field(message, "page")
+    return PROMPT_PAGES.includes(page) && typeof field(message, "token") === "string"
+  }
   return type === "bugberry:ui-recording" && typeof field(message, "on") === "boolean" && typeof field(message, "session") === "string"
 }
 
@@ -281,4 +292,61 @@ export interface ReviewAgainRequest {
 
 export function isReviewAgainRequest(message: unknown): message is ReviewAgainRequest {
   return typeOf(message) === "bugberry:review-again" && typeof field(message, "draftId") === "string"
+}
+
+/** The review → background, after sending: "Record another" takes a new capture of the same kind on that tab. */
+export interface ReviewAnotherRequest {
+  type: "bugberry:review-another"
+  captureType: "screenshot" | "video"
+  tabId: number
+  mode?: ScreenshotMode
+}
+
+export function isReviewAnotherRequest(message: unknown): message is ReviewAnotherRequest {
+  const kind = field(message, "captureType")
+  return typeOf(message) === "bugberry:review-another" && (kind === "screenshot" || kind === "video") && typeof field(message, "tabId") === "number"
+}
+
+/**
+ * The popup → background: show the microphone prompt (the popup can't show the browser's own) or the settings
+ * over the active tab, so the reporter stays on their page.
+ */
+export interface PopupPromptRequest {
+  type: "bugberry:popup-prompt"
+  page: "microphone" | "options"
+  tabId: number | null
+}
+
+export function isPopupPromptRequest(message: unknown): message is PopupPromptRequest {
+  const tabId = field(message, "tabId")
+  const page = field(message, "page")
+  return typeOf(message) === "bugberry:popup-prompt" && (page === "microphone" || page === "options") && (tabId === null || typeof tabId === "number")
+}
+
+/** The popup → background: reopen a draft's review over the active tab. */
+export interface OpenDraftRequest {
+  type: "bugberry:open-draft"
+  draftId: string
+  tabId: number | null
+}
+
+export function isOpenDraftRequest(message: unknown): message is OpenDraftRequest {
+  const tabId = field(message, "tabId")
+  return typeOf(message) === "bugberry:open-draft" && typeof field(message, "draftId") === "string" && (tabId === null || typeof tabId === "number")
+}
+
+/**
+ * A prompt page → background: what its ticket asks ("read"), or that it is finished with it ("done"). The
+ * ticket is the only way a prompt learns what to ask, so a site embedding the page itself gets nothing.
+ */
+export interface PromptTicketRequest {
+  type: "bugberry:prompt-ticket"
+  token: string
+  /** "tab": the page can't ask here (a site's policy blocks the microphone), so ask again in a tab of its own. */
+  action: "read" | "done" | "tab"
+}
+
+export function isPromptTicketRequest(message: unknown): message is PromptTicketRequest {
+  const action = field(message, "action")
+  return typeOf(message) === "bugberry:prompt-ticket" && typeof field(message, "token") === "string" && (action === "read" || action === "done" || action === "tab")
 }

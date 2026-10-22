@@ -32,6 +32,26 @@ describe("pickArea", () => {
     expect(overlay()).toBeNull()
   })
 
+  test("while dragging, the box's size shows next to the cursor", async () => {
+    // The overlay's shadow root is closed in the page; opened here so the test can read it.
+    const attach = HTMLElement.prototype.attachShadow
+    let shadow = null as ShadowRoot | null
+    HTMLElement.prototype.attachShadow = function (init) {
+      shadow = attach.call(this, { ...init, mode: "open" })
+      return shadow
+    }
+    try {
+      const picked = pickArea()
+      pointer("pointerdown", 10, 20)
+      pointer("pointermove", 330.4, 200)
+      expect(shadow?.textContent).toContain("320 × 180")
+      pointer("pointerup", 330, 200)
+      await picked
+    } finally {
+      HTMLElement.prototype.attachShadow = attach
+    }
+  })
+
   test("a click without a drag takes the visible area", async () => {
     const picked = pickArea()
     pointer("pointerdown", 50, 50)

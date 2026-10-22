@@ -22,9 +22,9 @@ describe("the BugBerry logo in the extension", () => {
     expect(popup).toContain(`src="${LOGO}" alt="BugBerry"`)
   })
 
-  test("the review and the microphone page show the icon", () => {
-    expect(read("entrypoints", "review", "ReviewView.tsx")).toContain(`src="${ICON}"`)
-    expect(read("entrypoints", "microphone", "App.tsx")).toContain(`src="${ICON}"`)
+  test("the review and the prompts show the logo", () => {
+    expect(read("entrypoints", "review", "ReviewView.tsx")).toContain(`src="${LOGO}" alt="BugBerry"`)
+    expect(read("lib", "prompt-page.tsx")).toContain(`src="${LOGO}" alt="BugBerry"`)
   })
 
   test("nothing points at the old files", () => {

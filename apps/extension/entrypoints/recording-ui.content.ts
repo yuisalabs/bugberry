@@ -11,7 +11,7 @@ function positionFrom(value: unknown): BarPosition | null {
 
 /**
  * The page layer (isolated world): the countdown, the Recording Bar and the drawing layer on the recorded
- * tab, and the review modal after a capture. On load it asks whether this tab is being recorded, so the bar
+ * tab, the review modal after a capture, and prompts (allow the microphone, switch servers). On load it asks whether this tab is being recorded, so the bar
  * comes back after a reload or a navigation.
  */
 export default defineContentScript({
@@ -42,6 +42,11 @@ export default defineContentScript({
       }
       if (message.type === "bugberry:ui-review-close") {
         ui.hideReview()
+        sendResponse({ ok: true })
+        return undefined
+      }
+      if (message.type === "bugberry:ui-prompt") {
+        ui.showPrompt(message.page, message.token)
         sendResponse({ ok: true })
         return undefined
       }

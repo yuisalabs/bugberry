@@ -1,5 +1,6 @@
 import { browser } from "wxt/browser"
 import { createCapturePrefsStorage } from "./capture-prefs"
+import type { SessionState } from "./session"
 import { defaultServerUrl, type SettingsStorage } from "./settings"
 
 /** BugBerry cloud for a store build; empty for a build without VITE_SERVER_ORIGIN. */
@@ -29,6 +30,31 @@ export const includeCityStorage = {
   async set(includeCity: boolean): Promise<void> {
     await browser.storage.local.set({ includeCity })
   },
+}
+
+/**
+ * Where the session stood when the popup last checked, for that server. The popup starts from it while it asks
+ * again, so it opens at its real size instead of jumping from the capture tiles to "Sign in".
+ */
+export const lastSessionStorage = {
+  async get(serverUrl: string): Promise<SessionState | null> {
+    const { lastSession } = (await browser.storage.local.get("lastSession")) as { lastSession?: { serverUrl?: unknown; session?: unknown } }
+    return lastSession?.serverUrl === serverUrl ? sessionFrom(lastSession.session) : null
+  },
+  async set(serverUrl: string, session: SessionState): Promise<void> {
+    await browser.storage.local.set({ lastSession: { serverUrl, session } })
+  },
+}
+
+/** A stored session, or null when it isn't one (an older or damaged entry). */
+export function sessionFrom(value: unknown): SessionState | null {
+  const stored = value as Record<string, unknown> | null | undefined
+  if (stored?.kind === "signed-out" || stored?.kind === "no-server") return { kind: stored.kind }
+  if (stored?.kind === "signed-in" && typeof stored.name === "string" && typeof stored.email === "string") {
+    return { kind: "signed-in", name: stored.name, email: stored.email }
+  }
+  if (stored?.kind === "unreachable" && typeof stored.host === "string") return { kind: "unreachable", host: stored.host }
+  return null
 }
 
 /** The workspace the last report was sent to, so the next one starts there. */

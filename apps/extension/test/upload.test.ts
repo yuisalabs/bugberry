@@ -116,6 +116,7 @@ describe("the reporter's city", () => {
       throw new ApiError(404, "not_found", "Not found")
     }
     expect(await submitDraft("d1", form, media, deps, null, { location: JAKARTA })).toEqual({
+      id: "r1",
       reportUrl: "https://bugberry.test/r/r1",
       shareUrl: "https://bugberry.test/s/r1",
     })
@@ -231,7 +232,7 @@ describe("submitDraft", () => {
 
   test("creates the session, uploads both files, finalizes and removes the draft", async () => {
     const result = await submitDraft("d1", form, media, deps)
-    expect(result).toEqual({ reportUrl: "https://bugberry.test/r/r1", shareUrl: "https://bugberry.test/s/r1" })
+    expect(result).toEqual({ id: "r1", reportUrl: "https://bugberry.test/r/r1", shareUrl: "https://bugberry.test/s/r1" })
     expect(calls).toEqual(["createUpload", "put:r1-media", "put:r1-debugger", "finalize:r1"])
     expect(bodies[0]).toMatchObject({
       projectId: "p1",

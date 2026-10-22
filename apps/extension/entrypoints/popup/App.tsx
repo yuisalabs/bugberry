@@ -1,13 +1,22 @@
+import { RiLoader4Line } from "@remixicon/react"
 import { useEffect, useState } from "react"
 import { browser } from "wxt/browser"
 import { createBugberryApi } from "../../lib/api"
-import { BUILD_SERVER_ORIGIN, browserSettingsStorage, capturePrefsStorage, lastWorkspaceStorage } from "../../lib/browser-settings"
+import { BUILD_SERVER_ORIGIN, browserSettingsStorage, capturePrefsStorage, lastSessionStorage, lastWorkspaceStorage } from "../../lib/browser-settings"
 import { capturable } from "../../lib/capture-flow"
 import { hasTabRecorder } from "../../lib/browser-support"
 import { type CapturePrefs, DEFAULT_CAPTURE_PREFS, recordOptionsFor } from "../../lib/capture-prefs"
 import { createIndexedDbDraftStore } from "../../lib/draft-store"
 import { fullWarning, limitsFor, usageLine } from "../../lib/limits"
-import type { PopupRecordingAction, PopupRecordingRequest, RecordStartRequest, RecordStatusRequest, ScreenshotRequest } from "../../lib/messages"
+import type {
+  OpenDraftRequest,
+  PopupPromptRequest,
+  PopupRecordingAction,
+  PopupRecordingRequest,
+  RecordStartRequest,
+  RecordStatusRequest,
+  ScreenshotRequest,
+} from "../../lib/messages"
 import { type MicAccess, micAccess, micChoiceAfterCheck, micDevices } from "../../lib/microphone"
 import { controlError, recordStartNote, replyResult, uncapturableNote } from "../../lib/popup"
 import { pickEditorWorkspace } from "../../lib/report-form"
@@ -20,7 +29,6 @@ import { useConfirm } from "@bugberry/ui/confirm-dialog"
 
 const store = createIndexedDbDraftStore()
 const MIC_BLOCKED = "Microphone is blocked. Allow it for BugBerry in Chrome's site settings."
-const MICROPHONE_PAGE = "/microphone.html" as Parameters<typeof browser.runtime.getURL>[0]
 
 /** Wires the popup to Chrome: settings, session, drafts, the recording and the background's actions. */
 const tabRecorder = hasTabRecorder(browser)
@@ -28,10 +36,33 @@ const ALL_SITES = { origins: ["<all_urls>"] }
 
 const queryMicAccess = () => micAccess((name) => navigator.permissions.query({ name: name as PermissionName }))
 
+const SESSION_WAIT_MS = 1500
+
+/** The popup while it asks the server who is signed in. */
+function PopupLoading() {
+  return (
+    <main aria-busy className="flex flex-col bg-background text-foreground">
+      <header className="flex items-center px-3.5 pt-3 pb-2">
+        <img src="/assets/bugberry_logo_small.webp" alt="BugBerry" className="h-7 w-auto" />
+      </header>
+      <p role="status" className="flex items-center gap-2 px-4 pt-2 pb-6 text-sm text-muted-foreground">
+        <RiLoader4Line size={16} aria-hidden className="animate-spin" />
+        Loading…
+      </p>
+    </main>
+  )
+}
+
 export function App() {
   const { confirm, dialog } = useConfirm()
   const [settings, setSettings] = useState<Settings | null | undefined>(undefined)
   const [session, setSession] = useState<SessionState | undefined>(undefined)
+  // With no known session yet (the first open), "Loading…" stays until the server answers, at most this long.
+  const [waitedLong, setWaitedLong] = useState(false)
+  useEffect(() => {
+    const timer = setTimeout(() => setWaitedLong(true), SESSION_WAIT_MS)
+    return () => clearTimeout(timer)
+  }, [])
   const [prefs, setPrefs] = useState<CapturePrefs>(DEFAULT_CAPTURE_PREFS)
   const [drafts, setDrafts] = useState<Awaited<ReturnType<typeof store.list>>>([])
   const [recording, setRecording] = useState<RecordingStatus | undefined>(undefined)
@@ -60,9 +91,14 @@ export function App() {
   useEffect(readHostAccess, [])
 
   useEffect(() => {
-    loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN).then((loaded) => {
+    void loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN).then(async (loaded) => {
+      // Shown together with the last known session, so the popup opens at its real size while it asks again.
+      const known = loaded ? await lastSessionStorage.get(loaded.serverUrl).catch(() => null) : null
+      if (known) setSession(known)
       setSettings(loaded)
-      void checkSession(loaded, () => createBugberryApi(loaded as Settings).me()).then(setSession)
+      const checked = await checkSession(loaded, () => createBugberryApi(loaded as Settings).me())
+      setSession(checked)
+      if (loaded) void lastSessionStorage.set(loaded.serverUrl, checked).catch(() => {})
     })
     // A permission revoked since the Mic was turned on shows as "Mic off" instead of recording silence.
     void Promise.all([capturePrefsStorage.get(), queryMicAccess()]).then(
@@ -155,8 +191,12 @@ export function App() {
 
   const updatePrefs = async (patch: Partial<CapturePrefs>) => setPrefs(await capturePrefsStorage.set(patch))
 
-  // The popup can't show Chrome's permission prompt; the page asks once and turns the microphone on.
-  const onMicAllow = () => void browser.tabs.create({ url: browser.runtime.getURL(MICROPHONE_PAGE) })
+  // The popup can't show the browser's permission prompt: it is asked over the page (or in a tab), and the popup closes.
+  const onMicAllow = () => {
+    const ask: PopupPromptRequest = { type: "bugberry:popup-prompt", page: "microphone", tabId: activeTab?.id ?? null }
+    void browser.runtime.sendMessage(ask).catch(() => {})
+    window.close()
+  }
 
   const onMicChoose = async (id: string | null) => {
     setError(null)
@@ -201,7 +241,8 @@ export function App() {
     setDrafts(await store.list())
   }
 
-  if (settings === undefined) return <p className="p-4">Loading…</p>
+  // Until the session is known, so the popup doesn't open on the capture tiles and then jump to "Sign in".
+  if (settings === undefined || (session === undefined && !waitedLong)) return <PopupLoading />
   const retry = async () => {
     setSession(undefined)
     setSession(await checkSession(settings, () => createBugberryApi(settings as Settings).me()))
@@ -244,9 +285,19 @@ export function App() {
         onRecord={onRecord}
         onSignIn={() => settings && void browser.tabs.create({ url: signInUrl(settings.serverUrl) })}
         onRetry={() => void retry()}
-        onOpenSettings={() => void browser.runtime.openOptionsPage()}
+        onOpenSettings={() => {
+          // Over the page the reporter is on (or in a tab where that page can't show it), like the other prompts.
+          const ask: PopupPromptRequest = { type: "bugberry:popup-prompt", page: "options", tabId: activeTab?.id ?? null }
+          void browser.runtime.sendMessage(ask).catch(() => {})
+          window.close()
+        }}
         onOpenDashboard={() => settings && void browser.tabs.create({ url: `${settings.serverUrl}/app` })}
-        onOpenDraft={(id) => void browser.tabs.create({ url: `${browser.runtime.getURL("/review.html")}?draft=${encodeURIComponent(id)}` })}
+        onOpenDraft={(id) => {
+          // Over the page the reporter is on, like a new capture's review.
+          const open: OpenDraftRequest = { type: "bugberry:open-draft", draftId: id, tabId: activeTab?.id ?? null }
+          void browser.runtime.sendMessage(open).catch(() => {})
+          window.close()
+        }}
         onDeleteDraft={(id) => void remove(id)}
         onAllowHosts={() => void browser.permissions.request(ALL_SITES).finally(readHostAccess)}
         usage={limitNotes.usage}

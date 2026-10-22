@@ -4,6 +4,8 @@ import { withinBudget } from "./capture-flow"
 /** One document's capture buffer, as it was when the page went away (or when the recording stopped). */
 export interface PageCaptureRecord {
   documentId: string
+  /** The tab it was open in; absent on pages stored by older versions, which were all the recorded tab's. */
+  tabId?: number
   events: CaptureEvent[]
   incomplete: string[]
 }
@@ -31,14 +33,17 @@ export function capPages(pages: readonly PageCaptureRecord[]): PageCaptureRecord
     .filter((page, index) => page.events.length > 0 || index === pages.length - 1)
 }
 
-/** Every page's events in one timeline; `current` (read at stop) replaces the stored copy of its document. */
+/**
+ * Every page's events in one timeline; `current` (the pages open at stop, one per tab) replaces the stored
+ * copy of their documents.
+ */
 export function mergePages(
   stored: readonly PageCaptureRecord[],
-  current: PageCaptureRecord | null,
+  current: PageCaptureRecord | readonly PageCaptureRecord[] | null,
 ): { events: CaptureEvent[]; incomplete: string[] } {
   const pages = new Map<string, PageCaptureRecord>()
   for (const page of stored) pages.set(page.documentId, page)
-  if (current) pages.set(current.documentId, current)
+  for (const page of current === null ? [] : "documentId" in current ? [current] : current) pages.set(page.documentId, page)
   const events = [...pages.values()].flatMap((page) => page.events).sort((a, b) => a.t - b.t)
   const incomplete = [...new Set([...pages.values()].flatMap((page) => page.incomplete))]
   return { events: withinBudget(capEvents(events, MAX_MERGED_EVENTS)), incomplete }

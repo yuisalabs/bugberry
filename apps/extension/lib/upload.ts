@@ -6,6 +6,13 @@ import type { ReportDraft, ReportForm, UploadSessionState, UploadTarget } from "
 
 export type { ReportForm } from "./types"
 
+/** A report once its upload is done. */
+export interface SentReport {
+  id: string
+  reportUrl: string
+  shareUrl: string
+}
+
 /** What `lock` returns when another tab already holds the lock. */
 export const LOCKED = Symbol("locked")
 
@@ -51,8 +58,10 @@ function shouldRetry(error: unknown): boolean {
   )
 }
 
+/** The fields an upload session fixes. The assignee is set once the report exists, so it doesn't count. */
 export function sameForm(a: ReportForm | null, b: ReportForm): boolean {
-  return a !== null && JSON.stringify(a) === JSON.stringify(b)
+  const fixed = ({ assigneeId: _assignee, ...rest }: ReportForm) => JSON.stringify(rest)
+  return a !== null && fixed(a) === fixed(b)
 }
 
 export async function sha256(blob: Blob): Promise<string> {
@@ -75,7 +84,7 @@ export async function submitDraft(
   deps: UploadDeps,
   thumbnail: Blob | null = null,
   options: { location?: Coordinates | null } = {},
-): Promise<{ reportUrl: string; shareUrl: string }> {
+): Promise<SentReport> {
   if (!deps.lock) return submitUnlocked(draftId, form, media, deps, thumbnail, options)
   const result = await deps.lock(`bugberry-draft-${draftId}`, () =>
     submitUnlocked(draftId, form, media, deps, thumbnail, options),
@@ -91,7 +100,7 @@ async function submitUnlocked(
   deps: UploadDeps,
   thumbnail: Blob | null,
   options: { location?: Coordinates | null },
-): Promise<{ reportUrl: string; shareUrl: string }> {
+): Promise<SentReport> {
   const stored = await deps.store.get(draftId)
   if (!stored) throw new Error("Report draft not found")
   let draft: ReportDraft = stored
@@ -204,7 +213,7 @@ async function submitUnlocked(
       if (options.location && deps.api.setLocation) {
         await deps.api.setLocation(finalized.id, options.location).catch(() => undefined)
       }
-      return { reportUrl: finalized.reportUrl, shareUrl: finalized.shareUrl }
+      return { id: finalized.id, reportUrl: finalized.reportUrl, shareUrl: finalized.shareUrl }
     } catch (error) {
       if (error instanceof ApiError && error.code === "upload_expired") await save({ session: null })
       const delay = RETRY_DELAYS_MS[retry]

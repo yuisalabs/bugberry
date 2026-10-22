@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { BRIDGE_OPEN_POPUP } from "@bugberry/shared"
-import { type BridgeDeps, bridgeSenderOrigin, type ConfirmTabs, confirmNotes, createBridge, createConfirmOpener, pageRequest, switchServer } from "../lib/bridge"
+import { type BridgeDeps, bridgeSenderOrigin, confirmNotes, createBridge, pageRequest, switchServer } from "../lib/bridge"
 import type { ReportDraft } from "../lib/types"
 
 const BUGBERRY = "https://bugberry.kantor.com"
@@ -145,48 +145,6 @@ describe("pageRequest", () => {
     expect(pageRequest({ type: "bugberry:use-server" }, false)).toBeNull()
     expect(pageRequest({ type: "other" }, true)).toBeNull()
     expect(pageRequest(null, true)).toBeNull()
-  })
-})
-
-describe("createConfirmOpener", () => {
-  const PAGE = "chrome-extension://ext/confirm-server.html"
-  function tabs() {
-    const open: Array<{ id: number; url: string; windowId: number }> = []
-    const log: string[] = []
-    let nextId = 1
-    const deps: ConfirmTabs = {
-      pageUrl: PAGE,
-      find: async () => {
-        await Promise.resolve()
-        return open[0] ?? null
-      },
-      create: async (url) => {
-        await Promise.resolve()
-        open.push({ id: nextId++, url, windowId: 9 })
-        log.push(`create ${url}`)
-      },
-      focus: async (tab) => void log.push(`focus ${tab.id}`),
-    }
-    return { open, log, deps }
-  }
-
-  test("two requests at once open one tab", async () => {
-    const { open, deps } = tabs()
-    const openConfirm = createConfirmOpener(deps)
-    await Promise.all([openConfirm(BUGBERRY), openConfirm(BUGBERRY)])
-    expect(open).toHaveLength(1)
-    expect(open[0]?.url).toBe(`${PAGE}?server=${encodeURIComponent(BUGBERRY)}`)
-  })
-
-  test("an open prompt is focused again, never pointed at another server", async () => {
-    const { open, log, deps } = tabs()
-    const openConfirm = createConfirmOpener(deps)
-    await openConfirm(BUGBERRY)
-    await openConfirm(BUGBERRY)
-    await openConfirm(STRANGER)
-    expect(open).toHaveLength(1)
-    expect(open[0]?.url).toContain(encodeURIComponent(BUGBERRY))
-    expect(log).toEqual([`create ${PAGE}?server=${encodeURIComponent(BUGBERRY)}`, "focus 1"])
   })
 })
 

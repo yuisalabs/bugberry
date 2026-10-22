@@ -1,4 +1,5 @@
 import type { RecordingNote } from "@bugberry/capture"
+import type { Visibility } from "@bugberry/shared"
 import { VideoPlayer } from "@bugberry/player/video-player"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { browser } from "wxt/browser"
@@ -9,7 +10,7 @@ import { createIndexedDbDraftStore, saveAnnotations } from "../../lib/draft-stor
 import { type EditorDeps, loadEditor, loadProjects } from "../../lib/editor-load"
 import { limitsFor } from "../../lib/limits"
 import { currentCoordinates, locationForSend, toggleCity } from "../../lib/location"
-import type { ReviewAgainRequest } from "../../lib/messages"
+import type { ReviewAgainRequest, ReviewAnotherRequest } from "../../lib/messages"
 import { isSignedOut } from "../../lib/popup"
 import { reviewMarkers } from "../../lib/review-data"
 import { draftKept, draftWithNotes } from "../../lib/review-draft"
@@ -21,7 +22,7 @@ import { browserThumbnailDeps } from "../../lib/thumbnail-browser"
 import type { ReportDraft } from "../../lib/types"
 import { LOCKED, putFile, type ReportForm, submitDraft } from "../../lib/upload"
 import { AnnotationCanvas, type AnnotationCanvasHandle } from "./AnnotationCanvas"
-import { ReviewView, type ReviewStatus } from "./ReviewView"
+import { type Assignable, ReviewView, type ReviewStatus, type SentDetails, type TrackerChoice } from "./ReviewView"
 
 const store = createIndexedDbDraftStore()
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
@@ -72,6 +73,21 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
   const [cityNote, setCityNote] = useState<string | null>(null)
   // The selected workspace under ACCOUNT_LIMITS: its usage for this kind, and whether "Create report" waits.
   const [limitNote, setLimitNote] = useState<LimitNote>(NO_LIMIT_NOTE)
+  const [members, setMembers] = useState<Assignable[]>([])
+  // After sending: the report as the server has it, and the trackers it can go to.
+  const [sentDetails, setSentDetails] = useState<SentDetails | null>(null)
+  const [trackers, setTrackers] = useState<TrackerChoice[] | null>(null)
+  const [trackerNote, setTrackerNote] = useState<string | null>(null)
+
+  /** The people of a workspace, for Assignee; none when the server can't say. */
+  const loadMembers = useCallback(async (workspaceId: string | null) => {
+    const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
+    if (!settings || !workspaceId) return setMembers([])
+    const listed = await apiOf(settings)
+      .listMembers(workspaceId)
+      .catch(() => [])
+    setMembers(listed.map((member) => ({ id: member.id, name: member.name ?? "", email: member.email })))
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -89,6 +105,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
         if (state.kind === "error") return setError(state.message)
         setLoaded(state)
         setProjects(state.projects)
+        void loadMembers(state.workspaceId)
         if (state.draft.status === "failed") setStatus({ failed: state.draft.error ?? "Upload failed" })
       })
       .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : String(cause)))
@@ -97,7 +114,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       cancelled = true
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
-  }, [draftId])
+  }, [draftId, loadMembers])
 
   // Edits are kept in the draft as they happen (debounced), so closing the tab or the page loses nothing.
   // Not while sending: the upload writes the draft then.
@@ -169,6 +186,60 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
     void limits?.select(id)
     const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
     if (settings) setProjects((await loadProjects(editorDeps, settings, id)).projects)
+    void loadMembers(id)
+  }
+
+  /** What the created report looks like on the server, and where else it can go; the review works without either. */
+  const loadSent = async (reportId: string) => {
+    const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
+    if (!settings) return
+    const api = apiOf(settings)
+    const report = await api.getReport(reportId).catch(() => null)
+    if (report) {
+      setSentDetails({
+        number: report.number,
+        title: report.title,
+        status: report.status,
+        priority: report.priority,
+        visibility: report.visibility,
+        projectName: projects.find((project) => project.id === report.projectId)?.name ?? null,
+        assigneeName: report.assignee?.name ?? null,
+      })
+    }
+    const offered = await api.reportTrackers(reportId).catch(() => null)
+    if (!offered) return
+    const sentTo = new Map(offered.links.map((link) => [link.integrationId, link]))
+    const choices = offered.integrations.map((integration): TrackerChoice => {
+      const link = sentTo.get(integration.id)
+      return { id: integration.id, provider: integration.provider, label: integration.label, state: link?.externalUrl ? { url: link.externalUrl } : "idle" }
+    })
+    setTrackers(choices)
+    setTrackerNote(offered.needsProject ? "Pick a project next time to send reports to its trackers." : null)
+  }
+
+  const changeVisibility = async (reportId: string, visibility: Visibility) => {
+    const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
+    if (!settings) return
+    const before = sentDetails
+    setSentDetails((current) => current && { ...current, visibility })
+    // Back as it was when the server refuses: the link must not claim more (or less) than is true.
+    await apiOf(settings)
+      .updateReport(reportId, { visibility })
+      .catch(() => setSentDetails(before))
+  }
+
+  const sendToTracker = async (reportId: string, integrationId: string) => {
+    const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
+    if (!settings) return
+    const mark = (state: TrackerChoice["state"]) =>
+      setTrackers((current) => current?.map((tracker) => (tracker.id === integrationId ? { ...tracker, state } : tracker)) ?? null)
+    mark("sending")
+    try {
+      const link = (await apiOf(settings).sendToTracker(reportId, integrationId)) as { externalUrl?: string | null; error?: string | null }
+      mark(link.error ? { error: link.error } : { url: link.externalUrl ?? null })
+    } catch (cause) {
+      mark({ error: cause instanceof Error ? cause.message : String(cause) })
+    }
   }
 
   const changeIncludeCity = async (on: boolean) => {
@@ -208,7 +279,10 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
         { location: asked.location },
       )
       if (form.workspaceId) await lastWorkspaceStorage.set(form.workspaceId)
+      // The report exists by now: a refused assignment leaves it unassigned rather than unsent.
+      if (form.assigneeId) await apiOf(settings).updateReport(result.id, { assigneeId: form.assigneeId }).catch(() => undefined)
       setStatus({ sent: result })
+      void loadSent(result.id)
     } catch (cause) {
       if (isSignedOut(cause)) setStatus({ signedOut: signInUrl(settings.serverUrl) })
       else setStatus({ failed: cause instanceof Error ? cause.message : String(cause) })
@@ -219,6 +293,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
   if (error) return <p className="p-6 text-danger-subtle-foreground">{error}</p>
   if (!loaded) return embedded ? null : <p className="p-6">Loading…</p>
   const { draft } = loaded
+  const sent = typeof status === "object" && "sent" in status ? status.sent : null
   const startedAt = draft.captureType === "video" ? (draft.recordingStartedAt ?? draft.debuggerPayload?.recordingStartedAt ?? 0) : 0
 
   return (
@@ -240,6 +315,8 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       workspaces={loaded.workspaces}
       workspaceId={loaded.workspaceId}
       projects={projects}
+      members={members}
+      mediaSize={draft.captureType === "screenshot" && loaded.image ? { width: loaded.image.width, height: loaded.image.height } : null}
       email={loaded.email}
       name={loaded.name}
       status={status}
@@ -271,6 +348,26 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       sendBlocked={limitNote.blocked}
       onOpenDashboard={limitNote.admin ? () => void openDashboard() : undefined}
       onIncludeCityChange={(on) => void changeIncludeCity(on)}
+      sentDetails={sentDetails}
+      trackers={trackers}
+      trackerNote={trackerNote}
+      onVisibilityChange={sent ? (visibility) => void changeVisibility(sent.id, visibility) : undefined}
+      onSendToTracker={sent ? (id) => void sendToTracker(sent.id, id) : undefined}
+      onAnother={
+        draft.tabId === undefined
+          ? undefined
+          : async () => {
+              // The background takes the review off the page first, then takes the new capture there.
+              const another: ReviewAnotherRequest = {
+                type: "bugberry:review-another",
+                captureType: draft.captureType,
+                tabId: draft.tabId as number,
+                ...(draft.captureType === "screenshot" && draft.screenshotMode ? { mode: draft.screenshotMode } : {}),
+              }
+              const result = (await browser.runtime.sendMessage(another).catch(() => null)) as { ok?: unknown } | null
+              if (!embedded && result?.ok !== false) window.close()
+            }
+      }
     />
   )
 }
