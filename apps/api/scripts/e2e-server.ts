@@ -52,6 +52,8 @@ const config: Config = {
   storage: { driver: "local", dir: mkdtempSync(join(tmpdir(), "bugberry-e2e-")) },
   accountLimits: null,
       allowPrivateIntegrationHosts: true,
+      publicSite: true,
+      demoRequestEmail: null,
 }
 
 const db = createDb(config.databaseUrl)

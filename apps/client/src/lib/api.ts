@@ -61,6 +61,8 @@ export type SignInMethod = "google" | "github" | "gitlab" | "email"
 export interface ClientConfig {
   extensionInstallUrl: string | null
   maxUploadMb: number
+  /** False on self-hosted servers: the marketing pages go to sign-in there. */
+  publicSite: boolean
 }
 
 export interface AuthMethods {

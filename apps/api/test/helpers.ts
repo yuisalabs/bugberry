@@ -102,6 +102,8 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
     storage: { driver: "local", dir: mkdtempSync(join(tmpdir(), "bugberry-test-")) },
     accountLimits: null,
     allowPrivateIntegrationHosts: true,
+    publicSite: false,
+    demoRequestEmail: null,
     ...overrides,
   }
 }

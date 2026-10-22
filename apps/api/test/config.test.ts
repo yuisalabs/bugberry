@@ -150,6 +150,17 @@ describe("loadConfig", () => {
     expect(() => loadConfig({ ...baseEnv, STORAGE_DRIVER: "ftp" })).toThrow(/STORAGE_DRIVER/)
   })
 
+  test("the public site is off unless PUBLIC_SITE is true", () => {
+    expect(loadConfig(baseEnv).publicSite).toBe(false)
+    expect(loadConfig({ ...baseEnv, PUBLIC_SITE: "true" }).publicSite).toBe(true)
+  })
+
+  test("DEMO_REQUEST_EMAIL is optional and must be an email address", () => {
+    expect(loadConfig(baseEnv).demoRequestEmail).toBeNull()
+    expect(loadConfig({ ...baseEnv, DEMO_REQUEST_EMAIL: "sales@bugberry.dev" }).demoRequestEmail).toBe("sales@bugberry.dev")
+    expect(() => loadConfig({ ...baseEnv, DEMO_REQUEST_EMAIL: "sales" })).toThrow("DEMO_REQUEST_EMAIL must be an email address")
+  })
+
   test("account limits are off unless ACCOUNT_LIMITS is true", () => {
     expect(loadConfig(baseEnv).accountLimits).toBeNull()
     expect(loadConfig({ ...baseEnv, ACCOUNT_LIMITS: "false" }).accountLimits).toBeNull()

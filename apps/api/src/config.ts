@@ -74,6 +74,10 @@ export interface Config {
   accountLimits: AccountLimits | null
   /** ALLOW_PRIVATE_INTEGRATION_HOSTS=true lets integrations reach private network addresses (an internal GitLab). */
   allowPrivateIntegrationHosts: boolean
+  /** BugBerry cloud only (PUBLIC_SITE=true): the marketing pages and the demo form. Off on self-hosted servers. */
+  publicSite: boolean
+  /** Who is emailed each demo request (DEMO_REQUEST_EMAIL); null stores requests without emailing anyone. */
+  demoRequestEmail: string | null
 }
 
 export class ConfigError extends Error {
@@ -198,6 +202,11 @@ export function loadConfig(env: Env): Config {
     throw new ConfigError("Enable at least one sign-in method: Google, GitHub, GitLab or email (EMAIL_DRIVER)")
   }
 
+  const demoRequestEmail = optional("DEMO_REQUEST_EMAIL") ?? null
+  if (demoRequestEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(demoRequestEmail)) {
+    throw new ConfigError("DEMO_REQUEST_EMAIL must be an email address")
+  }
+
   const encryptionKey = required("ENCRYPTION_KEY")
   if (Buffer.from(encryptionKey, "base64").length !== 32) {
     throw new ConfigError("ENCRYPTION_KEY must be 32 random bytes in base64 (openssl rand -base64 32)")
@@ -230,5 +239,7 @@ export function loadConfig(env: Env): Config {
           }
         : null,
     allowPrivateIntegrationHosts: optional("ALLOW_PRIVATE_INTEGRATION_HOSTS") === "true",
+    publicSite: optional("PUBLIC_SITE") === "true",
+    demoRequestEmail,
   }
 }
