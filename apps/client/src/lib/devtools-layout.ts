@@ -1,4 +1,4 @@
-/** Whether the report page shows DevTools, and how wide; `width: null` is the default (42% of the page). */
+/** Whether the report page shows its sidebar, and how wide; `width: null` is the default (34% of the page). */
 export interface DevtoolsLayout {
   open: boolean
   width: number | null
@@ -30,9 +30,9 @@ export function saveDevtools(layout: DevtoolsLayout): void {
   }
 }
 
-/** The panel's column in the page grid: 42% by default, and a chosen width never crowds the report out. */
+/** The sidebar's column in the page grid: 34% by default, and a chosen width never crowds the report out. */
 export function devtoolsColumn(width: number | null): string {
-  return width === null ? "max(420px,42%)" : `min(${width}px, calc(100% - ${REPORT_MIN}px))`
+  return width === null ? "max(420px,34%)" : `min(${width}px, calc(100% - ${REPORT_MIN}px))`
 }
 
 /** A width the panel can be dragged to: never narrower than 360 px, never crowding the report out. */

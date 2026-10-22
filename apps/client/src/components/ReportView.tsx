@@ -1,8 +1,11 @@
 import { type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { RiFileListLine, RiHashtag, RiTerminalBoxLine } from "@remixicon/react"
+import { Tab, TabList, TabPanel, Tabs } from "react-aria-components"
+import { Avatar } from "@bugberry/ui/avatar"
 import type { ReportDetail } from "../lib/api"
 import { clampDevtoolsWidth, type DevtoolsLayout, devtoolsColumn, readDevtools, saveDevtools } from "../lib/devtools-layout"
-import { RiFlag2Line, RiHashtag } from "@remixicon/react"
-import { PRIORITY_LABELS, PRIORITY_STYLES, STATUS_LABELS, STATUS_STYLES } from "../lib/labels"
+import { formatDateTime } from "../lib/format"
+import { initialsOf } from "../lib/people"
 import { flaggedIssues } from "@bugberry/debugger-view"
 import type { SentIssue } from "../lib/report-page"
 import { type Playback, seekSeconds } from "../lib/timeline"
@@ -14,13 +17,28 @@ import { MediaViewer } from "./MediaViewer"
 import { FlaggedIssues } from "./report/FlaggedIssues"
 import { ReportMeta } from "./report/ReportMeta"
 import { playAt, ReportVideoContext } from "./report/video-context"
-import { Badge } from "./ui"
 import { VideoReporter, VideoShareActions } from "./VideoOverlay"
 
+export type SidebarTab = "details" | "devtools"
+
+const tabStyle =
+  "flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm text-muted-foreground outline-hidden transition hover:text-foreground data-focus-visible:ring-2 data-focus-visible:ring-ring selected:bg-background selected:font-semibold selected:text-foreground selected:shadow-xs selected:[&_svg]:text-primary"
+
+/** A row of the sidebar's Properties that only shows a value: Reporter, Project, Created. */
+function PropertyRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="grid grid-cols-[6rem_minmax(0,1fr)] items-center gap-3 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="flex min-w-0 items-center gap-2 font-medium text-foreground">{children}</span>
+    </div>
+  )
+}
+
 /**
- * The report page and the share page: the recording and what it is about on the left, DevTools on
- * the right from 1280 px up (stacked below on smaller screens). There the panel can be hidden, and its
- * left edge dragged to make it wider or narrower; this browser remembers both.
+ * The report page and the share page: the recording and what it is about on the left, and a sidebar on the right
+ * from 1280 px up (below the report on smaller screens) with two tabs: Details (the properties and the comments) and
+ * DevTools, which it opens on. The sidebar can be hidden, and its left edge dragged to make it wider or narrower;
+ * this browser remembers both.
  */
 export function ReportView({
   report,
@@ -36,18 +54,18 @@ export function ReportView({
 }: {
   report: ReportDetail
   header: ReactNode
-  /** Status, priority and assignee; the share page has none. */
+  /** Status, priority and assignee, one per row; the share page has none. */
   fields?: ReactNode
   title: ReactNode
   issues?: SentIssue[]
   refreshReport: () => Promise<ReportDetail | undefined>
   /** Where the video starts, from a shared "at 0:03" link. */
   startAtSeconds?: number
-  /** The report's project name, for the phone's chips above the title. */
+  /** The report's project name, for the Properties. */
   project?: string | null
   /** The phone's bar pinned to the bottom (Copy link); from tablet width up it sits in the header instead. */
   footer?: ReactNode
-  /** Below the report and its captured data: the comments. */
+  /** Under the Properties in the Details tab: the comments. */
   children?: ReactNode
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -60,6 +78,8 @@ export function ReportView({
   const [currentMs, setCurrentMs] = useState<number | null>(null)
   const [focus, setFocus] = useState<DebuggerFocus | null>(null)
   const [devtools, setDevtools] = useState<DevtoolsLayout>(readDevtools)
+  // The page always opens on DevTools; Details is a click away.
+  const [tab, setTab] = useState<SidebarTab>("devtools")
   const aside = useRef<HTMLElement>(null)
   const grid = useRef<HTMLDivElement>(null)
   const changeDevtools = (next: DevtoolsLayout) => {
@@ -114,21 +134,23 @@ export function ReportView({
   const columns = { "--devtools-width": devtoolsColumn(devtools.width) } as CSSProperties
 
   return (
-    <div
-      ref={grid}
-      style={columns}
-      className={`min-h-screen ${footer ? "pb-24 md:pb-0" : ""} ${devtools.open ? "xl:grid xl:grid-cols-[minmax(0,1fr)_max(360px,var(--devtools-width))] xl:grid-rows-[auto_1fr]" : ""}`}
-    >
-      <article className="flex min-w-0 flex-col gap-5 px-4 py-4 sm:px-6 xl:col-start-1 xl:row-start-1">
-        <header className="flex items-center gap-2">
-          <div className="min-w-0 flex-1">{header}</div>
-          <span className="hidden xl:block">
-            <DevtoolsToggle open={devtools.open} onToggle={(open) => changeDevtools({ ...devtools, open })} />
-          </span>
-        </header>
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-5">
-          {/* Phones: the fields come after what the report is about; from tablet width up, above the media. */}
-          {fields && <div className="order-last md:order-none">{fields}</div>}
+    <div className={`flex min-h-screen flex-col bg-background ${footer ? "pb-24 md:pb-0" : ""}`}>
+      <header className="flex items-center gap-2 px-4 py-3 sm:px-6 md:py-4">
+        <div className="min-w-0 flex-1">{header}</div>
+        <span className="hidden xl:block">
+          <DevtoolsToggle open={devtools.open} onToggle={(open) => changeDevtools({ ...devtools, open })} />
+        </span>
+      </header>
+
+      {/* The page sits on the same soft panel as the rest of the app. */}
+      <div
+        ref={grid}
+        style={columns}
+        className={`flex flex-1 flex-col gap-6 bg-sidebar px-4 py-5 sm:px-6 md:mx-6 md:rounded-t-[28px] md:border md:border-b-0 md:border-sidebar-border md:px-8 md:py-7 ${
+          devtools.open ? "xl:grid xl:grid-cols-[minmax(0,1fr)_max(360px,var(--devtools-width))] xl:items-start" : ""
+        }`}
+      >
+        <article className="flex min-w-0 flex-col gap-5">
           <MediaViewer
             report={report}
             onExpired={onExpired}
@@ -139,81 +161,99 @@ export function ReportView({
             topLeft={reporter}
             topRight={shareActions}
           />
-          <section className="flex flex-col gap-2">
-            <ReportChips report={report} project={project} />
-            <div className="flex items-start gap-3">
-              <div className="min-w-0 flex-1">{title}</div>
-              {report.priority !== "none" && (
-                <span className="hidden md:block">
-                  <Badge className={`mt-1.5 shrink-0 ${PRIORITY_STYLES[report.priority]}`}>{PRIORITY_LABELS[report.priority]}</Badge>
-                </span>
-              )}
-            </div>
+          <section className="flex flex-col gap-3">
+            <ReportMeta report={report} issues={issues} part="chips" />
+            {/* The priority is in the sidebar's Properties, so the title stands alone. */}
+            <div className="min-w-0">{title}</div>
+            <ReportMeta report={report} issues={issues} part="byline" />
             {report.description && (
               <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">{report.description}</p>
             )}
-            <ReportMeta report={report} issues={issues} />
           </section>
           <FlaggedIssues
             issues={flagged}
             onJump={(offsetMs) => playback?.seek(offsetMs)}
-            onOpen={(target) => setFocus({ ...target, nonce: Date.now() })}
+            onOpen={(target) => {
+              // The issue opens in DevTools, so the sidebar goes there first.
+              setTab("devtools")
+              setFocus({ ...target, nonce: Date.now() })
+            }}
           />
-        </div>
-      </article>
-      <aside
-        ref={aside}
-        aria-label="DevTools"
-        className={`relative min-w-0 px-4 sm:px-6 xl:sticky xl:top-0 xl:col-start-2 xl:row-span-2 xl:row-start-1 xl:h-screen xl:self-start xl:border-l xl:border-border xl:px-0 ${devtools.open ? "" : "xl:hidden"}`}
-      >
-        <DevtoolsResizer
-          width={devtools.width}
-          measure={() => aside.current?.offsetWidth ?? 600}
-          // While dragging only the column moves; React and storage hear about it once, on release.
-          onDrag={(width) =>
-            grid.current?.style.setProperty("--devtools-width", devtoolsColumn(clampDevtoolsWidth(width, window.innerWidth)))
-          }
-          onResize={(width) => changeDevtools({ ...devtools, width: clampDevtoolsWidth(width, window.innerWidth) })}
-          onReset={() => changeDevtools({ ...devtools, width: null })}
-        />
-        <div className="mx-auto h-full w-full max-w-4xl min-w-0 xl:max-w-none xl:overflow-hidden">
-          <DebuggerPanel report={report} refreshReport={refresh} playback={playback} focus={focus} />
-        </div>
-      </aside>
-      {children && (
-        <div className="min-w-0 px-4 pt-8 pb-6 sm:px-6 xl:col-start-1 xl:row-start-2 xl:pt-0">
-          <div className="mx-auto w-full max-w-7xl">
-            <ReportVideoContext.Provider value={video}>{children}</ReportVideoContext.Provider>
-          </div>
-        </div>
-      )}
+        </article>
+
+        <aside
+          ref={aside}
+          aria-label="Report sidebar"
+          className={`relative flex min-w-0 flex-col overflow-hidden rounded-3xl border border-border bg-background xl:sticky xl:top-4 xl:h-[calc(100vh-2rem)] ${
+            devtools.open ? "" : "xl:hidden"
+          }`}
+        >
+          <DevtoolsResizer
+            width={devtools.width}
+            measure={() => aside.current?.offsetWidth ?? 600}
+            // While dragging only the column moves; React and storage hear about it once, on release.
+            onDrag={(width) =>
+              grid.current?.style.setProperty("--devtools-width", devtoolsColumn(clampDevtoolsWidth(width, window.innerWidth)))
+            }
+            onResize={(width) => changeDevtools({ ...devtools, width: clampDevtoolsWidth(width, window.innerWidth) })}
+            onReset={() => changeDevtools({ ...devtools, width: null })}
+          />
+          <Tabs
+            selectedKey={tab}
+            onSelectionChange={(key) => setTab(key === "devtools" ? "devtools" : "details")}
+            className="flex min-h-0 flex-1 flex-col"
+          >
+            <div className="p-3 pb-0">
+              <TabList aria-label="Sidebar" className="flex gap-1 rounded-2xl bg-muted p-1">
+                <Tab id="details" className={tabStyle}>
+                  <RiFileListLine aria-hidden className="size-4" />
+                  Details
+                </Tab>
+                <Tab id="devtools" className={tabStyle}>
+                  <RiTerminalBoxLine aria-hidden className="size-4" />
+                  DevTools
+                </Tab>
+              </TabList>
+            </div>
+            <TabPanel id="details" className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-5 pt-5 pb-3 outline-hidden">
+              <section aria-labelledby="report-properties" className="flex flex-col gap-2.5">
+                {/* The same heading as Comments below it, so the sidebar reads as one list of parts. */}
+                <h2 id="report-properties" className="font-heading text-base font-semibold text-foreground">
+                  Properties
+                </h2>
+                {fields}
+                <PropertyRow label="Reporter">
+                  <Avatar
+                    src={report.reporter.image}
+                    initials={initialsOf(report.reporter.name)}
+                    alt=""
+                    size="xs"
+                    className="shrink-0 bg-primary text-primary-foreground"
+                  />
+                  <span className="truncate">{report.reporter.name}</span>
+                </PropertyRow>
+                {project && (
+                  <PropertyRow label="Project">
+                    <RiHashtag aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+                    <span className="truncate">{project}</span>
+                  </PropertyRow>
+                )}
+                <PropertyRow label="Created">{formatDateTime(report.createdAt)}</PropertyRow>
+              </section>
+              {children && (
+                <div className="flex flex-1 flex-col">
+                  <ReportVideoContext.Provider value={video}>{children}</ReportVideoContext.Provider>
+                </div>
+              )}
+            </TabPanel>
+            <TabPanel id="devtools" className="min-h-0 flex-1 overflow-hidden outline-hidden">
+              <DebuggerPanel report={report} refreshReport={refresh} playback={playback} focus={focus} />
+            </TabPanel>
+          </Tabs>
+        </aside>
+      </div>
       {footer && (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background px-4 py-3 md:hidden">{footer}</div>
-      )}
-    </div>
-  )
-}
-
-/** The phone's chips above the title: status, a priority that is set, and the project. */
-function ReportChips({ report, project }: { report: Pick<ReportDetail, "status" | "priority">; project: string | null }) {
-  const chip = "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium"
-  return (
-    <div className="flex flex-wrap gap-2 md:hidden">
-      <span className={`${chip} ${STATUS_STYLES[report.status]}`}>
-        <span aria-hidden className="size-1.5 rounded-full bg-current" />
-        {STATUS_LABELS[report.status]}
-      </span>
-      {report.priority !== "none" && (
-        <span className={`${chip} ${PRIORITY_STYLES[report.priority]}`}>
-          <RiFlag2Line aria-hidden className="size-4" />
-          {PRIORITY_LABELS[report.priority]}
-        </span>
-      )}
-      {project && (
-        <span className={`${chip} min-w-0 bg-muted text-muted-foreground`}>
-          <RiHashtag aria-hidden className="size-4 shrink-0" />
-          <span className="truncate">{project}</span>
-        </span>
       )}
     </div>
   )

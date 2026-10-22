@@ -55,7 +55,7 @@ export function CommentsSection({
   return (
     <section aria-label="Comments" className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 font-heading text-lg font-semibold">
+        <h2 className="flex items-center gap-2 font-heading text-base font-semibold">
           Comments
           <span className="rounded-full bg-muted px-2 text-xs font-medium text-muted-foreground">{commentCount(threads)}</span>
         </h2>
