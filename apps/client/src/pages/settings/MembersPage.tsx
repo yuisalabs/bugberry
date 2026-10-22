@@ -69,7 +69,8 @@ function CountBadge({ count }: { count: number }) {
 /** A part of the members card (requests, pending invites) under a small uppercase title. */
 function SubTitle({ title, count }: { title: string; count: number }) {
   return (
-    <h3 className={`flex items-center gap-2 pt-6 pb-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase ${rowPadding}`}>
+    // The line above it closes the member list, so the list's last row ends flush with the card when nothing follows.
+    <h3 className={`flex items-center gap-2 border-t border-border pt-6 pb-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase ${rowPadding}`}>
       {title}
       <span className="font-medium">{count}</span>
     </h3>
@@ -163,7 +164,7 @@ export function MembersView({
 
   return (
     <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,2.2fr)_minmax(0,1fr)]">
-      <section className={`${card} overflow-hidden pb-2`}>
+      <section className={`${card} overflow-hidden`}>
         <div className={`flex flex-wrap items-center justify-between gap-3 py-4 ${rowPadding}`}>
           <h2 className={`flex items-center gap-2.5 ${cardTitle}`}>
             Members
@@ -184,7 +185,7 @@ export function MembersView({
           <span>Role</span>
           <span>Joined</span>
         </div>
-        <ul className="divide-y divide-border border-b border-border">
+        <ul className="divide-y divide-border">
           {shownMembers.map((member) => {
             const isMe = member.id === meId
             // The owner can't be removed or demoted, and can't leave; nobody changes their own role.
@@ -237,7 +238,7 @@ export function MembersView({
         {isAdmin && shownRequests.length > 0 && (
           <>
             <SubTitle title="Requests to join" count={shownRequests.length} />
-            <ul>
+            <ul className="pb-3">
               {shownRequests.map((request) => (
                 <li key={request.user.id} className={`flex flex-wrap items-center justify-between gap-3 py-3 ${rowPadding}`}>
                   <div className="flex min-w-0 flex-col gap-1">
@@ -263,7 +264,7 @@ export function MembersView({
         {isAdmin && shownInvites.length > 0 && (
           <>
             <SubTitle title="Pending invites" count={shownInvites.length} />
-            <ul>
+            <ul className="pb-3">
               {shownInvites.map((invitation) => (
                 <li key={invitation.id} className={`flex flex-wrap items-center gap-x-4 gap-y-3 py-3 ${rowPadding} ${columns}`}>
                   <div className="flex min-w-0 basis-full items-center gap-3 sm:basis-auto">

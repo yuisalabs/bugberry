@@ -184,7 +184,8 @@ export function LoginView({
               >
                 <Label>Work email</Label>
                 <InputGroup>
-                  <RiMailLine aria-hidden data-slot="icon" className="top-3.5! sm:top-3.5!" />
+                  {/* Centred on the taller input at every icon size, instead of the kit's fixed offset. */}
+                  <RiMailLine aria-hidden data-slot="icon" className="top-1/2! -translate-y-1/2 sm:top-1/2!" />
                   <Input placeholder="you@company.com" className={input} />
                 </InputGroup>
               </TextField>
