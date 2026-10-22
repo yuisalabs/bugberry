@@ -1,4 +1,5 @@
-import { RiGithubFill, RiWebhookLine } from "@remixicon/react"
+import { RiWebhookLine } from "@remixicon/react"
+import { GithubIcon } from "../../components/LoginView"
 
 export type IntegrationKind = "Issues" | "Tickets" | "Tasks" | "Work items" | "Alerts" | "Webhook"
 
@@ -41,7 +42,10 @@ export function IntegrationLogo({ name, size = 36 }: { name: string; size?: numb
   const inner = Math.round(size * 0.56)
   const glyph =
     name === "GitHub" ? (
-      <RiGithubFill className="text-[#1C1022]" style={{ width: inner, height: inner }} aria-hidden />
+      // The app's own GitHub mark (also on sign-in and in the integration settings).
+      <span className="flex text-[#1C1022] [&>svg]:size-full" style={{ width: inner, height: inner }}>
+        <GithubIcon />
+      </span>
     ) : name === "Webhook" ? (
       <RiWebhookLine className="text-[#D61F69]" style={{ width: inner, height: inner }} aria-hidden />
     ) : (

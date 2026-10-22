@@ -21,13 +21,17 @@ describe("IntegrationsView", () => {
     expect(cards).toEqual(NAMES)
   })
 
-  test("what trackers can't do yet says Coming soon", () => {
+  test("each tracker card says what it does today", () => {
     render(<IntegrationsView signedIn={false} installUrl={null} />)
-    expect(card("GitLab").textContent).toContain("merge request")
-    expect(card("GitLab").textContent).toContain("Coming soon")
-    expect(card("Linear").textContent).toContain("priority")
-    expect(card("Linear").textContent).toContain("Coming soon")
-    for (const name of ["GitHub", "Jira", "ActiveCollab", "Plane", "Slack"]) expect(card(name).textContent).not.toContain("Coming soon")
+    expect(document.body.textContent).not.toContain("Coming soon")
+    expect(card("GitLab").textContent).not.toContain("merge request")
+    expect(card("Linear").textContent).not.toContain("priority")
+    for (const name of ["GitLab", "Linear"]) expect(card(name).textContent).toContain("labels")
+  })
+
+  test("every card's Connect sits at its bottom, so a row's links line up", () => {
+    render(<IntegrationsView signedIn={false} installUrl={null} />)
+    for (const name of NAMES) expect(within(card(name)).getByRole("link", { name: /Connect/ }).className).toContain("mt-auto")
   })
 
   test("Connect leads to sign-up, or to the workspace's integrations for someone signed in", () => {

@@ -57,14 +57,19 @@ function MenuItem({ item, onPick }: { item: ProductItem; onPick: () => void }) {
     <Link
       href={item.href}
       onPress={onPick}
-      className="group flex gap-3 rounded-xl p-3 transition hover:bg-[#FFFFFF]/[0.06] focus-visible:bg-[#FFFFFF]/[0.06]"
+      className="group flex gap-3 rounded-xl px-2.5 py-3 transition hover:bg-[#FFFFFF]/[0.06] focus-visible:bg-[#FFFFFF]/[0.06]"
     >
       <span className="flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-[#FFFFFF]/[0.04] text-[#D9CFE0] outline outline-1 -outline-offset-1 outline-white/10 transition group-hover:bg-[#D61F69] group-hover:text-white group-hover:outline-transparent">
         <Icon className="size-[18px]" aria-hidden />
       </span>
-      <span className="flex flex-col gap-1">
-        <span className="text-[15px] font-semibold text-white">{item.title}</span>
-        <span className="text-[13px]/[19px] font-normal text-[#B6A7BE]">{item.body}</span>
+      {/* Every item the same height (one-line title, two-line description), so the rows line up across columns. */}
+      <span className="flex min-w-0 flex-col gap-1">
+        <span data-menu-title className="text-[15px] font-semibold whitespace-nowrap text-white">
+          {item.title}
+        </span>
+        <span data-menu-body className="line-clamp-2 h-[38px] text-[13px]/[19px] font-normal text-[#B6A7BE]">
+          {item.body}
+        </span>
       </span>
     </Link>
   )
@@ -77,8 +82,8 @@ export function ProductMenu({ id, installUrl, onPick }: { id: string; installUrl
       id={id}
       className="overflow-hidden rounded-[20px] bg-[#241629] text-left shadow-[0_24px_64px_-16px_rgba(0,0,0,0.6)] outline outline-1 -outline-offset-1 outline-[#3D2B46]"
     >
-      <div className="flex gap-6 p-5">
-        <div className="grid flex-1 grid-cols-3 gap-x-4">
+      <div className="flex gap-5 p-5">
+        <div className="grid flex-1 grid-cols-3 gap-x-3">
           {PRODUCT_MENU.map((column) => (
             <div key={column.label} className="flex flex-col gap-1">
               <p className="px-3 pt-2 pb-2 text-[12px] font-medium tracking-[1.4px] text-[#B6A7BE] uppercase">{column.label}</p>
@@ -88,9 +93,9 @@ export function ProductMenu({ id, installUrl, onPick }: { id: string; installUrl
             </div>
           ))}
         </div>
-        <div className="flex w-[280px] shrink-0 flex-col justify-between rounded-2xl bg-[url(/assets/site/cta-gradient.webp)] bg-cover bg-center p-7">
+        <div className="flex w-[264px] shrink-0 flex-col justify-between rounded-2xl bg-[url(/assets/site/cta-gradient.webp)] bg-cover bg-center p-7">
           <div className="flex flex-col gap-4">
-            <span className="w-fit rounded-full bg-[#FFFFFF]/20 px-3 py-1 text-[13px] font-semibold text-white">Free for Chrome</span>
+            <span className="w-fit rounded-full bg-[#FFFFFF]/20 px-3 py-1 text-[13px] font-semibold text-white">Free to start</span>
             <p className="font-heading text-[22px]/[28px] font-semibold tracking-[-0.5px] text-white">Report your first bug in under a minute</p>
             <p className="text-[14px]/[22px] text-white/90">Install the extension, hit record, and BugBerry writes the report for you.</p>
           </div>

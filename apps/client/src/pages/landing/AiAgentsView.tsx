@@ -71,10 +71,10 @@ function Hero({ signedIn }: { signedIn: boolean }) {
         </Reveal>
         <Reveal immediate variant="rise" delay={120} className="w-full overflow-hidden rounded-t-[16px] md:rounded-t-[22px]">
           <img
-            src="/assets/site/agents-report.webp"
+            src="/assets/site/agents-settings.webp"
             width={1120}
-            height={500}
-            alt="A BugBerry report an agent reads: the recording, status, priority and the network requests with two failed orders calls"
+            height={640}
+            alt="BugBerry's AI Agents settings: copy the MCP server URL, add it to Claude Code, Cursor or another AI app, and manage personal tokens"
             className="h-auto w-full max-md:w-[720px] max-md:max-w-none"
           />
         </Reveal>

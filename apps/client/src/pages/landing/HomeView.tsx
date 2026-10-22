@@ -18,7 +18,6 @@ import {
 } from "@remixicon/react"
 import type { ReactNode } from "react"
 import { Link } from "@bugberry/ui/link"
-import { ComingSoon } from "./ComingSoon"
 import { FinalCta } from "./FinalCta"
 import { IntegrationLogo, NOTIFIERS, TRACKERS } from "./integrations-data"
 import { Reveal } from "./Reveal"
@@ -36,9 +35,9 @@ function Hero({ installUrl }: { installUrl: string | null }) {
         <Reveal immediate variant="down">
           <Link
             href="/ai-agents"
-            className="inline-flex max-w-full items-center gap-2.5 rounded-full bg-[#FFFFFF]/5 py-1 pr-3.5 pl-1 text-[13px] font-semibold outline outline-1 -outline-offset-1 outline-white/15 backdrop-blur-[6px]"
+            className="glow-ring inline-flex max-w-full items-center gap-2.5 rounded-full py-[3px] pr-3.5 pl-[3px] text-[13px] font-semibold"
           >
-            <span className="inline-flex items-center gap-1 rounded-full bg-[linear-gradient(90deg,#D61F69_0%,#FF4F8B_100%)] px-2.5 py-1 text-[12px] font-bold text-white">
+            <span className="shine inline-flex items-center gap-1 rounded-full bg-[linear-gradient(90deg,#D61F69_0%,#FF4F8B_100%)] px-2.5 py-1 text-[12px] font-bold text-white">
               <RiSparkling2Fill className="size-3" aria-hidden />
               New
             </span>
@@ -85,27 +84,18 @@ function Hero({ installUrl }: { installUrl: string | null }) {
   )
 }
 
-const AI_FEATURES: Array<{ title: string; body: ReactNode }> = [
+const AI_FEATURES: Array<{ title: string; body: string }> = [
   {
     title: "Ask about any report",
-    body: "“Which bugs hit checkout this week?” Agents query reports across every project you give them.",
+    body: "“Which bugs hit checkout this week?” Agents search reports across your projects and open the ones that matter, replay and logs included.",
   },
   {
     title: "Agents that do the fix",
-    body: (
-      <>
-        Assign a report to Claude or Cursor. They read the evidence, open a PR and post back here. <ComingSoon className="ml-1" />
-      </>
-    ),
+    body: "Paste a report link into Claude or Cursor. They read the replay, logs and code lines that failed, then comment here and mark it Resolved.",
   },
   {
     title: "Lives where you work",
-    body: (
-      <>
-        Use it from your IDE or your terminal today, and from Slack <ComingSoon className="mx-0.5" />. One MCP server, every client
-        you already run.
-      </>
-    ),
+    body: "Use it from Cursor, VS Code, Windsurf, Claude Code, Claude.ai or ChatGPT. One MCP server for every AI client you already run.",
   },
 ]
 
@@ -295,12 +285,7 @@ const IDEAS: Array<{ number: string; label: string; title: string; body: ReactNo
     number: "03",
     label: "Private by default",
     title: "Capture everything, expose nothing",
-    body: (
-      <>
-        Password fields, tokens, cookies and authorization headers are kept out of the logs and steps before upload, and you can blur
-        anything on a screenshot. SSO, roles and audit logs when you need them. <ComingSoon className="ml-1" />
-      </>
-    ),
+    body: "Password fields, tokens, cookies and authorization headers are kept out of the logs and steps before upload, and you can blur anything on a screenshot. Only your workspace sees a report until you share its link.",
     art: <MaskedIllustration />,
   },
 ]
@@ -309,7 +294,7 @@ function Philosophy() {
   return (
     <section className="border-t border-[#E6E1EC] bg-[#FFFFFF] py-20 md:py-28">
       <div className={`${siteContainer} flex flex-col gap-10 lg:flex-row lg:gap-16`}>
-        <Reveal variant="up" className="flex flex-col gap-3.5 lg:w-[400px] lg:shrink-0">
+        <Reveal variant="up" className="flex flex-col gap-3.5 lg:sticky lg:top-24 lg:w-[400px] lg:shrink-0 lg:self-start">
           <p className="text-[11px] font-semibold tracking-[1.1px] text-[#D61F69] uppercase">The BugBerry operating manual</p>
           <h2 className="font-heading text-[30px]/[36px] font-semibold tracking-[-1px] md:text-[36px]/[40px]">Three ideas behind every report</h2>
           <p className="text-[15px]/[23px] text-[#635A6B]">
@@ -339,19 +324,15 @@ function Philosophy() {
   )
 }
 
-const WORKSPACE_ITEMS: Array<{ icon: RemixiconComponentType; title: string; body: ReactNode }> = [
+const WORKSPACE_ITEMS: Array<{ icon: RemixiconComponentType; title: string; body: string }> = [
   { icon: RiHashtag, title: "Projects", body: "One per product or client. Each picks its trackers, channels and URL patterns." },
   { icon: RiLayoutGridLine, title: "All reports", body: "Every report across projects, with filters by type, status, reporter and project." },
   { icon: RiRobot2Line, title: "AI Agents (MCP)", body: "Give Claude, Cursor or Copilot read access to reports, scoped to what you can see." },
   { icon: RiPlugLine, title: "Integrations", body: "Connect Jira, Linear, GitHub or Slack once, reuse it in any project." },
   {
     icon: RiTeamLine,
-    title: "Members and guests",
-    body: (
-      <>
-        Invite engineers as members, clients and QA vendors as guests. <ComingSoon className="ml-1" />
-      </>
-    ),
+    title: "Members and sharing",
+    body: "Invite your team by email as admins or members, and share any report through a link, inside your company or public.",
   },
   { icon: RiPuzzleLine, title: "Browser extension", body: "Record from any tab. Reports land in the right project by URL." },
 ]

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { render, screen } from "@testing-library/react"
+import { render, screen, within } from "@testing-library/react"
 import { HomeView } from "../src/pages/landing/HomeView"
 import { CHROME_WEB_STORE_URL } from "../src/pages/landing/site-links"
 
@@ -23,6 +23,26 @@ describe("HomeView", () => {
     expect(screen.getByRole("link", { name: /Connect your AI agent in 2 minutes/ }).getAttribute("href")).toBe("/ai-agents")
   })
 
+  test("the New pill draws the eye: a light circles its outline and a shine crosses its badge, only for people who allow motion", () => {
+    render(<HomeView signedIn={false} installUrl={null} />)
+    const pill = screen.getByRole("link", { name: /Connect your AI agent in 2 minutes/ })
+    expect(pill.className).toContain("glow-ring")
+    expect(within(pill).getByText("New").className).toContain("shine")
+    const css = readFileSync(join(import.meta.dir, "..", "src", "styles.css"), "utf8")
+    const still = css.slice(0, css.indexOf("@media (prefers-reduced-motion: no-preference)"))
+    const moving = css.slice(css.indexOf("@media (prefers-reduced-motion: no-preference)"))
+    for (const motion of ["glow-spin", "shine-sweep"]) {
+      expect(moving).toContain(`@keyframes ${motion}`)
+      expect(still).not.toContain(motion)
+    }
+  })
+
+  test("the three ideas' heading stays in view while their rows scroll past, on wide screens", () => {
+    render(<HomeView signedIn={false} installUrl={null} />)
+    const heading = screen.getByRole("heading", { name: "Three ideas behind every report" }).parentElement!
+    for (const name of ["lg:sticky", "lg:top-24", "lg:self-start"]) expect(heading.className).toContain(name)
+  })
+
   test("without an install link from the server, Add to Chrome goes to the Chrome Web Store page", () => {
     render(<HomeView signedIn={false} installUrl={null} />)
     for (const link of screen.getAllByRole("link", { name: /Add to Chrome/ })) expect(link.getAttribute("href")).toBe(CHROME_WEB_STORE_URL)
@@ -33,11 +53,21 @@ describe("HomeView", () => {
     for (const id of ["capture", "debug", "collaborate", "ai-agents", "integrations"]) expect(document.getElementById(id)).toBeTruthy()
   })
 
-  test("features BugBerry doesn't have yet say Coming soon", () => {
+  test("the home page names only what BugBerry does today", () => {
     render(<HomeView signedIn={false} installUrl={null} />)
-    for (const claim of ["clients and QA vendors as guests", "SSO, roles and audit logs", "open a PR", "from Slack"]) {
-      expect(holder(claim)?.textContent).toContain("Coming soon")
-    }
+    const text = document.body.textContent ?? ""
+    for (const gone of ["Coming soon", "guests", "SSO", "audit log"]) expect(text).not.toContain(gone)
+    expect(holder("Invite your team by email")?.textContent).toContain("share any report through a link")
+  })
+
+  test("the AI cards describe only what agents do today", () => {
+    render(<HomeView signedIn={false} installUrl={null} />)
+    const cards = document.getElementById("ai-agents")!.querySelector(".grid")!
+    const text = cards.textContent ?? ""
+    expect(text).not.toContain("Coming soon")
+    for (const gone of ["open a PR", "Slack"]) expect(text).not.toContain(gone)
+    // What the MCP server really does: read the evidence and the failing code lines, comment, change the status.
+    for (const real of ["code lines that failed", "comment", "Resolved", "Claude.ai", "ChatGPT"]) expect(text).toContain(real)
   })
 
   test("never promises what BugBerry doesn't do", () => {

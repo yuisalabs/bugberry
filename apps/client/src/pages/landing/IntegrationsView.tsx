@@ -1,7 +1,5 @@
 import { RiArrowRightLine, RiChromeFill } from "@remixicon/react"
-import type { ReactNode } from "react"
 import { Link } from "@bugberry/ui/link"
-import { ComingSoon } from "./ComingSoon"
 import { FinalCta } from "./FinalCta"
 import { IntegrationLogo, type IntegrationKind } from "./integrations-data"
 import { Reveal } from "./Reveal"
@@ -12,27 +10,11 @@ import { WebhookSample } from "./WebhookSample"
 const eyebrow = "text-[12px] font-semibold tracking-[1.4px] uppercase"
 const heading = "font-heading text-[30px]/[36px] font-semibold tracking-[-1px] md:text-[36px]/[41px]"
 
-const TRACKER_CARDS: Array<{ name: string; kind: IntegrationKind; body: ReactNode }> = [
+const TRACKER_CARDS: Array<{ name: string; kind: IntegrationKind; body: string }> = [
   { name: "GitHub", kind: "Issues", body: "Open issues with the errors and the report link, labelled the way you choose." },
-  {
-    name: "GitLab",
-    kind: "Issues",
-    body: (
-      <>
-        Create issues with the report link, and link the merge request that fixes them. <ComingSoon className="ml-0.5" />
-      </>
-    ),
-  },
+  { name: "GitLab", kind: "Issues", body: "Create issues in the project you pick, with your labels and a link to the full report." },
   { name: "Jira", kind: "Tickets", body: "File tickets with the page, browser, console errors and failed requests." },
-  {
-    name: "Linear",
-    kind: "Issues",
-    body: (
-      <>
-        Send reports to the right team, with priority already set. <ComingSoon className="ml-0.5" />
-      </>
-    ),
-  },
+  { name: "Linear", kind: "Issues", body: "Send reports to the right team as issues, with your labels and the errors written in." },
   { name: "ActiveCollab", kind: "Tasks", body: "Turn reports into tasks inside your client projects." },
   { name: "Plane", kind: "Work items", body: "File bugs as work items, with the replay one click away." },
 ]
@@ -96,7 +78,7 @@ function Hero({ installUrl }: { installUrl: string | null }) {
 
 function ConnectLink({ name, signedIn }: { name: string; signedIn: boolean }) {
   return (
-    <Link href={connectHref(signedIn)} className="inline-flex w-fit items-center gap-[5px] pt-1 text-[14px] font-semibold text-[#D61F69] hover:text-[#B3175A]">
+    <Link href={connectHref(signedIn)} className="mt-auto inline-flex w-fit items-center gap-[5px] pt-1 text-[14px] font-semibold text-[#D61F69] hover:text-[#B3175A]">
       {name ? `Connect ${name}` : "Connect"}
       <RiArrowRightLine className="size-3.5" aria-hidden />
     </Link>

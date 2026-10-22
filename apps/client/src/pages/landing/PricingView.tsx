@@ -7,108 +7,114 @@ import { Reveal } from "./Reveal"
 import { SiteChrome } from "./SiteChrome"
 import { SELF_HOST_DOCS, siteContainer } from "./site-links"
 
-interface Plan {
-  name: string
-  blurb: string
-  price: string
-  priceNote: string
-  cta: { label: string; href: string }
-  lead?: string
-  features: string[]
-  available: boolean
+const badge = "inline-flex h-6 items-center rounded-full px-2.5 text-[11px]"
+
+/** The plan that exists today. */
+const FREE = {
+  blurb: "Everything BugBerry does, for one person.",
+  price: "$0",
+  priceNote: "during early access",
+  features: [
+    "1 workspace",
+    "5 screenshots",
+    "5 video recordings",
+    "Console, network & user steps",
+    "Share links",
+    "All 10 integrations + webhooks",
+    "AI Agents (MCP)",
+    "Unlimited projects",
+  ],
 }
 
-const PLANS: Plan[] = [
-  {
-    name: "Free",
-    blurb: "Everything BugBerry does, for one person.",
-    price: "$0",
-    priceNote: "during early access",
-    cta: { label: "Start free", href: "/login" },
-    features: [
-      "1 workspace",
-      "5 screenshots",
-      "5 video recordings",
-      "Console, network & user steps",
-      "Share links",
-      "All 10 integrations + webhooks",
-      "AI Agents (MCP)",
-      "Unlimited projects",
-    ],
-    available: true,
-  },
-  {
-    name: "Team",
-    blurb: "For teams that record bugs every day and need more room to grow.",
-    price: "Soon",
-    priceNote: "Pricing announced before early access ends",
-    cta: { label: "Notify me", href: "/demo" },
-    lead: "Everything in Free, plus",
-    features: ["Invite your team", "Unlimited screenshots", "Unlimited video recordings", "Longer recordings & history", "Priority email support"],
-    available: false,
-  },
-  {
-    name: "Business",
-    blurb: "For companies with security and admin needs.",
-    price: "Soon",
-    priceNote: "Pricing announced before early access ends",
-    cta: { label: "Notify me", href: "/demo" },
-    lead: "Everything in Team, plus",
-    features: ["SSO & SAML", "Roles & audit log", "Custom data masking rules", "Dedicated onboarding"],
-    available: false,
-  },
+/** The plans that are coming: priced later, and what they add isn't listed yet. */
+const COMING = [
+  { name: "Team", blurb: "For teams that record bugs every day and need more room to grow.", order: "lg:order-1" },
+  { name: "Business", blurb: "For companies with security and admin needs.", order: "lg:order-3" },
 ]
 
-function PlanCard({ plan }: { plan: Plan }) {
-  const free = plan.available
+/**
+ * Free, larger than the plans beside it: wider, and taller by 20px above and below. The extra top padding matches
+ * the overhang, so its rows (data-plan-*) line up with theirs.
+ */
+function FreePlan() {
   return (
     <section
-      aria-label={`${plan.name} plan`}
-      className={`flex flex-1 flex-col gap-6 rounded-[20px] p-7 md:p-8 ${
-        free
-          ? "bg-[#FFFFFF] text-[#1C1022] shadow-[0_24px_60px_#D61F6940] outline outline-2 -outline-offset-1 outline-[#D61F69]"
-          : "bg-[#FFFFFF]/[0.03] text-white opacity-90 outline outline-1 -outline-offset-1 outline-white/[0.12]"
-      }`}
+      aria-label="Free plan"
+      className="relative z-10 flex flex-col gap-6 rounded-[20px] bg-[#FFFFFF] p-7 text-[#1C1022] shadow-[0_24px_60px_#D61F6940] outline outline-2 -outline-offset-1 outline-[#D61F69] md:p-8 lg:order-2 lg:-my-5 lg:flex-[1.12] lg:py-[52px]"
     >
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <h2 className="font-heading text-[20px] font-semibold">
-            {plan.name}
-          </h2>
-          {free ? (
-            <span className="rounded-full bg-[#D61F69] px-2.5 py-1 text-[11px] font-bold text-white">Available now</span>
-          ) : (
-            <span className="rounded-full bg-[#FFFFFF]/[0.08] px-2.5 py-[3px] text-[11px] font-semibold text-[#E2D8E8] outline outline-1 -outline-offset-1 outline-white/15">
-              Coming soon
-            </span>
-          )}
+          <h2 className="font-heading text-[20px] font-semibold">Free</h2>
+          <span data-plan-badge className={`${badge} bg-[#D61F69] font-bold text-white`}>
+            Available now
+          </span>
         </div>
-        <p className={`text-[14px] ${free ? "text-[#635A6B]" : "text-[#B6A7BE]"}`}>{plan.blurb}</p>
+        <p data-plan-blurb className="min-h-[44px] text-[14px]/[22px] text-[#635A6B]">
+          {FREE.blurb}
+        </p>
       </div>
       <div className="flex flex-col gap-1">
-        <p className="font-heading text-[48px] font-semibold tracking-[-1.5px]">{plan.price}</p>
-        <p className={`text-[13px] ${free ? "text-[#635A6B]" : "text-[#B6A7BE]"}`}>{plan.priceNote}</p>
+        <p className="font-heading text-[48px] font-semibold tracking-[-1.5px]">{FREE.price}</p>
+        <p className="text-[13px] text-[#635A6B]">{FREE.priceNote}</p>
       </div>
       <Link
-        href={plan.cta.href}
-        className={`inline-flex h-[46px] items-center justify-center rounded-xl text-[15px] font-semibold transition ${
-          free
-            ? "bg-[#D61F69] text-white hover:bg-[#C01A5E]"
-            : "bg-[#FFFFFF]/[0.06] text-white outline outline-1 -outline-offset-1 outline-white/20 hover:bg-[#FFFFFF]/10"
-        }`}
+        href="/login"
+        className="inline-flex h-[46px] items-center justify-center rounded-xl bg-[#D61F69] text-[15px] font-semibold text-white transition hover:bg-[#C01A5E]"
       >
-        {plan.cta.label}
+        Start for free
       </Link>
       <div className="flex flex-col gap-3 pt-1">
-        {plan.lead && <p className="text-[14px] font-semibold">{plan.lead}</p>}
+        <p data-plan-lead className="text-[14px] font-semibold">
+          What you get
+        </p>
         <ul className="flex flex-col gap-3">
-          {plan.features.map((feature) => (
-            <li key={feature} className={`flex items-center gap-2.5 text-[14px] ${free ? "text-[#4A4152]" : "text-[#E2D8E8]"}`}>
-              <RiCheckLine className={`size-[15px] shrink-0 ${free ? "text-[#D61F69]" : "text-[#FF8AB8]"}`} aria-hidden />
+          {FREE.features.map((feature) => (
+            <li key={feature} className="flex items-center gap-2.5 text-[14px] text-[#4A4152]">
+              <RiCheckLine className="size-[15px] shrink-0 text-[#D61F69]" aria-hidden />
               {feature}
             </li>
           ))}
         </ul>
+      </div>
+    </section>
+  )
+}
+
+/** A plan that is coming: priced later, with a way to hear when; what it adds just says "Coming soon". */
+function ComingPlan({ name, blurb, order }: { name: string; blurb: string; order: string }) {
+  return (
+    <section
+      aria-label={`${name} plan`}
+      className={`flex flex-1 flex-col gap-6 rounded-[20px] bg-[#FFFFFF]/[0.03] p-7 text-white opacity-90 outline outline-1 -outline-offset-1 outline-white/[0.12] md:p-8 ${order}`}
+    >
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <h2 className="font-heading text-[20px] font-semibold">{name}</h2>
+          <span
+            data-plan-badge
+            className={`${badge} bg-[#FFFFFF]/[0.08] font-semibold text-[#E2D8E8] outline outline-1 -outline-offset-1 outline-white/15`}
+          >
+            Coming soon
+          </span>
+        </div>
+        <p data-plan-blurb className="min-h-[44px] text-[14px]/[22px] text-[#B6A7BE]">
+          {blurb}
+        </p>
+      </div>
+      <div className="flex flex-col gap-1">
+        <p className="font-heading text-[48px] font-semibold tracking-[-1.5px]">Soon</p>
+        <p className="text-[13px] text-[#B6A7BE]">Pricing announced before early access ends</p>
+      </div>
+      <Link
+        href="/demo"
+        className="inline-flex h-[46px] items-center justify-center rounded-xl bg-[#FFFFFF]/[0.06] text-[15px] font-semibold text-white outline outline-1 -outline-offset-1 outline-white/20 transition hover:bg-[#FFFFFF]/10"
+      >
+        Notify me
+      </Link>
+      <div className="pt-1">
+        <p data-plan-lead className="text-[14px] font-semibold text-[#B6A7BE]">
+          Coming soon
+        </p>
       </div>
     </section>
   )
@@ -131,9 +137,11 @@ function Hero() {
             No credit card · Free during early access
           </p>
         </Reveal>
-        <Reveal immediate variant="rise" delay={120} className="flex w-full flex-col gap-5 lg:flex-row">
-          {PLANS.map((plan) => (
-            <PlanCard key={plan.name} plan={plan} />
+        <Reveal immediate variant="rise" delay={120} className="flex w-full flex-col gap-5 lg:flex-row lg:items-start">
+          {/* Free first on phones; on wide screens in the middle, between the plans that are coming. */}
+          <FreePlan />
+          {COMING.map((plan) => (
+            <ComingPlan key={plan.name} {...plan} />
           ))}
         </Reveal>
         <Reveal

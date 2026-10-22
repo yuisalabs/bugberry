@@ -14,6 +14,13 @@ describe("AiAgentsView", () => {
     expect(screen.getByRole("link", { name: /Read the MCP docs/ }).getAttribute("href")).toBe(MCP_GUIDE)
   })
 
+  test("the hero shows BugBerry's AI Agents settings", () => {
+    render(<AiAgentsView signedIn={false} installUrl={null} origin={ORIGIN} />)
+    const hero = screen.getByRole("img", { name: /AI Agents settings/ })
+    expect(hero.getAttribute("src")).toBe("/assets/site/agents-settings.webp")
+    expect([hero.getAttribute("width"), hero.getAttribute("height")]).toEqual(["1120", "640"])
+  })
+
   test("a signed-in visitor connects from their AI settings", () => {
     render(<AiAgentsView signedIn installUrl={null} origin={ORIGIN} />)
     expect(screen.getAllByRole("link", { name: "Connect an agent" })[0]?.getAttribute("href")).toBe("/app/settings/ai")

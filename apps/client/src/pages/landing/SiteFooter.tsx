@@ -1,8 +1,9 @@
 import { RiChromeFill } from "@remixicon/react"
 import { Link } from "@bugberry/ui/link"
 import { BugBerryLogo } from "../../components/BugBerryLogo"
+import { GithubIcon } from "../../components/LoginView"
 import { DOCS_URL } from "../../lib/docs-url"
-import { CHANGELOG, installHref, MCP_GUIDE, QUICK_START, siteContainer, WEBHOOK_DOCS } from "./site-links"
+import { CHANGELOG, INTEGRATION_DOCS, installHref, MCP_GUIDE, QUICK_START, SOURCE_URL, siteContainer, WEBHOOK_DOCS } from "./site-links"
 
 const COLUMNS: Array<{ label: string; links: Array<[string, string]> }> = [
   {
@@ -19,13 +20,14 @@ const COLUMNS: Array<{ label: string; links: Array<[string, string]> }> = [
   },
   {
     label: "Integrations",
+    // Each one opens its own section of the integrations docs (heading ids from apps/docs).
     links: [
-      ["GitHub", "/integrations#trackers"],
-      ["GitLab", "/integrations#trackers"],
-      ["Jira", "/integrations#trackers"],
-      ["Linear", "/integrations#trackers"],
-      ["Slack", "/integrations#notifications"],
-      ["All integrations", "/integrations"],
+      ["GitHub", `${INTEGRATION_DOCS}#github-issues`],
+      ["GitLab", `${INTEGRATION_DOCS}#gitlab`],
+      ["Jira", `${INTEGRATION_DOCS}#jira-cloud`],
+      ["Linear", `${INTEGRATION_DOCS}#linear`],
+      ["Slack", `${INTEGRATION_DOCS}#slack`],
+      ["All integrations", INTEGRATION_DOCS],
     ],
   },
   {
@@ -96,6 +98,9 @@ export function SiteFooter({ installUrl, minimal = false }: { installUrl: string
               <Link href={installHref(installUrl)} className={chip}>
                 <RiChromeFill className="size-[15px]" aria-hidden />
                 Chrome Web Store
+              </Link>
+              <Link href={SOURCE_URL} aria-label="BugBerry on GitHub" className={`${chip} w-9 justify-center px-0 [&_svg]:size-[17px]`}>
+                <GithubIcon />
               </Link>
             </div>
           )}

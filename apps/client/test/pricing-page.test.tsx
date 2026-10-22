@@ -12,7 +12,17 @@ describe("PricingView", () => {
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("BugBerry is free while we’re in early access.")
     const free = plan("Free")
     for (const line of ["1 workspace", "5 screenshots", "5 video recordings", "Unlimited projects"]) expect(within(free).getByText(line)).toBeTruthy()
-    expect(within(free).getByRole("link", { name: "Start free" }).getAttribute("href")).toBe("/login")
+    expect(within(free).getByRole("link", { name: "Start for free" }).getAttribute("href")).toBe("/login")
+  })
+
+  test("Free stands in the middle and larger than the plans beside it", () => {
+    render(<PricingView signedIn={false} installUrl={null} />)
+    const [free, team, business] = ["Free", "Team", "Business"].map(plan)
+    expect(free!.className).toContain("lg:order-2")
+    expect(team!.className).toContain("lg:order-1")
+    expect(business!.className).toContain("lg:order-3")
+    expect(free!.className).toContain("lg:flex-[1.12]")
+    expect(free!.className).toContain("lg:-my-5")
   })
 
   test("Free is for one person: no promise of members", () => {
@@ -20,13 +30,26 @@ describe("PricingView", () => {
     for (const claim of ["Unlimited members", "Free for every member", "up to 5 reporters", "15-min", "whole team"]) expect(text()).not.toContain(claim)
   })
 
-  test("Team and Business are coming; inviting your team is Team's first line", () => {
+  test("Team and Business keep their price and Notify me; only their feature list says Coming soon", () => {
     render(<PricingView signedIn={false} installUrl={null} />)
-    const team = plan("Team")
-    expect(within(team).getAllByRole("listitem")[0]?.textContent).toContain("Invite your team")
     for (const name of ["Team", "Business"]) {
-      expect(within(plan(name)).getByText("Coming soon")).toBeTruthy()
-      expect(within(plan(name)).getByRole("link", { name: "Notify me" }).getAttribute("href")).toBe("/demo")
+      const card = plan(name)
+      expect(within(card).getByText("Soon")).toBeTruthy()
+      expect(within(card).getByText("Pricing announced before early access ends")).toBeTruthy()
+      expect(within(card).getByRole("link", { name: "Notify me" }).getAttribute("href")).toBe("/demo")
+      expect(card.textContent).not.toContain("Everything in")
+      expect(within(card).queryAllByRole("listitem")).toHaveLength(0)
+      expect(card.querySelector("[data-plan-lead]")?.textContent).toBe("Coming soon")
+    }
+  })
+
+  test("the three plans' rows line up: badge, description, price, button, and the line under it", () => {
+    render(<PricingView signedIn={false} installUrl={null} />)
+    for (const name of ["Free", "Team", "Business"]) {
+      const card = plan(name)
+      expect(card.querySelector("[data-plan-badge]")?.className).toContain("h-6")
+      expect(card.querySelector("[data-plan-blurb]")?.className).toContain("min-h-[44px]")
+      expect(card.querySelector("[data-plan-lead]")).toBeTruthy()
     }
   })
 
