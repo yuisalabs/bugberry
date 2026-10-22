@@ -30,6 +30,11 @@ export interface RecordingState {
   restarting?: boolean
   /** What is being recorded, for the popup's "Recording this tab". */
   source: RecordSource
+  /**
+   * A screen or window shows whatever tab the reporter goes to: every other tab that was active during the
+   * recording, whose logs go in too. Always empty when recording a tab.
+   */
+  tabs: number[]
 }
 
 /** Kept in storage.session, so a recording survives the service worker going to sleep. */
@@ -95,6 +100,7 @@ type OffscreenReply =
 
 const NOTE_MAX = 500
 const ERRORS_READ_MS = 2000
+const PAGE_READ_MS = 2000
 
 /** Also reads the state saved by older versions, which only knew whether the tab navigated. */
 export function recordingStateFrom(value: unknown): RecordingState | null {
@@ -115,6 +121,7 @@ export function recordingStateFrom(value: unknown): RecordingState | null {
     countdown: state.countdown === true,
     restarting: state.restarting === true,
     source: state.source === "screen" || state.source === "window" ? state.source : "tab",
+    tabs: Array.isArray(state.tabs) ? state.tabs.filter((id): id is number => typeof id === "number") : [],
   }
 }
 
@@ -163,21 +170,38 @@ export async function noteNavigation(tabId: number, deps: Pick<RecordingFlowDeps
   if (state && state.tabId === tabId) await deps.state.set({ ...state, loads: state.loads + 1 })
 }
 
-/** A page of the recorded tab is going away: keep its events in the draft until the recording stops. */
+/** Whether a tab's logs belong to the recording: the recorded tab, or one the reporter went to on screen. */
+function logsFrom(state: RecordingState, tabId: number): boolean {
+  return (state.tabId === tabId && state.logs) || state.tabs.includes(tabId)
+}
+
+/** Whether any tab of the recording supplies logs. */
+function hasLogs(state: RecordingState): boolean {
+  return state.logs || state.tabs.length > 0
+}
+
+/** A tab became active (or its window got the focus): during a screen or window recording, its logs go in too. */
+export async function noteActiveTab(tabId: number, deps: Pick<RecordingFlowDeps, "state">): Promise<void> {
+  const state = await deps.state.get()
+  if (!state || state.source === "tab" || state.tabId === tabId || state.tabs.includes(tabId)) return
+  await deps.state.set({ ...state, tabs: [...state.tabs, tabId] })
+}
+
+/** A page of a tab in the recording is going away: keep its events in the draft until the recording stops. */
 export async function notePageFlush(
   tabId: number,
   raw: unknown,
   deps: Pick<RecordingFlowDeps, "state" | "store" | "now">,
 ): Promise<void> {
   const state = await deps.state.get()
-  if (!state || state.tabId !== tabId || typeof raw !== "object" || raw === null) return
+  if (!state || !logsFrom(state, tabId) || typeof raw !== "object" || raw === null) return
   const page = sanitizePageCapture({ ...(raw as Record<string, unknown>), status: "ok" })
   if (page?.status !== "ok" || !page.documentId) return
   const draft = await deps.store.get(state.draftId)
   if (draft?.captureType !== "video") return
   // Paused events (and an earlier take's) never take room under the caps: they would be dropped at stop anyway.
   const events = keptEvents(page.events, state.startedAt, pausesUntil(state, deps.now()))
-  const record: PageCaptureRecord = { documentId: page.documentId, events, incomplete: page.incomplete }
+  const record: PageCaptureRecord = { documentId: page.documentId, tabId, events, incomplete: page.incomplete }
   const pages = (draft.pages ?? []).filter((stored) => stored.documentId !== record.documentId)
   await deps.store.put({ ...draft, pages: capPages([...pages, record]) })
 }
@@ -277,6 +301,7 @@ export async function startVideoRecording(
     micAvailable: opened.micAvailable,
     countdown: options.countdown,
     source: options.source,
+    tabs: [],
   })
   await deps.setBadge(true)
   await deps.showRecordingUi(tab.id, true)
@@ -381,8 +406,11 @@ export async function stopVideoRecording(deps: RecordingFlowDeps): Promise<Captu
   }
   const pauses = pausesUntil(state, end)
   const added = await extras(state, draft.liveNotes ?? [], end, deps)
+  // The recorded tab first (when it is a web page), then every other tab the reporter went to on screen.
+  const logTabs = [...(state.logs ? [state.tabId] : []), ...state.tabs]
+  const stored = draft.pages ?? []
 
-  if (!state.logs) {
+  if (logTabs.length === 0 && stored.length === 0) {
     const { pages: _none, liveNotes: _notes, ...rest } = draft
     await deps.store.put({
       ...rest,
@@ -402,16 +430,24 @@ export async function stopVideoRecording(deps: RecordingFlowDeps): Promise<Captu
     return { ok: true, draftId: state.draftId }
   }
 
-  // Pages the tab left flushed their events on the way out; the page open now is read here.
-  const { payload, documentId } = await pagePayloadFor(state.tabId, deps, state.startedAt, { since: state.startedAt, pauses })
-  const stored = draft.pages ?? []
-  const current = documentId ? { documentId, events: payload.events, incomplete: payload.incomplete } : null
+  // Pages left during the recording flushed their events on the way out; the pages open now are read here.
+  const keep = { since: state.startedAt, pauses }
+  const [first, ...others] = logTabs
+  const { payload, documentId } =
+    first === undefined
+      ? { payload: emptyPayload(state.startedAt, deps.now()), documentId: null }
+      : await pagePayloadFor(first, deps, state.startedAt, keep)
+  const current: PageCaptureRecord[] = documentId ? [{ documentId, tabId: first, events: payload.events, incomplete: payload.incomplete }] : []
+  for (const tabId of others) {
+    const page = await openPage(tabId, keep, deps)
+    if (page) current.push(page)
+  }
   const merged = mergePages(stored, current)
-  // Every load since the start should have left a flushed page behind; one that did not lost its events.
-  const flushedEarlier = stored.filter((page) => page.documentId !== documentId).length
+  // Every load of the recorded tab since the start should have left a flushed page behind; one that did not lost its events.
+  const flushedEarlier = stored.filter((page) => (page.tabId ?? state.tabId) === state.tabId && page.documentId !== documentId).length
   const incomplete = [...new Set([...payload.incomplete, ...merged.incomplete])]
-  if (state.loads > flushedEarlier) incomplete.push("navigated")
-  const events = current ? merged.events : [...merged.events, ...payload.events]
+  if (state.logs && state.loads > flushedEarlier) incomplete.push("navigated")
+  const events = documentId ? merged.events : [...merged.events, ...payload.events].sort((a, b) => a.t - b.t)
   const { pages: _flushed, liveNotes: _notes, ...rest } = draft
   await deps.store.put({
     ...rest,
@@ -425,12 +461,35 @@ export async function stopVideoRecording(deps: RecordingFlowDeps): Promise<Captu
   return { ok: true, draftId: state.draftId }
 }
 
+function emptyPayload(recordingStartedAt: number, capturedAt: number): DebuggerPayload {
+  return { version: DEBUGGER_PAYLOAD_VERSION, capturedAt, recordingStartedAt, events: [], incomplete: [] }
+}
+
+/** The page open now in another tab of the recording; null when it is closed, not a web page, or silent. */
+async function openPage(
+  tabId: number,
+  keep: { since: number; pauses: PauseSpan[] },
+  deps: Pick<RecordingFlowDeps, "readPageCapture" | "pageReadTimeoutMs">,
+): Promise<PageCaptureRecord | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const raw = await Promise.race([
+    deps.readPageCapture(tabId, keep).catch(() => null),
+    new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), deps.pageReadTimeoutMs ?? PAGE_READ_MS)
+    }),
+  ])
+  clearTimeout(timer)
+  const page = sanitizePageCapture(raw)
+  return page?.status === "ok" && page.documentId ? { documentId: page.documentId, tabId, events: page.events, incomplete: page.incomplete } : null
+}
+
 export interface RecordingController {
   start(tab: ActiveTab, options: RecordOptions & { maxBytes: number }): Promise<CaptureResult>
   stop(): Promise<CaptureResult>
   status(): Promise<RecordingStatus>
   noteNavigation(tabId: number): Promise<void>
   notePageFlush(tabId: number, raw: unknown): Promise<void>
+  noteActiveTab(tabId: number): Promise<void>
   pause(): Promise<void>
   resume(): Promise<void>
   setMic(on: boolean): Promise<void>
@@ -464,10 +523,16 @@ export function createRecordingController(deps: RecordingFlowDeps): RecordingCon
   const liveEvents = async (state: RecordingState): Promise<CaptureEvent[]> => {
     const now = deps.now()
     if (pageEvents?.draftId === state.draftId && now - pageEvents.at < ERRORS_READ_MS) return pageEvents.events
-    const page = sanitizePageCapture(await deps.readPageCapture(state.tabId).catch(() => null))
+    // The pages open now in every tab of the recording, and the ones already left behind.
+    const open = await Promise.all(
+      [...(state.logs ? [state.tabId] : []), ...state.tabs].map(async (tabId) => {
+        const page = sanitizePageCapture(await deps.readPageCapture(tabId).catch(() => null))
+        return page?.status === "ok" ? page.events : []
+      }),
+    )
     const draft = await deps.store.get(state.draftId)
     const flushed = draft?.captureType === "video" ? (draft.pages ?? []).flatMap((stored) => stored.events) : []
-    pageEvents = { draftId: state.draftId, at: now, events: [...flushed, ...(page?.status === "ok" ? page.events : [])] }
+    pageEvents = { draftId: state.draftId, at: now, events: [...flushed, ...open.flat()] }
     return pageEvents.events
   }
 
@@ -477,6 +542,7 @@ export function createRecordingController(deps: RecordingFlowDeps): RecordingCon
     status: () => enqueue(() => recordingStatus(deps)),
     noteNavigation: (tabId) => enqueue(() => noteNavigation(tabId, deps)),
     notePageFlush: (tabId, raw) => enqueue(() => notePageFlush(tabId, raw, deps)),
+    noteActiveTab: (tabId) => enqueue(() => noteActiveTab(tabId, deps)),
     pause: () => enqueue(() => pauseRecording(deps)),
     resume: () => enqueue(() => resumeRecording(deps)),
     setMic: (on) => enqueue(() => setRecordingMic(on, deps)),
@@ -489,7 +555,7 @@ export function createRecordingController(deps: RecordingFlowDeps): RecordingCon
       if (state.restarting) return { ...QUIET, recording: true, micOn: state.micOn, micAvailable: state.micAvailable }
       const now = deps.now()
       const pauses = pausesUntil(state, now)
-      const errors = state.logs ? errorsCaught(await liveEvents(state), state.startedAt, pauses) : 0
+      const errors = hasLogs(state) ? errorsCaught(await liveEvents(state), state.startedAt, pauses) : 0
       return {
         recording: true,
         elapsedMs: videoTime(now, state.startedAt, pauses),
@@ -502,7 +568,7 @@ export function createRecordingController(deps: RecordingFlowDeps): RecordingCon
     popupStatus: async () => {
       const state = await deps.state.get()
       if (!state) return { recording: false }
-      const base = { recording: true as const, source: state.source, tabId: state.tabId, logs: state.logs }
+      const base = { recording: true as const, source: state.source, tabId: state.tabId, logs: hasLogs(state) }
       if (state.restarting) return { ...base, elapsedMs: 0, paused: false, counts: NO_COUNTS }
       const now = deps.now()
       const pauses = pausesUntil(state, now)
@@ -510,7 +576,7 @@ export function createRecordingController(deps: RecordingFlowDeps): RecordingCon
         ...base,
         elapsedMs: videoTime(now, state.startedAt, pauses),
         paused: state.pausedAt !== null,
-        counts: state.logs ? liveCounts(await liveEvents(state), state.startedAt, pauses) : NO_COUNTS,
+        counts: hasLogs(state) ? liveCounts(await liveEvents(state), state.startedAt, pauses) : NO_COUNTS,
       }
     },
   }

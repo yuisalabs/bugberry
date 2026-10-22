@@ -167,6 +167,7 @@ describe("startVideoRecording", () => {
       micAvailable: false,
       countdown: false,
       source: "tab",
+      tabs: [],
     })
     expect(ui).toEqual([[7, true]])
     expect(badges).toEqual([true])
@@ -405,6 +406,49 @@ describe("stopVideoRecording", () => {
     await controller.notePageFlush(7, { documentId: 42, events: "junk" })
     const draft = store.drafts.get("video-1")
     expect(draft?.captureType === "video" ? (draft.pages ?? []) : []).toEqual([])
+  })
+
+  test("a screen recording takes the logs of every tab the reporter went to", async () => {
+    deps.readPageCapture = async (tabId) => ({
+      status: "ok",
+      documentId: `doc-${tabId}`,
+      events: [{ kind: "action", t: tabId === 7 ? 2000 : 1800, type: "click", target: `tab-${tabId}` }],
+      incomplete: [],
+    })
+    const controller = createRecordingController(deps)
+    await controller.start(tab, { ...TAB_OPTIONS, source: "screen" })
+    await controller.noteActiveTab(9)
+    await controller.noteActiveTab(9)
+    await controller.noteActiveTab(7)
+    expect(state.peek()?.tabs).toEqual([9])
+    // A tab visited, then left on another page (or closed): its page flushed on the way out.
+    await controller.noteActiveTab(11)
+    await controller.notePageFlush(11, { documentId: "doc-11-old", events: [{ kind: "action", t: 1600, type: "click", target: "tab-11" }], incomplete: [] })
+    // A tab never looked at doesn't count.
+    await controller.notePageFlush(12, { documentId: "doc-12", events: [{ kind: "action", t: 1700, type: "click", target: "tab-12" }], incomplete: [] })
+    expect(await controller.stop()).toMatchObject({ ok: true })
+    const events = store.drafts.get("video-1")?.debuggerPayload?.events ?? []
+    expect(events.map((event) => (event.kind === "action" ? event.target : ""))).toEqual(["tab-11", "tab-9", "tab-11", "tab-7"])
+    expect(store.drafts.get("video-1")?.debuggerPayload?.incomplete).toEqual([])
+  })
+
+  test("a tab recording keeps to its own tab", async () => {
+    const controller = createRecordingController(deps)
+    await controller.start(tab, TAB_OPTIONS)
+    await controller.noteActiveTab(9)
+    expect(state.peek()?.tabs).toEqual([])
+    await controller.notePageFlush(9, { documentId: "doc-9", events: [{ kind: "action", t: 1600, type: "click" }], incomplete: [] })
+    const draft = store.drafts.get("video-1")
+    expect(draft?.captureType === "video" ? (draft.pages ?? []) : []).toEqual([])
+  })
+
+  test("a screen recording started from a new tab still gets the logs of the tabs it goes to", async () => {
+    const controller = createRecordingController(deps)
+    await controller.start({ ...tab, url: "chrome://newtab/" }, { ...TAB_OPTIONS, source: "screen" })
+    await controller.noteActiveTab(9)
+    expect(await controller.popupStatus()).toMatchObject({ logs: true })
+    expect(await controller.stop()).toMatchObject({ ok: true })
+    expect(store.drafts.get("video-1")?.debuggerPayload?.events).toHaveLength(1)
   })
 
   test("when the recorder cannot save the video, the draft is marked failed", async () => {
