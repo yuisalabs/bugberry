@@ -1,16 +1,13 @@
 import { isTrackerProvider, PROVIDER_LABELS } from "@bugberry/shared"
 import {
   RiAddLine,
-  RiArrowRightLine,
-  RiArrowRightSLine,
+  RiArrowLeftLine,
   RiCheckboxCircleLine,
   RiCloseCircleLine,
   RiDeleteBinLine,
-  RiHashtag,
   RiPencilLine,
-  RiPlugLine,
+  RiPulseLine,
   RiSendPlaneLine,
-  RiTicketLine,
 } from "@remixicon/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { getRouteApi, Link, Navigate } from "@tanstack/react-router"
@@ -18,10 +15,12 @@ import { type ReactNode, useCallback, useReducer, useState } from "react"
 import { Button } from "@bugberry/ui/button"
 import { useConfirm } from "@bugberry/ui/confirm-dialog"
 import { Dialog, DialogBody, DialogHeader, DialogTitle } from "@bugberry/ui/dialog"
-import { ProviderMark } from "../components/IntegrationForm"
+import { BrandedHeader } from "../components/BrandedHeader"
+import { ProviderMark, PROVIDER_GROUPS } from "../components/IntegrationForm"
+import { EmptyGroup, GroupTitle, integrationCard, softButton, StatusChip } from "../components/IntegrationsLayout"
 import { SettingsRowsSkeleton } from "../components/Skeletons"
 import { Badge, dangerText, EmptyState, ErrorState } from "../components/ui"
-import { EditIntegrationSteps, type LoadOptions, UseConnectionModal } from "../components/UseConnectionDialog"
+import { EditIntegrationSteps, type LoadOptions, UseConnectionModal, usedUp } from "../components/UseConnectionDialog"
 import { useNow } from "../hooks/useNow"
 import { type Connection, errorMessage, type Integration, type IntegrationInput, type OptionList } from "../lib/api"
 import { api } from "../lib/client"
@@ -33,105 +32,92 @@ import { useCurrentWorkspace } from "../lib/workspace"
 const routeApi = getRouteApi("/_authed/app/p/$projectSlug/integrations")
 const legacyRouteApi = getRouteApi("/_authed/_admin/app/settings/projects/$projectId/integrations")
 
-const STEPS = ["Pick a workspace connection", "Choose the project, repo or channel", "New reports flow there automatically"]
-
 /**
- * A project with nothing connected: what using a connection means, and the workspace's connections ready to use.
- * `addConnection` is the admin's link to the workspace page (a router link, so this renders without a router in tests).
+ * The workspace's connections this project can still use, each with Use: every tracker and Telegram (another repo,
+ * project or chat), and the channels it doesn't send to yet. `addConnection` is the admin's link to the workspace page
+ * (a router link, so this renders without a router in tests).
  */
-export function ProjectIntegrationsEmpty({
-  projectName,
+export function ReadyToUse({
   workspaceName,
   connections,
+  used = [],
   addConnection,
   onUse,
 }: {
-  projectName: string
   workspaceName: string
-  connections: Connection[]
+  /** Every connection in the workspace. */
+  connections: readonly Connection[]
+  /** What this project already uses. */
+  used?: readonly Integration[]
   addConnection: ReactNode
   onUse(connectionId: string): void
 }) {
+  const ready = connections.filter((connection) => !usedUp(connection, used))
+  const usedHere = (connection: Connection) => used.some((use) => use.connection.id === connection.id)
   return (
-    <div className="grid gap-10 rounded-2xl border border-border bg-background p-6 shadow-xs sm:p-10 lg:grid-cols-2">
-      <div className="flex flex-col gap-5">
-        <div aria-hidden className="flex items-center gap-2 text-muted-foreground">
-          <span className="grid size-12 place-content-center rounded-xl bg-muted text-foreground">
-            <RiPlugLine className="size-5" />
-          </span>
-          <RiArrowRightLine className="size-4" />
-          <span className="grid size-12 place-content-center rounded-xl bg-primary-subtle text-primary">
-            <RiHashtag className="size-5" />
-          </span>
-          <RiArrowRightLine className="size-4" />
-          <span className="grid size-12 place-content-center rounded-xl bg-muted text-foreground">
-            <RiTicketLine className="size-5" />
-          </span>
-        </div>
-        <div className="flex flex-col gap-2">
-          <h2 className="font-heading text-xl font-bold tracking-tight text-foreground">Nothing connected yet</h2>
-          <p className="text-muted-foreground">
-            {`Your workspace already holds the accounts. Pick one, then choose where ${projectName}'s reports land: a Jira project, a GitHub repo or a Slack channel.`}
+    <section className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1">
+        <GroupTitle title="Ready to use" count={ready.length} />
+        <p className="text-sm text-muted-foreground">Connections in {workspaceName} you can use in this project.</p>
+      </div>
+      {ready.length === 0 ? (
+        <div className={`flex flex-col gap-1 border-dashed px-6 py-5 ${integrationCard}`}>
+          <p className="font-semibold text-foreground">
+            {connections.length === 0 ? `No connections in ${workspaceName} yet` : `Every connection in ${workspaceName} is in use here`}
           </p>
+          <p className="text-sm text-muted-foreground">Connections are added once, under Workspace › Integrations.</p>
         </div>
-        <ol className="flex flex-col gap-3">
-          {STEPS.map((step, index) => (
-            <li key={step} className="flex items-center gap-3 text-foreground">
-              <span aria-hidden className="grid size-6 shrink-0 place-content-center rounded-full border border-border text-xs text-muted-foreground">
-                {index + 1}
-              </span>
-              <span>{step}</span>
+      ) : (
+        <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+          {ready.map((connection) => (
+            <li key={connection.id} className={`flex flex-col gap-4 p-6 ${integrationCard}`}>
+              <div className="flex items-start justify-between gap-3">
+                <ProviderMark provider={connection.provider} className="size-11" />
+                <Badge className="bg-muted text-muted-foreground">{isTrackerProvider(connection.provider) ? "Issues" : "Messages"}</Badge>
+              </div>
+              <div className="flex flex-1 flex-col gap-1">
+                <h3 className="truncate font-heading font-semibold text-foreground">{connection.name}</h3>
+                <p className="text-sm text-muted-foreground">
+                  {PROVIDER_LABELS[connection.provider]} ·{" "}
+                  {connection.usedIn === 0 ? "Not used yet" : `Used by ${connection.usedIn} ${connection.usedIn === 1 ? "project" : "projects"}`}
+                </p>
+                {/* A tracker or Telegram already here can send to another repo, project or chat too. */}
+                {usedHere(connection) && <p className="text-sm text-muted-foreground">In use here, can send somewhere else too</p>}
+              </div>
+              <Button intent="plain" aria-label={`Use ${connection.name}`} onPress={() => onUse(connection.id)} className={`w-full ${softButton}`}>
+                <RiAddLine aria-hidden />
+                Use
+              </Button>
             </li>
           ))}
-        </ol>
-      </div>
-
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-0.5">
-          <h3 className="font-semibold text-foreground">Ready to use</h3>
-          <p className="text-sm text-muted-foreground">
-            {connections.length} {connections.length === 1 ? "connection" : "connections"} in {workspaceName}
-          </p>
-        </div>
-        {connections.length === 0 ? (
-          <div className="flex flex-col gap-1 rounded-xl border border-dashed border-border px-5 py-6 text-center">
-            <p className="font-medium text-foreground">No connections in {workspaceName} yet</p>
-            <p className="text-sm text-muted-foreground">Connections are added once, under Workspace › Integrations.</p>
-          </div>
-        ) : (
-          <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-xl border border-border">
-            {connections.map((connection) => (
-              <li key={connection.id} className="flex items-center gap-3 px-4 py-3.5">
-                <ProviderMark provider={connection.provider} className="size-10" />
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <span className="flex flex-wrap items-center gap-2">
-                    <span className="truncate font-medium text-foreground">{connection.name}</span>
-                    <Badge className="bg-muted text-muted-foreground">{isTrackerProvider(connection.provider) ? "Issues" : "Messages"}</Badge>
-                  </span>
-                  <span className="text-sm text-muted-foreground">
-                    {PROVIDER_LABELS[connection.provider]} ·{" "}
-                    {connection.usedIn === 0 ? "Not used yet" : `Used by ${connection.usedIn} ${connection.usedIn === 1 ? "project" : "projects"}`}
-                  </span>
-                </div>
-                <Button size="sm" intent="outline" aria-label={`Use ${connection.name}`} onPress={() => onUse(connection.id)}>
-                  Use
-                  <RiArrowRightLine aria-hidden />
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-        {addConnection ? (
-          <p className="flex items-center gap-1.5 text-sm font-medium text-primary">
-            <RiAddLine aria-hidden className="size-4 shrink-0" />
-            {addConnection}
-          </p>
-        ) : (
-          <p className="text-sm text-muted-foreground">Need another tool? Ask a workspace admin to add one in Workspace › Integrations.</p>
-        )}
-      </div>
-    </div>
+        </ul>
+      )}
+      {addConnection ? (
+        <p className="flex items-center gap-1.5 text-sm font-medium text-primary">
+          <RiAddLine aria-hidden className="size-4 shrink-0" />
+          {addConnection}
+        </p>
+      ) : (
+        <p className="text-sm text-muted-foreground">Need another tool? Ask a workspace admin to add one in Workspace › Integrations.</p>
+      )}
+    </section>
   )
+}
+
+/** What each group says while this project uses nothing in it. */
+const EMPTY_GROUPS: Record<string, { title: string; text: (project: string) => string; action: string; marks: Connection["provider"][] }> = {
+  "Issue trackers": {
+    title: "No tracker yet",
+    text: (project) => `Send ${project}'s reports to GitHub, Jira, Linear and more as issues.`,
+    action: "Use a tracker",
+    marks: ["github", "gitlab", "jira"],
+  },
+  Notifications: {
+    title: "No chat channels yet",
+    text: (project) => `Tell Slack, Discord or Telegram when a new report lands in ${project}.`,
+    action: "Use a channel",
+    marks: ["slack", "discord", "telegram"],
+  },
 }
 
 /** The connection's name, and where this use sends when that says more. */
@@ -161,13 +147,14 @@ export function IntegrationRow({
   const title = titleOf(integration)
   const labels = "labels" in integration.target ? (integration.target.labels as string[]) : []
   return (
-    <li className="flex flex-col gap-3 rounded-2xl border border-border bg-background p-5 shadow-xs">
+    <li className={`flex flex-col gap-3 px-6 py-5 ${integrationCard}`}>
       <div className="flex flex-wrap items-center gap-4">
-        <ProviderMark provider={integration.provider} className="size-11" />
-        <div className="flex min-w-0 flex-1 flex-col">
+        <ProviderMark provider={integration.provider} className="size-12 rounded-xl" />
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="flex flex-wrap items-center gap-2">
-            <span className="truncate font-medium text-foreground">{title}</span>
-            {integration.autoSend && <Badge className="bg-success-subtle text-success-subtle-foreground">Sends every report</Badge>}
+            <span className="truncate font-heading font-semibold text-foreground">{title}</span>
+            <StatusChip failing={notifier && Boolean(integration.lastError)} />
+            {integration.autoSend && <Badge className="bg-primary-subtle text-primary">Sends every report</Badge>}
           </span>
           <span className="text-sm text-muted-foreground">
             {PROVIDER_LABELS[integration.provider]} · {notifier ? "Posts new reports" : labels.length ? `Labels: ${labels.join(", ")}` : "Creates issues"}
@@ -175,7 +162,7 @@ export function IntegrationRow({
         </div>
         <span className="flex flex-wrap gap-2">
           <Button size="sm" intent="outline" isDisabled={testing} onPress={onTest}>
-            {notifier ? <RiSendPlaneLine aria-hidden /> : <RiPlugLine aria-hidden />}
+            {notifier ? <RiSendPlaneLine aria-hidden /> : <RiPulseLine aria-hidden />}
             {notifier ? "Send test message" : "Test connection"}
           </Button>
           {!notifier && (
@@ -268,26 +255,25 @@ export function ProjectIntegrationsPage() {
 
   return (
     <section className="flex flex-col gap-6">
-      <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
-        <Link to="/app/p/$projectSlug" params={{ projectSlug }} className="hover:text-foreground">
-          {project.name}
-        </Link>
-        <RiArrowRightSLine aria-hidden className="size-4" />
-        <span aria-current="page" className="font-medium text-primary">
-          Integrations
-        </span>
-      </nav>
+      <Link
+        to="/app/p/$projectSlug"
+        params={{ projectSlug }}
+        className="flex w-fit items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
+      >
+        <RiArrowLeftLine aria-hidden className="size-4" />
+        Back to {project.name}
+      </Link>
 
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-6">
-        <div className="flex flex-col gap-1">
-          <h1 className="font-heading text-xl font-bold tracking-tight text-foreground">Integrations</h1>
-          <p className="text-muted-foreground">Trackers that take reports from {project.name}, and channels that hear about new ones.</p>
-        </div>
-        <Button onPress={() => setAdding({})}>
-          <RiAddLine aria-hidden />
-          Use a connection
-        </Button>
-      </header>
+      <BrandedHeader
+        title="Integrations"
+        description={`Trackers that take reports from ${project.name}, and channels that hear about new ones.`}
+        action={
+          <Button onPress={() => setAdding({})}>
+            <RiAddLine aria-hidden />
+            Use a connection
+          </Button>
+        }
+      />
 
       {error && (
         <p role="alert" className="text-sm text-danger-subtle-foreground">
@@ -299,42 +285,62 @@ export function ProjectIntegrationsPage() {
         <SettingsRowsSkeleton />
       ) : integrations.isError ? (
         <ErrorState error={integrations.error} onRetry={() => void integrations.refetch()} />
-      ) : integrations.data.length === 0 ? (
-        <ProjectIntegrationsEmpty
-          projectName={project.name}
-          workspaceName={workspace?.name ?? "this workspace"}
-          connections={connections.data ?? []}
-          addConnection={
-            workspace?.role === "admin" ? (
-              <Link to="/app/settings/integrations" className="hover:underline">
-                Need another tool? Add a connection in Workspace › Integrations
-              </Link>
-            ) : null
-          }
-          onUse={(connectionId) => setAdding({ connectionId })}
-        />
       ) : (
-        <ul className="flex flex-col gap-3">
-          {integrations.data.map((item) => (
-            <IntegrationRow
-              key={item.id}
-              integration={item}
-              testResult={testResult?.id === item.id ? testResult : null}
-              testing={check.isPending}
-              removing={remove.isPending}
-              onTest={() => check.mutate(item.id)}
-              onEdit={() => setEditing(item)}
-              onRemove={async () => {
-                const yes = await confirm({
-                  title: `Remove ${titleOf(item)}?`,
-                  description: "Issues already sent keep their links on their reports.",
-                  confirmLabel: "Remove",
-                })
-                if (yes) remove.mutate(item.id)
-              }}
-            />
-          ))}
-        </ul>
+        <>
+          {PROVIDER_GROUPS.map((group) => {
+            const rows = integrations.data.filter((item) => (group.items as readonly string[]).includes(item.provider))
+            const empty = EMPTY_GROUPS[group.title]
+            return (
+              <section key={group.title} className="flex flex-col gap-3">
+                <GroupTitle title={group.title} count={rows.length} />
+                {rows.length === 0 && empty ? (
+                  <EmptyGroup
+                    providers={empty.marks}
+                    title={empty.title}
+                    text={empty.text(project.name)}
+                    action={empty.action}
+                    onPick={() => setAdding({})}
+                  />
+                ) : (
+                  <ul className="flex flex-col gap-3">
+                    {rows.map((item) => (
+                      <IntegrationRow
+                        key={item.id}
+                        integration={item}
+                        testResult={testResult?.id === item.id ? testResult : null}
+                        testing={check.isPending}
+                        removing={remove.isPending}
+                        onTest={() => check.mutate(item.id)}
+                        onEdit={() => setEditing(item)}
+                        onRemove={async () => {
+                          const yes = await confirm({
+                            title: `Remove ${titleOf(item)}?`,
+                            description: "Issues already sent keep their links on their reports.",
+                            confirmLabel: "Remove",
+                          })
+                          if (yes) remove.mutate(item.id)
+                        }}
+                      />
+                    ))}
+                  </ul>
+                )}
+              </section>
+            )
+          })}
+          <ReadyToUse
+            workspaceName={workspace?.name ?? "this workspace"}
+            connections={connections.data ?? []}
+            used={integrations.data}
+            addConnection={
+              workspace?.role === "admin" ? (
+                <Link to="/app/settings/integrations" className="hover:underline">
+                  Need another tool? Add a connection in Workspace › Integrations
+                </Link>
+              ) : null
+            }
+            onUse={(connectionId) => setAdding({ connectionId })}
+          />
+        </>
       )}
 
       <UseConnectionModal

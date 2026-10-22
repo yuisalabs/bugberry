@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router"
 import { type FormEvent, type ReactNode, useState } from "react"
 import { Button } from "@bugberry/ui/button"
 import { Dialog, DialogBody, DialogDescription, DialogTitle } from "@bugberry/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@bugberry/ui/select"
 import { errorMessage, type InviteResult } from "../lib/api"
 import { api } from "../lib/client"
 import { queries } from "../lib/queries"
@@ -56,16 +57,30 @@ function InviteResults({ results }: { results: readonly InviteResult[] }) {
   )
 }
 
-/** "Invite by email": several addresses at once as chips, with what happened to each. */
-export function InviteForm({ onInvite }: { onInvite(emails: string[]): Promise<InviteResult[]> }) {
-  const { emails, setEmails, results, sending, send } = useInviteSender(onInvite)
+export type InviteRole = "member" | "admin"
+const INVITE_ROLES = [
+  { id: "member", name: "Member" },
+  { id: "admin", name: "Admin" },
+] as const
+
+/** "Invite by email": several addresses at once as chips, the role they join with, and what happened to each. */
+export function InviteForm({ onInvite }: { onInvite(emails: string[], role: InviteRole): Promise<InviteResult[]> }) {
+  const [role, setRole] = useState<InviteRole>("member")
+  const { emails, setEmails, results, sending, send } = useInviteSender((list) => onInvite(list, role))
 
   return (
     <form onSubmit={send} className="flex flex-col gap-3">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
-        <div className="min-w-0 flex-1">
-          <EmailChips emails={emails} onChange={setEmails} label="Invite by email" placeholder="sari@company.com, andi@gmail.com" />
-        </div>
+      <EmailChips emails={emails} onChange={setEmails} label="Invite by email" placeholder="sari@company.com, andi@gmail.com" tall />
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Select
+          aria-label="Invite as"
+          selectedKey={role}
+          onSelectionChange={(key) => (key === "member" || key === "admin") && setRole(key)}
+          className="min-w-0 flex-1"
+        >
+          <SelectTrigger prefix="Invite as" className="h-full font-medium" />
+          <SelectContent items={INVITE_ROLES}>{(item) => <SelectItem id={item.id}>{item.name}</SelectItem>}</SelectContent>
+        </Select>
         <Button type="submit" className="shrink-0" isDisabled={sending || emails.length === 0}>
           <RiSendPlaneLine aria-hidden />
           {sendLabel(emails.length)}

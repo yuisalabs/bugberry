@@ -9,8 +9,9 @@ import { TextField } from "@bugberry/ui/text-field"
 import { errorMessage, type Project, type ProjectInput } from "../../lib/api"
 import { api } from "../../lib/client"
 import { slugify } from "../../lib/slug"
+import { LOGO_RULE, LogoPicker } from "../LogoPicker"
 import { cleanPatterns, MAX_PATTERN_LENGTH, MAX_PATTERNS, patternExamples, savePatternsLabel, testUrl } from "../../lib/url-patterns"
-import { useCurrentWorkspace } from "../../lib/workspace"
+import { useCurrentWorkspace, workspaceColor } from "../../lib/workspace"
 
 const sectionLabel = "text-sm font-medium text-foreground"
 
@@ -134,8 +135,8 @@ export function UrlPatternsForm({
   )
 }
 
-/** The project's URL patterns in a dialog; saving keeps its name and slug. */
-export function UrlPatternsDialog({ project, onClose }: { project: Project | null; onClose(): void }) {
+/** The project's URL patterns in a dialog; saving keeps its name and slug. `adding` starts with one more pattern filled in. */
+export function UrlPatternsDialog({ project, adding, onClose }: { project: Project | null; adding?: string; onClose(): void }) {
   const queryClient = useQueryClient()
   const save = useMutation({
     mutationFn: (urlPatterns: string[]) =>
@@ -149,9 +150,9 @@ export function UrlPatternsDialog({ project, onClose }: { project: Project | nul
     <Dialog isOpen={project !== null} onOpenChange={(open) => !open && onClose()} aria-label="URL patterns" size="xl">
       {project && (
         <UrlPatternsForm
-          key={project.id}
+          key={`${project.id}:${adding ?? ""}`}
           projectName={project.name}
-          patterns={project.urlPatterns}
+          patterns={adding && !project.urlPatterns.includes(adding) ? [...project.urlPatterns, adding] : project.urlPatterns}
           saving={save.isPending}
           error={save.error ? errorMessage(save.error) : null}
           onSave={(patterns) => save.mutate(patterns)}
@@ -162,29 +163,46 @@ export function UrlPatternsDialog({ project, onClose }: { project: Project | nul
   )
 }
 
-/** A new project's name and slug, or an existing one's; its URL patterns have their own dialog. */
+/** What the project form saves: its name and slug, and a new logo to upload or the old one to remove. */
+export interface ProjectFormValues {
+  name: string
+  slug: string
+  logo: File | null
+  removeLogo: boolean
+}
+
+/**
+ * A new project's name, slug and optional logo, or an existing one's; its URL patterns have their own dialog. Without a
+ * logo the project shows its first letter.
+ */
 export function ProjectForm({
   project,
   saving,
   error,
+  measure,
   onSave,
   onCancel,
 }: {
   project?: Project
   saving: boolean
   error: string | null
-  onSave(input: { name: string; slug: string }): void
+  /** Tests measure the image without a browser. */
+  measure?: (file: File) => Promise<{ width: number; height: number }>
+  onSave(input: ProjectFormValues): void
   onCancel(): void
 }) {
   const [name, setName] = useState(project?.name ?? "")
   const [slug, setSlug] = useState(project?.slug ?? "")
   const [slugEdited, setSlugEdited] = useState(project !== undefined)
+  const [logo, setLogo] = useState<File | null>(null)
+  const [removeLogo, setRemoveLogo] = useState(false)
+  const current = removeLogo ? null : (project?.logoUrl ?? null)
 
   return (
     <form
       onSubmit={(event) => {
         event.preventDefault()
-        onSave({ name: name.trim(), slug })
+        onSave({ name: name.trim(), slug, logo, removeLogo: removeLogo && !logo })
       }}
       className="flex min-h-0 flex-col"
     >
@@ -219,6 +237,37 @@ export function ProjectForm({
           <Input className="font-mono" />
           <Description>Used in the dashboard's address: /app/p/{slug || "…"}</Description>
         </TextField>
+        <div className="flex flex-col gap-2">
+          <span className="text-sm font-medium text-foreground">
+            Logo <span className="font-normal text-muted-foreground">(optional)</span>
+          </span>
+          <LogoPicker
+            file={logo}
+            current={current}
+            name={name}
+            color={project ? workspaceColor(project.id) : "bg-primary"}
+            measure={measure}
+            hint={LOGO_RULE}
+            onChange={(file) => {
+              setLogo(file)
+              setRemoveLogo(false)
+            }}
+            actions={
+              (logo || current) && (
+                <Button
+                  size="sm"
+                  intent="plain"
+                  onPress={() => {
+                    setLogo(null)
+                    setRemoveLogo(true)
+                  }}
+                >
+                  Remove
+                </Button>
+              )
+            }
+          />
+        </div>
         {error && (
           <p role="alert" className="text-sm text-danger-subtle-foreground">
             {error}
@@ -237,12 +286,27 @@ export function ProjectForm({
   )
 }
 
-/** "New project" (no `project`) or "Edit project" in a dialog; editing keeps the URL patterns as they are. */
+/** Puts a project's new logo in storage and makes it the one in use. */
+async function uploadProjectLogo(projectId: string, file: File) {
+  const { upload, logoId } = await api.projectLogoUploadTarget(projectId, file.type as "image/png" | "image/jpeg", file.size)
+  const response = await fetch(upload.url, { method: upload.method, headers: upload.headers, body: file })
+  if (!response.ok) throw new Error("The logo didn't upload. Try again.")
+  await api.confirmProjectLogo(projectId, logoId)
+}
+
+/**
+ * "New project" (no `project`) or "Edit project" in a dialog; editing keeps the URL patterns as they are. A new logo
+ * uploads once the project is saved, so a new project gets one too.
+ */
 export function ProjectDialog({ project, isOpen, onClose }: { project?: Project; isOpen: boolean; onClose(): void }) {
   const queryClient = useQueryClient()
   const { workspace } = useCurrentWorkspace()
   const save = useMutation({
-    mutationFn: (input: ProjectInput) => (project ? api.updateProject(project.id, input) : api.createProject(workspace?.id ?? "", input)),
+    mutationFn: async ({ logo, removeLogo, ...input }: ProjectInput & Pick<ProjectFormValues, "logo" | "removeLogo">) => {
+      const saved = project ? await api.updateProject(project.id, input) : await api.createProject(workspace?.id ?? "", input)
+      if (logo) await uploadProjectLogo(saved.id, logo)
+      else if (removeLogo) await api.removeProjectLogo(saved.id)
+    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["projects"] })
       onClose()
@@ -256,7 +320,9 @@ export function ProjectDialog({ project, isOpen, onClose }: { project?: Project;
           project={project}
           saving={save.isPending}
           error={save.error ? errorMessage(save.error) : null}
-          onSave={({ name, slug }) => save.mutate({ name, slug, urlPatterns: project ? [...project.urlPatterns] : [] })}
+          onSave={({ name, slug, logo, removeLogo }) =>
+            save.mutate({ name, slug, urlPatterns: project ? [...project.urlPatterns] : [], logo, removeLogo })
+          }
           onCancel={onClose}
         />
       )}

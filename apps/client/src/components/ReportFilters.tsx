@@ -16,6 +16,9 @@ import { ActiveIcon } from "./ActiveIcon"
 
 const ALL = "__all"
 
+/** The filter, More filters and sort buttons: white on the grey page, so they read as controls at a glance. */
+const chip = "bg-background"
+
 /** The single key of a single-select menu, or undefined for "all". */
 function picked(keys: Selection): string | undefined {
   if (keys === "all") return undefined
@@ -42,10 +45,10 @@ function FilterMenu({
   return (
     <MenuTrigger>
       <Button
-        intent="plain"
+        intent="outline"
         size="sm"
         aria-label={value ? `${label}: ${value}` : label}
-        className={value ? "text-foreground" : "text-muted-foreground"}
+        className={`${chip} ${value ? "text-foreground" : "text-muted-foreground"}`}
       >
         {label}
         {value && <span className="font-semibold text-foreground">: {value}</span>}
@@ -98,7 +101,7 @@ export function ReportFilters({
 
   return (
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-      <div className="flex flex-wrap items-center gap-1">
+      <div className="flex flex-wrap items-center gap-2">
         <FilterMenu
           label="Type"
           value={search.captureType ? CAPTURE_LABELS[search.captureType] : undefined}
@@ -165,7 +168,7 @@ export function ReportFilters({
         )}
 
         <PopoverTrigger>
-          <Button intent="plain" size="sm" className="text-muted-foreground">
+          <Button intent="outline" size="sm" className={`${chip} text-muted-foreground`}>
             {/* Filled while one of the filters inside (priority, assignee) is set. */}
             <ActiveIcon active={Boolean(search.priority || search.assigneeId)} line={RiEqualizerLine} fill={RiEqualizerFill} />
             More filters
@@ -247,7 +250,7 @@ export function SortMenu({
   const current = SORTS.find((option) => option.id === (sort ?? "newest")) ?? SORTS[0]
   return (
     <MenuTrigger>
-      <Button intent="plain" size="sm" aria-label={`Sort: ${current.label}`} className="text-muted-foreground">
+      <Button intent="outline" size="sm" aria-label={`Sort: ${current.label}`} className={`${chip} text-muted-foreground`}>
         <RiArrowUpDownLine aria-hidden />
         <span className={showLabel ? undefined : "hidden sm:inline"}>{current.label}</span>
       </Button>

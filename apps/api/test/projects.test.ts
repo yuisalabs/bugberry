@@ -56,4 +56,31 @@ describe("projects", () => {
     expect(error?.status as number | undefined).toBe(409)
     expect(error?.value).toMatchObject({ code: "project_has_reports" })
   })
+
+  test("the overview counts each project's reports and lists the pages no pattern catches", async () => {
+    const admin = await createUserWithToken(ctx.db, { role: "admin" })
+    const shop = await createProject(ctx.db, { name: "Shop", urlPatterns: ["shop.kantor.test/*"] })
+    const docs = await createProject(ctx.db, { name: "Docs", slug: "docs", urlPatterns: [] })
+    const reporterId = admin.user.id
+    await createReadyReport(ctx.db, { projectId: shop.id, reporterId, pageUrl: "https://shop.kantor.test/cart" })
+    await createReadyReport(ctx.db, { projectId: shop.id, reporterId, pageUrl: "https://shop.kantor.test/pay", status: "resolved" })
+    await createReadyReport(ctx.db, { projectId: docs.id, reporterId, pageUrl: "https://docs.kantor.test/start?x=1" })
+    await createReadyReport(ctx.db, { projectId: docs.id, reporterId, pageUrl: "https://docs.kantor.test/start/" })
+    await createReadyReport(ctx.db, { projectId: shop.id, reporterId, pageUrl: "https://docs.kantor.test/start" })
+    await createReadyReport(ctx.db, { projectId: shop.id, reporterId, pageUrl: "https://shop.kantor.test/x", uploadStatus: "uploading" })
+
+    const { data } = await ctx.api.api.projects.overview.get({ headers: admin.headers })
+    const byProject = Object.fromEntries((data?.stats ?? []).map((row) => [row.projectId, row]))
+    expect(byProject[shop.id]).toMatchObject({ reports: 3, open: 2 })
+    expect(byProject[docs.id]).toMatchObject({ reports: 2, open: 2 })
+    expect(data?.unmatched).toEqual([
+      { page: "docs.kantor.test/start", reports: 3, lastReportAt: expect.any(Date), suggestedProjectId: docs.id },
+    ])
+  })
+
+  test("members can't see the overview", async () => {
+    const { headers } = await createUserWithToken(ctx.db)
+    const { error } = await ctx.api.api.projects.overview.get({ headers })
+    expect(error?.status as number | undefined).toBe(403)
+  })
 })

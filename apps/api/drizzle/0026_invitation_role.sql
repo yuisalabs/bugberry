@@ -1,0 +1,1 @@
+ALTER TABLE "workspace_invitation" ADD COLUMN "role" "workspace_role" DEFAULT 'member' NOT NULL;

@@ -1,5 +1,6 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen, within } from "@testing-library/react"
+import { AccountMenuPanel } from "../src/components/AccountMenu"
 import { JoinWorkspaceBody } from "../src/components/JoinWorkspaceDialog"
 import { WorkspaceMenuPanel } from "../src/components/WorkspaceMenu"
 import { workspaceColor } from "../src/lib/workspace"
@@ -12,8 +13,8 @@ const workspaces = [
 const me = { name: "Ervalsa Dwi Nanda", email: "ervalsa@javan.co.id", image: null }
 
 const panel = () => {
-  const props = { onSwitch: mock(), onCreate: mock(), onJoin: mock(), onAccount: mock(), onLogout: mock() }
-  render(<WorkspaceMenuPanel workspaces={workspaces} currentId="w1" me={me} {...props} />)
+  const props = { onSwitch: mock(), onCreate: mock(), onJoin: mock(), onSettings: mock(), onInvite: mock() }
+  render(<WorkspaceMenuPanel workspaces={workspaces} currentId="w1" {...props} />)
   return props
 }
 
@@ -46,21 +47,24 @@ describe("WorkspaceMenuPanel", () => {
 
   test("without onCreate there is no Create workspace, only Join", () => {
     render(
-      <WorkspaceMenuPanel workspaces={workspaces} currentId="w1" me={me} onSwitch={mock()} onJoin={mock()} onAccount={mock()} onLogout={mock()} />,
+      <WorkspaceMenuPanel workspaces={workspaces} currentId="w1" onSwitch={mock()} onJoin={mock()} />,
     )
     expect(screen.queryByRole("menuitem", { name: "Create workspace" })).toBeNull()
     expect(screen.getByRole("menuitem", { name: "Join workspace" })).toBeTruthy()
   })
 
-  test("the account part of the menu", () => {
+  test("admins get Workspace settings and Invite members", () => {
     const props = panel()
-    expect(screen.getByText("Ervalsa Dwi Nanda")).toBeTruthy()
-    expect(screen.getByText("ervalsa@javan.co.id")).toBeTruthy()
-    fireEvent.click(screen.getByRole("menuitem", { name: "Account settings" }))
-    fireEvent.click(screen.getByRole("menuitem", { name: "Log out" }))
-    expect(props.onAccount).toHaveBeenCalled()
-    expect(screen.queryByRole("menuitem", { name: /AI agents/ })).toBeNull()
-    expect(props.onLogout).toHaveBeenCalled()
+    fireEvent.click(screen.getByRole("menuitem", { name: "Workspace settings" }))
+    fireEvent.click(screen.getByRole("menuitem", { name: "Invite members" }))
+    expect(props.onSettings).toHaveBeenCalled()
+    expect(props.onInvite).toHaveBeenCalled()
+  })
+
+  test("members get neither", () => {
+    render(<WorkspaceMenuPanel workspaces={workspaces} currentId="w2" onSwitch={mock()} onJoin={mock()} />)
+    expect(screen.queryByRole("menuitem", { name: "Workspace settings" })).toBeNull()
+    expect(screen.queryByRole("menuitem", { name: "Invite members" })).toBeNull()
   })
 
   test("each workspace keeps its colour", () => {
@@ -99,15 +103,38 @@ describe("WorkspaceTile", () => {
       <WorkspaceMenuPanel
         workspaces={[{ id: "w1", name: "Javan QA", role: "admin", owner: true, logoUrl: "http://localhost:3000/api/workspace-logos/w1/a.png" }]}
         currentId="w1"
-        me={me}
         onSwitch={mock()}
         onCreate={mock()}
         onJoin={mock()}
-        onAccount={mock()}
-        onLogout={mock()}
       />,
     )
     const row = screen.getByRole("menuitemradio", { name: /Javan QA/ })
     expect(row.querySelector("img")?.getAttribute("src")).toBe("http://localhost:3000/api/workspace-logos/w1/a.png")
+  })
+})
+
+describe("AccountMenuPanel", () => {
+  test("who is signed in, Account settings and Log out", () => {
+    const onAccount = mock()
+    const onLogout = mock()
+    render(<AccountMenuPanel me={me} extension={{ installed: false }} onAccount={onAccount} onLogout={onLogout} />)
+    expect(screen.getByText("Ervalsa Dwi Nanda")).toBeTruthy()
+    expect(screen.getByText("ervalsa@javan.co.id")).toBeTruthy()
+    fireEvent.click(screen.getByRole("menuitem", { name: "Account settings" }))
+    fireEvent.click(screen.getByRole("menuitem", { name: "Log out" }))
+    expect(onAccount).toHaveBeenCalled()
+    expect(onLogout).toHaveBeenCalled()
+  })
+
+  test("the extension's version shows once it is installed", () => {
+    render(
+      <AccountMenuPanel me={me} extension={{ installed: true, active: true, version: "0.2.3" }} onAccount={mock()} onLogout={mock()} />,
+    )
+    expect(screen.getByRole("menuitem", { name: /Browser extension/ }).textContent).toContain("v0.2.3")
+  })
+
+  test("Help & docs opens the docs", () => {
+    render(<AccountMenuPanel me={me} extension={{ installed: false }} onAccount={mock()} onLogout={mock()} />)
+    expect(screen.getByRole("menuitem", { name: /Help & docs/ }).getAttribute("href")).toContain("/docs")
   })
 })

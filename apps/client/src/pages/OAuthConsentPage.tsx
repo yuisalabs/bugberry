@@ -2,9 +2,10 @@ import { useQuery } from "@tanstack/react-query"
 import { Button } from "@bugberry/ui/button"
 import { useEffect, useState } from "react"
 import { BugBerryLogo } from "../components/BugBerryLogo"
+import { StatusPage } from "../components/status/StatusPage"
 import { Loading } from "../components/ui"
 import { ApiError } from "../lib/api"
-import { answerConsent, fetchOAuthClient, redirectHost, scopeLines } from "../lib/oauth"
+import { answerConsent, fetchOAuthClient, incompleteConsentRequest, redirectHost, scopeLines } from "../lib/oauth"
 import { queries } from "../lib/queries"
 
 export function ConsentView({
@@ -97,15 +98,21 @@ export function OAuthConsentPage() {
       })
   }
 
+  if (!clientId) {
+    return (
+      <StatusPage
+        kind="400"
+        description="This link is incomplete: it doesn't say which app is asking. Start again from your AI app."
+        request={incompleteConsentRequest(search)}
+      />
+    )
+  }
+
   return (
     <div className="flex min-h-screen flex-col items-center bg-muted px-4 py-16">
       <div className="flex w-full max-w-md flex-col gap-8 rounded-2xl border border-border bg-background p-8">
         <BugBerryLogo />
-        {!clientId ? (
-          <p role="alert" className="text-sm text-danger-subtle-foreground">
-            This link is incomplete. Start again from your AI app.
-          </p>
-        ) : me.isPending || signedOut || app.isPending ? (
+        {me.isPending || signedOut || app.isPending ? (
           <Loading />
         ) : app.isError || !me.data || !app.data ? (
           <p role="alert" className="text-sm text-danger-subtle-foreground">

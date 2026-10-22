@@ -10,7 +10,8 @@ import {
   redirect,
 } from "@tanstack/react-router"
 import { AppShell } from "./components/AppShell"
-import { EmptyState, ErrorState } from "./components/ui"
+import { ErrorPage } from "./components/status/ErrorPage"
+import { StatusPage } from "./components/status/StatusPage"
 import { requireWorkspaceAdmin } from "./lib/admin-guard"
 import { ApiError } from "./lib/api"
 import { legacyAppPath } from "./lib/legacy-paths"
@@ -25,22 +26,24 @@ import { AllReportsPage } from "./pages/AllReportsPage"
 import { LandingPage } from "./pages/LandingPage"
 import { ProjectReportsPage } from "./pages/ProjectReportsPage"
 
+/** Any address no page answers, at the top level or inside the dashboard. */
+function NotFoundPage() {
+  return <StatusPage kind="404" />
+}
+
+/** A page that failed to load or crashed; trying again loads it afresh. */
+function CrashPage({ error }: { error: unknown }) {
+  return <ErrorPage error={error} onRetry={() => window.location.reload()} />
+}
+
 export interface RouterContext {
   queryClient: QueryClient
 }
 
 const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: Outlet,
-  notFoundComponent: () => (
-    <div className="p-6">
-      <EmptyState title="Page not found" />
-    </div>
-  ),
-  errorComponent: ({ error }) => (
-    <div className="p-6">
-      <ErrorState error={error} />
-    </div>
-  ),
+  notFoundComponent: NotFoundPage,
+  errorComponent: CrashPage,
 })
 
 const loginRoute = createRoute({
@@ -92,6 +95,14 @@ const oauthConsentRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/oauth/consent",
   component: lazyRouteComponent(() => import("./pages/OAuthConsentPage"), "OAuthConsentPage"),
+})
+
+/** Where a session that ended mid-use lands (lib/session-end): the 401 page, with a way to sign in again. */
+const sessionEndedRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/session-ended",
+  validateSearch: (search: Record<string, unknown>): { next?: string } => ({ next: typeof search.next === "string" ? search.next : undefined }),
+  component: lazyRouteComponent(() => import("./pages/SessionEndedPage"), "SessionEndedPage"),
 })
 
 /** Public: the privacy policy the browser extension stores link to. */
@@ -201,6 +212,7 @@ const routeTree = rootRoute.addChildren([
   demoRoute,
   ...legacyRoutes,
   loginRoute,
+  sessionEndedRoute,
   shareRoute,
   inviteRoute,
   joinRoute,
@@ -225,6 +237,9 @@ export function createAppRouter(queryClient: QueryClient) {
     defaultPreload: "intent",
     scrollRestoration: mayRestoreScroll,
     scrollToTopSelectors: [`#${APP_MAIN_ID}`],
+    // Child routes (the dashboard's pages) get the same status pages as the root.
+    defaultNotFoundComponent: NotFoundPage,
+    defaultErrorComponent: CrashPage,
   })
 }
 

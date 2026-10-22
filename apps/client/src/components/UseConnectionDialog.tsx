@@ -208,6 +208,14 @@ function buildTarget(
 }
 
 /**
+ * Whether a project already uses up this connection: a channel without a target (Slack, Discord, Webhook) sends to one
+ * place, so it is used once per project. A tracker or Telegram can be used again for another repo, project or chat.
+ */
+export function usedUp(connection: Connection, used: readonly Integration[]): boolean {
+  return !isTrackerProvider(connection.provider) && connection.provider !== "telegram" && used.some((use) => use.connection.id === connection.id)
+}
+
+/**
  * Use a connection in a project, in two steps: pick one of the workspace's connections, then where it sends.
  * A channel without a target (Slack, Discord, Webhook) can be used once per project.
  */
@@ -240,8 +248,7 @@ export function UseConnectionSteps({
   const [autoSend, setAutoSend] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const chosen = connections.find((item) => item.id === chosenId)
-  const blocked = (connection: Connection) =>
-    !isTrackerProvider(connection.provider) && connection.provider !== "telegram" && used.some((use) => use.connection.id === connection.id)
+  const blocked = (connection: Connection) => usedUp(connection, used)
 
   if (step === 1 || !chosen) {
     return (

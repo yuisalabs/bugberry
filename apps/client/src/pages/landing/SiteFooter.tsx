@@ -3,16 +3,30 @@ import { Link } from "@bugberry/ui/link"
 import { BugBerryLogo } from "../../components/BugBerryLogo"
 import { GithubIcon } from "../../components/LoginView"
 import { DOCS_URL } from "../../lib/docs-url"
-import { CHANGELOG, INTEGRATION_DOCS, installHref, MCP_GUIDE, QUICK_START, SOURCE_URL, siteContainer, WEBHOOK_DOCS } from "./site-links"
+import {
+  CHANGELOG,
+  COMMENTS_DOCS,
+  INTEGRATION_DOCS,
+  installHref,
+  MCP_GUIDE,
+  QUICK_START,
+  RECORDING_DOCS,
+  REPORT_PAGE_DOCS,
+  SCREENSHOT_DOCS,
+  SOURCE_URL,
+  siteContainer,
+  WEBHOOK_DOCS,
+} from "./site-links"
 
 const COLUMNS: Array<{ label: string; links: Array<[string, string]> }> = [
   {
     label: "Product",
+    // The features open the same docs sections as the Product menu.
     links: [
-      ["Browser extension", "/#capture"],
-      ["Screenshot & annotate", "/#capture"],
-      ["Console & network logs", "/#debug"],
-      ["Comments & mentions", "/#collaborate"],
+      ["Browser extension", RECORDING_DOCS],
+      ["Screenshot & annotate", SCREENSHOT_DOCS],
+      ["Console & network logs", REPORT_PAGE_DOCS],
+      ["Comments & mentions", COMMENTS_DOCS],
       ["AI Agents (MCP)", "/ai-agents"],
       ["Pricing", "/pricing"],
       ["Integrations", "/integrations"],

@@ -25,6 +25,7 @@ const MESSAGES: Record<string, string> = {
   validation: "The report isn't valid. Check the title and project.",
   rate_limited: "Too many reports in a short time. Try again in a moment.",
   internal: "Something went wrong on the BugBerry server.",
+  maintenance: "BugBerry is down for maintenance. Send the report again later.",
   project_not_found: "Project not found. Pick another project.",
   report_not_found: "Report not found on the server.",
   file_too_large: "The file is too large for this server.",

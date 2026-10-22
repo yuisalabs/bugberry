@@ -51,16 +51,16 @@ describe("ReportsView", () => {
     expect(screen.queryByText(/of 5 screenshots/)).toBeNull()
   })
 
-  test("the header has search, invite for admins, and new report", () => {
+  test("the header has search, invite for admins on phones, and new report", () => {
     const onSearch = mock()
     const onInvite = mock()
     const { rerender } = render(<ReportsView {...props({ onSearch, onInvite })} />)
     fireEvent.change(screen.getByRole("searchbox", { name: "Search reports" }), { target: { value: " pay " } })
     fireEvent.submit(screen.getByRole("search"))
     expect(onSearch).toHaveBeenLastCalledWith({ q: "pay" })
-    // One Invite for phones (beside the title) and one for wider screens; CSS shows one of them.
+    // Only the phone's Invite beside the title; wider screens have it in the app's top bar.
     const invites = screen.getAllByRole("button", { name: "Invite" })
-    expect(invites).toHaveLength(2)
+    expect(invites).toHaveLength(1)
     fireEvent.click(invites[0] as HTMLElement)
     expect(onInvite).toHaveBeenCalled()
     expect(screen.getByRole("button", { name: "New report" })).toBeTruthy()
@@ -82,7 +82,7 @@ describe("ReportsView", () => {
   })
 
   test("the list names each report's project on a project page too", () => {
-    const projects = [{ id: "p1", name: "Checkout Web", slug: "checkout", workspaceId: "w1", urlPatterns: [] as string[], createdAt: new Date() }]
+    const projects = [{ id: "p1", name: "Checkout Web", slug: "checkout", workspaceId: "w1", urlPatterns: [] as string[], logoUrl: null, createdAt: new Date() }]
     render(<ReportsView {...props({ list: listOf([listItemFixture({ projectId: "p1" })]), layout: "list", tableProjects: projects })} />)
     expect(screen.queryByRole("button", { name: /Project/ })).toBeNull()
     expect(screen.getByText("Checkout Web")).toBeTruthy()

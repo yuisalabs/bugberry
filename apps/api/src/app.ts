@@ -23,6 +23,7 @@ import { clientIp, shareModule } from "./modules/share"
 import { oauthAppsModule } from "./modules/oauth-apps"
 import { tokensModule } from "./modules/tokens"
 import { trackersModule } from "./modules/trackers"
+import { projectLogoModule } from "./modules/project-logo"
 import { workspaceLogoModule } from "./modules/workspace-logo"
 import { workspacesModule } from "./modules/workspaces"
 import { invitationsModule } from "./modules/invitations"
@@ -130,6 +131,7 @@ export function createApp(deps: AppDeps) {
     .use(oauthAppsModule(deps))
     .use(workspacesModule(deps))
     .use(workspaceLogoModule(deps))
+    .use(projectLogoModule(deps))
     .use(invitationsModule(deps))
     .use(joinModule(deps))
     .use(projectsModule(deps))

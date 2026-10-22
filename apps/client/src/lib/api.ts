@@ -23,6 +23,9 @@ export class ApiError extends Error {
     super(message)
     this.name = "ApiError"
   }
+
+  /** How long the request waited for this answer (the 504 page shows it). */
+  waitedMs: number | null = null
 }
 
 interface EdenResult<T> {
@@ -34,6 +37,7 @@ const NETWORK_MESSAGE = "BugBerry can't be reached. Check your connection and tr
 
 /** Resolves an Eden call to its data, or throws an ApiError carrying the server's `{ code, message }`. */
 export async function unwrap<T>(request: Promise<EdenResult<T>>): Promise<NonNullable<T>> {
+  const started = Date.now()
   let result: EdenResult<T>
   try {
     result = await request
@@ -44,12 +48,14 @@ export async function unwrap<T>(request: Promise<EdenResult<T>>): Promise<NonNul
     // Eden reports a failed fetch as status 503 carrying the thrown Error, not a server response.
     if (result.error.value instanceof Error) throw new ApiError(0, "network", NETWORK_MESSAGE)
     const body = (result.error.value ?? {}) as { code?: unknown; message?: unknown }
-    throw new ApiError(
+    const error = new ApiError(
       Number(result.error.status) || 0,
       typeof body.code === "string" ? body.code : "error",
       typeof body.message === "string" ? body.message : "The request failed. Try again.",
       typeof body === "object" ? (body as Record<string, unknown>) : {},
     )
+    error.waitedMs = Date.now() - started
+    throw error
   }
   if (result.data === null || result.data === undefined) throw new ApiError(0, "empty", "The server sent an empty response")
   return result.data as NonNullable<T>
@@ -154,7 +160,8 @@ export function createApi(origin: string = window.location.origin, fetcher: type
     removeMember: (workspaceId: string, userId: string) =>
       unwrap(api.workspaces({ id: workspaceId }).members({ userId }).delete()),
     invitations: (workspaceId: string) => unwrap(api.workspaces({ id: workspaceId }).invitations.get()),
-    invite: (workspaceId: string, emails: string[]) => unwrap(api.workspaces({ id: workspaceId }).invitations.post({ emails })),
+    invite: (workspaceId: string, emails: string[], role?: "member" | "admin") =>
+      unwrap(api.workspaces({ id: workspaceId }).invitations.post(role ? { emails, role } : { emails })),
     revokeInvitation: (workspaceId: string, id: string) =>
       unwrap(api.workspaces({ id: workspaceId }).invitations({ invitationId: id }).delete()),
     resendInvitation: (workspaceId: string, id: string) =>
@@ -186,6 +193,11 @@ export function createApi(origin: string = window.location.origin, fetcher: type
     createProject: (workspaceId: string, body: ProjectInput) => unwrap(api.projects.post({ workspaceId, ...body })),
     updateProject: (id: string, body: ProjectInput) => unwrap(api.projects({ id }).patch(body)),
     deleteProject: (id: string) => unwrap(api.projects({ id }).delete()),
+    projectLogoUploadTarget: (projectId: string, contentType: "image/png" | "image/jpeg", size: number) =>
+      unwrap(api.projects({ id: projectId }).logo.post({ contentType, size })),
+    confirmProjectLogo: (projectId: string, logoId: string) => unwrap(api.projects({ id: projectId }).logo({ logoId }).post()),
+    removeProjectLogo: (projectId: string) => unwrap(api.projects({ id: projectId }).logo.delete()),
+    projectsOverview: (workspaceId: string) => unwrap(api.projects.overview.get({ query: { workspaceId } })),
     reports: (workspaceId: string, query: ReportsQuery) => unwrap(api.reports.get({ query: { workspaceId, ...query } })),
     reportCounts: (workspaceId: string, query: Omit<ReportsQuery, "page" | "perPage">) =>
       unwrap(api.reports.counts.get({ query: { workspaceId, ...query } })),
@@ -290,6 +302,7 @@ const MESSAGES: Record<string, string> = {
   validation: "Some fields are invalid",
   rate_limited: "Too many requests. Try again in a moment.",
   internal: "Something went wrong on the server",
+  maintenance: "BugBerry is down for maintenance. Try again later.",
   slug_taken: "Another project already uses this slug",
   project_has_reports: "This project still has reports. Delete them first.",
   project_not_found: "Project not found",

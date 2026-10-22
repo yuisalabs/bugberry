@@ -71,6 +71,21 @@ const DAY = 24 * HOUR
 
 const plural = (count: number, unit: string) => `${count} ${unit}${count === 1 ? "" : "s"} ago`
 
+/** The short form for tight places: "just now", "2m ago", "3h ago", "yesterday", "4d ago", then "Oct 9". */
+export function formatAgo(value: Date | string | number, now: number): string {
+  const date = new Date(value)
+  const time = date.getTime()
+  if (Number.isNaN(time)) return "-"
+  const age = now - time
+  if (age < MINUTE) return "just now"
+  if (age < HOUR) return `${Math.floor(age / MINUTE)}m ago`
+  if (age < DAY) return `${Math.floor(age / HOUR)}h ago`
+  if (age < 2 * DAY) return "yesterday"
+  if (age < 7 * DAY) return `${Math.floor(age / DAY)}d ago`
+  const format = date.getFullYear() === new Date(now).getFullYear() ? shortDate : shortDateWithYear
+  return format.format(date)
+}
+
 /** "just now", "5 minutes ago", "17 hours ago", then "Oct 9" (or "Oct 9, 2025" in another year). */
 export function formatRelative(value: Date | string | number, now: number): string {
   const date = new Date(value)

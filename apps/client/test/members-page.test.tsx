@@ -1,14 +1,23 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { sendLabel } from "../src/components/InviteDialog"
-import { MembersView, membersSummary } from "../src/pages/settings/MembersPage"
+import { inviteMeta, MembersView, membersSummary } from "../src/pages/settings/MembersPage"
 import { choose } from "./fields"
 
 const members = [
   { id: "u1", name: "Budi", email: "budi@kantor.test", image: null, role: "admin" as const, owner: false, joinedAt: new Date("2026-09-12T00:00:00Z") },
   { id: "u2", name: "Sari", email: "sari@kantor.test", image: null, role: "member" as const, owner: false, joinedAt: new Date("2026-09-12T00:00:00Z") },
 ]
-const pending = [{ id: "i1", email: "andi@gmail.com", invitedBy: "Budi", expiresAt: new Date("2026-10-24T00:00:00Z") }]
+const pending = [
+  {
+    id: "i1",
+    email: "andi@gmail.com",
+    invitedBy: "Budi",
+    role: "member" as const,
+    sentAt: new Date("2026-10-17T00:00:00Z"),
+    expiresAt: new Date("2026-10-24T00:00:00Z"),
+  },
+]
 
 function view(overrides: Partial<Parameters<typeof MembersView>[0]> = {}) {
   const props = {
@@ -40,16 +49,34 @@ describe("MembersView", () => {
       clipboardData: { getData: () => "a@kantor.test, sari@kantor.test\nandi@gmail.com\neve@x.test" },
     })
     fireEvent.click(screen.getByRole("button", { name: "Send 4 invites" }))
-    expect(props.onInvite).toHaveBeenCalledWith(["a@kantor.test", "sari@kantor.test", "andi@gmail.com", "eve@x.test"])
+    expect(props.onInvite).toHaveBeenCalledWith(["a@kantor.test", "sari@kantor.test", "andi@gmail.com", "eve@x.test"], "member")
     await waitFor(() => expect(screen.getByText("a@kantor.test: Invited")).toBeTruthy())
     expect(screen.getByText("sari@kantor.test: Already a member")).toBeTruthy()
     expect(screen.getByText("andi@gmail.com: Already invited")).toBeTruthy()
     expect(screen.getByText("eve@x.test: Not allowed on this server")).toBeTruthy()
   })
 
+  test("invites can join as admin", async () => {
+    const props = view()
+    fireEvent.paste(screen.getByRole("textbox", { name: "Invite by email" }), { clipboardData: { getData: () => "a@kantor.test, b@kantor.test" } })
+    choose("Invite as", "Admin")
+    fireEvent.click(screen.getByRole("button", { name: "Send 2 invites" }))
+    expect(props.onInvite).toHaveBeenCalledWith(["a@kantor.test", "b@kantor.test"], "admin")
+    await waitFor(() => expect(screen.getByText("a@kantor.test: Invited")).toBeTruthy())
+  })
+
+  test("a pending invite says when it went out, and when it ends once that is near", () => {
+    const now = new Date("2026-10-22T00:00:00Z").getTime()
+    expect(inviteMeta({ sentAt: new Date(now - 2 * 86_400_000), expiresAt: new Date(now + 5 * 86_400_000) }, now)).toBe("Sent 2d ago")
+    expect(inviteMeta({ sentAt: new Date(now - 5 * 86_400_000), expiresAt: new Date(now + 2 * 86_400_000) }, now)).toBe(
+      "Sent 5d ago · expires in 2 days",
+    )
+    expect(inviteMeta({ sentAt: new Date(now - 6 * 86_400_000), expiresAt: new Date(now + 3_600_000) }, now)).toBe("Sent 6d ago · expires today")
+  })
+
   test("pending invitations can be resent or revoked", () => {
     const props = view()
-    expect(screen.getByRole("heading", { name: "Pending invitations" })).toBeTruthy()
+    expect(screen.getByRole("heading", { name: /Pending invites/ })).toBeTruthy()
     fireEvent.click(screen.getByRole("button", { name: "Resend andi@gmail.com" }))
     fireEvent.click(screen.getByRole("button", { name: "Revoke andi@gmail.com" }))
     expect(props.onResend).toHaveBeenCalledWith("i1")
@@ -58,11 +85,13 @@ describe("MembersView", () => {
 
   test("admins change roles and remove others; everyone can leave", () => {
     const props = view()
-    choose("Role of Sari", "Admin")
+    fireEvent.click(screen.getByRole("button", { name: "More for Sari" }))
+    fireEvent.click(screen.getByRole("menuitem", { name: "Make admin" }))
     expect(props.onSetRole).toHaveBeenCalledWith("u2", "admin")
-    // Nobody changes their own role: Budi (me, an admin) gets a badge.
-    expect(screen.queryByLabelText("Role of Budi")).toBeNull()
-    fireEvent.click(screen.getByRole("button", { name: "Remove Sari" }))
+    // Nobody changes their own role: Budi (me, an admin) has no menu.
+    expect(screen.queryByRole("button", { name: "More for Budi" })).toBeNull()
+    fireEvent.click(screen.getByRole("button", { name: "More for Sari" }))
+    fireEvent.click(screen.getByRole("menuitem", { name: "Remove from workspace" }))
     expect(props.onRemove).toHaveBeenCalledWith("u2")
     fireEvent.click(screen.getByRole("button", { name: "Leave workspace" }))
     expect(props.onRemove).toHaveBeenCalledWith("u1")
@@ -71,8 +100,7 @@ describe("MembersView", () => {
   test("members see the list without admin controls", () => {
     view({ meId: "u2", isAdmin: false, invitations: [] })
     expect(screen.queryByRole("textbox", { name: "Invite by email" })).toBeNull()
-    expect(screen.queryByLabelText("Role of Budi")).toBeNull()
-    expect(screen.queryByRole("button", { name: "Remove Budi" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "More for Budi" })).toBeNull()
     expect(screen.getByRole("button", { name: "Leave workspace" })).toBeTruthy()
   })
 })
@@ -113,7 +141,7 @@ describe("MembersView join requests", () => {
         onResend={mock()}
       />,
     )
-    expect(screen.getByRole("heading", { name: "Requests to join" })).toBeTruthy()
+    expect(screen.getByRole("heading", { name: /Requests to join/ })).toBeTruthy()
     expect(screen.getByText("budi@javan.co.id")).toBeTruthy()
     fireEvent.click(screen.getByRole("button", { name: "Approve Budi" }))
     fireEvent.click(screen.getByRole("button", { name: "Decline Budi" }))
@@ -136,7 +164,7 @@ describe("MembersView join requests", () => {
         onResend={mock()}
       />,
     )
-    expect(screen.queryByRole("heading", { name: "Requests to join" })).toBeNull()
+    expect(screen.queryByRole("heading", { name: /Requests to join/ })).toBeNull()
   })
 })
 
@@ -171,7 +199,7 @@ describe("Members page details", () => {
     expect(sendLabel(2)).toBe("Send 2 invites")
   })
 
-  test("rows show who you are, each role, when people joined, and who invited whom", () => {
+  test("rows show who you are, each role, when people joined, and what each invite joins as", () => {
     view({
       members: [
         { id: "u0", name: "Ana", email: "ana@kantor.test", image: null, role: "admin", owner: true, joinedAt: new Date("2026-09-12T12:00:00Z") },
@@ -183,7 +211,27 @@ describe("Members page details", () => {
     expect(row("Ana").textContent).toContain("Sep 12, 2026")
     expect(row("Budi").textContent).toContain("You")
     expect(row("Budi").textContent).toContain("Admin")
-    expect(screen.getByText(/^Invited as Member by Budi · Expires/)).toBeTruthy()
-    expect(screen.getByRole("heading", { name: "Members" })).toBeTruthy()
+    const invite = screen.getByText("andi@gmail.com").closest("li") as HTMLElement
+    expect(invite.textContent).toContain("Member")
+    expect(invite.textContent).toContain("Sent ")
+    expect(screen.getByRole("heading", { name: /^Members/ })).toBeTruthy()
+  })
+})
+
+describe("MembersView search", () => {
+  test("filters members and invites by name or email", () => {
+    view()
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search members" }), { target: { value: "sari" } })
+    expect(screen.queryByText("budi@kantor.test")).toBeNull()
+    expect(screen.getByText("sari@kantor.test")).toBeTruthy()
+    expect(screen.queryByText("andi@gmail.com")).toBeNull()
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search members" }), { target: { value: "zzz" } })
+    expect(screen.getByText("Nobody matches “zzz”.")).toBeTruthy()
+  })
+
+  test("the side card explains each role", () => {
+    view()
+    expect(screen.getByRole("heading", { name: "Who can do what" })).toBeTruthy()
+    expect(screen.getByText("Manage members, projects and integrations.")).toBeTruthy()
   })
 })

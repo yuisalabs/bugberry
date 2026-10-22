@@ -47,6 +47,7 @@
         "@fontsource-variable/dm-sans": "5.3.0",
         "@fontsource-variable/geist-mono": "5.3.0",
         "@fontsource-variable/sora": "5.3.0",
+        "@fontsource/cabin-sketch": "5.3.0",
         "@remixicon/react": "4.9.0",
         "@tanstack/react-query": "5.104.3",
         "@tanstack/react-router": "1.170.44",
@@ -77,7 +78,7 @@
     },
     "apps/extension": {
       "name": "@bugberry/extension",
-      "version": "0.2.6",
+      "version": "0.3.0",
       "dependencies": {
         "@bugberry/capture": "workspace:*",
         "@bugberry/player": "workspace:*",
@@ -328,6 +329,8 @@
     "@fontsource-variable/geist-mono": ["@fontsource-variable/geist-mono@5.3.0", "", {}, "sha512-vBbuwDEo9AkrqADMXOrlAR3DFcJi4/JxeuU43FoiQERnNwsfXNnvxvReZG02cQKmyk4DZkZdBZX3oTDvy2zBAw=="],
 
     "@fontsource-variable/sora": ["@fontsource-variable/sora@5.3.0", "", {}, "sha512-h8kHta4Z8SkfUGeI82TUy1n3rbrKpBRGwuk4t4qCwto5oEHxlbOFD2yGP+Df5fbmTXwKGn+o667vYp0E4K8Whw=="],
+
+    "@fontsource/cabin-sketch": ["@fontsource/cabin-sketch@5.3.0", "", {}, "sha512-POMjqxckXc72gBb/DqhJGvEDnLZ/Q2u7Z6evDjDekmITfzeps/oJxuSorzbb4KYGB/NDyZo83/dNW9UGC8Dvnw=="],
 
     "@fregante/relaxed-json": ["@fregante/relaxed-json@2.0.0", "", {}, "sha512-PyUXQWB42s4jBli435TDiYuVsadwRHnMc27YaLouINktvTWsL3FcKrRMGawTayFk46X+n5bE23RjUTWQwrukWw=="],
 

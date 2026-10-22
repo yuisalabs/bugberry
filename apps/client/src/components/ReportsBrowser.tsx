@@ -86,7 +86,6 @@ export function ReportsBrowser({
       canInvite={workspace?.role === "admin" && invitesAllowed(limits.data)}
       onInvite={() => setInviting(true)}
       usage={limits.data ? usageText(limits.data) : null}
-      newReport={<NewReportButton installUrl={config.data?.extensionInstallUrl ?? null} />}
       showCount={showCount}
       subtitle={showCount ? undefined : workspace?.name}
       statusCounts={statusCounts.data ?? null}

@@ -1,8 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { QueryClient, queryOptions } from "@tanstack/react-query"
-import { isRedirect } from "@tanstack/react-router"
 import { requireWorkspaceAdmin } from "../src/lib/admin-guard"
-import type { Me, Workspace } from "../src/lib/api"
+import { ApiError, type Me, type Workspace } from "../src/lib/api"
 import { pickWorkspace, roleIn, roleLabel } from "../src/lib/workspace"
 
 const alpha = { id: "w1", name: "Alpha", role: "admin" as const, owner: false, slug: "alpha", logoUrl: null }
@@ -32,10 +31,10 @@ describe("requireWorkspaceAdmin", () => {
     })
   const workspaces = queryOptions({ queryKey: ["workspaces"], queryFn: async (): Promise<Workspace[]> => [alpha, beta] })
 
-  test("redirects a member of the current workspace", async () => {
+  test("keeps a member of the current workspace out with a 403, which the router shows as its page", async () => {
     const error = await requireWorkspaceAdmin(new QueryClient(), { me: me("w2"), workspaces }).catch((caught) => caught)
-    expect(isRedirect(error)).toBe(true)
-    expect(error.options.to).toBe("/app")
+    expect(error).toBeInstanceOf(ApiError)
+    expect(error).toMatchObject({ status: 403, code: "forbidden" })
   })
 
   test("lets an admin of the current workspace through", async () => {

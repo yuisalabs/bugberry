@@ -24,3 +24,5 @@ AGENTS.md
 .claude
 
 .env.production
+# Maintenance mode's notice (docs: Operations); per server, never committed.
+/maintenance/

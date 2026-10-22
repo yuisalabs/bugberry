@@ -1,19 +1,20 @@
 import { type IntegrationProvider, isTrackerProvider, PROVIDER_LABELS } from "@bugberry/shared"
 import {
   RiAddLine,
-  RiArrowRightSLine,
   RiCheckboxCircleLine,
   RiCloseCircleLine,
   RiDeleteBinLine,
   RiPencilLine,
-  RiPlugLine,
+  RiPulseLine,
   RiSendPlaneLine,
 } from "@remixicon/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useReducer, useState } from "react"
 import { Button } from "@bugberry/ui/button"
 import { useConfirm } from "@bugberry/ui/confirm-dialog"
+import { BrandedHeader } from "../../components/BrandedHeader"
 import { ConnectionForm, type ConnectionSubmit } from "../../components/ConnectionForm"
+import { EmptyGroup, GroupTitle, integrationCard, softButton, StatusChip } from "../../components/IntegrationsLayout"
 import { PROVIDER_GROUPS, ProviderMark } from "../../components/IntegrationForm"
 import { SettingsRowsSkeleton } from "../../components/Skeletons"
 import { dangerText, ErrorState } from "../../components/ui"
@@ -34,41 +35,94 @@ export function deleteDescription(connection: Connection): string {
   return `Used in ${projects(usedBy.length)}: ${usedBy.map((use) => use.projectName).join(", ")}. They will stop sending to ${connection.name}.`
 }
 
-/** No connection yet: a card per provider that opens the form with it chosen. */
-export function ConnectionsEmpty({ onPick }: { onPick(provider: IntegrationProvider): void }) {
+const card = integrationCard
+
+export { EmptyGroup }
+
+/** What each provider is and does, for its card under All integrations. */
+export const PROVIDER_INFO: Record<IntegrationProvider, { category: string; text: string }> = {
+  github: { category: "Issue tracker", text: "Open issues with the errors and a link to the replay." },
+  gitlab: { category: "Issue tracker", text: "Turn reports into GitLab issues with a link to the full report." },
+  jira: { category: "Issue tracker", text: "Create Jira tickets with the page, browser and errors." },
+  linear: { category: "Issue tracker", text: "Send reports to a Linear team as issues." },
+  activecollab: { category: "Project management", text: "Turn reports into tasks in your ActiveCollab projects." },
+  plane: { category: "Project management", text: "File bugs as Plane work items, the replay one click away." },
+  slack: { category: "Notifications", text: "Post every new report to a Slack channel." },
+  discord: { category: "Notifications", text: "Ping your Discord server when a bug lands." },
+  telegram: { category: "Notifications", text: "Ping a Telegram group when a bug lands." },
+  webhook: { category: "Custom endpoint", text: "POST every new report to your own endpoint." },
+}
+
+/** "used in 1 project (Quinella AI)", "not used yet". */
+export function usageText(connection: Connection): string {
+  if (connection.usedIn === 0) return "not used yet"
+  const names = (connection.usedBy ?? []).map((use) => use.projectName)
+  return `used in ${projects(connection.usedIn)}${names.length > 0 ? ` (${names.join(", ")})` : ""}`
+}
+
+/** The providers with none of them connected first, each keeping its order; the ones already in use after. */
+export function catalogueOrder(
+  providers: readonly IntegrationProvider[],
+  connected: Partial<Record<IntegrationProvider, number>>,
+): IntegrationProvider[] {
+  return [...providers.filter((provider) => !connected[provider]), ...providers.filter((provider) => connected[provider])]
+}
+
+/**
+ * Every provider as a card that opens the form with it chosen. A provider can be connected more than once (two GitHub
+ * accounts, a Slack channel per team), so the ones in use stay here: they say how many are connected and offer another.
+ */
+export function AllIntegrations({
+  providers,
+  connected,
+  onPick,
+}: {
+  providers: readonly IntegrationProvider[]
+  /** How many connections each provider has; missing means none. */
+  connected: Partial<Record<IntegrationProvider, number>>
+  onPick(provider: IntegrationProvider): void
+}) {
   return (
-    <div className="flex flex-col items-center gap-6 rounded-2xl border border-border bg-background px-6 py-12 text-center shadow-xs">
-      <div className="flex max-w-lg flex-col gap-2">
-        <h2 className="font-heading text-2xl font-bold tracking-tight text-foreground">No connections yet</h2>
-        <p className="text-muted-foreground">
-          Connect an account or a channel once. Every project in the workspace can then send its reports there.
-        </p>
-      </div>
-      {PROVIDER_GROUPS.map((group) => (
-        <section key={group.title} className="flex w-full max-w-xl flex-col gap-3 text-left">
-          <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{group.title}</h3>
-          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {group.items.map((provider) => (
-              <li key={provider}>
-                <button
-                  type="button"
-                  onClick={() => onPick(provider)}
-                  className="flex w-full items-center gap-3 rounded-xl border border-border bg-background px-4 py-3 text-left outline-hidden transition hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <ProviderMark provider={provider} className="size-10" />
-                  <span className="flex-1 font-medium text-foreground">{PROVIDER_LABELS[provider]}</span>
-                  <RiArrowRightSLine aria-hidden className="size-5 text-muted-foreground" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
-    </div>
+    <section className="flex flex-col gap-3">
+      <GroupTitle title="All integrations" count={providers.length} />
+      <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        {catalogueOrder(providers, connected).map((provider) => {
+          const count = connected[provider] ?? 0
+          const label = PROVIDER_LABELS[provider]
+          return (
+            <li key={provider} className={`flex flex-col gap-4 p-6 ${card}`}>
+              <div className="flex items-start justify-between gap-3">
+                <ProviderMark provider={provider} className="size-11" />
+                {count > 0 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-success-subtle px-2 py-0.5 text-xs font-medium text-success-subtle-foreground">
+                    <span aria-hidden className="size-1.5 rounded-full bg-success" />
+                    {count} connected
+                  </span>
+                )}
+              </div>
+              <div className="flex flex-1 flex-col gap-1">
+                <h3 className="font-heading font-semibold text-foreground">{label}</h3>
+                <p className="text-sm text-muted-foreground">{PROVIDER_INFO[provider].category}</p>
+                <p className="text-sm text-foreground">{PROVIDER_INFO[provider].text}</p>
+              </div>
+              <Button
+                intent="plain"
+                aria-label={count > 0 ? `Add another ${label} connection` : `Connect ${label}`}
+                onPress={() => onPick(provider)}
+                className={`w-full ${softButton}`}
+              >
+                <RiAddLine aria-hidden />
+                {count > 0 ? "Add another" : "Connect"}
+              </Button>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
   )
 }
 
-/** A connection: what it is, how many projects use it, how its messages fare, and its actions. */
+/** A connection: what it is, whether it works, which projects use it, and its actions. */
 export function ConnectionRow({
   connection,
   testResult,
@@ -91,19 +145,23 @@ export function ConnectionRow({
   // Telegram's account test checks the bot; its messages go from a project, where the chat is.
   const sendsTest = notifier && connection.provider !== "telegram"
   const { status } = connection
+  const failing = notifier && status.failing > 0
   return (
-    <li className="flex flex-col gap-3 rounded-2xl border border-border bg-background p-5 shadow-xs">
+    <li className={`flex flex-col gap-3 px-6 py-5 ${card}`}>
       <div className="flex flex-wrap items-center gap-4">
-        <ProviderMark provider={connection.provider} className="size-11" />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate font-medium text-foreground">{connection.name}</span>
+        <ProviderMark provider={connection.provider} className="size-12 rounded-xl" />
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="font-heading font-semibold text-foreground">{PROVIDER_LABELS[connection.provider]}</span>
+            <StatusChip failing={failing} />
+          </span>
           <span className="text-sm text-muted-foreground">
-            {PROVIDER_LABELS[connection.provider]} · {connection.usedIn === 0 ? "not used yet" : `used in ${projects(connection.usedIn)}`}
+            {connection.name} · {usageText(connection)}
           </span>
         </div>
         <span className="flex flex-wrap gap-2">
           <Button size="sm" intent="outline" isDisabled={testing} onPress={onTest}>
-            {sendsTest ? <RiSendPlaneLine aria-hidden /> : <RiPlugLine aria-hidden />}
+            {sendsTest ? <RiSendPlaneLine aria-hidden /> : <RiPulseLine aria-hidden />}
             {sendsTest ? "Send test message" : "Test connection"}
           </Button>
           <Button size="sm" intent="outline" onPress={onEdit} aria-label={`Edit ${connection.name}`}>
@@ -123,7 +181,7 @@ export function ConnectionRow({
           </Button>
         </span>
       </div>
-      {notifier && status.failing > 0 && (
+      {failing && (
         <p className="flex items-center gap-1.5 text-sm text-danger-subtle-foreground">
           <RiCloseCircleLine aria-hidden className="size-4 shrink-0" />
           Last message failed in {projects(status.failing)}: {status.lastError}
@@ -143,6 +201,22 @@ export function ConnectionRow({
       )}
     </li>
   )
+}
+
+/** What each group says while nothing in it is connected. */
+const EMPTY_GROUPS: Record<string, { title: string; text: string; action: string; marks: readonly IntegrationProvider[] }> = {
+  "Issue trackers": {
+    title: "No issue trackers yet",
+    text: "Turn reports into issues in GitHub, GitLab, Jira or Linear, with the logs attached.",
+    action: "Connect a tracker",
+    marks: ["github", "gitlab", "jira"],
+  },
+  Notifications: {
+    title: "No chat channels yet",
+    text: "Post new reports to Slack, Discord or Telegram so the right people see them first.",
+    action: "Connect a channel",
+    marks: ["slack", "discord", "telegram"],
+  },
 }
 
 export function ConnectionsPage() {
@@ -189,19 +263,19 @@ export function ConnectionsPage() {
   const editingConnection = editing && editing !== "new" ? connections.data?.find((item) => item.id === editing) : undefined
 
   return (
-    <section className="flex flex-col gap-6">
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-6">
-        <div className="flex flex-col gap-1">
-          <h1 className="font-heading text-xl font-bold tracking-tight text-foreground">Integrations</h1>
-          <p className="text-muted-foreground">Accounts and channels your projects can use. Tokens are entered here once.</p>
-        </div>
-        {editing === null && (
-          <Button onPress={() => start("github")}>
-            <RiAddLine aria-hidden />
-            Add connection
-          </Button>
-        )}
-      </header>
+    <section className="flex flex-col gap-8">
+      <BrandedHeader
+        title="Integrations"
+        description="Accounts and channels your projects can use. Tokens are entered here once."
+        action={
+          editing === null && (
+            <Button onPress={() => start("github")}>
+              <RiAddLine aria-hidden />
+              Add connection
+            </Button>
+          )
+        }
+      />
 
       {error && (
         <p role="alert" className="text-sm text-danger-subtle-foreground">
@@ -222,39 +296,57 @@ export function ConnectionsPage() {
         <SettingsRowsSkeleton />
       ) : connections.isError ? (
         <ErrorState error={connections.error} onRetry={() => void connections.refetch()} />
-      ) : connections.data.length === 0 ? (
-        <ConnectionsEmpty onPick={start} />
       ) : (
-        PROVIDER_GROUPS.map((group) => {
-          const rows = connections.data.filter((item) => (group.items as readonly string[]).includes(item.provider))
-          if (rows.length === 0) return null
-          return (
-            <section key={group.title} className="flex flex-col gap-3">
-              <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{group.title}</h2>
-              <ul className="flex flex-col gap-3">
-                {rows.map((item) => (
-                  <ConnectionRow
-                    key={item.id}
-                    connection={item}
-                    testResult={testResult?.id === item.id ? testResult : null}
-                    testing={check.isPending}
-                    removing={remove.isPending}
-                    onTest={() => check.mutate(item.id)}
-                    onEdit={() => dispatch({ type: "edit", id: item.id })}
-                    onDelete={async () => {
-                      const yes = await confirm({
-                        title: `Delete ${item.name}?`,
-                        description: deleteDescription(item),
-                        confirmLabel: "Delete connection",
-                      })
-                      if (yes) remove.mutate(item.id)
-                    }}
+        <>
+          {PROVIDER_GROUPS.map((group) => {
+            const rows = connections.data.filter((item) => (group.items as readonly string[]).includes(item.provider))
+            const empty = EMPTY_GROUPS[group.title]
+            return (
+              <section key={group.title} className="flex flex-col gap-3">
+                <GroupTitle title={group.title} count={rows.length} />
+                {rows.length === 0 && empty ? (
+                  <EmptyGroup
+                    providers={empty.marks}
+                    title={empty.title}
+                    text={empty.text}
+                    action={empty.action}
+                    onPick={() => start(group.items[0])}
                   />
-                ))}
-              </ul>
-            </section>
-          )
-        })
+                ) : (
+                  <ul className="flex flex-col gap-3">
+                    {rows.map((item) => (
+                      <ConnectionRow
+                        key={item.id}
+                        connection={item}
+                        testResult={testResult?.id === item.id ? testResult : null}
+                        testing={check.isPending}
+                        removing={remove.isPending}
+                        onTest={() => check.mutate(item.id)}
+                        onEdit={() => dispatch({ type: "edit", id: item.id })}
+                        onDelete={async () => {
+                          const yes = await confirm({
+                            title: `Delete ${item.name}?`,
+                            description: deleteDescription(item),
+                            confirmLabel: "Delete connection",
+                          })
+                          if (yes) remove.mutate(item.id)
+                        }}
+                      />
+                    ))}
+                  </ul>
+                )}
+              </section>
+            )
+          })}
+          <AllIntegrations
+            providers={PROVIDER_GROUPS.flatMap((group) => group.items)}
+            connected={connections.data.reduce<Partial<Record<IntegrationProvider, number>>>((counts, item) => {
+              counts[item.provider] = (counts[item.provider] ?? 0) + 1
+              return counts
+            }, {})}
+            onPick={start}
+          />
+        </>
       )}
       {dialog}
     </section>

@@ -87,3 +87,17 @@ export async function answerConsent(accept: boolean, search: string, deps: AuthD
   if (!response.ok || typeof body?.url !== "string") throw new Error("This request has expired. Start again from your AI app.")
   return body.url
 }
+
+/** The longest query value the 400 page shows before cutting it short. */
+const MAX_SHOWN_VALUE = 32
+
+/**
+ * A consent link without its client_id, marked up for the 400 page: each parameter it did carry, and the missing one.
+ * Signatures and the like are cut short; they mean nothing to a person.
+ */
+export function incompleteConsentRequest(search: string): { method: string; path: string; lines: Array<{ text: string; mark?: string; note?: string }> } {
+  const lines = [...new URLSearchParams(search)].map(([key, value]) => ({
+    text: `${key}=${value.length > MAX_SHOWN_VALUE ? `${value.slice(0, MAX_SHOWN_VALUE)}…` : value}`,
+  }))
+  return { method: "GET", path: "/oauth/consent", lines: [...lines, { text: "", mark: "client_id", note: "missing" }] }
+}

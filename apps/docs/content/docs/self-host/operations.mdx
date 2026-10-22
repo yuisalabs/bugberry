@@ -14,6 +14,28 @@ New database migrations run when the `api` container starts. `docker stop` gives
 
 If you build the extension yourself, update the server first, then share the new extension zip.
 
+## Maintenance mode
+
+For planned work (a database upgrade, a move to another server), show your team a maintenance page instead of errors. Put a `maintenance.json` in the `maintenance` folder next to `docker-compose.yml`:
+
+```bash
+mkdir -p maintenance && cp docker/maintenance.example.json maintenance/maintenance.json
+```
+
+```json
+{
+  "code": "maintenance",
+  "message": "We're moving BugBerry to a bigger server. Everything you've captured is safe.",
+  "until": "2026-10-24T14:30:00Z"
+}
+```
+
+From that moment every request to the api answers `503` with this notice, and the dashboard shows its maintenance page with your `message` and, when `until` is set, the time it should be back (in each person's own time zone). `code` must stay `"maintenance"`; `message` and `until` are optional. The extension tells anyone sending a report that BugBerry is down for maintenance.
+
+Delete the file to end it. Neither step needs a restart. The public pages and the docs stay up throughout.
+
+If BugBerry is down without maintenance mode on, the dashboard says it can't be reached and offers to try again.
+
 ### Upgrading to workspace integrations
 
 From this version, accounts and channels are connected once per workspace and projects use them. On upgrade, every existing integration becomes a connection of its own, named after what it pointed at (such as "GitHub · kantor/web"), used by the project it belonged to, with the same target, labels and auto-send. Nothing stops sending.

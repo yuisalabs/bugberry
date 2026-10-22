@@ -3,7 +3,7 @@ import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { UseConnectionModal, UseConnectionSteps } from "../src/components/UseConnectionDialog"
 import type { Connection, Integration, OptionList } from "../src/lib/api"
-import { IntegrationRow, ProjectIntegrationsEmpty } from "../src/pages/ProjectIntegrationsPage"
+import { IntegrationRow, ReadyToUse } from "../src/pages/ProjectIntegrationsPage"
 
 const status = { failing: 0, lastError: null, lastDeliveredAt: null }
 const githubKantor: Connection = { id: "c-gh", provider: "github", kind: "tracker", name: "GitHub Kantor", usedIn: 1, status }
@@ -180,8 +180,7 @@ describe("a project with nothing connected", () => {
   const empty = (connections: Connection[], addConnection: React.ReactNode = null) => {
     const onUse = mock()
     render(
-      <ProjectIntegrationsEmpty
-        projectName="Quinella AI"
+      <ReadyToUse
         workspaceName="Cuy Workspaces"
         connections={connections}
         addConnection={addConnection}
@@ -191,15 +190,26 @@ describe("a project with nothing connected", () => {
     return onUse
   }
 
-  test("explains the three steps and offers the workspace's connections", () => {
+  test("a tracker already used here stays ready for another repo; a channel used here doesn't", () => {
+    const ghUse: Integration = { ...slackUse, id: "u-gh", provider: "github", kind: "tracker", connection: { id: "c-gh", name: "GitHub Kantor" } }
+    render(
+      <ReadyToUse workspaceName="Cuy Workspaces" connections={[githubKantor, slack]} used={[ghUse, slackUse]} addConnection={null} onUse={mock()} />,
+    )
+    expect(screen.getByRole("heading", { name: /Ready to use/ }).textContent).toContain("1")
+    expect(screen.getByRole("button", { name: "Use GitHub Kantor" })).toBeTruthy()
+    expect(screen.getByText("In use here, can send somewhere else too")).toBeTruthy()
+    expect(screen.queryByRole("button", { name: "Use Slack #qa" })).toBeNull()
+  })
+
+  test("with everything in use here it says so", () => {
+    render(<ReadyToUse workspaceName="Cuy Workspaces" connections={[slack]} used={[slackUse]} addConnection={null} onUse={mock()} />)
+    expect(screen.getByText("Every connection in Cuy Workspaces is in use here")).toBeTruthy()
+  })
+
+  test("offers the workspace's connections this project can use", () => {
     const onUse = empty([jira, githubKantor, slack])
-    expect(screen.getByRole("heading", { name: "Nothing connected yet" })).toBeTruthy()
-    expect(screen.getByText(/choose where Quinella AI's reports land/)).toBeTruthy()
-    for (const step of ["Pick a workspace connection", "Choose the project, repo or channel", "New reports flow there automatically"]) {
-      expect(screen.getByText(step)).toBeTruthy()
-    }
-    expect(screen.getByRole("heading", { name: "Ready to use" })).toBeTruthy()
-    expect(screen.getByText("3 connections in Cuy Workspaces")).toBeTruthy()
+    expect(screen.getByRole("heading", { name: /Ready to use/ }).textContent).toContain("3")
+    expect(screen.getByText("Connections in Cuy Workspaces you can use in this project.")).toBeTruthy()
     expect(screen.getAllByText("Issues")).toHaveLength(2)
     expect(screen.getByText("Messages")).toBeTruthy()
     expect(screen.getByText("Jira · Not used yet")).toBeTruthy()

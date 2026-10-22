@@ -1,17 +1,31 @@
-import { describe, expect, test } from "bun:test"
-import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } from "@tanstack/react-router"
-import { render, screen } from "@testing-library/react"
+import { describe, expect, mock, test } from "bun:test"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { fireEvent, render, screen } from "@testing-library/react"
+import { ApiError } from "../src/lib/api"
 import { ReportUnavailable } from "../src/pages/ReportPage"
 
+function show(error: unknown, onRetry = () => {}) {
+  const client = new QueryClient()
+  client.setQueryData(["me"], { id: "u1", name: "Ana", email: "ana@kantor.test", image: null, lastWorkspaceId: "w1" })
+  return render(
+    <QueryClientProvider client={client}>
+      <ReportUnavailable error={error} onRetry={onRetry} />
+    </QueryClientProvider>,
+  )
+}
+
 describe("ReportUnavailable", () => {
-  test("a report that cannot be shown still leads back to all reports", async () => {
-    const rootRoute = createRootRoute({
-      component: () => <ReportUnavailable error={new Error("Report not found")} onRetry={() => {}} />,
-    })
-    const router = createRouter({ routeTree: rootRoute, history: createMemoryHistory({ initialEntries: ["/app/r/gone"] }) })
-    render(<RouterProvider router={router} />)
-    const back = (await screen.findByRole("link", { name: "All reports" })) as HTMLAnchorElement
-    expect(new URL(back.href).pathname).toBe("/app")
-    expect(screen.getByText("Report not found")).toBeTruthy()
+  test("a report that isn't there gets the 404 page, whose Home leads back to the reports", () => {
+    show(new ApiError(404, "report_not_found", "Report not found"))
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("This page rolled off the vine.")
+    expect(screen.getByText("This report was deleted, or it isn't in a workspace you're in.")).toBeTruthy()
+    expect(screen.getByRole("link", { name: "Home" }).getAttribute("href")).toBe("/app")
+  })
+
+  test("a server that can't be reached offers to try again", () => {
+    const onRetry = mock()
+    show(new ApiError(0, "network", "offline"), onRetry)
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }))
+    expect(onRetry).toHaveBeenCalledTimes(1)
   })
 })

@@ -5,7 +5,17 @@ import { fireEvent, render, screen, within } from "@testing-library/react"
 import { DOCS_URL } from "../src/lib/docs-url"
 import { FinalCta } from "../src/pages/landing/FinalCta"
 import { SiteChrome } from "../src/pages/landing/SiteChrome"
-import { CHANGELOG, CHROME_WEB_STORE_URL, INTEGRATION_DOCS, installHref } from "../src/pages/landing/site-links"
+import { PRODUCT_MENU } from "../src/pages/landing/ProductMenu"
+import {
+  CHANGELOG,
+  CHROME_WEB_STORE_URL,
+  COMMENTS_DOCS,
+  INTEGRATION_DOCS,
+  installHref,
+  RECORDING_DOCS,
+  REPORT_PAGE_DOCS,
+  SCREENSHOT_DOCS,
+} from "../src/pages/landing/site-links"
 
 const STORE = "https://chromewebstore.google.com/detail/x"
 const PUBLIC_ROUTES = ["/", "/login", "/app", "/pricing", "/integrations", "/ai-agents", "/demo", "/privacy"]
@@ -64,6 +74,21 @@ describe("site chrome", () => {
     expect(CHANGELOG).toBe(`${DOCS_URL}/changelog`)
     expect(linkNamed(footer, "Privacy")?.getAttribute("href")).toBe("/privacy")
     for (const gone of ["About", "Status", "Security", "Terms"]) expect(linkNamed(footer, gone)).toBeUndefined()
+  })
+
+  test("the footer's product features open the same docs sections as the Product menu", () => {
+    render(<SiteChrome signedIn={false} installUrl={null}>page</SiteChrome>)
+    const footer = screen.getByRole("navigation", { name: "Footer" })
+    for (const [name, href] of [
+      ["Browser extension", RECORDING_DOCS],
+      ["Screenshot & annotate", SCREENSHOT_DOCS],
+      ["Console & network logs", REPORT_PAGE_DOCS],
+      ["Comments & mentions", COMMENTS_DOCS],
+    ]) {
+      expect(linkNamed(footer, name!)?.getAttribute("href")).toBe(href!)
+    }
+    const menu = PRODUCT_MENU.flatMap((column) => column.items.map((item) => item.href))
+    for (const href of [RECORDING_DOCS, SCREENSHOT_DOCS, REPORT_PAGE_DOCS, COMMENTS_DOCS]) expect(menu).toContain(href)
   })
 
   test("the footer's integrations open their own section of the integrations docs", () => {

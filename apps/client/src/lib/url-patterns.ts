@@ -1,4 +1,4 @@
-import { matchingPattern } from "@bugberry/shared"
+import { matchingPattern, matchProject } from "@bugberry/shared"
 
 /** The server's limits on a project's URL patterns. */
 export const MAX_PATTERNS = 20
@@ -44,16 +44,44 @@ export function patternExamples(patterns: readonly string[]): Array<{ pattern: s
 
 export type UrlTest = { status: "empty" } | { status: "invalid" } | { status: "none" } | { status: "match"; pattern: string }
 
-/** Whether these patterns would send a bug recorded on `input` to the project. A missing scheme reads as https. */
-export function testUrl(patterns: readonly string[], input: string): UrlTest {
+/** `input` as a URL the patterns can be tried on: a missing scheme reads as https. Null for something that isn't one. */
+function asUrl(input: string): string | null {
   const text = input.trim()
-  if (!text) return { status: "empty" }
   const url = /^[a-z][a-z0-9+.-]*:\/\//i.test(text) ? text : `https://${text}`
   try {
     new URL(url)
+    return url
   } catch {
-    return { status: "invalid" }
+    return null
   }
+}
+
+export type ProjectUrlTest<T> =
+  | { status: "empty" }
+  | { status: "invalid" }
+  | { status: "none" }
+  | { status: "match"; project: T; pattern: string }
+
+/** Which project the extension would file a bug recorded on `input` under, and the pattern that decides it. */
+export function testProjects<T extends { id: string; urlPatterns: readonly string[] }>(projects: readonly T[], input: string): ProjectUrlTest<T> {
+  if (!input.trim()) return { status: "empty" }
+  const url = asUrl(input)
+  if (!url) return { status: "invalid" }
+  const project = matchProject(projects, url)
+  const pattern = project && matchingPattern(project.urlPatterns, url)
+  return project && pattern ? { status: "match", project, pattern } : { status: "none" }
+}
+
+/** The pattern that catches a page and everything under it: `staging.quinella.ai/checkout*`, or `blog.test/*` for a host. */
+export function patternForPage(page: string): string {
+  return page.includes("/") ? `${page}*` : `${page}/*`
+}
+
+/** Whether these patterns would send a bug recorded on `input` to the project. A missing scheme reads as https. */
+export function testUrl(patterns: readonly string[], input: string): UrlTest {
+  if (!input.trim()) return { status: "empty" }
+  const url = asUrl(input)
+  if (!url) return { status: "invalid" }
   const pattern = matchingPattern(cleanPatterns(patterns), url)
   return pattern ? { status: "match", pattern } : { status: "none" }
 }

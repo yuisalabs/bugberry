@@ -5,10 +5,13 @@
 @import "@fontsource-variable/sora";
 @import "@fontsource-variable/geist-mono";
 @import "@fontsource-variable/caveat";
+/* Only the sketched numerals of the status pages (404, 503…); the browser fetches it when one of them shows. */
+@import "@fontsource/cabin-sketch/latin-700.css";
 
 @theme inline {
     /* The hand-written notes on the sign-in page. */
     --font-hand: "Caveat Variable", "Caveat", cursive;
+    --font-sketch: "Cabin Sketch", cursive;
 }
 
 /*
@@ -107,6 +110,16 @@
         85%,
         100% {
             transform: translateX(120%);
+        }
+    }
+
+    /* The status pages' berry breathes: a slow bob, so the page is not a still picture. */
+    [data-status-art] {
+        animation: status-bob 4.5s ease-in-out infinite alternate;
+    }
+    @keyframes status-bob {
+        to {
+            transform: translateY(-8px);
         }
     }
 }

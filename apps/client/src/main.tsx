@@ -5,12 +5,13 @@ import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import { Toast } from "@bugberry/ui/toast"
 import { createQueryClient } from "./lib/query-client"
+import { sessionEndTarget } from "./lib/session-end"
 import { createAppRouter } from "./router"
 
 const queryClient = createQueryClient(() => {
-  // A session that ends mid-use (or an internal share link) sends the person to login and back.
-  const { pathname, href } = router.state.location
-  if (pathname !== "/login") void router.navigate({ to: "/login", search: { next: href } })
+  // A session that ends mid-use shows the 401 page; an internal share link goes straight to sign-in.
+  const target = sessionEndTarget(queryClient, router.state.location)
+  if (target) void router.navigate(target)
 })
 const router = createAppRouter(queryClient)
 

@@ -1,4 +1,4 @@
-import { RiFileCopyLine, RiInformationLine, RiRefreshLine } from "@remixicon/react"
+import { RiFileCopyLine, RiInformationLine, RiRefreshLine, RiSettings3Line, RiUserAddLine } from "@remixicon/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { type FormEvent, useEffect, useId, useState } from "react"
 import { Button } from "@bugberry/ui/button"
@@ -6,11 +6,12 @@ import { Input } from "@bugberry/ui/input"
 import { Radio, RadioField, RadioGroup } from "@bugberry/ui/radio"
 import { Switch, SwitchField } from "@bugberry/ui/switch"
 import { TextField } from "@bugberry/ui/text-field"
+import { BrandedHeader } from "../../components/BrandedHeader"
+import { SettingsTabs } from "../../components/SettingsTabs"
 import { LOGO_RULE, LogoPicker } from "../../components/LogoPicker"
 import {
   SettingRow,
   SettingsCardHeader,
-  SettingsPageHeader,
   SettingsSaveBar,
   settingsCard,
   settingsPadding,
@@ -100,7 +101,7 @@ export function WorkspaceSettingsView({
         />
       </SettingRow>
 
-      <SettingRow id={nameLabel} title="Name" description="Shown in the sidebar and on invites.">
+      <SettingRow id={nameLabel} title="Name" description="Shown in the top bar and on invites.">
         <TextField aria-labelledby={nameLabel} value={name} onChange={setName} maxLength={80}>
           <Input />
         </TextField>
@@ -108,17 +109,17 @@ export function WorkspaceSettingsView({
 
       <SettingRow id={urlLabel} title="Workspace URL" description="Changing it breaks old links to this workspace.">
         {/* On phones the address sits above the field, so the slug gets the whole box. */}
-        <span className="font-mono text-xs text-muted-foreground sm:hidden">{`${new URL(origin).host}/`}</span>
+        <span className="text-xs text-muted-foreground sm:hidden">{`${new URL(origin).host}/`}</span>
         <TextField aria-labelledby={urlLabel} value={slug} maxLength={40} onChange={(value) => setSlug(value.toLowerCase())}>
           {/* The host sits in front of the slug as a fixed part of the same box. */}
           <span
             data-slot="control"
             className="flex items-stretch overflow-hidden rounded-lg border border-input focus-within:border-ring/70 focus-within:ring-3 focus-within:ring-ring/20"
           >
-            <span className="hidden shrink-0 items-center border-r border-input bg-muted px-3 font-mono text-sm text-muted-foreground sm:flex">
+            <span className="hidden shrink-0 items-center border-r border-input bg-muted px-3 text-sm text-muted-foreground sm:flex">
               {`${new URL(origin).host}/`}
             </span>
-            <Input className="rounded-none border-0 font-mono focus:ring-0" />
+            <Input className="rounded-none border-0 focus:ring-0" />
           </span>
         </TextField>
         {status && (
@@ -330,24 +331,36 @@ export function WorkspaceSettingsPage() {
   const error = save.error ?? upload.error ?? remove.error
   return (
     <section className="flex flex-col gap-8">
-      <SettingsPageHeader title="Workspace settings" description={`Manage how ${workspace.name} looks and who can join.`} />
-      <div className="flex max-w-5xl flex-col gap-6">
-        {error && (
-          <p role="alert" className="text-sm text-danger-subtle-foreground">
-            {errorMessage(error)}
-          </p>
-        )}
-        <WorkspaceSettingsView
-          workspace={{ id: workspace.id, name: workspace.name, slug: workspace.slug, logoUrl: workspace.logoUrl ?? null }}
-          origin={window.location.origin}
-          busy={save.isPending || upload.isPending || remove.isPending}
-          saved={save.isSuccess}
-          onSave={(patch) => save.mutate(patch)}
-          onLogo={(file) => upload.mutate(file)}
-          onRemoveLogo={() => remove.mutate()}
-        />
-        <WorkspaceAccessSection workspaceId={workspace.id} />
-      </div>
+      <BrandedHeader title="Workspace settings" description={`Manage how ${workspace.name} looks and who can join.`} />
+      <SettingsTabs
+        label="Workspace settings"
+        sections={[
+          {
+            id: "general",
+            label: "General",
+            icon: RiSettings3Line,
+            panel: (
+              <>
+                {error && (
+                  <p role="alert" className="text-sm text-danger-subtle-foreground">
+                    {errorMessage(error)}
+                  </p>
+                )}
+                <WorkspaceSettingsView
+                  workspace={{ id: workspace.id, name: workspace.name, slug: workspace.slug, logoUrl: workspace.logoUrl ?? null }}
+                  origin={window.location.origin}
+                  busy={save.isPending || upload.isPending || remove.isPending}
+                  saved={save.isSuccess}
+                  onSave={(patch) => save.mutate(patch)}
+                  onLogo={(file) => upload.mutate(file)}
+                  onRemoveLogo={() => remove.mutate()}
+                />
+              </>
+            ),
+          },
+          { id: "joining", label: "Joining", icon: RiUserAddLine, panel: <WorkspaceAccessSection workspaceId={workspace.id} /> },
+        ]}
+      />
     </section>
   )
 }

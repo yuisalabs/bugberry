@@ -27,7 +27,7 @@ export type InviteOutcome = "sent" | "member" | "pending" | "not_allowed" | "inv
 const gone = () => new AppError(410, "invite_unavailable", "This invitation has expired or was withdrawn")
 
 /**
- * Adds the person to the invitation's workspace once, and makes it their current workspace. A workspace
+ * Adds the person to the invitation's workspace once, with the invitation's role, and makes it their current workspace. A workspace
  * under ACCOUNT_LIMITS takes no new members; the invitation then stays pending.
  */
 export async function accept(
@@ -50,9 +50,10 @@ export async function accept(
           gt(workspaceInvitation.expiresAt, new Date()),
         ),
       )
-      .returning({ id: workspaceInvitation.id })
-    if (marked.length === 0) throw gone()
-    await tx.insert(workspaceMember).values({ workspaceId, userId, role: "member" }).onConflictDoNothing()
+      .returning({ id: workspaceInvitation.id, role: workspaceInvitation.role })
+    const [invitation] = marked
+    if (!invitation) throw gone()
+    await tx.insert(workspaceMember).values({ workspaceId, userId, role: invitation.role }).onConflictDoNothing()
     // A request to join that was still waiting is answered now.
     await tx.delete(joinRequest).where(and(eq(joinRequest.workspaceId, workspaceId), eq(joinRequest.userId, userId)))
     await tx.update(user).set({ lastWorkspaceId: workspaceId }).where(eq(user.id, userId))
@@ -152,6 +153,7 @@ export function invitationsModule(deps: AppDeps) {
             tokenHash: hash,
             codeHash: hashCode(code),
             invitedById: current.id,
+            role: body.role ?? "member",
             expiresAt: new Date(Date.now() + INVITE_TTL_MS),
           })
           outcomes.push({ email, status: "sent" })
@@ -161,7 +163,11 @@ export function invitationsModule(deps: AppDeps) {
       {
         auth: true,
         // Checked per address above, after trimming, so one typo does not reject the whole list.
-        body: t.Object({ emails: t.Array(t.String({ minLength: 1, maxLength: 254 }), { minItems: 1, maxItems: 20 }) }),
+        body: t.Object({
+          emails: t.Array(t.String({ minLength: 1, maxLength: 254 }), { minItems: 1, maxItems: 20 }),
+          /** What they join as; member when left out. */
+          role: t.Optional(t.UnionEnum(["member", "admin"])),
+        }),
       },
     )
     .get(
@@ -173,13 +179,15 @@ export function invitationsModule(deps: AppDeps) {
             id: workspaceInvitation.id,
             email: workspaceInvitation.email,
             invitedBy: inviter.name,
+            role: workspaceInvitation.role,
             expiresAt: workspaceInvitation.expiresAt,
           })
           .from(workspaceInvitation)
           .leftJoin(inviter, eq(inviter.id, workspaceInvitation.invitedById))
           .where(and(eq(workspaceInvitation.workspaceId, params.id), liveNow()))
           .orderBy(asc(workspaceInvitation.createdAt))
-        return rows
+        // Sending (or resending) sets the expiry a fixed time ahead, so it also says when the email last went out.
+        return rows.map((row) => ({ ...row, sentAt: new Date(row.expiresAt.getTime() - INVITE_TTL_MS) }))
       },
       { auth: true },
     )

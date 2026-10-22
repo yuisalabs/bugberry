@@ -176,6 +176,20 @@
       "when": 1792682664365,
       "tag": "0024_demo_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792699679757,
+      "tag": "0025_project_logos",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792700579698,
+      "tag": "0026_invitation_role",
+      "breakpoints": true
     }
   ]
 }
