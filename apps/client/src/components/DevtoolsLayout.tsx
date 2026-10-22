@@ -7,9 +7,9 @@ import { ActiveIcon } from "./ActiveIcon"
 
 const KEY_STEP = 32
 
-/** The panel button at the end of the report's header: hides or shows DevTools, as in Jam. */
+/** The panel button at the end of the report's header: hides or shows the sidebar (Details and DevTools). */
 export function DevtoolsToggle({ open, onToggle }: { open: boolean; onToggle(open: boolean): void }) {
-  const label = open ? "Hide DevTools" : "Show DevTools"
+  const label = open ? "Hide sidebar" : "Show sidebar"
   return (
     <TooltipTrigger delay={300}>
       <Toggle
@@ -55,7 +55,7 @@ export function DevtoolsResizer({
   return (
     <div
       role="separator"
-      aria-label="Resize DevTools"
+      aria-label="Resize sidebar"
       aria-orientation="vertical"
       aria-valuenow={width === null ? undefined : Math.round(width)}
       tabIndex={0}

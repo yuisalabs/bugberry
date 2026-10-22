@@ -29,8 +29,8 @@ describe("the DevTools layout this browser remembers", () => {
     expect(clampDevtoolsWidth(1700, 1920)).toBe(1360)
   })
 
-  test("the grid column: 42% by default, a chosen width never crowding the report", () => {
-    expect(devtoolsColumn(null)).toBe("max(420px,42%)")
+  test("the grid column: 34% by default, a chosen width never crowding the report", () => {
+    expect(devtoolsColumn(null)).toBe("max(420px,34%)")
     expect(devtoolsColumn(640)).toBe("min(640px, calc(100% - 560px))")
   })
 })
@@ -39,10 +39,10 @@ describe("DevtoolsToggle", () => {
   test("hides and shows the panel", () => {
     const onToggle = mock()
     const { rerender } = render(<DevtoolsToggle open onToggle={onToggle} />)
-    fireEvent.click(screen.getByRole("button", { name: "Hide DevTools" }))
+    fireEvent.click(screen.getByRole("button", { name: "Hide sidebar" }))
     expect(onToggle).toHaveBeenCalledWith(false)
     rerender(<DevtoolsToggle open={false} onToggle={onToggle} />)
-    fireEvent.click(screen.getByRole("button", { name: "Show DevTools" }))
+    fireEvent.click(screen.getByRole("button", { name: "Show sidebar" }))
     expect(onToggle).toHaveBeenCalledWith(true)
   })
 })
@@ -52,7 +52,7 @@ describe("DevtoolsResizer", () => {
     const onDrag = mock()
     const onResize = mock()
     render(<DevtoolsResizer width={600} measure={() => 0} onDrag={onDrag} onResize={onResize} onReset={() => {}} />)
-    const edge = screen.getByRole("separator", { name: "Resize DevTools" })
+    const edge = screen.getByRole("separator", { name: "Resize sidebar" })
     fireEvent.pointerDown(edge, { clientX: 1000 })
     // Dragging the edge left widens the panel, right narrows it.
     fireEvent.pointerMove(window, { clientX: 900 })
@@ -70,7 +70,7 @@ describe("DevtoolsResizer", () => {
   test("a press without a move changes nothing", () => {
     const onResize = mock()
     render(<DevtoolsResizer width={600} measure={() => 0} onDrag={() => {}} onResize={onResize} onReset={() => {}} />)
-    const edge = screen.getByRole("separator", { name: "Resize DevTools" })
+    const edge = screen.getByRole("separator", { name: "Resize sidebar" })
     fireEvent.pointerDown(edge, { clientX: 1000 })
     fireEvent.pointerUp(window)
     expect(onResize).not.toHaveBeenCalled()
@@ -79,7 +79,7 @@ describe("DevtoolsResizer", () => {
   test("from the default width, a drag starts at the panel's width on screen", () => {
     const onResize = mock()
     render(<DevtoolsResizer width={null} measure={() => 640} onDrag={() => {}} onResize={onResize} onReset={() => {}} />)
-    const edge = screen.getByRole("separator", { name: "Resize DevTools" })
+    const edge = screen.getByRole("separator", { name: "Resize sidebar" })
     fireEvent.pointerDown(edge, { clientX: 1000 })
     fireEvent.pointerMove(window, { clientX: 960 })
     fireEvent.pointerUp(window)
@@ -90,7 +90,7 @@ describe("DevtoolsResizer", () => {
     const onResize = mock()
     const onReset = mock()
     render(<DevtoolsResizer width={600} measure={() => 0} onDrag={() => {}} onResize={onResize} onReset={onReset} />)
-    const edge = screen.getByRole("separator", { name: "Resize DevTools" })
+    const edge = screen.getByRole("separator", { name: "Resize sidebar" })
     fireEvent.keyDown(edge, { key: "ArrowLeft" })
     expect(onResize).toHaveBeenLastCalledWith(632)
     fireEvent.keyDown(edge, { key: "ArrowRight" })
@@ -108,7 +108,7 @@ describe("the DevTools edge", () => {
 
   test("sits above every layer inside the panel, so no header covers its line", () => {
     render(<DevtoolsResizer width={600} measure={() => 0} onDrag={() => {}} onResize={() => {}} onReset={() => {}} />)
-    const [edge] = zOf(screen.getByRole("separator", { name: "Resize DevTools" }).className)
+    const [edge] = zOf(screen.getByRole("separator", { name: "Resize sidebar" }).className)
     const inside = readdirSync(DEBUGGER)
       .filter((name) => name.endsWith(".tsx"))
       .flatMap((name) => zOf(readFileSync(join(DEBUGGER, name), "utf8")))

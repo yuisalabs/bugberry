@@ -35,11 +35,11 @@ describe("icons are line, and fill when what they stand for is on", () => {
     expect(draws(screen.getByRole("radio", { name: "Grid view" }), RiLayoutGridLine)).toBe(true)
   })
 
-  test("the DevTools button is filled while the panel shows", () => {
+  test("the sidebar button is filled while the sidebar shows", () => {
     const { rerender } = render(<DevtoolsToggle open onToggle={() => {}} />)
-    expect(draws(screen.getByRole("button", { name: "Hide DevTools" }), RiLayoutRightFill)).toBe(true)
+    expect(draws(screen.getByRole("button", { name: "Hide sidebar" }), RiLayoutRightFill)).toBe(true)
     rerender(<DevtoolsToggle open={false} onToggle={() => {}} />)
-    expect(draws(screen.getByRole("button", { name: "Show DevTools" }), RiLayoutRightLine)).toBe(true)
+    expect(draws(screen.getByRole("button", { name: "Show sidebar" }), RiLayoutRightLine)).toBe(true)
   })
 
   test("More filters is filled while one of its filters is set", () => {

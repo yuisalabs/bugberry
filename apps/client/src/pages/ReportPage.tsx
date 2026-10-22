@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { getRouteApi, useNavigate } from "@tanstack/react-router"
+import { getRouteApi, useLocation, useNavigate } from "@tanstack/react-router"
 import { useEffect } from "react"
 import { NotificationBell } from "../components/NotificationBell"
 import { CopyLinkButton } from "../components/report/CopyLinkButton"
@@ -14,7 +14,7 @@ import { ErrorPage } from "../components/status/ErrorPage"
 import { ApiError, errorMessage, type ReportPatch } from "../lib/api"
 import { api } from "../lib/client"
 import { queries } from "../lib/queries"
-import { backTarget, sentIssues, withPatch } from "../lib/report-page"
+import { backLink, sentIssues, withPatch } from "../lib/report-page"
 import { toast } from "../lib/toast"
 import { useCurrentWorkspace } from "../lib/workspace"
 
@@ -28,6 +28,8 @@ export function ReportUnavailable({ error, onRetry }: { error: unknown; onRetry(
 export function ReportPage() {
   const { reportId } = routeApi.useParams()
   const { t } = routeApi.useSearch()
+  // The list this report was opened from (a project's page or All reports), so the back link leads there.
+  const reportsFrom = useLocation({ select: (location) => location.state.reportsFrom })
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const report = useQuery({ ...queries.report(reportId), retry: false })
@@ -84,7 +86,7 @@ export function ReportPage() {
       key={report.data.id}
       report={report.data}
       header={
-        <ReportHeader back={backTarget(report.data, projects.data ?? [])} leading={<NotificationBell placement="bottom start" />}>
+        <ReportHeader back={backLink(report.data, projects.data ?? [], reportsFrom)} leading={<NotificationBell placement="bottom start" />}>
           <span className="hidden md:inline-flex">
             <CopyLinkButton report={report.data} />
           </span>
@@ -98,6 +100,7 @@ export function ReportPage() {
           report={report.data}
           members={members.data}
           onChange={(patch) => update.mutate(patch)}
+          rows
         />
       }
       title={<ReportTitle title={report.data.title} editable onSave={(title) => update.mutate({ title })} />}

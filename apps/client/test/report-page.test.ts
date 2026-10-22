@@ -1,6 +1,6 @@
 import type { Priority, ReportStatus } from "@bugberry/shared"
 import { describe, expect, test } from "bun:test"
-import { backTarget, sentIssues, sharePageTarget, withPatch } from "../src/lib/report-page"
+import { backLink, backTarget, sentIssues, sharePageTarget, withPatch } from "../src/lib/report-page"
 
 describe("sharePageTarget", () => {
   test("a member goes on to the full report", () => {
@@ -24,6 +24,29 @@ describe("backTarget", () => {
     expect(backTarget({ projectId: "p1" }, [])).toEqual({ to: "/app" })
   })
 })
+
+describe("backLink", () => {
+  const projects = [
+    { id: "p1", slug: "web", name: "Quinella AI" },
+    { id: "p2", slug: "docs", name: "Docs" },
+  ]
+
+  test("opened from a project, it leads back there and says the project's name", () => {
+    const back = backLink({ projectId: "p1" }, projects, { projectSlug: "web" })
+    expect(back.link).toEqual({ to: "/app/p/$projectSlug", params: { projectSlug: "web" } })
+    expect(back.label).toBe("Quinella AI")
+  })
+
+  test("opened from All reports, it goes back to All reports even when the report has a project", () => {
+    expect(backLink({ projectId: "p1" }, projects, "all")).toMatchObject({ link: { to: "/app" }, label: "All reports" })
+  })
+
+  test("opened from elsewhere (the bell, a link), it follows the report's project, named", () => {
+    expect(backLink({ projectId: "p2" }, projects)).toMatchObject({ label: "Docs", project: { slug: "docs" } })
+    expect(backLink({ projectId: null }, projects)).toMatchObject({ label: "All reports", project: null })
+  })
+})
+
 
 describe("sentIssues", () => {
   test("lists the issues that were created, with their tracker", () => {

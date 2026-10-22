@@ -9,8 +9,9 @@ import { hasFilters, type ReportSearch, toReportsQuery } from "../lib/report-sea
 import { readLayout, type ReportLayout, saveLayout } from "../lib/report-layout"
 import { useCurrentWorkspace } from "../lib/workspace"
 import { InviteDialog } from "./InviteDialog"
-import { NewReportButton } from "./NewReportButton"
+import { InstallExtensionButton, NewReportButton } from "./NewReportButton"
 import { ReportsView } from "./ReportsView"
+import { installHref } from "../pages/landing/site-links"
 
 export type SearchUpdater = (update: (prev: ReportSearch) => ReportSearch) => void
 
@@ -44,6 +45,8 @@ export function ReportsBrowser({
   const projects = useQuery({ ...queries.projects(workspaceId), enabled: Boolean(workspace) })
   const reports = useInfiniteQuery({ ...queries.reportFeed(workspaceId, toReportsQuery(scope, search)), enabled: Boolean(workspace) })
   const config = useQuery(queries.clientConfig())
+  // The server's own install link, else BugBerry's Chrome Web Store page.
+  const installUrl = installHref(config.data?.extensionInstallUrl ?? null)
   const [layout, setLayout] = useState<ReportLayout>(readLayout)
   const [inviting, setInviting] = useState(false)
   const limits = useQuery({ ...queries.workspaceLimits(workspaceId), enabled: Boolean(workspace) })
@@ -91,7 +94,7 @@ export function ReportsBrowser({
       statusCounts={statusCounts.data ?? null}
       fab={
         <NewReportButton
-          installUrl={config.data?.extensionInstallUrl ?? null}
+          installUrl={installUrl}
           prominent
           className="rounded-full px-5 shadow-lg shadow-primary/30"
         />
@@ -99,12 +102,13 @@ export function ReportsBrowser({
       checkedTotal={everything.data ?? null}
       recordButton={
         <NewReportButton
-          installUrl={config.data?.extensionInstallUrl ?? null}
+          installUrl={installUrl}
           label="Record your first bug"
           icon={<RiRecordCircleLine aria-hidden />}
           prominent
         />
       }
+      installButton={<InstallExtensionButton installUrl={installUrl} />}
       layout={layout}
       onLayout={(next) => {
         setLayout(next)

@@ -8,6 +8,7 @@ import { formatLength, formatRelative } from "../lib/format"
 import { PRIORITY_LABELS } from "../lib/labels"
 import { initialsOf } from "../lib/people"
 import { StatusBadge } from "./StatusBadge"
+import { useReportsFrom } from "./ReportCard"
 
 const head = "px-3 py-2 text-left text-xs font-semibold text-muted-foreground first:ps-3 last:pe-3 sm:first:ps-3 sm:last:pe-3"
 const cell = "px-3 py-2.5 align-middle first:ps-3 last:pe-3 sm:first:ps-3 sm:last:pe-3"
@@ -113,12 +114,21 @@ export function ReportTableBody({
 
 export function ReportTable(props: Omit<Parameters<typeof ReportTableBody>[0], "rowLink" | "onRow">) {
   const navigate = useNavigate()
+  const from = useReportsFrom()
   return (
     <ReportTableBody
       {...props}
-      onRow={(item) => void navigate({ to: "/app/r/$reportId", params: { reportId: item.id } })}
+      onRow={(item) =>
+        void navigate({ to: "/app/r/$reportId", params: { reportId: item.id }, state: (previous) => ({ ...previous, reportsFrom: from }) })
+      }
       rowLink={(item) => (
-        <Link to="/app/r/$reportId" params={{ reportId: item.id }} onClick={(event) => event.stopPropagation()} className="hover:underline">
+        <Link
+          to="/app/r/$reportId"
+          params={{ reportId: item.id }}
+          state={(previous) => ({ ...previous, reportsFrom: from })}
+          onClick={(event) => event.stopPropagation()}
+          className="hover:underline"
+        >
           {item.title}
         </Link>
       )}

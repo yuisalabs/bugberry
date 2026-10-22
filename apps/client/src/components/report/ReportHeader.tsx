@@ -1,8 +1,11 @@
-import { RiLayoutGridLine } from "@remixicon/react"
+import { RiArrowLeftLine, RiLayoutGridLine } from "@remixicon/react"
 import { Link } from "@tanstack/react-router"
 import type { ReactNode } from "react"
-import type { backTarget } from "../../lib/report-page"
+import type { backLink } from "../../lib/report-page"
 import { BugBerryLogo } from "../BugBerryLogo"
+import { ProjectTile } from "../ProjectTile"
+
+const navLink = "flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm whitespace-nowrap text-muted-foreground hover:bg-muted hover:text-foreground"
 
 /**
  * The report page's top row. From tablet width up: back to the reports and the bell on the left, sharing and
@@ -13,23 +16,36 @@ export function ReportHeader({
   leading,
   children,
 }: {
-  /** Where "All reports" leads; the share page, opened by people outside the workspace, has none. */
-  back: ReturnType<typeof backTarget> | null
+  /** Where the back link leads and what it says ("All reports" or the project's name); the share page has none. */
+  back: ReturnType<typeof backLink<{ id: string; slug: string; name: string; logoUrl?: string | null }>> | null
   /** Shown right after "All reports" (or the logo), such as the notification bell. */
   leading?: ReactNode
   children: ReactNode
 }) {
   return (
     <div className="flex items-center gap-1">
-      <div className="mr-auto md:mr-0">
+      <div className="mr-auto flex min-w-0 items-center gap-1 md:mr-0">
         {back ? (
-          <Link
-            {...back}
-            className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
-          >
-            <RiLayoutGridLine aria-hidden className="size-4" />
-            All reports
-          </Link>
+          <>
+            <Link {...back.link} className={`max-w-56 ${navLink}`}>
+              {back.project ? (
+                <>
+                  <RiArrowLeftLine aria-hidden className="size-4 shrink-0" />
+                  <ProjectTile project={back.project} className="size-4 rounded text-[9px]" />
+                </>
+              ) : (
+                <RiLayoutGridLine aria-hidden className="size-4 shrink-0" />
+              )}
+              <span className="truncate">{back.label}</span>
+            </Link>
+            {/* Back leads to the project; every report is one more click away beside it. */}
+            {back.project && (
+              <Link to="/app" className={`hidden sm:flex ${navLink}`}>
+                <RiLayoutGridLine aria-hidden className="size-4 shrink-0" />
+                All reports
+              </Link>
+            )}
+          </>
         ) : (
           <BugBerryLogo />
         )}

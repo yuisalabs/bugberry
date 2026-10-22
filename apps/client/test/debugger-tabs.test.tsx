@@ -200,16 +200,16 @@ describe("DebuggerTabs", () => {
     const summary = { logs: 4, errors: 3, requests: 25, failedRequests: 6, actions: 9, incomplete: [] }
     render(<DebuggerTabs report={reportFixture({ debuggerSummary: summary })} state={{ status: "none" }} onRetry={() => {}} />)
     expect(screen.getByRole("heading", { name: /DevTools/ })).toBeTruthy()
-    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Info", "Actions", "Console3", "Network6"])
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Overview", "Activity", "Console3", "Network6"])
   })
 
-  test("opens on Console when the report has errors; Info always works", () => {
+  test("opens on Overview, even when the report has errors; Console shows them", () => {
     const view = normalizePayload({ capturedAt: 2000, events: [{ kind: "console", t: 1500, level: "error", args: ["boom"] }] })
     render(<DebuggerTabs report={reportFixture()} state={{ status: "ready", view }} onRetry={() => {}} />)
-    expect(screen.getByRole("tab", { name: /Console/ }).getAttribute("aria-selected")).toBe("true")
-    expect(screen.getByText("boom")).toBeTruthy()
-    fireEvent.click(screen.getByRole("tab", { name: /Info/ }))
+    expect(screen.getByRole("tab", { name: /Overview/ }).getAttribute("aria-selected")).toBe("true")
     expect(screen.getByText("Chrome 140")).toBeTruthy()
+    fireEvent.click(screen.getByRole("tab", { name: /Console/ }))
+    expect(screen.getByText("boom")).toBeTruthy()
   })
 
   test("below 1280 px a tab previews a few rows; View all opens the rest", () => {
@@ -229,23 +229,25 @@ describe("DebuggerTabs", () => {
   test("explains reports without debugger data", () => {
     const summary = { logs: 0, errors: 0, requests: 0, failedRequests: 0, actions: 0, incomplete: [] }
     render(<DebuggerTabs report={reportFixture({ debuggerSummary: summary })} state={{ status: "none" }} onRetry={() => {}} />)
+    fireEvent.click(screen.getByRole("tab", { name: /Activity/ }))
     expect(screen.getByText(/has no console, network or action data/)).toBeTruthy()
   })
 
   test("offers a retry when the payload cannot be loaded", () => {
     const onRetry = mock()
     render(<DebuggerTabs report={reportFixture()} state={{ status: "error" }} onRetry={onRetry} />)
+    fireEvent.click(screen.getByRole("tab", { name: /Activity/ }))
     fireEvent.click(screen.getByRole("button", { name: "Try again" }))
     expect(onRetry).toHaveBeenCalledTimes(1)
   })
 
-  test("Info links the page only for http(s) URLs and lists missing data", () => {
+  test("Overview links the page only for http(s) URLs and lists missing data", () => {
     const report = reportFixture({
       pageUrl: "javascript:alert(1)",
       debuggerSummary: { logs: 0, errors: 0, requests: 0, failedRequests: 0, actions: 0, incomplete: ["not-injected"] },
     })
     render(<DebuggerTabs report={report} state={{ status: "none" }} onRetry={() => {}} />)
-    fireEvent.click(screen.getByRole("tab", { name: /Info/ }))
+    fireEvent.click(screen.getByRole("tab", { name: /Overview/ }))
     expect(screen.getByText("javascript:alert(1)")).toBeTruthy()
     expect(screen.queryByRole("link")).toBeNull()
     expect(screen.getByText(/capture script wasn't installed/)).toBeTruthy()
@@ -255,14 +257,14 @@ describe("DebuggerTabs", () => {
 test("Info explains a recording made from a page that isn't a web page", () => {
   const view = normalizePayload({ recordingStartedAt: 1000, incomplete: ["not-web-page"], events: [] })
   render(<DebuggerTabs report={reportFixture({ captureType: "video" })} state={{ status: "ready", view }} onRetry={() => {}} />)
-  fireEvent.click(screen.getByRole("tab", { name: /Info/ }))
+  fireEvent.click(screen.getByRole("tab", { name: /Overview/ }))
   expect(screen.getByText("This wasn't a regular web page, so there is no console, network or action data.")).toBeTruthy()
 })
 
 test("Info explains a recording that moved to another page", () => {
   const view = normalizePayload({ recordingStartedAt: 1000, incomplete: ["navigated"], events: [] })
   render(<DebuggerTabs report={reportFixture({ captureType: "video" })} state={{ status: "ready", view }} onRetry={() => {}} />)
-  fireEvent.click(screen.getByRole("tab", { name: /Info/ }))
+  fireEvent.click(screen.getByRole("tab", { name: /Overview/ }))
   expect(screen.getByText(/navigated to another page during the recording/)).toBeTruthy()
 })
 
@@ -412,7 +414,7 @@ describe("pointing the DevTools panel at something", () => {
 
   test("a focus opens the Console tab", () => {
     const { rerender } = render(tabs(null))
-    fireEvent.click(screen.getByRole("tab", { name: /Info/ }))
+    fireEvent.click(screen.getByRole("tab", { name: /Overview/ }))
     rerender(tabs({ tab: "console", nonce: 1 }))
     expect(screen.getByRole("tab", { name: /Console/ }).getAttribute("aria-selected")).toBe("true")
   })
@@ -426,7 +428,7 @@ describe("pointing the DevTools panel at something", () => {
   test("the same focus again re-opens after the person moved away", () => {
     const { rerender } = render(tabs({ tab: "network", rowKey: payKey, nonce: 1 }))
     fireEvent.click(screen.getByRole("button", { name: "Close request" }))
-    fireEvent.click(screen.getByRole("tab", { name: /Info/ }))
+    fireEvent.click(screen.getByRole("tab", { name: /Overview/ }))
     rerender(tabs({ tab: "network", rowKey: payKey, nonce: 2 }))
     expect(screen.getByText("POST /api/pay")).toBeTruthy()
   })
@@ -457,7 +459,7 @@ test("Info lists the recording's notes, and a note's time moves the video there"
       playback={{ currentMs: null, seek }}
     />,
   )
-  fireEvent.click(screen.getByRole("tab", { name: /Info/ }))
+  fireEvent.click(screen.getByRole("tab", { name: /Overview/ }))
   expect(screen.getByText("Notes")).toBeTruthy()
   expect(screen.getByText("Spins forever")).toBeTruthy()
   fireEvent.click(screen.getByRole("button", { name: "0:31" }))

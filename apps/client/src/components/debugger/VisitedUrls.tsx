@@ -9,7 +9,7 @@ import { activeIndex, type Playback } from "../../lib/timeline"
 import { safeHttpUrl } from "../../lib/urls"
 
 /**
- * The Info tab's pages, as in Jam: closed it shows one page (where the player is, or where the bug was
+ * The Overview tab's pages, as in Jam: closed it shows one page (where the player is, or where the bug was
  * reported before it plays), open it lists them all with that page marked. A time moves the player there.
  */
 export function VisitedUrls({ entries, playback = null }: { entries: VisitedUrl[]; playback?: Playback | null }) {

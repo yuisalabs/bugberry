@@ -21,7 +21,7 @@ export type ReportListState = ReportFeed | "loading" | { error: unknown; retry: 
  * A list with no report at all: the BugBerry with its net and an empty jar, a note pointing at the jar, and
  * the two ways to fill it: record a bug, or invite the people who will.
  */
-export function ReportsEmpty({ record, invite }: { record?: ReactNode; invite?: ReactNode }) {
+export function ReportsEmpty({ record, install, invite }: { record?: ReactNode; install?: ReactNode; invite?: ReactNode }) {
   return (
     <div className="flex flex-col items-center gap-3 px-4 py-10 text-center">
       <div className="relative">
@@ -37,9 +37,10 @@ export function ReportsEmpty({ record, invite }: { record?: ReactNode; invite?: 
         Your jar is still empty. Record your first bug and it'll land here, with the video, console logs and network requests bundled
         into one link.
       </p>
-      {(record || invite) && (
+      {(record || install || invite) && (
         <div className="mt-3 flex flex-wrap justify-center gap-3">
           {record}
+          {install}
           {invite}
         </div>
       )}
@@ -84,6 +85,7 @@ export function ReportsView({
   statusCounts = null,
   fab,
   recordButton,
+  installButton,
   checkedTotal = null,
   members,
   projects,
@@ -125,6 +127,8 @@ export function ReportsView({
   fab?: ReactNode
   /** "Record your first bug" on a list with no report at all. */
   recordButton?: ReactNode
+  /** "Add to Chrome" on a list with no report, while this browser has no extension. */
+  installButton?: ReactNode
   /** How many reports the list holds before filtering, when filters left none; null until known. */
   checkedTotal?: number | null
   members: readonly Member[]
@@ -243,6 +247,7 @@ export function ReportsView({
         ) : (
           <ReportsEmpty
             record={recordButton}
+            install={installButton}
             invite={
               canInvite && (
                 <Button intent="outline" onPress={onInvite} className="bg-background">
