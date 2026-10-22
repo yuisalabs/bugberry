@@ -173,6 +173,8 @@ export const workspaceInvitation = pgTable(
     /** SHA-256 of the short code in the email ("7KX-29QF"); null for invitations from before codes. */
     codeHash: text("code_hash").unique(),
     invitedById: text("invited_by_id").references(() => user.id, { onDelete: "set null" }),
+    /** The role the person joins with when they accept. */
+    role: workspaceRoleEnum("role").notNull().default("member"),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     acceptedAt: timestamp("accepted_at", { withTimezone: true }),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
@@ -212,6 +214,8 @@ export const project = pgTable(
       .array()
       .notNull()
       .default(sql`'{}'::text[]`),
+    /** The uploaded logo's public link; null shows the name's first letter instead. */
+    logoUrl: text("logo_url"),
     createdAt: createdAt(),
   },
   (table) => [uniqueIndex("project_workspace_slug_idx").on(table.workspaceId, table.slug)],
@@ -448,6 +452,15 @@ export const pendingLogo = pgTable("pending_logo", {
   workspaceId: text("workspace_id")
     .primaryKey()
     .references(() => workspace.id, { onDelete: "cascade" }),
+  logoId: text("logo_id").notNull(),
+  createdAt: createdAt(),
+})
+
+/** A project logo upload not confirmed yet, one per project, as pendingLogo is for workspaces. */
+export const pendingProjectLogo = pgTable("pending_project_logo", {
+  projectId: text("project_id")
+    .primaryKey()
+    .references(() => project.id, { onDelete: "cascade" }),
   logoId: text("logo_id").notNull(),
   createdAt: createdAt(),
 })

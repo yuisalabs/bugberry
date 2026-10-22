@@ -103,6 +103,21 @@ describe("accepting invitations", () => {
     expect((await ctx.api.api.invitations({ token }).get()).data?.status).toBe("accepted")
   })
 
+  test("an invitation as admin joins as admin; the list says the role and when it was sent", async () => {
+    await invitations().post({ emails: ["sari@kantor.test"], role: "admin" }, { headers: admin.headers })
+    const { data: pending } = await invitations().get({ headers: admin.headers })
+    expect(pending?.[0]).toMatchObject({ email: "sari@kantor.test", role: "admin" })
+    expect(Math.abs((pending?.[0]?.sentAt.getTime() ?? 0) - Date.now())).toBeLessThan(60_000)
+
+    const sari = await createUserWithToken(ctx.db, { email: "sari@kantor.test", workspaceId: null })
+    await ctx.api.api.invitations({ token: tokenIn(outbox[0]) }).accept.post(undefined, { headers: sari.headers })
+    const [row] = await ctx.db
+      .select({ role: workspaceMember.role })
+      .from(workspaceMember)
+      .where(and(eq(workspaceMember.workspaceId, ctx.workspace.id), eq(workspaceMember.userId, sari.user.id)))
+    expect(row?.role).toBe("admin")
+  })
+
   test("accepting needs the invited address", async () => {
     await invite(["sari@kantor.test"])
     const token = tokenIn(outbox[0])
