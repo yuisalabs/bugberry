@@ -1,4 +1,4 @@
-const ANSWER_MS = 1000
+const ANSWER_MS = 2000
 
 /**
  * Opens the review: over the page when its page layer answers, else in a tab of its own (the tab was

@@ -24,6 +24,9 @@ export interface PageUi {
   countdown(): Promise<"done" | "cancel">
   showReview(draftId: string): void
   hideReview(): void
+  /** A prompt page (allow the microphone, switch servers) over the page; `token` names what it asks. */
+  showPrompt(page: string, token: string): void
+  hidePrompt(): void
   setDrawing(on: boolean): void
 }
 
@@ -79,6 +82,7 @@ export function createPageUi(doc: Document, win: Window, deps: PageUiDeps): Page
   let root: ShadowRoot | null = null
   let recording: { session: string; bar: HTMLElement; barFrame: HTMLIFrameElement; draw: HTMLIFrameElement } | null = null
   let review: HTMLIFrameElement | null = null
+  let prompt: HTMLIFrameElement | null = null
   let barSize = { ...BAR_SIZE }
   /** Set while a countdown runs: the bar's frame forwards Esc when it has the focus. */
   let cancelCountdown: (() => void) | null = null
@@ -138,6 +142,7 @@ export function createPageUi(doc: Document, win: Window, deps: PageUiDeps): Page
     }
     else if (data.bugberry === "drawing") ui.setDrawing(data.on === true)
     else if (data.bugberry === "review-close") ui.hideReview()
+    else if (data.bugberry === "prompt-close") ui.hidePrompt()
     else if (data.bugberry === "bar-size" && recording && typeof data.width === "number" && typeof data.height === "number") {
       const before = barSize.height
       barSize = { width: Math.max(1, Math.round(data.width)), height: Math.max(1, Math.round(data.height)) }
@@ -259,6 +264,20 @@ export function createPageUi(doc: Document, win: Window, deps: PageUiDeps): Page
     hideReview() {
       review?.remove()
       review = null
+      removeHostIfEmpty()
+    },
+
+    showPrompt(page, token) {
+      ui.hidePrompt()
+      prompt = frame(doc, deps.extensionUrl(`${page}.html?prompt=${encodeURIComponent(token)}&embedded=1`), "position:fixed;inset:0;width:100vw;height:100vh")
+      // The microphone prompt asks for it from inside this frame.
+      prompt.setAttribute("allow", "microphone")
+      ensureRoot().append(prompt)
+    },
+
+    hidePrompt() {
+      prompt?.remove()
+      prompt = null
       removeHostIfEmpty()
     },
 

@@ -2,24 +2,63 @@ import { Button } from "@bugberry/ui/button"
 import { Label } from "@bugberry/ui/field"
 import { Input } from "@bugberry/ui/input"
 import { TextField } from "@bugberry/ui/text-field"
-import { type FormEvent, useCallback, useEffect, useState } from "react"
+import { type FormEvent, useCallback, useEffect, useRef, useState } from "react"
 import { browser } from "wxt/browser"
 import { createBugberryApi } from "../../lib/api"
 import { BUILD_SERVER_ORIGIN, browserSettingsStorage } from "../../lib/browser-settings"
 import { switchServer } from "../../lib/bridge"
 import { createIndexedDbDraftStore } from "../../lib/draft-store"
+import { closePrompt, CoveredNote, PromptShell, usePromptTicket, useUnobscured } from "../../lib/prompt-page"
 import { checkSession, isBugBerryServer, type SessionState, serverLabel, signInUrl } from "../../lib/session"
 import { loadSettings, normalizeServerUrl, type Settings } from "../../lib/settings"
 
 const store = createIndexedDbDraftStore()
 const card = "flex flex-col gap-3 rounded-xl border border-border bg-overlay p-4"
 
-export function App() {
+/**
+ * The settings: from the popup, over the page the reporter is on (or in a tab where that page can't show
+ * them); from the browser's extensions page, a page of their own.
+ */
+export function App({ token, embedded }: { token: string; embedded: boolean }) {
+  const ticket = usePromptTicket(token, "options")
+  // Another site can frame this page (it is web accessible): the settings show only under a ticket for this tab.
+  if (!embedded) return window.top === window ? <SettingsPage /> : null
+  if (ticket === null) return null
+  const close = () => void closePrompt(token, embedded)
+  if (ticket === "invalid") {
+    return (
+      <PromptShell embedded labelledBy="settings-title" onClose={close}>
+        <h1 id="settings-title" className="font-heading text-xl font-bold">
+          This request has expired
+        </h1>
+        <p className="text-sm text-muted-foreground">Open the settings again from the BugBerry icon.</p>
+      </PromptShell>
+    )
+  }
+  return (
+    <PromptShell embedded labelledBy="settings-title" onClose={close}>
+      <SettingsBody embedded token={token} />
+    </PromptShell>
+  )
+}
+
+function SettingsPage() {
+  return (
+    <main className="mx-auto flex max-w-lg flex-col gap-4 p-6">
+      <SettingsBody embedded={false} token="" />
+    </main>
+  )
+}
+
+function SettingsBody({ embedded, token }: { embedded: boolean; token: string }) {
   const [settings, setSettings] = useState<Settings | null>(null)
   const [session, setSession] = useState<SessionState | null>(null)
   const [address, setAddress] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const body = useRef<HTMLDivElement>(null)
+  // Over someone else's page, the buttons work only while nothing covers them.
+  const seen = useUnobscured(body, embedded)
 
   const refresh = useCallback(async () => {
     const loaded = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
@@ -55,12 +94,14 @@ export function App() {
 
   const save = (event: FormEvent) => {
     event.preventDefault()
-    void useServer(address)
+    if (seen) void useServer(address)
   }
 
   return (
-    <main className="mx-auto flex max-w-lg flex-col gap-4 p-6">
-      <h1 className="font-heading text-xl font-semibold">BugBerry settings</h1>
+    <div ref={body} className="flex flex-col gap-4">
+      <h1 id="settings-title" className="font-heading text-xl font-semibold">
+        BugBerry settings
+      </h1>
       {settings && (
         <section className={card}>
           <p className="text-sm">Server: {serverLabel(settings.serverUrl, BUILD_SERVER_ORIGIN)}</p>
@@ -85,19 +126,20 @@ export function App() {
             </p>
           )}
           {BUILD_SERVER_ORIGIN && settings.serverUrl !== BUILD_SERVER_ORIGIN && (
-            <Button size="sm" intent="outline" className="self-start" isDisabled={busy} onPress={() => void useServer(BUILD_SERVER_ORIGIN)}>
+            <Button size="sm" intent="outline" className="self-start" isDisabled={busy || !seen} onPress={() => void useServer(BUILD_SERVER_ORIGIN)}>
               Use BugBerry cloud
             </Button>
           )}
         </section>
       )}
+      {embedded && !seen && <CoveredNote token={token} />}
       <form onSubmit={save} className={card}>
         <h2 className="text-sm font-semibold">{settings ? "Change server" : "Choose your BugBerry server"}</h2>
         <TextField isRequired value={address} onChange={setAddress}>
           <Label>Server address</Label>
           <Input placeholder="https://bugberry.example.com" />
         </TextField>
-        <Button size="sm" type="submit" className="self-start" isDisabled={busy}>
+        <Button size="sm" type="submit" className="self-start" isDisabled={busy || !seen}>
           Save
         </Button>
         {error && (
@@ -106,6 +148,6 @@ export function App() {
           </p>
         )}
       </form>
-    </main>
+    </div>
   )
 }

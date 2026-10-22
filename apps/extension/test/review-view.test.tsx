@@ -116,25 +116,46 @@ describe("what the review shows", () => {
     expect(screen.queryByText(/Trim/)).toBeNull()
   })
 
-  test("where it goes and who sees it, in one line", () => {
+  test("where it goes: Save to the workspace", () => {
     view()
-    expect(button(/Cuy Workspaces · Workspace members/)).toBeTruthy()
+    expect(screen.getByText("Save to")).toBeTruthy()
+    expect(button(/Cuy Workspaces/)).toBeTruthy()
+  })
+
+  test("a screenshot shows its kind and size", () => {
+    view({ draft: screenshot, mediaSize: { width: 1920, height: 945 } })
+    expect(screen.getByText("Screenshot")).toBeTruthy()
+    expect(screen.getByText("· 1920 × 945")).toBeTruthy()
+  })
+
+  test("nobody is assigned until someone is picked", () => {
+    const { props } = view({ members: [{ id: "u2", name: "Ansar R.", email: "ansar@acme.io" }] })
+    expect(button(/Unassigned/)).toBeTruthy()
+    fireEvent.click(button("Create report"))
+    expect((props.onSend as ReturnType<typeof mock>).mock.calls[0]?.[0]).not.toMatchObject({ assigneeId: "u2" })
   })
 })
 
 describe("buttons", () => {
-  test("Record again asks first", () => {
+  test("Record again asks first, saying the recording won't be kept", () => {
     const { props } = view()
     fireEvent.click(button("Record again"))
-    expect(screen.getByText("Delete this recording?")).toBeTruthy()
-    fireEvent.click(button("Delete"))
+    const dialog = screen.getByRole("alertdialog")
+    expect(within(dialog).getByText("Record again?")).toBeTruthy()
+    expect(within(dialog).getByText("This recording won't be saved. A new one starts on the same page.")).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole("button", { name: "Record again" }))
     expect(props.onAgain).toHaveBeenCalledTimes(1)
   })
 
-  test("a screenshot has Retake", () => {
-    view({ draft: screenshot })
-    expect(button("Retake")).toBeTruthy()
+  test("a screenshot has Retake, which asks first too", () => {
+    const { props } = view({ draft: screenshot })
     expect(screen.queryByRole("button", { name: "Record again" })).toBeNull()
+    fireEvent.click(button("Retake"))
+    const dialog = screen.getByRole("alertdialog")
+    expect(within(dialog).getByText("Retake the screenshot?")).toBeTruthy()
+    expect(within(dialog).getByText("This screenshot won't be saved. A new one is taken of the same page.")).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole("button", { name: "Retake" }))
+    expect(props.onAgain).toHaveBeenCalledTimes(1)
   })
 
   test("Discard asks first", () => {
@@ -181,13 +202,48 @@ describe("closing", () => {
 })
 
 describe("after sending", () => {
-  test("Report created, with the link", () => {
-    const { props } = view({ status: { sent: { reportUrl: "https://b.test/app/r/1", shareUrl: "https://b.test/s/x" } } })
+  const sent = { sent: { id: "r1", reportUrl: "https://b.test/app/r/1", shareUrl: "https://b.test/s/x" } }
+
+  test("Report created stays over the page with the capture, and closes without asking", () => {
+    const { props } = view({ status: sent })
     expect(screen.getByText("Report created")).toBeTruthy()
-    expect(button("Copy link")).toBeTruthy()
+    expect((screen.getByLabelText("Share link") as HTMLInputElement).value).toBe("https://b.test/s/x")
     expect(screen.getByRole("link", { name: "Open report" }).getAttribute("href")).toBe("https://b.test/app/r/1")
+    expect(screen.getByText("media")).toBeTruthy()
     fireEvent.click(button("Close"))
     expect(props.onClose).toHaveBeenCalledWith(null)
+    fireEvent.click(button("Done"))
+    expect(props.onClose).toHaveBeenCalledTimes(2)
+  })
+
+  test("the created report, as the server has it", () => {
+    view({
+      status: sent,
+      sentDetails: {
+        number: 149,
+        title: "Checkout hangs on Pay",
+        status: "open",
+        priority: "high",
+        visibility: "public",
+        projectName: "Quinella AI",
+        assigneeName: "Ansar R.",
+      },
+    })
+    expect(screen.getByText("BB-149")).toBeTruthy()
+    expect(screen.getByText("Checkout hangs on Pay")).toBeTruthy()
+    expect(screen.getByText("Quinella AI")).toBeTruthy()
+    expect(screen.getByText("Ansar R.")).toBeTruthy()
+    expect(screen.getAllByText("Anyone with the link").length).toBeGreaterThan(0)
+  })
+
+  test("trackers send without leaving the page; Record another starts a new capture", () => {
+    const onSendToTracker = mock()
+    const onAnother = mock()
+    view({ status: sent, trackers: [{ id: "i1", provider: "github", label: "GitHub", state: "idle" }], onSendToTracker, onAnother })
+    fireEvent.click(button("GitHub"))
+    expect(onSendToTracker).toHaveBeenCalledWith("i1")
+    fireEvent.click(button("Record another"))
+    expect(onAnother).toHaveBeenCalledTimes(1)
   })
 
   test("a failure says why and can be tried again with the same form", () => {
@@ -198,12 +254,12 @@ describe("after sending", () => {
   })
 })
 
-test("over a page, the city can't be asked for", () => {
-  view({ embedded: true })
-  fireEvent.click(button(/Cuy Workspaces/))
-  const city = screen.getByRole("checkbox", { name: "Include my city" }) as HTMLInputElement
-  expect(city.disabled).toBe(true)
-  expect(screen.getByText("Available when the review opens in its own tab")).toBeTruthy()
+test("over a page, the city can't be asked for, so it isn't offered", () => {
+  const { unmount } = view({ embedded: true })
+  expect(screen.queryByRole("checkbox", { name: "Include my city" })).toBeNull()
+  unmount()
+  view({ embedded: false })
+  expect(screen.getByRole("checkbox", { name: "Include my city" })).toBeTruthy()
 })
 
 test("every edit is handed up, so closing the tab keeps it", () => {
@@ -217,25 +273,24 @@ test("every edit is handed up, so closing the tab keeps it", () => {
 })
 
 describe("Copy link", () => {
-  const sent = { sent: { reportUrl: "https://b.test/app/r/1", shareUrl: "https://b.test/s/x" } }
+  const sent = { sent: { id: "r1", reportUrl: "https://b.test/app/r/1", shareUrl: "https://b.test/s/x" } }
 
-  test("says when the link was copied", async () => {
+  test("the link is copied as soon as the report exists", async () => {
     const writeText = mock(async (_text: string) => {})
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true })
     view({ status: sent })
-    fireEvent.click(button("Copy link"))
-    expect(await screen.findByText("Link copied")).toBeTruthy()
+    expect(await screen.findByText("Copied")).toBeTruthy()
     expect(writeText).toHaveBeenCalledWith("https://b.test/s/x")
   })
 
-  test("shows the link to copy by hand when the clipboard refuses", async () => {
+  test("when the clipboard refuses, Copy stays, then says to copy it by hand", async () => {
     Object.defineProperty(navigator, "clipboard", {
       value: { writeText: () => Promise.reject(new DOMException("blocked", "NotAllowedError")) },
       configurable: true,
     })
     view({ status: sent })
-    fireEvent.click(button("Copy link"))
-    expect(await screen.findByText("Copy this link:")).toBeTruthy()
+    fireEvent.click(await screen.findByRole("button", { name: "Copy" }))
+    expect(await screen.findByText(/didn't allow copying/)).toBeTruthy()
     expect((screen.getByLabelText("Share link") as HTMLInputElement).value).toBe("https://b.test/s/x")
   })
 })

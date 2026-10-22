@@ -1,6 +1,6 @@
 import { type Browser, browser } from "wxt/browser"
 import { createFailureFlag } from "../lib/badge"
-import { bridgeSenderOrigin, createBridge, createConfirmOpener } from "../lib/bridge"
+import { bridgeSenderOrigin, createBridge } from "../lib/bridge"
 import { browserRecordingState } from "../lib/browser-recording-state"
 import { createBugberryApi } from "../lib/api"
 import { handleApiFetch, isApiFetchRequest } from "../lib/api-relay"
@@ -22,7 +22,11 @@ import {
   isRecordingEndedNotice,
   isRecordStartRequest,
   isRecordStatusRequest,
+  isPopupPromptRequest,
+  isOpenDraftRequest,
+  isPromptTicketRequest,
   isReviewAgainRequest,
+  isReviewAnotherRequest,
   isScreenshotRequest,
   isUiStateRequest,
   type PageUiMessage,
@@ -32,6 +36,7 @@ import {
 import { createRecordingController, type RecordingFlowDeps } from "../lib/recording-flow"
 import { createWindowRecorderHost, onRecorderClosed } from "../lib/recorder-window"
 import { openSessionToContentScripts } from "../lib/session-access"
+import { createPromptOpener, type PromptTicket, type PromptTickets, ticketFor } from "../lib/prompt-opener"
 import { createReviewOpener } from "../lib/review-opener"
 import { fromExtensionPage, fromPopup, ofThisRecording } from "../lib/sender-rules"
 import { createTakeAgain } from "../lib/take-again"
@@ -45,7 +50,9 @@ const REVIEW_PAGE = "/review.html" as Parameters<typeof browser.runtime.getURL>[
 const OFFSCREEN_PAGE = "/offscreen.html" as Parameters<typeof browser.runtime.getURL>[0]
 /** Session storage key of Firefox's recorder window id. */
 const RECORDER_WINDOW_KEY = "recorderWindow"
-const CONFIRM_PAGE = "/confirm-server.html" as Parameters<typeof browser.runtime.getURL>[0]
+const PROMPT_TICKETS_KEY = "promptTickets"
+/** Where WXT puts recording-ui.content.ts. */
+const PAGE_LAYER_SCRIPT = "/content-scripts/recording-ui.js"
 
 function toActiveTab(tab: Browser.tabs.Tab | undefined): ActiveTab | null {
   if (tab?.id === undefined || tab.windowId === undefined) return null
@@ -119,8 +126,20 @@ export default defineBackground(() => {
     return injection?.result
   }
   const toPage = (tabId: number, message: PageUiMessage) => browser.tabs.sendMessage(tabId, message, { frameId: 0 })
+  /**
+   * The review and prompts over a page. A tab loaded before the extension (installed, updated or reloaded) has no
+   * page layer yet: it is added then, so the reporter stays on their page instead of getting a new tab.
+   */
+  const toPageLayer = async (tabId: number, message: PageUiMessage) => {
+    try {
+      return await toPage(tabId, message)
+    } catch {
+      await browser.scripting.executeScript({ target: { tabId }, files: [PAGE_LAYER_SCRIPT] })
+      return toPage(tabId, message)
+    }
+  }
   const openReview = createReviewOpener({
-    sendToTab: (tabId, message) => toPage(tabId, message as PageUiMessage),
+    sendToTab: (tabId, message) => toPageLayer(tabId, message as PageUiMessage),
     openTab: async (url) => void (await browser.tabs.create({ url })),
     focusTab: async (tabId) => {
       const tab = await browser.tabs.update(tabId, { active: true })
@@ -297,7 +316,7 @@ export default defineBackground(() => {
   }
 
   /** "Record again" and "Retake": the same kind of capture on the draft's tab; the old draft goes once it started. */
-  const takeAgain = createTakeAgain({
+  const takeAgainDeps: Parameters<typeof createTakeAgain>[0] = {
     getDraft: (id) => store.get(id),
     getTab: async (tabId) => toActiveTab(await browser.tabs.get(tabId).catch(() => undefined)),
     deleteDraft: (id) => store.delete(id),
@@ -310,22 +329,43 @@ export default defineBackground(() => {
     showReview: openReview,
     screenshot: (tab, mode) => screenshot(tab, mode),
     record: (tab) => record(tab),
-  })
+  }
+  const takeAgain = createTakeAgain(takeAgainDeps)
 
-  const openConfirm = createConfirmOpener({
-    pageUrl: browser.runtime.getURL(CONFIRM_PAGE),
-    find: async () => {
-      const [open] = await browser.tabs.query({ url: `${browser.runtime.getURL(CONFIRM_PAGE)}*` })
-      return open?.id !== undefined && open.url && open.windowId !== undefined
-        ? { id: open.id, url: open.url, windowId: open.windowId }
-        : null
+  /** "Record another": a new capture of the same kind on the tab the sent report came from. */
+  const takeAnother = async (captureType: "screenshot" | "video", tabId: number, mode: ScreenshotMode): Promise<CaptureResult> => {
+    const tab = toActiveTab(await browser.tabs.get(tabId).catch(() => undefined))
+    if (!tab) return { ok: false, error: "The page this came from was closed." }
+    await takeAgainDeps.hideReview(tab.id)
+    return captureType === "screenshot" ? screenshot(tab, mode) : record(tab)
+  }
+
+  // Session storage: a ticket outlives a sleeping worker, never the browser session.
+  const readTickets = async () =>
+    ((await browser.storage.session.get(PROMPT_TICKETS_KEY))[PROMPT_TICKETS_KEY] ?? {}) as Record<string, PromptTicket>
+  const promptTickets: PromptTickets = {
+    get: async (token) => (await readTickets())[token] ?? null,
+    put: async (token, ticket) => {
+      const now = Date.now()
+      const kept = Object.fromEntries(Object.entries(await readTickets()).filter(([, entry]) => entry.expiresAt > now))
+      await browser.storage.session.set({ [PROMPT_TICKETS_KEY]: { ...kept, [token]: ticket } })
     },
-    create: async (url) => void (await browser.tabs.create({ url })),
-    focus: async (tab) => {
-      await browser.tabs.update(tab.id, { active: true })
-      await browser.windows.update(tab.windowId, { focused: true })
+    delete: async (token) => {
+      const { [token]: _gone, ...rest } = await readTickets()
+      await browser.storage.session.set({ [PROMPT_TICKETS_KEY]: rest })
     },
+  }
+  const openPrompt = createPromptOpener({
+    tickets: promptTickets,
+    newToken: () => crypto.randomUUID(),
+    now: Date.now,
+    sendToTab: (tabId, message) => toPageLayer(tabId, message as PageUiMessage),
+    openTab: async (url) => void (await browser.tabs.create({ url })),
+    pageUrl: (page) => browser.runtime.getURL(`/${page}.html` as Parameters<typeof browser.runtime.getURL>[0]),
+    // Firefox can't tell an embedded prompt whether the page covers it, so its prompts get a tab.
+    overPage: !import.meta.env.FIREFOX,
   })
+  const openConfirm = (origin: string, tabId: number | null) => openPrompt({ page: "confirm-server", server: origin }, tabId)
 
   const bridge = createBridge({
     isBugBerryServer: (origin) => isBugBerryServer(origin),
@@ -413,7 +453,7 @@ export default defineBackground(() => {
       const origin = bridgeSenderOrigin(sender, browser.runtime.id)
       if (!origin) return undefined
       if (isBridgeOpenPopupRequest(message)) return reply(bridge.openPopup(origin))
-      return reply(isBridgeHelloRequest(message) ? bridge.hello(origin) : bridge.useServer(origin))
+      return reply(isBridgeHelloRequest(message) ? bridge.hello(origin) : bridge.useServer(origin, sender.tab?.id ?? null))
     }
     if (isScreenshotRequest(message)) {
       return reply(browser.tabs.get(message.tabId).then((tab) => screenshot(toActiveTab(tab), message.mode ?? "visible")))
@@ -433,6 +473,39 @@ export default defineBackground(() => {
     // layer only from inside the recorded tab (another site can embed those pages, but not in that tab).
     if (isReviewAgainRequest(message)) {
       return fromExtensionPage(sender, browser.runtime.id, extensionOrigin) ? reply(takeAgain(message.draftId)) : undefined
+    }
+    if (isReviewAnotherRequest(message)) {
+      return fromExtensionPage(sender, browser.runtime.id, extensionOrigin)
+        ? reply(takeAnother(message.captureType, message.tabId, message.mode ?? "visible"))
+        : undefined
+    }
+    // The popup can't show the browser's microphone prompt, and a draft opened from it belongs over the page too.
+    if (isPopupPromptRequest(message)) {
+      return fromPopup(sender, browser.runtime.id, extensionOrigin) ? reply(openPrompt({ page: message.page }, message.tabId).then(() => ({ ok: true }))) : undefined
+    }
+    if (isOpenDraftRequest(message)) {
+      if (!fromPopup(sender, browser.runtime.id, extensionOrigin)) return undefined
+      return reply(
+        message.tabId === null
+          ? browser.tabs.create({ url: `${browser.runtime.getURL(REVIEW_PAGE)}?draft=${encodeURIComponent(message.draftId)}` }).then(() => ({ ok: true }))
+          : openReview(message.draftId, message.tabId).then(() => ({ ok: true })),
+      )
+    }
+    if (isPromptTicketRequest(message)) {
+      if (!fromExtensionPage(sender, browser.runtime.id, extensionOrigin)) return undefined
+      return reply(
+        ticketFor(promptTickets, message.token, sender.tab?.id, Date.now()).then(async (ticket) => {
+          if (!ticket || message.action === "read") return ticket ? { page: ticket.page, server: ticket.server ?? null } : null
+          await promptTickets.delete(message.token)
+          if (message.action === "tab") {
+            await openPrompt({ page: ticket.page, ...(ticket.server ? { server: ticket.server } : {}) }, null)
+            return { ok: true }
+          }
+          // Back where they asked from: the popup shows the microphone on.
+          if (ticket.page === "microphone") await browser.action.openPopup().catch(() => {})
+          return { ok: true }
+        }),
+      )
     }
     if (isBarRequest(message)) {
       if (message.type === "bugberry:me-name") return fromExtensionPage(sender, browser.runtime.id, extensionOrigin) ? reply(author()) : undefined
@@ -458,6 +531,14 @@ export default defineBackground(() => {
     // The offscreen recorder stopped by itself (time limit, tab closed, error).
     if (isRecordingEndedNotice(message)) void stopRecording()
     return undefined
+  })
+
+  // A screen or window recording shows whatever tab the reporter goes to, so those tabs' logs go in too.
+  browser.tabs.onActivated.addListener(({ tabId }) => void recordings.noteActiveTab(tabId))
+  browser.windows.onFocusChanged.addListener(async (windowId) => {
+    if (windowId === browser.windows.WINDOW_ID_NONE) return
+    const [tab] = await browser.tabs.query({ active: true, windowId }).catch(() => [])
+    if (tab?.id !== undefined) void recordings.noteActiveTab(tab.id)
   })
 
   browser.commands.onCommand.addListener(async (command, tab) => {

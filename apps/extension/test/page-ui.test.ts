@@ -101,6 +101,16 @@ describe("the recording layer", () => {
     post({ bugberry: "review-close" })
     expect(root()).toBeNull()
   })
+
+  test("a prompt opens over the page, may ask for the microphone, and closes when it asks", () => {
+    const { ui, root } = setup()
+    ui.showPrompt("microphone", "t1")
+    const prompt = root()?.querySelector("iframe")
+    expect(prompt?.src).toBe(`${ORIGIN}/microphone.html?prompt=t1&embedded=1`)
+    expect(prompt?.getAttribute("allow")).toBe("microphone")
+    post({ bugberry: "prompt-close" })
+    expect(root()).toBeNull()
+  })
 })
 
 describe("countdown", () => {

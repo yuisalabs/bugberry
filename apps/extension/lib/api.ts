@@ -65,6 +65,7 @@ export function createBugberryApi(settings: Settings, fetcher: typeof fetch = fe
   // The dashboard's sign-in cookie: host_permissions let extension pages and the service worker send it.
   const client = treaty<App>(settings.serverUrl, { fetch: { credentials: "include" }, fetcher })
   type UploadBody = Parameters<typeof client.api.reports.uploads.post>[0]
+  type UpdateBody = Parameters<ReturnType<typeof client.api.reports>["patch"]>[0]
 
   return {
     me: () => call(() => client.api.me.get()),
@@ -81,11 +82,21 @@ export function createBugberryApi(settings: Settings, fetcher: typeof fetch = fe
     /** Older servers have no such endpoint and answer 404; callers ignore that. */
     setLocation: (reportId: string, coordinates: { latitude: number; longitude: number }) =>
       call(() => client.api.reports({ id: reportId }).location.post(coordinates)),
+    /** The people a report can be assigned to. */
+    listMembers: (workspaceId: string) => call(() => client.api.workspaces({ id: workspaceId }).members.get()),
+    getReport: (reportId: string) => call(() => client.api.reports({ id: reportId }).get()),
+    updateReport: (reportId: string, body: UpdateBody) => call(() => client.api.reports({ id: reportId }).patch(body)),
+    /** The project's trackers a sent report can go to, and where it already went. */
+    reportTrackers: (reportId: string) => call(() => client.api.reports({ id: reportId }).trackers.get()),
+    sendToTracker: (reportId: string, integrationId: string) =>
+      call(() => client.api.reports({ id: reportId }).trackers({ integrationId }).send.post()),
   }
 }
 
 export type BugberryApi = ReturnType<typeof createBugberryApi>
 export type Project = Awaited<ReturnType<BugberryApi["listProjects"]>>[number]
 export type Workspace = Awaited<ReturnType<BugberryApi["listWorkspaces"]>>[number]
+export type Member = Awaited<ReturnType<BugberryApi["listMembers"]>>[number]
+export type ReportTrackers = Awaited<ReturnType<BugberryApi["reportTrackers"]>>
 export type CreateUploadBody = Parameters<BugberryApi["createUpload"]>[0]
 export type UploadSession = Awaited<ReturnType<BugberryApi["createUpload"]>>

@@ -13,6 +13,8 @@ export interface ReportForm {
   description: string
   priority: Priority
   visibility: Visibility
+  /** Assigned once the report exists; absent or empty for nobody. */
+  assigneeId?: string
 }
 
 export interface UploadTarget {

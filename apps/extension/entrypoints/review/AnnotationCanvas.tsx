@@ -1,5 +1,15 @@
 import { Button } from "@bugberry/ui/button"
 import { ToggleGroup, ToggleGroupItem } from "@bugberry/ui/toggle-group"
+import {
+  type RemixiconComponentType,
+  RiArrowGoBackLine,
+  RiArrowGoForwardLine,
+  RiArrowRightUpLine,
+  RiEyeOffLine,
+  RiPencilLine,
+  RiRectangleLine,
+  RiText,
+} from "@remixicon/react"
 import { forwardRef, type PointerEvent, useEffect, useImperativeHandle, useReducer, useRef, useState } from "react"
 import {
   annotationsReducer,
@@ -19,13 +29,15 @@ export interface AnnotationCanvasHandle {
   getShapes(): Shape[]
 }
 
-const TOOLS: Array<[Tool, string]> = [
-  ["pen", "Pen"],
-  ["box", "Box"],
-  ["arrow", "Arrow"],
-  ["text", "Text"],
-  ["blur", "Blur"],
+const TOOLS: Array<[Tool, string, RemixiconComponentType]> = [
+  ["pen", "Pen", RiPencilLine],
+  ["box", "Box", RiRectangleLine],
+  ["arrow", "Arrow", RiArrowRightUpLine],
+  ["text", "Text", RiText],
+  ["blur", "Blur", RiEyeOffLine],
 ]
+
+const COLOR_NAMES: Record<Color, string> = { "#ef4444": "Red", "#eab308": "Yellow", "#22c55e": "Green", "#111827": "Black" }
 
 export const AnnotationCanvas = forwardRef<
   AnnotationCanvasHandle,
@@ -101,55 +113,10 @@ export const AnnotationCanvas = forwardRef<
     setDrawing(null)
   }
 
+  // The picture fills the media area at its own shape; the tools float over its foot.
   return (
-    <div className="flex flex-col">
-      <div role="toolbar" aria-label="Annotation tools" className="flex flex-wrap items-center gap-2 border-b border-border bg-muted px-2 py-1.5">
-        <ToggleGroup
-          aria-label="Tool"
-          size="xs"
-          disallowEmptySelection
-          selectedKeys={[tool]}
-          onSelectionChange={(keys) => {
-            const [key] = keys
-            const next = TOOLS.find(([value]) => value === key)
-            if (next) setTool(next[0])
-          }}
-          className="bg-background"
-        >
-          {TOOLS.map(([value, label]) => (
-            <ToggleGroupItem key={value} id={value}>
-              {label}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-        <ToggleGroup
-          aria-label="Color"
-          size="sq-xs"
-          disallowEmptySelection
-          selectedKeys={[color]}
-          onSelectionChange={(keys) => {
-            const [key] = keys
-            const next = COLORS.find((value) => value === key)
-            if (next) setColor(next)
-          }}
-          className="bg-background"
-        >
-          {COLORS.map((value) => (
-            <ToggleGroupItem key={value} id={value} aria-label={`Color ${value}`}>
-              <span aria-hidden className="size-4 rounded-sm ring-1 ring-foreground/15" style={{ backgroundColor: value }} />
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-        <span className="flex gap-1">
-          <Button intent="plain" size="xs" onPress={() => dispatch({ type: "undo" })} isDisabled={state.shapes.length === 0}>
-            Undo
-          </Button>
-          <Button intent="plain" size="xs" onPress={() => dispatch({ type: "redo" })} isDisabled={state.undone.length === 0}>
-            Redo
-          </Button>
-        </span>
-      </div>
-      <div className="relative">
+    <div className="relative flex h-full min-h-0 w-full items-center justify-center pb-16">
+      <div className="relative max-h-full max-w-full">
         <canvas
           ref={canvasRef}
           width={image.width}
@@ -159,7 +126,7 @@ export const AnnotationCanvas = forwardRef<
           onPointerUp={onPointerUp}
           // A gesture the browser cancels ends the stroke instead of leaving it hanging.
           onPointerCancel={onPointerUp}
-          className={`h-auto w-full bg-background ${tool === "text" ? "cursor-text" : "cursor-crosshair"}`}
+          className={`block h-auto max-h-[min(66vh,48rem)] w-auto max-w-full rounded-lg bg-background shadow-lg ring-1 ring-foreground/10 ${tool === "text" ? "cursor-text" : "cursor-crosshair"}`}
         />
         {typing && (
           // Placed by share of the picture, so it sits where the text will be drawn at any zoom.
@@ -190,6 +157,56 @@ export const AnnotationCanvas = forwardRef<
             />
           </div>
         )}
+      </div>
+      <div
+        role="toolbar"
+        aria-label="Annotation tools"
+        className="absolute bottom-0 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-xl bg-overlay px-2 py-1.5 shadow-lg ring-1 ring-foreground/10"
+      >
+        <ToggleGroup
+          aria-label="Color"
+          size="sq-sm"
+          disallowEmptySelection
+          selectedKeys={[color]}
+          onSelectionChange={(keys) => {
+            const [key] = keys
+            const next = COLORS.find((value) => value === key)
+            if (next) setColor(next)
+          }}
+          className="inset-ring-0 [--toggle-selected-bg:var(--color-secondary)]"
+        >
+          {COLORS.map((value) => (
+            <ToggleGroupItem key={value} id={value} aria-label={COLOR_NAMES[value]}>
+              <span aria-hidden className="size-4.5 rounded-full ring-1 ring-foreground/15" style={{ backgroundColor: value }} />
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+        <span aria-hidden className="mx-1 h-6 w-px bg-border" />
+        <ToggleGroup
+          aria-label="Tool"
+          size="sq-sm"
+          disallowEmptySelection
+          selectedKeys={[tool]}
+          onSelectionChange={(keys) => {
+            const [key] = keys
+            const next = TOOLS.find(([value]) => value === key)
+            if (next) setTool(next[0])
+          }}
+          className="inset-ring-0 [--toggle-selected-bg:color-mix(in_oklab,var(--color-primary)_14%,transparent)] [--toggle-selected-foreground:var(--color-primary)]"
+        >
+          {TOOLS.map(([value, label, Icon]) => (
+            <ToggleGroupItem key={value} id={value} aria-label={label}>
+              <Icon aria-hidden />
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+        <span aria-hidden className="mx-1 h-6 w-px bg-border" />
+        <Button intent="plain" size="sq-sm" aria-label="Undo" onPress={() => dispatch({ type: "undo" })} isDisabled={state.shapes.length === 0}>
+          <RiArrowGoBackLine aria-hidden />
+        </Button>
+        <Button intent="plain" size="sq-sm" aria-label="Redo" onPress={() => dispatch({ type: "redo" })} isDisabled={state.undone.length === 0}>
+          <RiArrowGoForwardLine aria-hidden />
+        </Button>
       </div>
     </div>
   )
