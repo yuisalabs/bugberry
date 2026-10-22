@@ -9,6 +9,18 @@ Every report, project, and integration belongs to one **workspace**: a team. Som
 
 One person can be in several workspaces. Switch with the picker at the top of the dashboard's sidebar, or with the **Workspace** option when you review a report in the extension.
 
+## Projects and URL patterns
+
+Inside a workspace, **projects** group reports, for example one per app or site. Admins manage them under **Projects** in the sidebar.
+
+A project can have **URL patterns**: when someone reports a bug on a page whose address matches one, the extension picks that project for them. They can still choose another before sending.
+
+- `*` stands for anything: `*.example.com` covers every subdomain of example.com.
+- A pattern without a path, such as `app.example.com`, covers every page on that host.
+- When patterns from several projects match, the most specific one wins.
+
+Set them from a project's menu under **Projects**, with **URL patterns**; the dialog lets you try an address before saving.
+
 ## Inviting people
 
 Joining someone else's workspace always takes an invitation. A workspace admin opens **Members** in the sidebar and types email addresses; BugBerry sends each an invitation link. A link is valid for 7 days and only works for the address it was sent to.

@@ -48,7 +48,7 @@ describe("HomeView", () => {
     for (const link of screen.getAllByRole("link", { name: /Add to Chrome/ })) expect(link.getAttribute("href")).toBe(CHROME_WEB_STORE_URL)
   })
 
-  test("has the sections the Product menu and the footer point at", () => {
+  test("has its named sections, for links into the page", () => {
     render(<HomeView signedIn={false} installUrl={null} />)
     for (const id of ["capture", "debug", "collaborate", "ai-agents", "integrations"]) expect(document.getElementById(id)).toBeTruthy()
   })

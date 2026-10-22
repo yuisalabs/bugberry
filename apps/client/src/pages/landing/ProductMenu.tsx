@@ -14,7 +14,15 @@ import {
   type RemixiconComponentType,
 } from "@remixicon/react"
 import { Link } from "@bugberry/ui/link"
-import { installHref, WORKSPACE_DOCS } from "./site-links"
+import {
+  COMMENTS_DOCS,
+  installHref,
+  PROJECTS_DOCS,
+  RECORDING_DOCS,
+  REPORT_PAGE_DOCS,
+  SCREENSHOT_DOCS,
+  SHARING_DOCS,
+} from "./site-links"
 
 export interface ProductItem {
   title: string
@@ -23,30 +31,30 @@ export interface ProductItem {
   href: string
 }
 
-/** The Product menu's three columns, as drawn (spec: mega-menu.webp). Each item opens the home section about it. */
+/** The Product menu's three columns, as drawn (spec: mega-menu.webp). Each item opens the docs section that explains it. */
 export const PRODUCT_MENU: Array<{ label: string; items: ProductItem[] }> = [
   {
     label: "Capture",
     items: [
-      { title: "Browser extension", body: "Record a tab, window or your whole screen", icon: RiPuzzleLine, href: "/#capture" },
-      { title: "Screenshot & annotate", body: "Draw, blur and point at the bug right on the page", icon: RiCropLine, href: "/#capture" },
-      { title: "Voice narration", body: "Explain it out loud while you record", icon: RiMicLine, href: "/#capture" },
+      { title: "Browser extension", body: "Record a tab, window or your whole screen", icon: RiPuzzleLine, href: RECORDING_DOCS },
+      { title: "Screenshot & annotate", body: "Draw, blur and point at the bug right on the page", icon: RiCropLine, href: SCREENSHOT_DOCS },
+      { title: "Voice narration", body: "Explain it out loud while you record", icon: RiMicLine, href: `${RECORDING_DOCS}#start-a-recording` },
     ],
   },
   {
     label: "Debug",
     items: [
-      { title: "Console logs", body: "Errors and warnings with stack traces", icon: RiTerminalBoxLine, href: "/#debug" },
-      { title: "Network requests", body: "Failed calls, status codes and timing", icon: RiPulseLine, href: "/#debug" },
-      { title: "User steps", body: "Every click and keystroke before the bug", icon: RiCursorLine, href: "/#debug" },
+      { title: "Console logs", body: "Errors and warnings with stack traces", icon: RiTerminalBoxLine, href: REPORT_PAGE_DOCS },
+      { title: "Network requests", body: "Failed calls, status codes and timing", icon: RiPulseLine, href: REPORT_PAGE_DOCS },
+      { title: "User steps", body: "Every click and keystroke before the bug", icon: RiCursorLine, href: REPORT_PAGE_DOCS },
     ],
   },
   {
     label: "Collaborate",
     items: [
-      { title: "Comments & mentions", body: "Discuss the bug right on the report", icon: RiChat1Line, href: "/#collaborate" },
-      { title: "Share links", body: "Send a replay that opens at the right second", icon: RiLinksLine, href: "/#collaborate" },
-      { title: "Projects & URL patterns", body: "Reports land in the right project, matched by URL", icon: RiFolder3Line, href: WORKSPACE_DOCS },
+      { title: "Comments & mentions", body: "Discuss the bug right on the report", icon: RiChat1Line, href: COMMENTS_DOCS },
+      { title: "Share links", body: "Send a replay that opens at the right second", icon: RiLinksLine, href: SHARING_DOCS },
+      { title: "Projects & URL patterns", body: "Reports land in the right project, matched by URL", icon: RiFolder3Line, href: PROJECTS_DOCS },
     ],
   },
 ]

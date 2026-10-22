@@ -8,6 +8,13 @@ export const WEBHOOK_DOCS = `${DOCS_URL}/self-host/integrations#webhook`
 export const WORKSPACE_DOCS = `${DOCS_URL}/guide/workspaces-and-access`
 export const SELF_HOST_DOCS = `${DOCS_URL}/self-host`
 export const CHANGELOG = `${DOCS_URL}/changelog`
+/** The guide's sections behind each Product menu feature. */
+export const RECORDING_DOCS = `${DOCS_URL}/guide/recordings`
+export const SCREENSHOT_DOCS = `${DOCS_URL}/guide/screenshots#mark-it-up`
+export const REPORT_PAGE_DOCS = `${DOCS_URL}/guide/dashboard#the-report-page`
+export const COMMENTS_DOCS = `${DOCS_URL}/guide/dashboard#working-on-a-report`
+export const SHARING_DOCS = `${WORKSPACE_DOCS}#who-can-see-a-report`
+export const PROJECTS_DOCS = `${WORKSPACE_DOCS}#projects-and-url-patterns`
 /** BugBerry's source. Still private: it opens for people with access until the repository is made public. */
 export const SOURCE_URL = "https://github.com/yuisalabs/bugberry"
 
