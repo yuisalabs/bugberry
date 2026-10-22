@@ -1,4 +1,12 @@
-/** Filled in by its own task of the public site plan. */
+import { useQuery } from "@tanstack/react-query"
+import { queries } from "../lib/queries"
+import { AiAgentsView } from "./landing/AiAgentsView"
+import { usePageMeta } from "./landing/usePageMeta"
+
+/** `/ai-agents` on BugBerry cloud. */
 export function AiAgentsPublicPage() {
-  return null
+  const me = useQuery({ ...queries.me(), retry: false, meta: { signedOutIsFine: true } })
+  const config = useQuery(queries.clientConfig())
+  usePageMeta("AI Agents", "Give Claude, Cursor or Copilot the recording, console, network and steps of every bug through BugBerry's MCP server.")
+  return <AiAgentsView signedIn={me.isSuccess} installUrl={config.data?.extensionInstallUrl ?? null} origin={window.location.origin} />
 }
