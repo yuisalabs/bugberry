@@ -207,7 +207,7 @@ export type PageUiMessage =
   | { type: "bugberry:ui-review"; draftId: string }
   /** Takes the review off the page, before "Retake" or "Record again" captures it. */
   | { type: "bugberry:ui-review-close" }
-  /** Answered with { ok: true } once the prompt (allow the microphone, switch servers) is shown over the page. */
+  /** Answered with { ok: true } once the prompt is shown over the page: allow the microphone, switch servers, the settings. */
   | { type: "bugberry:ui-prompt"; page: PromptPage; token: string }
 
 /** The extension pages shown over the page the reporter is on: questions, and the settings. */
@@ -308,7 +308,7 @@ export function isReviewAnotherRequest(message: unknown): message is ReviewAnoth
 }
 
 /**
- * The popup → background: show the microphone prompt (the popup can't show the browser's own) or the settings
+ * The popup → background: show the microphone prompt, which the popup can't show itself, or the settings
  * over the active tab, so the reporter stays on their page.
  */
 export interface PopupPromptRequest {

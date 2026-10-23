@@ -71,7 +71,11 @@ export function reportUploadsModule(deps: AppDeps) {
         const created = await db.transaction(async (tx) => {
           const number = await claimReportNumber(tx, workspaceId)
           // Counted after the claim, which locks the workspace row: uploads at the same time take turns here.
-          await assertCanCreateReport(tx, config, workspaceId, body.captureType)
+          await assertCanCreateReport(tx, config, workspaceId, body.captureType, {
+            media: body.mediaSize,
+            debugger: body.debuggerSize,
+            thumbnail: body.thumbnailSize,
+          })
           const [row] = await tx
             .insert(report)
             .values({
@@ -167,7 +171,15 @@ export function reportUploadsModule(deps: AppDeps) {
         await db.transaction(async (tx) => {
           // Locks the workspace row as an upload does, so finalizes and new uploads take turns at the count.
           await tx.select({ id: workspace.id }).from(workspace).where(eq(workspace.id, row.workspaceId)).for("update")
-          await assertCanCreateReport(tx, config, row.workspaceId, row.captureType, row.id)
+          await assertCanCreateReport(
+            tx,
+            config,
+            row.workspaceId,
+            row.captureType,
+            // A thumbnail that didn't arrive intact is dropped below, so it isn't counted against the room left.
+            { media: row.mediaSize, debugger: row.debuggerSize, thumbnail: keepThumbnail ? row.thumbnailSize : null },
+            row.id,
+          )
           await tx
             .update(report)
             .set({

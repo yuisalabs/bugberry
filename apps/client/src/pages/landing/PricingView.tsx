@@ -18,6 +18,8 @@ const FREE = {
     "1 workspace",
     "5 screenshots",
     "5 video recordings",
+    "250 MB of storage",
+    "Files up to 50 MB",
     "Console, network & user steps",
     "Share links",
     "All 10 integrations + webhooks",
@@ -130,7 +132,8 @@ function Hero() {
             BugBerry is free while we’re in early access.
           </h1>
           <p className="max-w-[640px] text-[16px]/[26px] text-[#B6A7BE] md:text-[17px]">
-            Every feature is open to you. The only limits for now: 5 screenshots and 5 video recordings per workspace.
+            Every feature is open to you. The only limits for now: 5 screenshots and 5 video recordings per workspace, in 250 MB
+            of storage, with files up to 50 MB each.
           </p>
           <p className="inline-flex items-center gap-2 rounded-full bg-[#7BD389]/[0.12] px-3.5 py-1.5 text-[13px] font-semibold text-[#B8F0C0] outline outline-1 -outline-offset-1 outline-[#7BD389]/30">
             <span className="size-2 rounded-full bg-[#7BD389]" aria-hidden />
@@ -211,6 +214,8 @@ const COMPARE: Array<{ group: string; rows: Array<[string, ReactNode, ReactNode,
     group: "Capture",
     rows: [
       ["Screenshots + video recordings", "5 + 5", "Unlimited", "Unlimited"],
+      ["Storage per workspace", "250 MB", "More", "More"],
+      ["Largest file", "50 MB", "Larger", "Larger"],
       ["Annotate screenshots", yes, yes, yes],
       ["Voice narration", yes, yes, yes],
     ],
@@ -313,11 +318,11 @@ const FAQS: Array<[string, string]> = [
   ],
   [
     "What counts toward the 5 + 5 limit?",
-    "The screenshot and video reports your workspace keeps right now. Delete one and its place is free again; drafts you discard in the extension never count.",
+    "The screenshot and video reports your workspace keeps right now, and the space their files take, up to 250 MB. Delete one and its place is free again; drafts you discard in the extension never count.",
   ],
   [
     "What happens when I hit the limit?",
-    "The extension tells you before you capture. To send a new one, delete one of that kind in the dashboard. Everything you keep stays readable, shareable and connected to your tools.",
+    "The extension tells you before you capture, and a recording stops by itself before it passes 50 MB or the space left. To send a new one, delete one of that kind in the dashboard. Everything you keep stays readable, shareable and connected to your tools.",
   ],
   ["Do I need a credit card?", "No. Sign in and start recording; there is nothing to pay during early access."],
   [

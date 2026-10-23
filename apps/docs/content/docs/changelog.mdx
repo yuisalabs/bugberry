@@ -5,6 +5,13 @@ description: What changed in BugBerry, newest first.
 
 Each entry is named after the browser extension's version. Changes to the dashboard and the server ship with it.
 
+## 0.5.0 · 23 October 2026
+
+- **Storage limits on BugBerry cloud.** Next to 5 screenshots and 5 video recordings, each workspace now keeps up to **250 MB**, and one file may be up to **50 MB**. Every file of a report counts: the screenshot or video, the logs and the preview. Deleting a report frees its space.
+- **You see what's left.** The dashboard's usage line, the popup and the review show the storage used. A recording stops by itself before it passes 50 MB or the space left, and the review says when a capture doesn't fit and what to do.
+- **The pricing page** lists the new limits.
+- **Self-hosting:** no change unless `ACCOUNT_LIMITS=true`. Then `LIMIT_STORAGE_MB` and `LIMIT_FILE_MB` set the sizes; see [Account limits](/self-host/account-limits). Workspaces already over 250 MB keep everything but take no new reports until one is deleted.
+
 ## 0.4.1 · 23 October 2026
 
 - **Reports go to the workspace you're working in.** A new screenshot or recording now goes to the workspace open in the dashboard, then to the one you sent to last. Before, the extension could keep sending to your own workspace after you'd moved to a teammate's, and say it was full when it wasn't the one you meant.

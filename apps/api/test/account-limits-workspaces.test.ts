@@ -5,7 +5,7 @@ import { newId } from "../src/lib/ids"
 import { provisionNewUser } from "../src/workspaces/provision"
 import { createUser, createUserWithToken, setupTestApp } from "./helpers"
 
-const LIMITS = { screenshots: 5, recordings: 5, ownedWorkspaces: 1 }
+const LIMITS = { screenshots: 5, recordings: 5, ownedWorkspaces: 1, storageBytes: 250 * 1024 * 1024, fileBytes: 50 * 1024 * 1024 }
 
 async function setup() {
   const ctx = await setupTestApp({ accountLimits: LIMITS })

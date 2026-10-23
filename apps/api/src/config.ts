@@ -34,6 +34,10 @@ export interface AccountLimits {
   screenshots: number
   recordings: number
   ownedWorkspaces: number
+  /** What one workspace's reports may take up in storage, all files counted. */
+  storageBytes: number
+  /** The largest file (a video, a screenshot, the logs) one report may upload. */
+  fileBytes: number
 }
 
 const counted = (count: number, noun: string) => `${count} ${noun}${count === 1 ? "" : "s"}`
@@ -41,7 +45,8 @@ const counted = (count: number, noun: string) => `${count} ${noun}${count === 1 
 /** The startup line that confirms ACCOUNT_LIMITS took effect; null when limits are off. */
 export function accountLimitsNotice(limits: AccountLimits | null): string | null {
   if (!limits) return null
-  return `Account limits on: ${counted(limits.screenshots, "screenshot")} / ${counted(limits.recordings, "recording")} / ${counted(limits.ownedWorkspaces, "workspace")} per account`
+  const mb = (bytes: number) => `${Math.round(bytes / 1024 / 1024)} MB`
+  return `Account limits on: ${counted(limits.screenshots, "screenshot")} / ${counted(limits.recordings, "recording")} / ${counted(limits.ownedWorkspaces, "workspace")} per account, ${mb(limits.storageBytes)} per workspace, ${mb(limits.fileBytes)} per file`
 }
 
 export interface Config {
@@ -236,6 +241,8 @@ export function loadConfig(env: Env): Config {
             screenshots: integer("LIMIT_SCREENSHOTS", 5, 1, 10_000),
             recordings: integer("LIMIT_RECORDINGS", 5, 1, 10_000),
             ownedWorkspaces: integer("LIMIT_OWNED_WORKSPACES", 1, 1, 10_000),
+            storageBytes: integer("LIMIT_STORAGE_MB", 250, 1, 1_000_000) * 1024 * 1024,
+            fileBytes: integer("LIMIT_FILE_MB", 50, 1, 2000) * 1024 * 1024,
           }
         : null,
     allowPrivateIntegrationHosts: optional("ALLOW_PRIVATE_INTEGRATION_HOSTS") === "true",
