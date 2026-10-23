@@ -1,5 +1,5 @@
 import type { RecordingNote } from "@bugberry/capture"
-import { defaultReportTitle, emailDomain, matchProject, PRIORITIES, type Priority, type Visibility, visibilityChoices, visibilityOptions } from "@bugberry/shared"
+import { defaultReportTitle, emailDomain, matchProject, PRIORITIES, type Priority, sizeLabel, type Visibility, visibilityChoices, visibilityOptions } from "@bugberry/shared"
 import { Button, buttonStyles } from "@bugberry/ui/button"
 import { Checkbox, CheckboxField } from "@bugberry/ui/checkbox"
 import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@bugberry/ui/dialog"
@@ -31,12 +31,12 @@ import {
   RiWindowLine,
 } from "@remixicon/react"
 import { type ReactNode, useEffect, useRef, useState } from "react"
-import { Button as AriaButton, Input as AriaInput, TextArea as AriaTextArea } from "react-aria-components"
+import { Button as AriaButton, Input as AriaInput, ProgressBar, TextArea as AriaTextArea } from "react-aria-components"
 import type { Project, Workspace } from "../../lib/api"
 import { formProblem } from "../../lib/report-form"
 import { reviewStats, suggestTitle } from "../../lib/review-data"
 import type { ReportDraft } from "../../lib/types"
-import type { ReportForm, SentReport } from "../../lib/upload"
+import type { ReportForm, SentReport, UploadProgress } from "../../lib/upload"
 
 export type ReviewStatus =
   | "ready"
@@ -90,6 +90,8 @@ export interface ReviewViewProps {
   /** The signed-in person's name: an untitled report is "Bugshoot by <name>" or "Bugcord by <name>". */
   name: string | null
   status: ReviewStatus
+  /** While sending: how much of the report's files has gone up; null before the first bytes are counted. */
+  uploadProgress?: UploadProgress | null
   includeCity: boolean
   cityNote: string | null
   onSend(form: ReportForm, notes: RecordingNote[]): void
@@ -408,6 +410,7 @@ export function ReviewView(props: ReviewViewProps) {
                 )}
               </div>
 
+              {sending && props.uploadProgress && <UploadBar progress={props.uploadProgress} isVideo={isVideo} />}
               <footer className="mx-5 flex items-center justify-between gap-2 border-t border-border py-5 sm:mx-7">
                 <Button intent="plain" onPress={() => setConfirm("discard")} className="text-danger-subtle-foreground *:[svg]:text-danger-subtle-foreground">
                   <RiDeleteBinLine aria-hidden />
@@ -697,4 +700,29 @@ function Tile({ icon: Icon, tone, title, value }: { icon: RemixiconComponentType
 function clock(ms: number): string {
   const seconds = Math.max(0, Math.floor(ms / 1000))
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`
+}
+
+/** Above the footer while sending: how far the upload is, then that the server is making the report. */
+function UploadBar({ progress, isVideo }: { progress: UploadProgress; isVideo: boolean }) {
+  const done = progress.sent >= progress.total
+  const percent = progress.total > 0 ? Math.min(100, Math.floor((progress.sent / progress.total) * 100)) : 100
+  const label = done ? "Creating report…" : isVideo ? "Uploading video" : "Uploading screenshot"
+  return (
+    <ProgressBar
+      value={percent}
+      aria-label={label}
+      valueLabel={`${sizeLabel(progress.sent)} of ${sizeLabel(progress.total)}, ${percent}%`}
+      className="mx-5 flex flex-col gap-1.5 pb-3 sm:mx-7"
+    >
+      <span className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+        <span>{label}</span>
+        <span className="tabular-nums">
+          {sizeLabel(progress.sent)} of {sizeLabel(progress.total)} · {percent}%
+        </span>
+      </span>
+      <span className="h-1 overflow-hidden rounded-full bg-secondary">
+        <span className="block h-full rounded-full bg-primary transition-[width] duration-300" style={{ width: `${percent}%` }} />
+      </span>
+    </ProgressBar>
+  )
 }

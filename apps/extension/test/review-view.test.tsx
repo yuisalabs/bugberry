@@ -329,3 +329,35 @@ describe("a workspace under account limits", () => {
     expect(props.onSend).toHaveBeenCalledTimes(1)
   })
 })
+
+describe("upload progress", () => {
+  const MB = 1024 * 1024
+
+  test("while sending, a bar above the footer shows how much has gone up", () => {
+    view({ status: "sending", uploadProgress: { sent: 15 * MB, total: 35 * MB } })
+    const bar = screen.getByRole("progressbar", { name: "Uploading video" })
+    expect(bar.getAttribute("aria-valuenow")).toBe("42")
+    expect(bar.getAttribute("aria-valuetext")).toBe("15 MB of 35 MB, 42%")
+    expect(within(bar).getByText("15 MB of 35 MB · 42%")).toBeTruthy()
+  })
+
+  test("once everything is up, it says the report is being made", () => {
+    view({ status: "sending", uploadProgress: { sent: 35 * MB, total: 35 * MB } })
+    expect(screen.getByRole("progressbar", { name: "Creating report…" }).getAttribute("aria-valuenow")).toBe("100")
+  })
+
+  test("a screenshot says so", () => {
+    view({ draft: screenshot, status: "sending", uploadProgress: { sent: 1, total: 4 } })
+    expect(screen.getByRole("progressbar", { name: "Uploading screenshot" })).toBeTruthy()
+  })
+
+  test("no bar when not sending", () => {
+    view({ status: "ready", uploadProgress: { sent: 1, total: 4 } })
+    expect(screen.queryByRole("progressbar")).toBeNull()
+  })
+
+  test("no bar while sending until progress is known", () => {
+    view({ status: "sending", uploadProgress: null })
+    expect(screen.queryByRole("progressbar")).toBeNull()
+  })
+})

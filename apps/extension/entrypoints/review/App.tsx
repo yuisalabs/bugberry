@@ -20,7 +20,7 @@ import { loadSettings, type Settings } from "../../lib/settings"
 import { makeThumbnail } from "../../lib/thumbnail"
 import { browserThumbnailDeps } from "../../lib/thumbnail-browser"
 import type { ReportDraft } from "../../lib/types"
-import { LOCKED, putFile, type ReportForm, submitDraft } from "../../lib/upload"
+import { LOCKED, putFile, type ReportForm, submitDraft, type UploadProgress } from "../../lib/upload"
 import { AnnotationCanvas, type AnnotationCanvasHandle } from "./AnnotationCanvas"
 import { type Assignable, ReviewView, type ReviewStatus, type SentDetails, type TrackerChoice } from "./ReviewView"
 
@@ -68,6 +68,9 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState<ReviewStatus>("ready")
+  const [progress, setProgress] = useState<UploadProgress | null>(null)
+  /** The whole percent last shown: the browser reports progress many times a second, the bar needs it once per percent. */
+  const shownPercent = useRef(-1)
   const [projects, setProjects] = useState<Project[]>([])
   const [includeCity, setIncludeCity] = useState(false)
   const [cityNote, setCityNote] = useState<string | null>(null)
@@ -255,6 +258,14 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
     const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
     if (!settings || !loaded) return
     setStatus("sending")
+    setProgress(null)
+    shownPercent.current = -1
+    const onProgress = (next: UploadProgress) => {
+      const percent = next.total > 0 ? Math.floor((next.sent / next.total) * 100) : 100
+      if (percent === shownPercent.current) return
+      shownPercent.current = percent
+      setProgress(next)
+    }
     try {
       const current = (await store.get(draftId)) ?? loaded.draft
       await store.put(draftWithNotes(current, notes))
@@ -276,9 +287,9 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
         draftId,
         form,
         media,
-        { api: apiOf(settings), store, putFile: (target, body) => putFile(target, body), sleep, lock, serverUrl: settings.serverUrl },
+        { api: apiOf(settings), store, putFile: (target, body, onSent) => putFile(target, body, onSent), sleep, lock, serverUrl: settings.serverUrl },
         thumbnail,
-        { location: asked.location },
+        { location: asked.location, onProgress },
       )
       if (form.workspaceId) await lastWorkspaceStorage.set(form.workspaceId)
       // The report exists by now: a refused assignment leaves it unassigned rather than unsent.
@@ -322,6 +333,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       email={loaded.email}
       name={loaded.name}
       status={status}
+      uploadProgress={status === "sending" ? progress : null}
       includeCity={includeCity}
       cityNote={cityNote}
       onSend={(form, notes) => void send(form, notes)}
