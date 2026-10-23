@@ -3,8 +3,113 @@ title: Development
 description: Working on BugBerry itself.
 ---
 
-BugBerry is a Bun monorepo: the API (`apps/api`), the dashboard (`apps/client`), the browser extension (`apps/extension`), these docs (`apps/docs`), and shared packages under `packages/`.
+This page gives an overview of the code and the tools behind it. The full steps to run BugBerry locally, test it, and send a change are in [CONTRIBUTING.md](https://github.com/yuisalabs/bugberry/blob/main/CONTRIBUTING.md) in the repository.
 
-Everything you need to run it locally, test it, and send a change is in [CONTRIBUTING.md](https://github.com/yuisalabs/bugberry/blob/main/CONTRIBUTING.md) in the repository.
+## Requirements
 
-Found a bug or want a feature? Open an issue on [GitHub](https://github.com/yuisalabs/bugberry/issues).
+- [Bun](https://bun.sh) 1.4 or newer. The Docker images use Bun 1.4.1.
+- Docker, for Postgres and the local S3 storage (`bun run dev:db`).
+- Chrome, for the extension. Firefox 128 or newer to try the Firefox build.
+
+## The repository
+
+BugBerry is a Bun monorepo written in TypeScript (5.9).
+
+| Folder | What it is |
+| --- | --- |
+| `apps/api` | The server: sign-in, reports, uploads, integrations, and the MCP server |
+| `apps/client` | The dashboard, plus the public pages (landing, pricing, share links) |
+| `apps/extension` | The browser extension for Chrome, Opera, and Firefox (version 0.6.0) |
+| `apps/docs` | These docs: a project of its own, outside the Bun workspaces, with its own `bun.lock` |
+| `packages/capture` | What the extension records in the page: console, network, user actions, and performance |
+| `packages/debugger-view` | Turns captured events into the Console, Network, Activity, and Overview views |
+| `packages/player` | The video player, shared by the dashboard and the extension's review |
+| `packages/shared` | Types and helpers both sides use: constants, project matching, trackers, email rules |
+| `packages/ui` | The component library: buttons, dialogs, menus, and the rest |
+
+## The API
+
+| Library | Version | Used for |
+| --- | --- | --- |
+| [Elysia](https://elysiajs.com) | 1.4.30 | The HTTP server, on Bun |
+| [Drizzle ORM](https://orm.drizzle.team) | 0.45.4 | Queries, through Bun's built-in SQL client |
+| drizzle-kit | 0.31.11 | Database migrations |
+| [PostgreSQL](https://www.postgresql.org) | 16 | The database |
+| [Better Auth](https://www.better-auth.com) | 1.7.10 | Sign-in (Google, GitHub, GitLab, email codes), plus its OAuth provider and MCP plugins |
+| [MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk) | 1.32.1 | The MCP server for AI agents |
+| [Zod](https://zod.dev) | 4.6.7 | Describing and checking the MCP tools' arguments |
+| jose | 6.2.12 | Checking the OAuth tokens AI apps sign in with |
+| Nodemailer | 10.1.2 | Sending email over SMTP |
+
+Files go to a local folder or to S3-compatible storage (AWS S3, Cloudflare R2, MinIO, RustFS), through Bun's built-in S3 client.
+
+## The dashboard
+
+| Library | Version | Used for |
+| --- | --- | --- |
+| [React](https://react.dev) | 19.3.1 | The UI |
+| [Vite](https://vite.dev) | 8.3.4 | Development server and build |
+| [TanStack Router](https://tanstack.com/router) | 1.170.44 | Routing |
+| [TanStack Query](https://tanstack.com/query) | 5.104.3 | Fetching and caching data |
+| TanStack Virtual | 3.14.21 | Long lists, such as the console and network logs |
+| [React Aria Components](https://react-spectrum.adobe.com/react-aria/) | 1.22.1 | Accessible menus, dialogs, selects, and the like |
+| [Tailwind CSS](https://tailwindcss.com) | 4.3.3 | Styling, with tailwind-variants 3.3.1 |
+| Eden | 1.4.9 | A typed client for the API, from Elysia's own types |
+| Remix Icon | 4.9.0 | Icons |
+| Sonner | 2.0.8 | Toasts |
+| [Video.js](https://videojs.com) | 8.24.1 | Playing recordings (in `packages/player`) |
+
+## The extension
+
+| Library | Version | Used for |
+| --- | --- | --- |
+| [WXT](https://wxt.dev) | 0.21.4 | Building the extension for Chrome, Opera, and Firefox, on Manifest V3 |
+| React | 19.3.1 | The popup, the Recording Bar, the drawing layer, and the review |
+| React Aria Components | 1.22.1 | The same components as the dashboard |
+| Tailwind CSS | 4.3.3 | Styling |
+| web-ext | 10.8.0 | Checking and signing the Firefox build |
+
+## The docs
+
+| Library | Version | Used for |
+| --- | --- | --- |
+| [Next.js](https://nextjs.org) | 16.4.2 | The site, exported as static files under `/docs` |
+| [Fumadocs](https://fumadocs.dev) | 16.17.7 | The docs layout, search, and components |
+| fumadocs-mdx | 15.4.9 | Reading the MDX pages in `content/docs` |
+| Tailwind CSS | 4.3.3 | Styling |
+
+The pictures in the user guide come from the real extension and dashboard. `bun run docs:screenshots` takes them again, against a test server with sample data. It needs `bun run dev:db`.
+
+## Tests
+
+| Tool | Version | Used for |
+| --- | --- | --- |
+| `bun test` | (Bun) | Unit and API tests, in every app and package |
+| happy-dom | 21.0.1 | A browser DOM for component tests |
+| Testing Library | React 16.3.3 | Rendering components and using them as a person would |
+| [Playwright](https://playwright.dev) | 1.64.1 | The end-to-end tests of the extension, and the docs pictures |
+
+```bash
+bun run test
+bun run typecheck
+```
+
+The API tests need the database from `bun run dev:db`.
+
+## Running in production
+
+A self-hosted server is a Docker Compose project with these images:
+
+| Image | Version | Used for |
+| --- | --- | --- |
+| `oven/bun` (slim) | 1.4.1 | The API |
+| `nginx` (alpine) | 1.30 | Serving the dashboard and passing `/api` on to the API |
+| `postgres` (alpine) | 16 | The database |
+| `caddy` (alpine) | 2 | HTTPS, optional |
+| `rustfs/rustfs` | pinned by digest | S3-compatible storage, optional |
+
+See [Self-host](/self-host) for setting it up.
+
+## Contributing
+
+Found a bug or want a feature? Open an issue on [GitHub](https://github.com/yuisalabs/bugberry/issues). To send a change, follow [CONTRIBUTING.md](https://github.com/yuisalabs/bugberry/blob/main/CONTRIBUTING.md).
