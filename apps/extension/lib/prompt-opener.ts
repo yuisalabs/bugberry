@@ -21,7 +21,7 @@ export interface PromptTickets {
 }
 
 /**
- * Opens a prompt (allow the microphone, switch servers) over the page the reporter is on, so they stay
+ * Opens a prompt, such as allowing the microphone or switching servers, over the page the reporter is on, so they stay
  * where they were. When that page can't show it (a new tab, chrome://, the Web Store, a PDF, or no tab at
  * all), the prompt opens in a tab of its own.
  */
