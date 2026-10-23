@@ -46,6 +46,17 @@ describe("docs content", () => {
     expect(doubled).toEqual([])
   })
 
+  test("every Screenshot points at an image in public/screenshots", () => {
+    const PUBLIC = join(import.meta.dir, "..", "public")
+    const missing = pages.flatMap((page) =>
+      [...page.source.matchAll(/<Screenshot[^>]*\bsrc=["']([^"']+)["']/g)]
+        .map((match) => match[1]!)
+        .filter((src) => !src.startsWith("/screenshots/") || !existsSync(join(PUBLIC, src)))
+        .map((src) => `${page.name} → ${src}`),
+    )
+    expect(missing).toEqual([])
+  })
+
   test("every meta.json lists only existing pages, and every page is listed", () => {
     const folders = [CONTENT, ...readdirSync(CONTENT).map((name) => join(CONTENT, name)).filter((path) => statSync(path).isDirectory())]
     for (const folder of folders) {
