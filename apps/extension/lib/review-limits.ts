@@ -1,4 +1,4 @@
-import { type CaptureKind, fullWarning, sendBlocked, usageLine, type WorkspaceLimits } from "./limits"
+import { type CaptureKind, fullWarning, sendBlocked, sizeWarning, usageLine, type WorkspaceLimits } from "./limits"
 import type { ReportDraft } from "./types"
 
 /** What the review shows about the selected workspace's limits. */
@@ -15,6 +15,8 @@ export const NO_LIMIT_NOTE: LimitNote = { usage: null, warning: null, blocked: f
 
 export interface ReviewLimitsDeps {
   kind: CaptureKind
+  /** The capture's size, checked against the workspace's file limit and the room it has left. */
+  bytes?: number
   workspaces: readonly { id: string; role: string }[]
   fetchLimits(workspaceId: string): Promise<WorkspaceLimits | null>
   /** The draft as stored now: a failed send may have started its own upload since the review opened. */
@@ -39,11 +41,12 @@ export function createReviewLimits(deps: ReviewLimitsDeps, initialWorkspaceId: s
     if (ask !== latest) return
     const role = deps.workspaces.find((entry) => entry.id === workspaceId)?.role
     const who = { isAdmin: role === "admin", hasOtherWorkspaces: deps.workspaces.length > 1 }
-    const blocked = sendBlocked(limits, deps.kind, draft, workspaceId)
+    const bytes = deps.bytes ?? 0
+    const blocked = sendBlocked(limits, deps.kind, draft, workspaceId, bytes)
     // A draft resuming its own upload isn't held back, so it gets no warning either.
     deps.onChange({
       usage: usageLine(limits, deps.kind),
-      warning: blocked ? fullWarning(limits, deps.kind, "review", who) : null,
+      warning: blocked ? (fullWarning(limits, deps.kind, "review", who) ?? sizeWarning(limits, deps.kind, bytes, who)) : null,
       blocked,
       admin: who.isAdmin,
     })

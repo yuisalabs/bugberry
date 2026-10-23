@@ -86,3 +86,25 @@ describe("openDashboardFor", () => {
     expect(order).toEqual(["switch a", "open https://b.test/app", "open https://b.test/app"])
   })
 })
+
+test("a capture too big for the workspace holds Create report back and says why", async () => {
+  const notes: LimitNote[] = []
+  const MB = 1024 * 1024
+  const sized: WorkspaceLimits = {
+    limited: true,
+    screenshots: { used: 0, max: 5 },
+    recordings: { used: 1, max: 5 },
+    storage: { used: 10 * MB, max: 250 * MB },
+    maxFileBytes: 50 * MB,
+  }
+  const limits = createReviewLimits(
+    { kind: "video", bytes: 70 * MB, workspaces, fetchLimits: async () => sized, currentDraft: async () => null, onChange: (note) => notes.push(note) },
+    "a",
+  )
+  await limits.refresh()
+  expect(notes.at(-1)).toMatchObject({
+    blocked: true,
+    usage: "Recordings 1/5 · 10 MB of 250 MB",
+    warning: "This recording is 70 MB; this workspace takes files up to 50 MB. Record a shorter one, or pick another workspace.",
+  })
+})

@@ -138,6 +138,8 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       createReviewLimits(
         {
           kind: loaded.draft.captureType,
+          // The video, or the screenshot before its marks: close to what is uploaded, and the server checks again.
+          bytes: loaded.draft.captureType === "video" ? (loaded.draft.video?.size ?? 0) : loaded.draft.screenshot.size,
           workspaces: loaded.workspaces,
           fetchLimits: async (workspaceId) => {
             const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)

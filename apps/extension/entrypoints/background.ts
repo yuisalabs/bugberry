@@ -6,7 +6,7 @@ import { createBugberryApi } from "../lib/api"
 import { handleApiFetch, isApiFetchRequest } from "../lib/api-relay"
 import { hasTabRecorder } from "../lib/browser-support"
 import { recordOptionsFor, type ScreenshotMode } from "../lib/capture-prefs"
-import { BUILD_SERVER_ORIGIN, browserSettingsStorage, capturePrefsStorage } from "../lib/browser-settings"
+import { BUILD_SERVER_ORIGIN, browserSettingsStorage, capturePrefsStorage, lastWorkspaceStorage } from "../lib/browser-settings"
 import { type ActiveTab, type CaptureFlowDeps, type CaptureResult, startScreenshotReport } from "../lib/capture-flow"
 import { createIndexedDbDraftStore } from "../lib/draft-store"
 import {
@@ -43,7 +43,9 @@ import { createTakeAgain } from "../lib/take-again"
 import { isBugBerryServer } from "../lib/session"
 import { cropBox, pickArea } from "../lib/select-area"
 import { loadSettings } from "../lib/settings"
-import { DEFAULT_MAX_UPLOAD_MB, recordingByteBudget, uploadLimitMb } from "../lib/upload-limit"
+import { DEFAULT_MAX_UPLOAD_MB, recordingByteBudget, uploadLimitMb, workspaceRecordingCap } from "../lib/upload-limit"
+import { limitsFor } from "../lib/limits"
+import { pickEditorWorkspace } from "../lib/report-form"
 
 /** Casts keep these valid before WXT has generated the path types for the pages. */
 const REVIEW_PAGE = "/review.html" as Parameters<typeof browser.runtime.getURL>[0]
@@ -296,8 +298,18 @@ export default defineBackground(() => {
   /** The server's upload limit, so the recording stops before the report would be refused for its size. */
   const recordingBudget = async () => {
     const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
-    const maxUploadMb = settings ? await uploadLimitMb(() => createBugberryApi(settings).clientConfig()) : DEFAULT_MAX_UPLOAD_MB
-    return recordingByteBudget(maxUploadMb)
+    if (!settings) return recordingByteBudget(DEFAULT_MAX_UPLOAD_MB)
+    const api = createBugberryApi(settings)
+    const [maxUploadMb, cap] = await Promise.all([
+      uploadLimitMb(() => api.clientConfig()),
+      // Under ACCOUNT_LIMITS the workspace the review will pick may take less: the recording stops before that.
+      workspaceRecordingCap(async () => {
+        const [workspaces, me, lastUsed] = await Promise.all([api.listWorkspaces(), api.me(), lastWorkspaceStorage.get()])
+        const workspaceId = pickEditorWorkspace(workspaces, (me as { lastWorkspaceId?: string | null }).lastWorkspaceId, lastUsed)
+        return workspaceId ? limitsFor(api, workspaceId) : null
+      }),
+    ])
+    return Math.min(recordingByteBudget(maxUploadMb), cap ?? Number.POSITIVE_INFINITY)
   }
 
   /** Without options (the shortcut) the popup's stored choices apply. */
