@@ -7,7 +7,9 @@ BugBerry has an MCP server, so AI apps can read reports and work on them. It wor
 
 ## Set it up
 
-Open **AI Agents (MCP)** in the dashboard's sidebar, under **All reports**. The page has copy-paste setup for each app. The MCP address is `<your BugBerry address>/api/mcp`.
+Open **AI Agents** in the dashboard's top bar. The page has copy-paste setup for each app. The MCP address is `<your BugBerry address>/api/mcp`.
+
+<Screenshot src="/screenshots/ai-agents/mcp.png" alt="The AI Agents (MCP) page: Connect an app in three steps, with tabs for Claude Code, Claude.ai, Cursor, VS Code, Windsurf and ChatGPT; Personal tokens and Connected apps on the right" />
 
 Most apps sign in with OAuth: the app opens a BugBerry page where you approve it. For apps without OAuth, create a **personal token** on the same page; the app sends it as `Authorization: Bearer <token>`.
 
@@ -27,4 +29,4 @@ An agent can see and change exactly what you can in the dashboard, except that i
 
 ## Stop an app
 
-The **AI agents (MCP)** page lists the connected apps and your tokens. Revoking either stops it immediately.
+The **AI Agents (MCP)** page lists the connected apps and your tokens. Revoking either stops it immediately.

@@ -5,6 +5,8 @@ description: BugBerry turns a bug into a report your developers can act on, with
 
 BugBerry is a browser extension and a server. Someone who finds a bug clicks the BugBerry icon, takes a screenshot or records the screen, and sends a report. The report already holds what a developer would otherwise have to ask for: the console, the network requests, the clicks and keys that led there, and details about the browser and the page.
 
+<Screenshot src="/screenshots/dashboard/report.png" alt="A report in the dashboard: the recording on the left, and the console it caught on the right, with the failed payment and its 500 responses" />
+
 BugBerry is open source (AGPL-3.0). You can run it on your own server, or use the cloud at [bugberry.yuisalabs.com](https://bugberry.yuisalabs.com).
 
 ## How a report travels
@@ -13,7 +15,7 @@ BugBerry is open source (AGPL-3.0). You can run it on your own server, or use th
 2. **Review.** Before anything is sent, the reporter sees the video or screenshot, the errors and failed requests that were caught, and a suggested title. They can annotate, retake, or keep the draft for later.
 3. **Send.** The report goes to your BugBerry server, into a workspace and, if you like, a project.
 4. **Work on it.** Your team opens it in the dashboard: the video plays next to a timeline of events, and comments, status, priority, and assignee keep track of it.
-5. **Pass it on.** Share it with a link, send it to GitHub Issues or ActiveCollab, or let an AI agent read it through MCP.
+5. **Pass it on.** Share it with a link, send it to GitHub Issues, GitLab, Linear, Jira, Plane or ActiveCollab, or let an AI agent read it through MCP.
 
 ## What's inside
 
@@ -23,7 +25,7 @@ BugBerry is open source (AGPL-3.0). You can run it on your own server, or use th
 | [Recordings](/guide/recordings) | A tab, a window, or the screen, with sound, a pause button, and notes on the video |
 | [Dashboard](/guide/dashboard) | The video and a timeline of console, network, and actions, side by side |
 | [Workspaces and access](/guide/workspaces-and-access) | Teams, invitations, and share links that are private, company-wide, or public |
-| [Tracker integrations](/guide/trackers) | Send reports to GitHub Issues or ActiveCollab, by hand or automatically |
+| [Tracker integrations](/guide/trackers) | Send reports to GitHub Issues, GitLab, Linear, Jira, Plane or ActiveCollab, by hand or automatically |
 | [AI agents (MCP)](/guide/ai-agents) | Claude, Cursor, VS Code, ChatGPT, and others can read and update reports |
 
 ## How the server fits together

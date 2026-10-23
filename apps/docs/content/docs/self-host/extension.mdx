@@ -17,7 +17,13 @@ There are two ways to give your team the extension. Most servers use the store e
 2. Optionally set `EXTENSION_INSTALL_URL` to your store page. The dashboard's **New report**, **Add to Chrome** and **Install** then send people there when the extension isn't installed; without it, they go to BugBerry's own page on the Chrome Web Store.
 3. Restart: `docker compose up -d`.
 
-Each person installs it, signs in to your dashboard in the same browser, and clicks **Use the extension with this server** in the sidebar (or opens the extension's settings and chooses **Change server**). Signing out of the dashboard signs the extension out too: there are no tokens to paste.
+Each person installs it, signs in to your dashboard in the same browser, and opens the account menu at the top right and chooses **Browser extension**, which says **Another server** while the extension sends somewhere else. **New report** offers **Use the extension with this server** too. The extension then asks before it changes anything:
+
+<Screenshot src="/screenshots/self-host/account-menu.png" alt="The dashboard's account menu: Account settings, Help & docs, Browser extension marked Another server, and Log out" width={400} />
+
+<Screenshot src="/screenshots/self-host/use-this-server.png" alt="BugBerry asks: Send your BugBerry reports to 127.0.0.1:3999? Right now reports go to elsewhere.example. Cancel or Use this server" width={500} />
+
+They can also open **Settings** from the extension's **⋯** menu and choose **Change server**. Signing out of the dashboard signs the extension out too: there are no tokens to paste.
 
 ## Build your own (Chrome and Opera)
 
