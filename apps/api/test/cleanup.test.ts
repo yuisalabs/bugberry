@@ -51,6 +51,23 @@ describe("cleanupStaleUploads", () => {
     expect(titles).toEqual(["old but ready", "recent"])
   })
 
+  test("aborts uploads in parts started before the cutoff, and a storage error there doesn't stop the cleanup", async () => {
+    const cutoffs: Date[] = []
+    ctx.storage.multipart = {
+      create: async () => ({ uploadId: "", parts: [] }),
+      signParts: () => [],
+      complete: async () => "completed",
+      abort: async () => undefined,
+      abortStale: async (olderThan) => {
+        cutoffs.push(olderThan)
+        throw new Error("S3 hiccup")
+      },
+    }
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    expect(await cleanupStaleUploads(ctx, cutoff)).toBe(0)
+    expect(cutoffs).toEqual([cutoff])
+  })
+
   test("also removes old failed uploads, which no list or page ever shows", async () => {
     const reporter = await createUser(ctx.db)
     const { id: projectId } = await createProject(ctx.db)

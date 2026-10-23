@@ -1,10 +1,11 @@
 import { createHash, createHmac } from "node:crypto"
 
 export interface PresignInput {
-  method: "GET" | "PUT"
+  method: "GET" | "PUT" | "POST" | "DELETE"
   /** e.g. https://<account_id>.r2.cloudflarestorage.com or http://localhost:9000 */
   endpoint: string
   bucket: string
+  /** Empty for a request on the bucket itself, such as listing its multipart uploads. */
   key: string
   region: string
   accessKeyId: string
@@ -16,6 +17,8 @@ export interface PresignInput {
    * the storage rejects a request whose content-length or content-type differs.
    */
   headers?: Record<string, string>
+  /** Query parameters that pick the operation, such as `uploads` or `partNumber` and `uploadId`; they are signed. */
+  query?: Record<string, string>
   now?: Date
 }
 
@@ -39,9 +42,10 @@ const sha256Hex = (data: string) => createHash("sha256").update(data).digest("he
 export function presignUrl(input: PresignInput): string {
   const endpoint = new URL(input.endpoint)
   const host = input.virtualHostedStyle ? `${input.bucket}.${endpoint.host}` : endpoint.host
+  const objectPath = input.key ? `/${uriEncode(input.key, true)}` : "/"
   const path = input.virtualHostedStyle
-    ? `/${uriEncode(input.key, true)}`
-    : `/${uriEncode(input.bucket, false)}/${uriEncode(input.key, true)}`
+    ? objectPath
+    : `/${uriEncode(input.bucket, false)}${input.key ? objectPath : ""}`
 
   const now = input.now ?? new Date()
   const amzDate = now.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "")
@@ -56,6 +60,7 @@ export function presignUrl(input: PresignInput): string {
   const canonicalHeaders = headerNames.map((name) => `${name}:${String(headers[name]).trim()}\n`).join("")
 
   const query: Record<string, string> = {
+    ...input.query,
     "X-Amz-Algorithm": "AWS4-HMAC-SHA256",
     "X-Amz-Credential": `${input.accessKeyId}/${scope}`,
     "X-Amz-Date": amzDate,

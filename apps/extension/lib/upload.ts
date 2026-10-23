@@ -17,9 +17,10 @@ export interface SentReport {
 export const LOCKED = Symbol("locked")
 
 export interface UploadDeps {
-  api: Pick<BugberryApi, "createUpload" | "finalize"> & Partial<Pick<BugberryApi, "setLocation">>
+  api: Pick<BugberryApi, "createUpload" | "finalize"> & Partial<Pick<BugberryApi, "setLocation" | "mediaParts">>
   store: DraftStore
-  putFile(target: UploadTarget, body: Blob): Promise<void>
+  /** `onProgress` gets the bytes of `body` sent so far. */
+  putFile(target: UploadTarget, body: Blob, onProgress?: (sent: number) => void): Promise<void>
   sleep(ms: number): Promise<void>
   /** The active server: a session started on another one is not resumed. */
   serverUrl: string
@@ -30,22 +31,50 @@ export interface UploadDeps {
   lock?<T>(name: string, work: () => Promise<T>): Promise<T | typeof LOCKED>
 }
 
+/** How much of a report's files has gone up, in bytes. */
+export interface UploadProgress {
+  sent: number
+  total: number
+}
+
 /** One try plus three retries, waiting 1, 3 and 9 seconds. */
 export const RETRY_DELAYS_MS = [1000, 3000, 9000]
 
-export async function putFile(target: UploadTarget, body: Blob, fetcher: typeof fetch = fetch): Promise<void> {
-  let response: Response
+/** Sends one PUT and answers its HTTP status; rejects when the connection fails. */
+export type PutRequest = (target: UploadTarget, body: Blob, onProgress: (sent: number) => void) => Promise<number>
+
+/** XMLHttpRequest, because fetch can't tell how much of an upload has been sent. */
+export const xhrPut: PutRequest = (target, body, onProgress) =>
+  new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest()
+    request.open(target.method, target.url)
+    for (const [name, value] of Object.entries(target.headers)) request.setRequestHeader(name, value)
+    request.upload.onprogress = (event) => onProgress(event.loaded)
+    request.onload = () => resolve(request.status)
+    request.onerror = request.onabort = request.ontimeout = () => reject(new Error("Upload interrupted"))
+    request.send(body)
+  })
+
+export async function putFile(
+  target: UploadTarget,
+  body: Blob,
+  onProgress: (sent: number) => void = () => {},
+  request: PutRequest = xhrPut,
+): Promise<void> {
+  let status: number
   try {
-    response = await fetcher(target.url, { method: target.method, headers: target.headers, body })
+    status = await request(target, body, onProgress)
   } catch {
     throw new ApiError(0, "network", "Upload interrupted")
   }
   // 409: a previous attempt already stored this file (its response was lost).
-  if (response.ok || response.status === 409) return
-  if (response.status === 401 || response.status === 403) {
-    throw new ApiError(response.status, "upload_expired", "The upload link has expired")
+  if ((status >= 200 && status < 300) || status === 409) return
+  if (status === 401 || status === 403) {
+    throw new ApiError(status, "upload_expired", "The upload link has expired")
   }
-  throw new ApiError(response.status, "upload_failed", `Upload failed (HTTP ${response.status})`)
+  // 0: the browser got no answer at all (the connection dropped, or CORS hid it).
+  if (status === 0) throw new ApiError(0, "network", "Upload interrupted")
+  throw new ApiError(status, "upload_failed", `Upload failed (HTTP ${status})`)
 }
 
 /** Finalize answers meaning the session's report is gone or unusable: start a new one. */
@@ -73,6 +102,12 @@ function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : "Upload failed"
 }
 
+export interface SendOptions {
+  location?: Coordinates | null
+  /** How much has gone up, all files together; called often while a file is being sent. */
+  onProgress?: (progress: UploadProgress) => void
+}
+
 /**
  * Sends a draft. Only one page at a time may send a given draft: the same draft opened in two editor
  * tabs would otherwise create two upload sessions and so two reports.
@@ -83,7 +118,7 @@ export async function submitDraft(
   media: Blob,
   deps: UploadDeps,
   thumbnail: Blob | null = null,
-  options: { location?: Coordinates | null } = {},
+  options: SendOptions = {},
 ): Promise<SentReport> {
   if (!deps.lock) return submitUnlocked(draftId, form, media, deps, thumbnail, options)
   const result = await deps.lock(`bugberry-draft-${draftId}`, () =>
@@ -99,7 +134,7 @@ async function submitUnlocked(
   media: Blob,
   deps: UploadDeps,
   thumbnail: Blob | null,
-  options: { location?: Coordinates | null },
+  options: SendOptions,
 ): Promise<SentReport> {
   const stored = await deps.store.get(draftId)
   if (!stored) throw new Error("Report draft not found")
@@ -137,6 +172,8 @@ async function submitUnlocked(
         priority: form.priority,
         visibility: form.visibility,
         captureType: draft.captureType,
+        // A large file then goes up in parts; an older server ignores this and sends one link.
+        multipart: true,
         mediaSize: media.size,
         debuggerSize: draft.debuggerGzip?.size,
         ...(thumbnail ? { thumbnailSize: thumbnail.size } : {}),
@@ -159,12 +196,62 @@ async function submitUnlocked(
       }
       await save({ session: current })
     }
+
+    // Bytes sent of each file. One already up counts in full, so a resumed upload shows where it stopped.
+    const debuggerBytes = current.debuggerUpload && draft.debuggerGzip ? draft.debuggerGzip.size : 0
+    const thumbnailBytes = current.thumbnailUpload && thumbnail ? thumbnail.size : 0
+    const total = media.size + debuggerBytes + thumbnailBytes
+    const sent = {
+      media: current.mediaUploaded ? media.size : Math.min(media.size, (current.mediaPartsUploaded ?? 0) * (current.mediaParts?.partSize ?? 0)),
+      debugger: current.debuggerUploaded ? debuggerBytes : 0,
+      thumbnail: current.thumbnailUploaded === false ? 0 : thumbnailBytes,
+    }
+    const progress = (file: keyof typeof sent, bytes: number) => {
+      sent[file] = bytes
+      options.onProgress?.({ sent: sent.media + sent.debugger + sent.thumbnail, total })
+    }
+    progress("media", sent.media)
+
+    /** One PUT, or the parts one after another; a retry goes on from the first part that hasn't arrived. */
+    const sendMedia = async (session: UploadSessionState) => {
+      let split = session.mediaParts
+      if (!split) {
+        if (!session.mediaUpload) throw new Error("The server sent no upload link for the file")
+        return deps.putFile(session.mediaUpload, media, (bytes) => progress("media", bytes))
+      }
+      if (split.parts.length !== Math.ceil(media.size / split.partSize)) {
+        throw new Error("The server's upload links don't match the file")
+      }
+      for (let index = session.mediaPartsUploaded ?? 0; index < split.parts.length; index++) {
+        const start = index * split.partSize
+        const body = media.slice(start, start + split.partSize)
+        const partProgress = (bytes: number) => progress("media", Math.min(media.size, start + bytes))
+        try {
+          await deps.putFile(split.parts[index] as UploadTarget, body, partProgress)
+        } catch (error) {
+          // The links are signed when the upload starts, so on a slow connection the last ones can expire before
+          // their turn. New links for the same upload let it go on; without them a new report starts from part one.
+          if (!(error instanceof ApiError && error.code === "upload_expired" && deps.api.mediaParts)) throw error
+          const fresh = await deps.api.mediaParts(session.reportId).catch(() => null)
+          if (!fresh || fresh.partSize !== split.partSize || fresh.parts.length !== split.parts.length) throw error
+          split = fresh
+          current = { ...(current as UploadSessionState), mediaParts: fresh }
+          await deps.putFile(split.parts[index] as UploadTarget, body, partProgress)
+        }
+        current = { ...(current as UploadSessionState), mediaPartsUploaded: index + 1 }
+        // Kept in memory only: saving the draft writes the whole video again, too much for every part. The save
+        // once the file is up, or the one marking the draft failed, keeps it.
+        draft = { ...draft, session: current }
+      }
+    }
+
     // The files go up at the same time; each one is recorded as done on its own, so a retry
     // only sends what is still missing.
     const puts: Promise<void>[] = []
     if (!current.mediaUploaded) {
       puts.push(
-        deps.putFile(current.mediaUpload, media).then(async () => {
+        sendMedia(current).then(async () => {
+          progress("media", media.size)
           current = { ...(current as UploadSessionState), mediaUploaded: true }
           await save({ session: current })
         }),
@@ -174,7 +261,8 @@ async function submitUnlocked(
       const debuggerUpload = current.debuggerUpload
       const gzip = draft.debuggerGzip
       puts.push(
-        deps.putFile(debuggerUpload, gzip).then(async () => {
+        deps.putFile(debuggerUpload, gzip, (bytes) => progress("debugger", bytes)).then(async () => {
+          progress("debugger", debuggerBytes)
           current = { ...(current as UploadSessionState), debuggerUploaded: true }
           await save({ session: current })
         }),
@@ -185,9 +273,11 @@ async function submitUnlocked(
       const thumbnailUpload = current.thumbnailUpload
       puts.push(
         deps
-          .putFile(thumbnailUpload, thumbnail)
+          .putFile(thumbnailUpload, thumbnail, (bytes) => progress("thumbnail", bytes))
           .catch((error) => console.warn("thumbnail upload failed", error))
           .then(async () => {
+            // Done either way: a thumbnail that failed is not sent again.
+            progress("thumbnail", thumbnailBytes)
             current = { ...(current as UploadSessionState), thumbnailUploaded: true }
             await save({ session: current })
           }),

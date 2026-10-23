@@ -74,4 +74,5 @@ If the bucket's address is proxied by Cloudflare (an orange-cloud DNS record in 
 
 - Add a **Cache Rule** that bypasses the cache for that hostname. Cached responses break the signed checks the server makes right after an upload, and uploads then fail.
 - Don't put that hostname behind Cloudflare Access: browsers can't sign in to it.
-- Cloudflare limits request bodies to 100 MB on most plans. If uploads go through Cloudflare, set `MAX_UPLOAD_MB` below that, for example `95`; a 20-minute recording is about 245 MB, so long recordings stop early.
+- Cloudflare limits request bodies to 100 MB on most plans. The extension sends a recording over 16 MB in 16 MB parts, each its own request, so a 20-minute recording (about 245 MB) gets through and `MAX_UPLOAD_MB` can stay at `300`. Extensions from before uploads in parts send every file in one request; if people still use one, set `MAX_UPLOAD_MB=95`, so their recordings stop before the limit.
+- Parts of an upload that never finished take up room without showing as files. The server aborts such uploads after a day, so nothing needs to be set up for them.

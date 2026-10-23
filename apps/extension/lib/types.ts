@@ -28,7 +28,15 @@ export interface UploadSessionState {
   reportId: string
   reportUrl: string
   shareUrl: string
-  mediaUpload: UploadTarget
+  /** Null when the media goes up in parts. */
+  mediaUpload: UploadTarget | null
+  /**
+   * Media sent in parts, so no request is bigger than a proxy allows (Cloudflare: 100 MB): one link per part, in
+   * order, each `partSize` bytes but the last. Older servers, and sessions saved before parts existed, have none.
+   */
+  mediaParts?: { partSize: number; parts: UploadTarget[] } | null
+  /** How many parts, from the first, have arrived. */
+  mediaPartsUploaded?: number
   debuggerUpload: UploadTarget | null
   /** Size declared to the server; a different media size needs a new session. */
   mediaSize: number

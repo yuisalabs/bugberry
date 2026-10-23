@@ -25,7 +25,7 @@ With a bucket behind Cloudflare, the cache answers the server's check on the new
 
 ## Long recordings fail to upload behind Cloudflare
 
-Cloudflare limits request bodies to 100 MB on most plans. Set `MAX_UPLOAD_MB=95`, so the extension stops recording before it reaches the limit.
+Cloudflare limits request bodies to 100 MB on most plans. With S3 storage, the extension sends a recording over 16 MB in 16 MB parts, each its own request, so `MAX_UPLOAD_MB` can stay at `300`. Older extensions, which send every file in one request, and local storage, where uploads go through the server, still hit the limit: there, set `MAX_UPLOAD_MB=95`, so the extension stops recording before it reaches it.
 
 ## Reports open, but the console and network tabs stay empty
 

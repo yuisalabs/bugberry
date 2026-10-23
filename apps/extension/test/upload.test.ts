@@ -3,7 +3,7 @@ import { decodeDebuggerPayload } from "@bugberry/capture"
 import { ApiError, type CreateUploadBody, type UploadSession } from "../lib/api"
 import type { DraftStore } from "../lib/draft-store"
 import type { ReportDraft, UploadTarget } from "../lib/types"
-import { LOCKED, putFile, type ReportForm, sha256, submitDraft, type UploadDeps } from "../lib/upload"
+import { LOCKED, type PutRequest, putFile, type ReportForm, sha256, submitDraft, type UploadDeps, type UploadProgress } from "../lib/upload"
 
 const form: ReportForm = { workspaceId: "w1", projectId: "p1", title: "Pay button fails", description: "", priority: "high", visibility: "internal" }
 
@@ -26,6 +26,7 @@ function session(id: string): UploadSession {
     reportUrl: `https://bugberry.test/r/${id}`,
     shareUrl: `https://bugberry.test/s/${id}`,
     mediaUpload: target(`${id}-media`),
+    mediaParts: null,
     debuggerUpload: target(`${id}-debugger`),
     thumbnailUpload: target(`${id}-thumbnail`),
   }
@@ -384,6 +385,138 @@ describe("submitDraft", () => {
   })
 })
 
+describe("media in parts", () => {
+  // 10 bytes in parts of 4: "0123", "4567", "89".
+  const video = new Blob(["0123456789"], { type: "video/webm" })
+
+  beforeEach(() => {
+    deps.api.createUpload = async (body) => {
+      calls.push("createUpload")
+      bodies.push(body)
+      sessions += 1
+      const id = `r${sessions}`
+      return {
+        ...session(id),
+        mediaUpload: null,
+        mediaParts: { partSize: 4, parts: [target(`${id}-part1`), target(`${id}-part2`), target(`${id}-part3`)] },
+      }
+    }
+  })
+
+  const textOf = async (name: string) => {
+    const body = uploaded.get(`https://up.test/${name}`)
+    return body ? await body.text() : undefined
+  }
+
+  test("asks for parts, sends each slice in order, then finalizes", async () => {
+    await submitDraft("d1", form, video, deps)
+    expect(bodies[0]?.multipart).toBe(true)
+    expect(calls.filter((call) => call.includes("part"))).toEqual(["put:r1-part1", "put:r1-part2", "put:r1-part3"])
+    expect([await textOf("r1-part1"), await textOf("r1-part2"), await textOf("r1-part3")]).toEqual(["0123", "4567", "89"])
+    expect(calls.at(-1)).toBe("finalize:r1")
+    expect(calls.some((call) => call === "put:r1-media")).toBe(false)
+  })
+
+  test("a failed part is sent again without the parts before it", async () => {
+    let failed = false
+    const put = deps.putFile
+    deps.putFile = async (uploadTarget, body) => {
+      if (!failed && uploadTarget.url.endsWith("r1-part2")) {
+        failed = true
+        calls.push("fail:r1-part2")
+        throw new ApiError(0, "network", "Upload interrupted")
+      }
+      return put(uploadTarget, body)
+    }
+    await submitDraft("d1", form, video, deps)
+    expect(calls.filter((call) => call.includes("part"))).toEqual(["put:r1-part1", "fail:r1-part2", "put:r1-part2", "put:r1-part3"])
+    expect(sleeps).toEqual([1000])
+    expect(calls.filter((call) => call === "createUpload")).toHaveLength(1)
+  })
+
+  test("a draft that failed keeps how far the parts got, and goes on from there later", async () => {
+    deps.putFile = async (uploadTarget, body) => {
+      if (uploadTarget.url.endsWith("r1-part3")) throw new ApiError(0, "network", "Upload interrupted")
+      calls.push(`put:${uploadTarget.url.split("/").at(-1)}`)
+      uploaded.set(uploadTarget.url, body)
+    }
+    await expect(submitDraft("d1", form, video, deps)).rejects.toThrow("Upload interrupted")
+    expect((await store.get("d1"))?.session).toMatchObject({ reportId: "r1", mediaPartsUploaded: 2, mediaUploaded: false })
+
+    calls = []
+    deps.putFile = async (uploadTarget) => void calls.push(`put:${uploadTarget.url.split("/").at(-1)}`)
+    await submitDraft("d1", form, video, deps)
+    expect(calls.filter((call) => call.includes("part"))).toEqual(["put:r1-part3"])
+    expect(calls.at(-1)).toBe("finalize:r1")
+  })
+
+  test("the draft is written as often for ten parts as for three: never once per part", async () => {
+    const original = await store.get("d1")
+    if (!original) throw new Error("expected the draft")
+    let writes = 0
+    const put = store.put
+    store.put = async (draft) => {
+      writes++
+      await put(draft)
+    }
+    await submitDraft("d1", form, video, deps)
+    const threeParts = writes
+
+    await put(original)
+    writes = 0
+    deps.api.createUpload = async () => ({
+      ...session("r9"),
+      mediaUpload: null,
+      mediaParts: { partSize: 1, parts: Array.from({ length: 10 }, (_, index) => target(`r9-part${index + 1}`)) },
+    })
+    await submitDraft("d1", form, video, deps)
+    expect(calls.filter((call) => call.startsWith("put:r9-part"))).toHaveLength(10)
+    expect(writes).toBe(threeParts)
+  })
+
+  test("an expired part link is signed again and the same upload goes on", async () => {
+    const put = deps.putFile
+    deps.putFile = async (uploadTarget, body) => {
+      if (uploadTarget.url.endsWith("r1-part2")) throw new ApiError(403, "upload_expired", "The upload link has expired")
+      return put(uploadTarget, body)
+    }
+    deps.api.mediaParts = async (reportId) => {
+      calls.push(`mediaParts:${reportId}`)
+      return { partSize: 4, parts: [target("r1-new1"), target("r1-new2"), target("r1-new3")] }
+    }
+    const result = await submitDraft("d1", form, video, deps)
+    expect(result.id).toBe("r1")
+    expect(calls.filter((call) => /part|Parts|new/.test(call))).toEqual([
+      "put:r1-part1",
+      "mediaParts:r1",
+      "put:r1-new2",
+      "put:r1-new3",
+    ])
+    expect(await textOf("r1-new2")).toBe("4567")
+    expect(calls.filter((call) => call === "createUpload")).toHaveLength(1)
+  })
+
+  test("when new links can't be had, an expired part link starts a new report as before", async () => {
+    const put = deps.putFile
+    deps.putFile = async (uploadTarget, body) => {
+      if (uploadTarget.url.endsWith("r1-part2")) throw new ApiError(403, "upload_expired", "The upload link has expired")
+      return put(uploadTarget, body)
+    }
+    deps.api.mediaParts = async () => {
+      throw new ApiError(409, "not_in_parts", "This report has no upload in parts to go on with")
+    }
+    const result = await submitDraft("d1", form, video, deps)
+    expect(result.id).toBe("r2")
+    expect(calls.filter((call) => call === "createUpload")).toHaveLength(2)
+  })
+
+  test("links that don't match the file are refused", async () => {
+    deps.api.createUpload = async () => ({ ...session("r1"), mediaUpload: null, mediaParts: { partSize: 4, parts: [target("r1-part1")] } })
+    await expect(submitDraft("d1", form, video, deps)).rejects.toThrow("The server's upload links don't match the file")
+    expect(calls.some((call) => call.startsWith("put:r1-part"))).toBe(false)
+  })
+})
+
 describe("sessions and workspaces", () => {
   test("changing the workspace starts a new upload session", async () => {
     failures = [
@@ -461,19 +594,101 @@ describe("sessions and servers", () => {
 })
 
 describe("putFile", () => {
-  const respond = (status: number) => (async () => new Response(null, { status })) as unknown as typeof fetch
+  const respond = (status: number): PutRequest => async (_target, body, onProgress) => {
+    onProgress(body.size)
+    return status
+  }
 
   test("accepts success and 'already uploaded'", async () => {
-    await putFile(target("a"), media, respond(200))
-    await putFile(target("a"), media, respond(409))
+    await putFile(target("a"), media, undefined, respond(200))
+    await putFile(target("a"), media, undefined, respond(204))
+    await putFile(target("a"), media, undefined, respond(409))
+  })
+
+  test("passes on how much has been sent", async () => {
+    const seen: number[] = []
+    const request: PutRequest = async (_target, _body, onProgress) => {
+      for (const bytes of [3, 8, 13]) onProgress(bytes)
+      return 200
+    }
+    await putFile(target("a"), media, (bytes) => seen.push(bytes), request)
+    expect(seen).toEqual([3, 8, 13])
   })
 
   test("maps expired links, other failures and network errors", async () => {
-    expect(await putFile(target("a"), media, respond(403)).catch((error) => error)).toMatchObject({ code: "upload_expired" })
-    expect(await putFile(target("a"), media, respond(500)).catch((error) => error)).toMatchObject({ status: 500, retryable: true })
-    const offline = (async () => {
-      throw new TypeError("Failed to fetch")
-    }) as unknown as typeof fetch
-    expect(await putFile(target("a"), media, offline).catch((error) => error)).toMatchObject({ status: 0, retryable: true })
+    const failed = (request: PutRequest) => putFile(target("a"), media, undefined, request).catch((error) => error)
+    expect(await failed(respond(403))).toMatchObject({ code: "upload_expired" })
+    expect(await failed(respond(500))).toMatchObject({ status: 500, retryable: true })
+    expect(await failed(respond(0))).toMatchObject({ status: 0, retryable: true })
+    expect(
+      await failed(async () => {
+        throw new Error("Upload interrupted")
+      }),
+    ).toMatchObject({ status: 0, retryable: true })
+  })
+})
+
+describe("upload progress", () => {
+  const video = new Blob(["0123456789"], { type: "video/webm" })
+  let reports: UploadProgress[]
+
+  beforeEach(() => {
+    reports = []
+    // Each PUT reports its body in two halves, as a browser would.
+    deps.putFile = async (uploadTarget, body, onProgress) => {
+      onProgress?.(Math.floor(body.size / 2))
+      onProgress?.(body.size)
+      calls.push(`put:${uploadTarget.url.split("/").at(-1)}`)
+    }
+  })
+
+  test("counts all files together, never past the total, and reaches it before finalize", async () => {
+    const thumbnail = new Blob(["thumb"])
+    let atFinalize: UploadProgress | undefined
+    const finalize = deps.api.finalize
+    deps.api.finalize = async (reportId) => {
+      atFinalize = reports.at(-1)
+      return finalize(reportId)
+    }
+    await submitDraft("d1", form, video, deps, thumbnail, { onProgress: (progress) => reports.push(progress) })
+    const total = reports[0]?.total ?? 0
+    // The video, the thumbnail and the gzipped debugger data.
+    expect(total).toBeGreaterThan(video.size + thumbnail.size)
+    expect(reports.every((progress) => progress.total === total && progress.sent <= total)).toBe(true)
+    expect(reports[0]?.sent).toBe(0)
+    expect(atFinalize).toEqual({ sent: total, total })
+  })
+
+  test("parts add up: a part's bytes count from where it starts in the file", async () => {
+    deps.api.createUpload = async () => ({
+      ...session("r1"),
+      debuggerUpload: null,
+      thumbnailUpload: null,
+      mediaUpload: null,
+      mediaParts: { partSize: 4, parts: [target("r1-part1"), target("r1-part2"), target("r1-part3")] },
+    })
+    await submitDraft("d1", form, video, deps, null, { onProgress: (progress) => reports.push(progress) })
+    expect(reports.map((progress) => progress.sent)).toEqual([0, 2, 4, 6, 8, 9, 10, 10])
+    expect(reports.every((progress) => progress.total === 10)).toBe(true)
+  })
+
+  test("a draft resumed after its first parts went up starts from there", async () => {
+    deps.api.createUpload = async () => ({
+      ...session("r1"),
+      debuggerUpload: null,
+      thumbnailUpload: null,
+      mediaUpload: null,
+      mediaParts: { partSize: 4, parts: [target("r1-part1"), target("r1-part2"), target("r1-part3")] },
+    })
+    const put = deps.putFile
+    deps.putFile = async (uploadTarget, body, onProgress) => {
+      if (uploadTarget.url.endsWith("r1-part3")) throw new ApiError(400, "upload_failed", "Upload failed (HTTP 400)")
+      return put(uploadTarget, body, onProgress)
+    }
+    await expect(submitDraft("d1", form, video, deps)).rejects.toThrow("HTTP 400")
+
+    deps.putFile = put
+    await submitDraft("d1", form, video, deps, null, { onProgress: (progress) => reports.push(progress) })
+    expect(reports.map((progress) => progress.sent)).toEqual([8, 9, 10, 10])
   })
 })

@@ -2,7 +2,8 @@ import { S3Client } from "bun"
 import { assertSafeKey } from "./keys"
 import { presignUrl } from "./presign"
 import { ReadUrlCache } from "./read-url-cache"
-import type { ObjectInfo, StorageDriver, UploadTarget } from "./types"
+import { S3Multipart } from "./s3-multipart"
+import type { MultipartStorage, ObjectInfo, StorageDriver, UploadTarget } from "./types"
 
 export interface S3StorageOptions {
   endpoint: string
@@ -23,8 +24,10 @@ export interface S3StorageOptions {
 export class S3StorageDriver implements StorageDriver {
   private readonly client: S3Client
   private readonly readUrls = new ReadUrlCache()
+  readonly multipart: MultipartStorage
 
   constructor(private readonly options: S3StorageOptions) {
+    this.multipart = new S3Multipart(options)
     this.client = new S3Client({
       endpoint: options.endpoint,
       region: options.region,

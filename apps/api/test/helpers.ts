@@ -274,11 +274,13 @@ export function uploadBody(projectId: string | null, overrides: Partial<CreateUp
   }
 }
 
+/** `target` is null only for media sent in parts, which local storage never asks for. */
 export function putUpload(
   app: { handle(request: Request): Promise<Response> },
-  target: UploadTarget,
+  target: UploadTarget | null,
   body: Uint8Array<ArrayBuffer>,
 ) {
+  if (!target) throw new Error("expected a single upload link")
   return app.handle(new Request(target.url, { method: target.method, headers: target.headers, body }))
 }
 

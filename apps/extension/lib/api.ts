@@ -79,6 +79,8 @@ export function createBugberryApi(settings: Settings, fetcher: typeof fetch = fe
     setCurrentWorkspace: (workspaceId: string) => call(() => client.api.me.workspace.put({ workspaceId })),
     createUpload: (body: UploadBody) => call(() => client.api.reports.uploads.post(body)),
     finalize: (reportId: string) => call(() => client.api.reports({ id: reportId }).finalize.post()),
+    /** New links for the parts of an upload in progress, once the first ones expired. Older servers never send parts. */
+    mediaParts: (reportId: string) => call(() => client.api.reports({ id: reportId }).parts.post()),
     /** Older servers have no such endpoint and answer 404; callers ignore that. */
     setLocation: (reportId: string, coordinates: { latitude: number; longitude: number }) =>
       call(() => client.api.reports({ id: reportId }).location.post(coordinates)),
