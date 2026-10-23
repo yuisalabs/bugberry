@@ -7,7 +7,8 @@ export interface EditorDeps {
   loadSettings(): Promise<Settings | null>
   getDraft(id: string): Promise<ReportDraft | null>
   listWorkspaces(settings: Settings): Promise<Workspace[]>
-  me(settings: Settings): Promise<{ email: string; name?: string }>
+  /** `lastWorkspaceId`: the workspace open in the dashboard. */
+  me(settings: Settings): Promise<{ email: string; name?: string; lastWorkspaceId?: string | null }>
   /** The workspace the last report was sent to, remembered by the extension. */
   lastWorkspaceId(): Promise<string | null>
   listProjects(settings: Settings, workspaceId: string): Promise<Project[]>
@@ -86,19 +87,25 @@ export async function loadEditor(draftId: string, deps: EditorDeps, isCancelled:
   let workspaces: Workspace[] = []
   let email: string | null = null
   let name: string | null = null
+  let dashboardWorkspaceId: string | null = null
   let workspacesError: string | null = null
   try {
-    let me: { email: string; name?: string }
+    let me: { email: string; name?: string; lastWorkspaceId?: string | null }
     ;[workspaces, me] = await Promise.all([deps.listWorkspaces(settings), deps.me(settings)])
     email = me.email
     name = me.name ?? null
+    dashboardWorkspaceId = me.lastWorkspaceId ?? null
   } catch (error) {
     workspacesError = messageOf(error)
   }
-  // A draft opened again keeps the workspace it was being sent to, if the person is still in it.
-  const preferred = draft.form?.workspaceId ?? (await deps.lastWorkspaceId())
+  // A draft opened again keeps the workspace it was being sent to. A new one goes where the dashboard is open, so
+  // someone who moved to another workspace there isn't sent back to their own (and maybe full) one; then to
+  // the workspace the extension sent to last.
+  const lastSent = await deps.lastWorkspaceId()
+  const preferred = draft.form?.workspaceId ?? dashboardWorkspaceId ?? lastSent
   // Without the list, keep the remembered workspace rather than letting the server pick another one.
-  const workspaceId = pickEditorWorkspace(workspaces, preferred) ?? (workspacesError ? preferred : null)
+  const workspaceId =
+    pickEditorWorkspace(workspaces, draft.form?.workspaceId, dashboardWorkspaceId, lastSent) ?? (workspacesError ? preferred : null)
   const { projects, error } = workspacesError ? { projects: [], error: workspacesError } : await loadProjects(deps, settings, workspaceId)
   return {
     kind: "loaded",

@@ -161,9 +161,11 @@ export function App() {
   useEffect(() => {
     if (!settings || session?.kind !== "signed-in") return
     const api = createBugberryApi(settings)
-    void Promise.all([api.listWorkspaces(), lastWorkspaceStorage.get()])
-      .then(async ([workspaces, lastUsed]) => {
-        const workspace = workspaces.find((entry) => entry.id === pickEditorWorkspace(workspaces, lastUsed))
+    void Promise.all([api.listWorkspaces(), api.me(), lastWorkspaceStorage.get()])
+      .then(async ([workspaces, me, lastUsed]) => {
+        // The same pick as the review's, so the warning is about the workspace the report will really go to.
+        const dashboard = (me as { lastWorkspaceId?: string | null }).lastWorkspaceId
+        const workspace = workspaces.find((entry) => entry.id === pickEditorWorkspace(workspaces, dashboard, lastUsed))
         if (!workspace) return
         const limits = await limitsFor(api, workspace.id)
         const who = { isAdmin: workspace.role === "admin", hasOtherWorkspaces: workspaces.length > 1 }
