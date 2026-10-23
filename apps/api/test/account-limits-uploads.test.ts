@@ -3,11 +3,12 @@ import { eq } from "drizzle-orm"
 import { report, user, workspace } from "../src/db/schema"
 import { createReadyReport, createUserWithToken, putUpload, setupTestApp, uploadBody } from "./helpers"
 
-const LIMITS = { screenshots: 5, recordings: 5, ownedWorkspaces: 1 }
+const LIMITS = { screenshots: 5, recordings: 5, ownedWorkspaces: 1, storageBytes: 250 * 1024 * 1024, fileBytes: 50 * 1024 * 1024 }
 
 /** An app with limits on (or off), whose test workspace is owned by the uploading admin. */
 async function setup(limitsOn = true) {
-  const ctx = await setupTestApp(limitsOn ? { accountLimits: LIMITS } : {})
+  // The server takes files up to 300 MB, so only the account limits can refuse the big ones here.
+  const ctx = await setupTestApp(limitsOn ? { accountLimits: LIMITS, maxUploadBytes: 300 * 1024 * 1024 } : {})
   const owner = await createUserWithToken(ctx.db, { role: "admin" })
   await ctx.db.update(workspace).set({ ownerId: owner.user.id }).where(eq(workspace.id, ctx.workspace.id))
   const seed = async (count: number, extra: Partial<typeof report.$inferInsert> = {}) => {
@@ -35,6 +36,20 @@ describe("report limit on upload", () => {
     expect(await ctx.db.select().from(report)).toHaveLength(5)
     const [after] = await ctx.db.select({ next: workspace.nextReportNumber }).from(workspace).where(eq(workspace.id, ctx.workspace.id))
     expect(after?.next).toBe(before?.next)
+  })
+
+  test("a recording over 50 MB, or one the workspace has no room for, is refused before anything is uploaded", async () => {
+    const { ctx, owner, seed, upload } = await setup()
+    const big = await upload(owner.headers, { ...video, mediaSize: 51 * 1024 * 1024 })
+    expect(statusOf(big)).toBe(403)
+    expect(big.error?.value).toMatchObject({ code: "file_limit_reached" })
+    // 210 MB of 250 MB used: a 50 MB recording doesn't fit.
+    await seed(4, { captureType: "video", durationMs: 1000, mediaSize: 50 * 1024 * 1024 })
+    await seed(1, { mediaSize: 10 * 1024 * 1024 })
+    const full = await upload(owner.headers, { ...video, mediaSize: 50 * 1024 * 1024 })
+    expect(statusOf(full)).toBe(403)
+    expect(full.error?.value).toMatchObject({ code: "storage_limit_reached" })
+    expect(await ctx.db.select().from(report)).toHaveLength(5)
   })
 
   test("recordings have their own 5", async () => {

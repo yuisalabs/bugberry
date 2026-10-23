@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm"
 import { user, workspace } from "../src/db/schema"
 import { createReadyReport, createUserWithToken, setupTestApp } from "./helpers"
 
-const LIMITS = { screenshots: 5, recordings: 5, ownedWorkspaces: 1 }
+const LIMITS = { screenshots: 5, recordings: 5, ownedWorkspaces: 1, storageBytes: 250 * 1024 * 1024, fileBytes: 50 * 1024 * 1024 }
 
 async function setup(limitsOn: boolean) {
   const ctx = await setupTestApp(limitsOn ? { accountLimits: LIMITS } : {})
@@ -28,6 +28,8 @@ describe("GET /workspaces/:id/limits and /me/limits", () => {
       limited: true,
       screenshots: { used: 2, max: 5 },
       recordings: { used: 1, max: 5 },
+      storage: { used: 9, max: 250 * 1024 * 1024 },
+      maxFileBytes: 50 * 1024 * 1024,
     })
     expect((await ctx.api.api.me.limits.get({ headers: owner.headers })).data).toEqual({ canCreateWorkspace: false, canAddMembers: false })
   })

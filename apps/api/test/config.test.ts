@@ -166,22 +166,43 @@ describe("loadConfig", () => {
     expect(loadConfig({ ...baseEnv, ACCOUNT_LIMITS: "false" }).accountLimits).toBeNull()
   })
 
-  test("ACCOUNT_LIMITS=true uses 5 / 5 / 1 by default", () => {
-    expect(loadConfig({ ...baseEnv, ACCOUNT_LIMITS: "true" }).accountLimits).toEqual({ screenshots: 5, recordings: 5, ownedWorkspaces: 1 })
+  test("ACCOUNT_LIMITS=true uses 5 / 5 / 1, 250 MB and 50 MB by default", () => {
+    expect(loadConfig({ ...baseEnv, ACCOUNT_LIMITS: "true" }).accountLimits).toEqual({
+      screenshots: 5,
+      recordings: 5,
+      ownedWorkspaces: 1,
+      storageBytes: 250 * 1024 * 1024,
+      fileBytes: 50 * 1024 * 1024,
+    })
   })
 
   test("limit numbers can be overridden", () => {
-    const env = { ...baseEnv, ACCOUNT_LIMITS: "true", LIMIT_SCREENSHOTS: "10", LIMIT_RECORDINGS: "2", LIMIT_OWNED_WORKSPACES: "3" }
-    expect(loadConfig(env).accountLimits).toEqual({ screenshots: 10, recordings: 2, ownedWorkspaces: 3 })
+    const env = {
+      ...baseEnv,
+      ACCOUNT_LIMITS: "true",
+      LIMIT_SCREENSHOTS: "10",
+      LIMIT_RECORDINGS: "2",
+      LIMIT_OWNED_WORKSPACES: "3",
+      LIMIT_STORAGE_MB: "1024",
+      LIMIT_FILE_MB: "100",
+    }
+    expect(loadConfig(env).accountLimits).toEqual({
+      screenshots: 10,
+      recordings: 2,
+      ownedWorkspaces: 3,
+      storageBytes: 1024 * 1024 * 1024,
+      fileBytes: 100 * 1024 * 1024,
+    })
   })
 
   test("the startup line says when account limits are on", () => {
     expect(accountLimitsNotice(null)).toBeNull()
-    expect(accountLimitsNotice({ screenshots: 5, recordings: 5, ownedWorkspaces: 1 })).toBe(
-      "Account limits on: 5 screenshots / 5 recordings / 1 workspace per account",
+    const sizes = { storageBytes: 250 * 1024 * 1024, fileBytes: 50 * 1024 * 1024 }
+    expect(accountLimitsNotice({ screenshots: 5, recordings: 5, ownedWorkspaces: 1, ...sizes })).toBe(
+      "Account limits on: 5 screenshots / 5 recordings / 1 workspace per account, 250 MB per workspace, 50 MB per file",
     )
-    expect(accountLimitsNotice({ screenshots: 1, recordings: 2, ownedWorkspaces: 3 })).toBe(
-      "Account limits on: 1 screenshot / 2 recordings / 3 workspaces per account",
+    expect(accountLimitsNotice({ screenshots: 1, recordings: 2, ownedWorkspaces: 3, ...sizes })).toBe(
+      "Account limits on: 1 screenshot / 2 recordings / 3 workspaces per account, 250 MB per workspace, 50 MB per file",
     )
   })
 
