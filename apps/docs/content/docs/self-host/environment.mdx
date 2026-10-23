@@ -59,7 +59,7 @@ See [Storage](/self-host/storage).
 | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | — | Bucket credentials. Required with `s3`; RustFS (profile `s3`) uses them as its admin login. |
 | `S3_VIRTUAL_HOSTED_STYLE` | `false` | `true` for `bucket.host` addresses instead of `host/bucket`. |
 | `BUGBERRY_S3_DOMAIN` | `s3.localhost` | Domain Caddy serves RustFS on (profiles `caddy` and `s3`). |
-| `MAX_UPLOAD_MB` | `300` | Largest upload, 1 to 2000. Keep it under 100 behind Cloudflare. |
+| `MAX_UPLOAD_MB` | `300` | Largest upload, 1 to 2000. With S3 storage the extension sends large files in 16 MB parts, which Cloudflare's 100 MB limit allows; with local storage behind Cloudflare, keep it under 100. |
 | `UPLOAD_URL_TTL_SECONDS` | `3600` | How long an upload URL stays valid, 60 to 604800. |
 | `READ_URL_TTL_SECONDS` | `3600` | How long a download URL stays valid, 60 to 604800. |
 

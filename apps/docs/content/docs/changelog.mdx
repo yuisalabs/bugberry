@@ -5,6 +5,13 @@ description: What changed in BugBerry, newest first.
 
 Each entry is named after the browser extension's version. Changes to the dashboard and the server ship with it.
 
+## 0.6.0 · 23 October 2026
+
+- **Long recordings get through.** A recording over 16 MB now goes up in 16 MB parts, each its own request, so a server behind Cloudflare takes recordings up to its upload limit (300 MB by default, about 20 minutes) instead of stopping near 100 MB. A part that fails is sent again on its own, not the whole video, and on a slow connection whose upload links run out the extension gets new ones and carries on.
+- **You see the upload going.** While a report is sent, a bar above the review's buttons shows how much has gone up, such as "15 MB of 35 MB · 42%", then "Creating report…" while the server finishes it.
+- A report sent again in the same moment, after a timeout, no longer sends its notifications and tracker issues twice.
+- **Self-hosting:** update the server with the extension. With S3 storage (RustFS, MinIO, R2, AWS), uploads in parts need no setup, and the server drops the parts of an upload left unfinished after a day. Behind Cloudflare, `MAX_UPLOAD_MB` can go back to `300`; keep it at `95` while people still use an extension older than 0.6.0, which sends each file in one request. Local storage also still takes each file in one request. A database migration adds one column when the server starts.
+
 ## 0.5.0 · 23 October 2026
 
 - **Storage limits on BugBerry cloud.** Next to 5 screenshots and 5 video recordings, each workspace now keeps up to **250 MB**, and one file may be up to **50 MB**. Every file of a report counts: the screenshot or video, the logs and the preview. Deleting a report frees its space.
