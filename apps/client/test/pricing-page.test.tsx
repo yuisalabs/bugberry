@@ -11,7 +11,9 @@ describe("PricingView", () => {
     render(<PricingView signedIn={false} installUrl={null} />)
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("BugBerry is free while we’re in early access.")
     const free = plan("Free")
-    for (const line of ["1 workspace", "5 screenshots", "5 video recordings", "Unlimited projects"]) expect(within(free).getByText(line)).toBeTruthy()
+    for (const line of ["1 workspace", "5 screenshots", "5 video recordings", "250 MB of storage", "Files up to 50 MB", "Unlimited projects"]) {
+      expect(within(free).getByText(line)).toBeTruthy()
+    }
     expect(within(free).getByRole("link", { name: "Start for free" }).getAttribute("href")).toBe("/login")
   })
 
