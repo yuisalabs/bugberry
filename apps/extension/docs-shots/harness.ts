@@ -56,6 +56,9 @@ async function open(extraArgs: string[]): Promise<{ context: BrowserContext; wor
     viewport: null,
     colorScheme: "light",
     reducedMotion: "reduce",
+    // Pictures show times and the report's timezone: never the machine's own.
+    locale: "en-US",
+    timezoneId: "UTC",
     args: [
       `--disable-extensions-except=${extensionPath}`,
       `--load-extension=${extensionPath}`,
@@ -215,4 +218,46 @@ export async function openToolbarPopup(h: Harness): Promise<Page> {
 /** `chrome.runtime.sendMessage` from an extension page, as the popup would. Not awaited by the page. */
 export async function send(from: Page, message: unknown): Promise<unknown> {
   return from.evaluate((m) => chrome.runtime.sendMessage(m), message)
+}
+
+/** A dashboard page at a fixed size, at 2×: wide enough for the layout the guide describes. */
+export async function dashboardPage(h: Harness, path: string, size = { width: 1440, height: 900 }): Promise<Page> {
+  return sizedPage(h, `${h.state.serverUrl}${path}`, size)
+}
+
+/** Any page at a fixed size, at 2×. */
+export async function sizedPage(h: Harness, url: string, size: { width: number; height: number }): Promise<Page> {
+  const page = await h.context.newPage()
+  const cdp = await h.context.newCDPSession(page)
+  await cdp.send("Emulation.setDeviceMetricsOverride", { ...size, deviceScaleFactor: 2, mobile: false })
+  await page.goto(url)
+  await page.waitForLoadState("networkidle")
+  return page
+}
+
+/**
+ * A screenshot report on the shop, filed through the extension as a reporter would: Pay is clicked first, so the
+ * report has an error and a failed request. Resolves with the report's id.
+ */
+export async function fileScreenshotReport(h: Harness, report: { title: string; description: string; priority: string }): Promise<string> {
+  await h.shop.bringToFront()
+  await h.shop.getByRole("button", { name: "Pay $48.00" }).click()
+  await h.shop.waitForTimeout(400)
+  const popup = await openPopup(h)
+  const tabId = await shopTabId(h, popup)
+  await h.shop.bringToFront()
+  expect(await send(popup, { type: "bugberry:screenshot", tabId, mode: "visible" })).toMatchObject({ ok: true })
+  await popup.close()
+  const review = await reviewFrame(h)
+  await review.getByLabel("Title").fill(report.title)
+  await review.getByRole("textbox", { name: "What went wrong?" }).fill(report.description)
+  await review.getByRole("button", { name: /Priority$/ }).click()
+  await review.getByRole("option", { name: report.priority }).click()
+  await review.getByRole("button", { name: "Create report" }).click()
+  await expect(review.getByText("Report created")).toBeVisible({ timeout: 30_000 })
+  const id = (await review.getByRole("link", { name: "Open report" }).getAttribute("href"))?.split("/").at(-1) ?? ""
+  // Done takes the review's own frame away, so the click may never hear back: the frame going is the answer.
+  await review.getByRole("button", { name: "Done" }).click({ timeout: 10_000, noWaitAfter: true }).catch(() => {})
+  await expect.poll(() => h.shop.frames().some((frame) => frame.url().includes("/review.html")), { timeout: 15_000 }).toBe(false)
+  return id
 }

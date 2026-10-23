@@ -7,6 +7,8 @@ export default defineConfig({
   timeout: 180_000,
   workers: 1,
   reporter: "list",
+  // A step that never settles fails with its name, instead of using up the whole test's time.
+  use: { actionTimeout: 15_000 },
   webServer: {
     command: "bun ../api/scripts/e2e-server.ts",
     url: "http://127.0.0.1:3999/api/health",
