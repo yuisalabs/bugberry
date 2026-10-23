@@ -1,5 +1,5 @@
-import { type Frame, test } from "@playwright/test"
-import { type Harness, launch, openPopup, openToolbarPopup, shot, startRecording } from "./harness"
+import { expect, type Frame, test } from "@playwright/test"
+import { type Harness, launch, openPopup, openToolbarPopup, shot, startRecording, stopRecording } from "./harness"
 
 // One recording, photographed as it goes: each test picks up where the last one left off.
 test.describe.configure({ mode: "serial" })
@@ -66,4 +66,38 @@ test("popup while recording", async () => {
   await popup.waitForTimeout(1000)
   await shot(popup, "recordings/popup-recording.png")
   await popup.close()
+})
+
+let reportId = ""
+
+test("review", async () => {
+  const review = await stopRecording(h, bar)
+  await review.getByLabel("Title").fill("Pay button fails at checkout")
+  await review.getByRole("textbox", { name: "What went wrong?" }).fill("Clicking Pay does nothing. Expected the order confirmation.")
+  await review.getByRole("button", { name: /Priority$/ }).click()
+  await review.getByRole("option", { name: "High" }).click()
+  await h.shop.mouse.move(8, 8)
+  await h.shop.waitForTimeout(500)
+  await shot(h.shop, "review-and-send/review.png")
+  await review.getByRole("button", { name: "Create report" }).click()
+  await expect(review.getByText("Report created")).toBeVisible({ timeout: 30_000 })
+  await h.shop.waitForTimeout(800)
+  await shot(h.shop, "review-and-send/sent.png")
+  reportId = (await review.getByRole("link", { name: "Open report" }).getAttribute("href"))?.split("/").at(-1) ?? ""
+  expect(reportId).not.toBe("")
+})
+
+test("dashboard report", async () => {
+  const page = await h.context.newPage()
+  // Wider than the window, so the video and the DevTools-like panel sit side by side; at the window's 2×.
+  const cdp = await h.context.newCDPSession(page)
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1600, height: 1000, deviceScaleFactor: 2, mobile: false })
+  await page.goto(`${h.state.serverUrl}/app/r/${reportId}`)
+  await page.getByText("Payment failed: card_declined").first().waitFor({ timeout: 30_000 })
+  // The video's first frame, not a blank player.
+  await expect.poll(() => page.locator("video").first().evaluate((video: HTMLVideoElement) => video.readyState), { timeout: 30_000 }).toBeGreaterThanOrEqual(2)
+  await page.getByRole("tab", { name: /^Console/ }).click()
+  await page.waitForTimeout(1000)
+  await shot(page, "dashboard/report.png")
+  await page.close()
 })
