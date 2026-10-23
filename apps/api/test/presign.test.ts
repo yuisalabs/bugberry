@@ -44,4 +44,32 @@ describe("presignUrl (AWS Signature Version 4, query string)", () => {
     expect(url.searchParams.get("X-Amz-SignedHeaders")).toBe("content-length;content-type;host")
     expect(url.searchParams.get("X-Amz-Expires")).toBe("600")
   })
+
+  test("signs the query parameters that pick an operation, and requests on the bucket itself", () => {
+    const base = {
+      endpoint: "http://localhost:9000",
+      bucket: "fdebag",
+      region: "us-east-1",
+      accessKeyId: "AK",
+      secretAccessKey: "SK",
+      expiresIn: 600,
+      now: new Date("2026-10-16T00:00:00Z"),
+    }
+    const part = new URL(
+      presignUrl({ ...base, method: "PUT", key: "reports/r1/media.webm", virtualHostedStyle: false, query: { partNumber: "2", uploadId: "a/b+c" } }),
+    )
+    expect(part.pathname).toBe("/fdebag/reports/r1/media.webm")
+    expect([part.searchParams.get("partNumber"), part.searchParams.get("uploadId")]).toEqual(["2", "a/b+c"])
+    // A different part number is a different signature: a link for one part can't be used for another.
+    const other = new URL(
+      presignUrl({ ...base, method: "PUT", key: "reports/r1/media.webm", virtualHostedStyle: false, query: { partNumber: "3", uploadId: "a/b+c" } }),
+    )
+    expect(other.searchParams.get("X-Amz-Signature")).not.toBe(part.searchParams.get("X-Amz-Signature"))
+
+    const listing = presignUrl({ ...base, method: "GET", key: "", virtualHostedStyle: false, query: { uploads: "" } })
+    expect(listing).toStartWith("http://localhost:9000/fdebag?X-Amz-Algorithm=")
+    expect(listing).toContain("&uploads=&X-Amz-Signature=")
+    const hosted = new URL(presignUrl({ ...base, method: "GET", key: "", virtualHostedStyle: true, query: { uploads: "" } }))
+    expect(`${hosted.origin}${hosted.pathname}`).toBe("http://fdebag.localhost:9000/")
+  })
 })

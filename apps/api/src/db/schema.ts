@@ -252,6 +252,8 @@ export const report = pgTable(
     mediaType: text("media_type").notNull(),
     /** Size in bytes declared by the client when the upload session was created. */
     mediaSize: integer("media_size").notNull(),
+    /** The storage's id for media sent in parts, until finalize joins them; null for media sent in one PUT. */
+    mediaUploadId: text("media_upload_id"),
     debuggerKey: text("debugger_key"),
     debuggerSize: integer("debugger_size"),
     /** Null when the report has no preview: older reports, or a thumbnail that failed to upload. */

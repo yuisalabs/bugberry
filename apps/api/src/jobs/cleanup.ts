@@ -5,7 +5,8 @@ import { thumbnailKeyFor } from "../storage/keys"
 
 /**
  * Deletes reports that never became visible — still `uploading`, or `failed` — created before
- * `olderThan`, including any uploaded files.
+ * `olderThan`, including any uploaded files, and aborts uploads in parts started before then, whose
+ * parts take up room in the storage without showing as objects.
  */
 export async function cleanupStaleUploads({ db, storage }: Pick<AppDeps, "db" | "storage">, olderThan: Date) {
   const stale = await db
@@ -21,6 +22,10 @@ export async function cleanupStaleUploads({ db, storage }: Pick<AppDeps, "db" | 
     )
     await db.delete(report).where(eq(report.id, row.id))
   }
+  // Also catches uploads whose report is gone or was never saved. One that finished is no longer listed.
+  await storage.multipart
+    ?.abortStale(olderThan)
+    .catch((error) => console.warn("cleanup: aborting stale uploads in parts failed", error))
   return stale.length
 }
 

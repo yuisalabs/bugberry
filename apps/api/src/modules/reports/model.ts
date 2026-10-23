@@ -35,6 +35,11 @@ export const createUploadBody = t.Object({
   captureType: oneOf(CAPTURE_TYPES),
   /** Exact byte size of the media file the client is about to upload. */
   mediaSize: t.Integer({ minimum: 1 }),
+  /**
+   * The client can send the media in parts (`mediaParts` in the answer). Older clients leave it out and always get
+   * one upload link; the server still answers with one link when its storage can't take parts or the file is small.
+   */
+  multipart: t.Optional(t.Boolean()),
   /** Exact byte size of debugger.json.gz; omit when there is no debugger payload. */
   debuggerSize: t.Optional(t.Integer({ minimum: 1 })),
   /** Exact byte size of thumbnail.jpg; omit when the client made no thumbnail. */
