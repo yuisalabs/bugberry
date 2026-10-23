@@ -3,20 +3,24 @@ title: Screenshots
 description: Capture what's on the page, mark it up, and send it with the console and network attached.
 ---
 
-Click the BugBerry icon in the toolbar (or press <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>K</kbd>, <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>K</kbd> on a Mac) and choose **Capture screenshot**.
+Click the BugBerry icon in the toolbar (or press <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>K</kbd>, <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>K</kbd> on a Mac). Choose what to capture under **Screenshot**, then press the big button.
+
+<Screenshot src="/screenshots/screenshots/popup.png" alt="The BugBerry popup with Visible area chosen under Screenshot, and the Capture visible area button" width={380} />
 
 ## What to capture
 
-The arrow next to **Capture screenshot** holds the choices:
-
 - **Visible area:** everything you can see in the tab.
 - **Select area:** drag a box around the part that matters; its size shows next to the cursor. <kbd>Esc</kbd> cancels.
+
+<Screenshot src="/screenshots/screenshots/select-area.png" alt="The page dimmed, with a box being dragged over part of it and its size, 520 × 300, next to the cursor" />
+
+The bottom of the popup says whether the console and network come along: **Logs on** when they do. On pages extensions can't read, such as a new tab, it says so.
 
 The popup remembers your choice for next time and for the shortcut <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>C</kbd>.
 
 ## Mark it up
 
-The screenshot opens in **Review your report**, with the annotation tools in a toolbar under it:
+The screenshot opens in **Review your report**, with the annotation tools in a toolbar floating over it:
 
 | Tool | Use it to |
 | --- | --- |
@@ -26,10 +30,12 @@ The screenshot opens in **Review your report**, with the annotation tools in a t
 | Text | Write a short note on the image |
 | Blur | Hide private data, such as names, emails, or numbers |
 
-Pick a color for the pen, box, arrow, and text. The image is sent with your marks and blurs already drawn into it.
+Pick a color (red, yellow, green, or black) for the pen, box, arrow, and text. **Undo** and **Redo** sit at the end of the toolbar. The image is sent with your marks and blurs already drawn into it.
+
+<Screenshot src="/screenshots/screenshots/review-markup.png" alt="The review with the screenshot on the left, a red box around the Pay button, the annotation toolbar under it, and the report form on the right" />
 
 ## What comes with it
 
-Even with a screenshot, the report carries what the page did before you captured it: console messages and errors, network requests (failed ones are flagged), your clicks and keys, and details about the browser, the screen, and the page.
+Even with a screenshot, the report carries what the page did before you captured it: console messages and errors, network requests (failed ones are flagged), your clicks and keys, and details about the browser, the screen, and the page. The cards under the screenshot count what was caught.
 
 Next: [Review and send](/guide/review-and-send).
