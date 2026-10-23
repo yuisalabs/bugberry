@@ -57,6 +57,22 @@ describe("loadEditor", () => {
     })
   })
 
+  test("a new report goes to the workspace open in the dashboard, not back to the one sent to last", async () => {
+    // A limited account whose own workspace (w2) is full, working in a teammate's unlimited one (w1).
+    const { deps: moved } = deps({ me: async () => ({ email: "budi@ptmaju.com", name: "Budi", lastWorkspaceId: "w1" }) })
+    expect(await loadEditor("v1", moved, () => false)).toMatchObject({ workspaceId: "w1", projects: [{ id: "p-w1" }] })
+    const { deps: left } = deps({ me: async () => ({ email: "budi@ptmaju.com", lastWorkspaceId: "gone" }) })
+    expect(await loadEditor("v1", left, () => false)).toMatchObject({ workspaceId: "w2" })
+  })
+
+  test("a draft opened again keeps its own workspace over the dashboard's", async () => {
+    const { deps: reopened } = deps({
+      getDraft: async () => ({ ...video, form: { workspaceId: "w2", projectId: "", title: "", description: "", priority: "none", visibility: "workspace" } }),
+      me: async () => ({ email: "budi@ptmaju.com", lastWorkspaceId: "w1" }),
+    })
+    expect(await loadEditor("v1", reopened, () => false)).toMatchObject({ workspaceId: "w2" })
+  })
+
   test("when the workspace list cannot load, the remembered workspace is kept", async () => {
     const { deps: down } = deps({
       listWorkspaces: async () => {

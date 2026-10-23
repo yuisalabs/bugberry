@@ -33,6 +33,9 @@ describe("pickEditorWorkspace", () => {
     expect(pickEditorWorkspace(workspaces, "gone")).toBe("w1")
     expect(pickEditorWorkspace(workspaces, null)).toBe("w1")
     expect(pickEditorWorkspace([], "w1")).toBeNull()
+    // The first choice the person is still in wins.
+    expect(pickEditorWorkspace(workspaces, "gone", null, "w2")).toBe("w2")
+    expect(pickEditorWorkspace(workspaces, undefined, "w2", "w1")).toBe("w2")
   })
 })
 

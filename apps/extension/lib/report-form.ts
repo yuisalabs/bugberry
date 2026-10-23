@@ -23,7 +23,13 @@ export function projectAfterLoad(
   return currentProjectId || (matchProject(projects, pageUrl)?.id ?? "")
 }
 
-/** The workspace a new report goes to: the one used last while still mine, else the first, else none. */
-export function pickEditorWorkspace(workspaces: readonly { id: string }[], lastUsed: string | null): string | null {
-  return workspaces.find((workspace) => workspace.id === lastUsed)?.id ?? workspaces[0]?.id ?? null
+/**
+ * The workspace a new report goes to: the first of `preferred` the person is still in, else their first
+ * workspace, else none.
+ */
+export function pickEditorWorkspace(workspaces: readonly { id: string }[], ...preferred: Array<string | null | undefined>): string | null {
+  for (const id of preferred) {
+    if (id && workspaces.some((workspace) => workspace.id === id)) return id
+  }
+  return workspaces[0]?.id ?? null
 }
