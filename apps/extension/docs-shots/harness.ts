@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync } from "node:fs"
 import { dirname } from "node:path"
 import { fileURLToPath } from "node:url"
-import { type BrowserContext, chromium, type Locator, type Page, type Worker } from "@playwright/test"
+import { type BrowserContext, chromium, expect, type Frame, type Locator, type Page, type Worker } from "@playwright/test"
 import type { CapturePrefs } from "../lib/capture-prefs"
 
 declare const chrome: {
@@ -37,11 +37,17 @@ export async function launch(): Promise<Harness> {
   const state = JSON.parse(readFileSync(statePath, "utf8")) as E2EState
   const context = await chromium.launchPersistentContext("", {
     channel: "chromium",
-    viewport: { width: 1280, height: 800 },
-    deviceScaleFactor: 2,
+    // The real window's size and scale, not an emulated viewport: the extension's own capture
+    // (captureVisibleTab, tab recording) sees the window, and would cut an emulated page short.
+    viewport: null,
     colorScheme: "light",
     reducedMotion: "reduce",
-    args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`],
+    args: [
+      `--disable-extensions-except=${extensionPath}`,
+      `--load-extension=${extensionPath}`,
+      "--window-size=1280,900",
+      "--force-device-scale-factor=2",
+    ],
   })
   const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent("serviceworker"))
   const extensionId = new URL(worker.url()).host
@@ -64,8 +70,8 @@ export async function shopTabId(h: Harness, from: Page): Promise<number> {
  * reporter's tab, so its "active tab" lookup is pointed at the shop: the popup itself is the real one.
  */
 export async function openPopup(h: Harness, prefs: Partial<CapturePrefs> = {}): Promise<Page> {
+  // Not resized: emulating a size drops the window's 2× scale. The popup's body is 380 px wide by itself.
   const page = await h.context.newPage()
-  await page.setViewportSize({ width: 380, height: 600 })
   const shopUrl = h.shop.url()
   await page.addInitScript((url) => {
     const query = chrome.tabs.query.bind(chrome.tabs)
@@ -99,6 +105,16 @@ export async function shot(
   } else {
     await target.screenshot(common)
   }
+}
+
+/** The review over the shop, in an extension iframe inside a closed shadow root: found by its URL. */
+export async function reviewFrame(h: Harness): Promise<Frame> {
+  const find = () => h.shop.frames().find((frame) => frame.url().includes("/review.html"))
+  await expect.poll(() => find() !== undefined, { timeout: 15_000 }).toBe(true)
+  const review = find()!
+  await review.getByRole("dialog").first().waitFor()
+  await h.shop.waitForTimeout(800)
+  return review
 }
 
 /** `chrome.runtime.sendMessage` from an extension page, as the popup would. Not awaited by the page. */
