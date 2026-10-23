@@ -8,6 +8,7 @@
     "dev:db": "docker compose -f docker-compose.dev.yml up -d",
     "build:client": "bun run --filter @bugberry/client build",
     "build:docs": "bun run --cwd apps/docs build",
+    "docs:screenshots": "bun run --cwd apps/extension docs:screenshots",
     "test": "bun run --filter '*' --filter '!@bugberry/docs' test && bun run --cwd apps/docs test",
     "typecheck": "bun run --filter '*' --filter '!@bugberry/docs' typecheck"
   },

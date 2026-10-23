@@ -3,6 +3,7 @@ import { Step, Steps } from "fumadocs-ui/components/steps"
 import { Tab, Tabs } from "fumadocs-ui/components/tabs"
 import defaultMdxComponents from "fumadocs-ui/mdx"
 import type { MDXComponents } from "mdx/types"
+import { Screenshot } from "@/components/screenshot"
 import { StoreLinks } from "@/components/store-links"
 
 export function getMDXComponents(components?: MDXComponents) {
@@ -14,6 +15,7 @@ export function getMDXComponents(components?: MDXComponents) {
     Tab,
     Tabs,
     StoreLinks,
+    Screenshot,
     ...components,
   } satisfies MDXComponents
 }

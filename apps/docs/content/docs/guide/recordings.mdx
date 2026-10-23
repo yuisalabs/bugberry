@@ -7,14 +7,16 @@ A recording shows the bug happening, and the report lines up the console, the ne
 
 ## Start a recording
 
-Click the BugBerry icon and choose **Record**. The arrow next to it holds what to record:
+Click the BugBerry icon, choose what to record under **Record**, then press the big button:
 
-- **This tab:** includes the tab's sound.
-- **A window** or **the whole screen:** Chrome asks which one. The console, network, and actions come from the tab you started on and from every tab you go to while recording, in one timeline. Tabs you never open during the recording aren't included, nor are pages that aren't web pages (a new tab, `chrome://…`).
+- **Tab:** this tab, with its sound.
+- **Screen** or **Window:** Chrome asks which one. The console, network, and actions come from the tab you started on and from every tab you go to while recording, in one timeline. Tabs you never open during the recording aren't included, nor are pages that aren't web pages (a new tab, `chrome://…`).
 
-Turn on **Microphone** to add your voice, and **System audio** to add sound from other apps when you record a screen. The first time, BugBerry asks over the page you're on, then the browser asks for permission once.
+<Screenshot src="/screenshots/recordings/popup.png" alt="The BugBerry popup with Tab chosen under Record, the Record this tab button, and the Mic off and 3s countdown chips" width={380} />
 
-Recording starts after a 3-second countdown. <kbd>Esc</kbd> cancels it; you can turn the countdown off in the popup. The popup remembers your choices for next time and for the shortcuts.
+The chips under the button set the rest. **Mic off** opens the list of microphones: pick one to add your voice. **System audio** adds sound from other apps when you record the screen. The first time you turn on a microphone, BugBerry asks over the page you're on, then the browser asks for permission once.
+
+Recording starts after a 3-second countdown. <kbd>Esc</kbd> cancels it; the **3s countdown** chip turns it off. The popup remembers your choices for next time and for the shortcuts.
 
 ## While it records
 
@@ -22,9 +24,13 @@ A **Recording Bar** sits on the page. Drag it by its left edge; it stays where y
 
 - **Pause:** nothing is recorded meanwhile, not the video and not the console, network, or actions, so you can type private data.
 - **Microphone:** on or off.
-- **Draw:** pen, arrow, and circle marks that fade after 3 seconds, and numbered **notes** that stay and go into the report with their time in the video.
+- **Draw:** pen, arrow, and circle marks that fade after 3 seconds, and numbered **notes** that stay and go into the report with their time in the video. **Clear** takes the marks away; <kbd>Esc</kbd> leaves Draw.
 - **Restart** and **Discard**, each after a confirmation.
 - **Stop.**
+
+<Screenshot src="/screenshots/recordings/recording-bar.png" alt="The Recording Bar: a red dot and the time, 4 errors caught, then Pause, Microphone, Draw, Restart, Discard, and Stop" />
+
+<Screenshot src="/screenshots/recordings/draw.png" alt="Draw mode on the checkout page: an arrow pointing at the Pay button, and note 1 saying Pay does nothing, no error shown, with the drawing tools above the bar" />
 
 A "REC" badge shows on the BugBerry icon while recording.
 
@@ -33,9 +39,13 @@ A "REC" badge shows on the BugBerry icon while recording.
 Any of these stops the recording:
 
 - **Stop** on the Recording Bar;
-- a click on the BugBerry icon;
-- <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>K</kbd> (<kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>K</kbd> on a Mac) or <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>S</kbd>;
+- **Stop and review** in the popup: click the BugBerry icon or press <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>K</kbd> (<kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>K</kbd> on a Mac) while recording, and the popup shows the recording's controls;
+- <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>S</kbd>;
 - the browser's own **Stop sharing**.
+
+<Screenshot src="/screenshots/recordings/popup-recording.png" alt="The popup while recording: REC, Recording this tab, the time, Stop and review, then Pause, Restart and Discard, and the counts of errors, failed requests and actions" width={380} />
+
+The popup shows the same controls as the bar, and the counts of errors, failed requests, and actions so far. Closing it keeps recording.
 
 A recording also stops by itself after 20 minutes of recording time (pauses don't count), before it would pass the server's upload limit (or, on BugBerry cloud, the workspace's file size or space left), or when the recorded tab is closed.
 
@@ -45,7 +55,7 @@ Recording carries on when the tab goes to another page. The report then notes th
 
 | Shortcut | Does |
 | --- | --- |
-| <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>K</kbd> (<kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>K</kbd>) | Open BugBerry, or stop a recording |
+| <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>K</kbd> (<kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>K</kbd>) | Open BugBerry; while recording, its recording controls |
 | <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>C</kbd> | Screenshot, with your last choice |
 | <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>R</kbd> | Record, with your last choice |
 | <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>S</kbd> | Stop recording |

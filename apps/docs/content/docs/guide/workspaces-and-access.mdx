@@ -7,11 +7,13 @@ description: Teams, invitations, and who can open a report.
 
 Every report, project, and integration belongs to one **workspace**: a team. Someone who signs up without an invitation automatically gets a workspace of their own and becomes its admin.
 
-One person can be in several workspaces. Switch with the picker at the top of the dashboard's sidebar, or with the **Workspace** option when you review a report in the extension.
+One person can be in several workspaces. Switch with the picker at the top left of the dashboard, or with **Save to** when you review a report in the extension. The picker also creates a workspace, or joins one with a code.
+
+<Screenshot src="/screenshots/workspaces-and-access/workspace-menu.png" alt="The workspace picker open: Find a workspace, the two workspaces with their role, Create workspace, Join workspace, Workspace settings and Invite members" width={720} />
 
 ## Projects and URL patterns
 
-Inside a workspace, **projects** group reports, for example one per app or site. Admins manage them under **Projects** in the sidebar.
+Inside a workspace, **projects** group reports, for example one per app or site. Admins manage them under **Projects** in the dashboard's top bar.
 
 A project can have **URL patterns**: when someone reports a bug on a page whose address matches one, the extension picks that project for them. They can still choose another before sending.
 
@@ -19,13 +21,17 @@ A project can have **URL patterns**: when someone reports a bug on a page whose 
 - A pattern without a path, such as `app.example.com`, covers every page on that host.
 - When patterns from several projects match, the most specific one wins.
 
-Set them from a project's menu under **Projects**, with **URL patterns**; the dialog lets you try an address before saving.
+Set them with **Edit** next to a project's patterns, or from its **⋯** menu with **URL patterns**. **Test a URL**, under the projects, shows which project an address would go to.
+
+<Screenshot src="/screenshots/workspaces-and-access/projects.png" alt="The Projects page: the Demo project with its pattern 127.0.0.1:4400, and Test a URL showing that http://127.0.0.1:4400/shop matches Demo" />
 
 ## Inviting people
 
-Joining someone else's workspace always takes an invitation. A workspace admin opens **Members** in the sidebar and types email addresses; BugBerry sends each an invitation link. A link is valid for 7 days and only works for the address it was sent to.
+Joining someone else's workspace always takes an invitation. A workspace admin opens **Members** in the top bar and types email addresses under **Invite teammates**, choosing **Member** or **Admin**; BugBerry sends each an invitation link. A link is valid for 7 days and only works for the address it was sent to.
 
-Admins can also change a member's role or remove them on the same page.
+Admins can also change a member's role or remove them on the same page. **Who can do what** sums up the roles: an **Owner** can delete the workspace, an **Admin** manages members, projects and integrations, and a **Member** records, views and comments on reports.
+
+<Screenshot src="/screenshots/workspaces-and-access/members.png" alt="The Members page: the member list, the Invite teammates box with Invite as Member and Send invites, and Who can do what" />
 
 ## Who can see a report
 
@@ -37,7 +43,9 @@ Every report has one of three access levels:
 | **Internal** | Anyone signed in with the same email domain as the reporter (for example everyone at `@example.com`), member or not, through the share link. Not available for free email providers such as Gmail. |
 | **Public** | Anyone with the share link, without signing in |
 
-Only the reporter or a workspace admin can change a report's access level.
+Only the reporter or a workspace admin can change a report's access level: on the report's page, open the arrow next to **Copy link**, under **Who can open this link**.
+
+<Screenshot src="/screenshots/workspaces-and-access/share.png" alt="Share report, opened from the arrow next to Copy link: Who can open this link, set to Workspace members only" width={428} />
 
 ## Your city
 

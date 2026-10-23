@@ -5,8 +5,10 @@ description: Send reports to issue trackers, post new reports to chat channels, 
 
 Integrations work on two levels:
 
-- **Connections, in the workspace.** Workspace admins connect an account or a channel once, under **Integrations** in the sidebar: a GitHub token, a Jira login, a Slack channel's webhook URL. A workspace can have several connections of the same provider (two GitHub accounts, a Slack channel per team); each gets a name.
+- **Connections, in the workspace.** Workspace admins connect an account or a channel once, under **Integrations** in the dashboard's top bar: a GitHub token, a Jira login, a Slack channel's webhook URL. A workspace can have several connections of the same provider (two GitHub accounts, a Slack channel per team); each gets a name.
 - **Uses, in a project.** Anyone in the workspace opens a project, then **Integrations** at the top of its reports, and uses a connection there. For a tracker they pick the repository, project or team from a list that comes straight from the account, plus its labels. A chat channel needs nothing more.
+
+<Screenshot src="/screenshots/trackers/integrations.png" alt="The Integrations page: Issue trackers and Notifications, then all ten integrations with a Connect button each" />
 
 There are two kinds:
 
@@ -127,7 +129,7 @@ See [Environment variables](/self-host/environment).
 
 ## AI agents (MCP)
 
-BugBerry runs an MCP server at `<APP_URL>/api/mcp`. AI apps such as Claude Code, Claude.ai, Cursor, VS Code, Windsurf, and ChatGPT connect to it, read reports, and work on them. Each person sets it up for themselves under **AI Agents (MCP)** in the sidebar; see [AI agents](/guide/ai-agents).
+BugBerry runs an MCP server at `<APP_URL>/api/mcp`. AI apps such as Claude Code, Claude.ai, Cursor, VS Code, Windsurf, and ChatGPT connect to it, read reports, and work on them. Each person sets it up for themselves under **AI Agents** in the dashboard's top bar; see [AI agents](/guide/ai-agents).
 
 What the server side needs:
 

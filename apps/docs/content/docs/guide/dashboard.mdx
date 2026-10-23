@@ -3,20 +3,34 @@ title: Dashboard
 description: Watch the bug happen next to the console, network, and actions, and keep track of it.
 ---
 
-Open the dashboard at your BugBerry address, under `/app`. Reports are listed per workspace and per project.
+Open the dashboard at your BugBerry address, under `/app`. **All reports** lists the workspace's reports; filter them by type, status, reporter, or project, search them (<kbd>Ctrl</kbd> <kbd>K</kbd>, <kbd>⌘</kbd> <kbd>K</kbd> on a Mac), and switch between cards and a list. A project's reports are under **Projects**.
+
+<Screenshot src="/screenshots/dashboard/reports.png" alt="All reports: three report cards with their screenshot, title, project and priority, under the top bar with All reports, AI Agents, Projects, Members and Integrations" />
 
 ## The report page
 
-The video or screenshot sits next to a DevTools-like panel with the captured data: **Console**, **Network**, **Actions**, and the **Info** tab with details about the browser, the screen, the page, and the notes made during recording.
+The video or screenshot sits next to a side panel with two tabs. It opens on **DevTools**, with the captured data:
 
-- Click an event's time, or a note's in the Info tab, to jump the video to that moment.
+- **Overview:** the notes made during recording, the pages visited, and details about the session, the browser, the screen, and the network.
+- **Activity:** your clicks, keys, and page changes.
+- **Console** and **Network**, each with a count of what went wrong.
+
+**Details** holds the report's properties and its comments. On screens narrower than 1280 px the panel sits below the report. You can hide the panel, or drag its left edge to make it wider.
+
+<Screenshot src="/screenshots/dashboard/report.png" alt="A report in the dashboard: the recording on the left, and on the right the DevTools tab with Console open, listing Payment failed: card_declined and the failed POST /api/pay requests" />
+
+- Click an event's time, or a note's in the Overview tab, to jump the video to that moment.
 - Notes and pauses are marked on the video's timeline.
 - While the video plays, the nearest event before the playback position is highlighted, and the list scrolls along.
 - Failed requests and errors are flagged, and BugBerry points at the files and lines in the page's code that failed.
 
 ## Working on a report
 
+Open **Details** in the side panel for this part.
+
 - **Status, priority, and assignee** keep track of who is on it.
 - **Comments** discuss it; type `@` to mention a workspace member, who gets a notification.
 - The **More** menu moves it into a project, sends it to GitHub Issues or ActiveCollab (see [Tracker integrations](/guide/trackers)), and copies it for an AI chat.
-- **Share** it with a link; who can open the link depends on its access level.
+- **Copy link** shares it; who can open the link depends on its access level, set from the arrow next to it.
+
+<Screenshot src="/screenshots/dashboard/details.png" alt="The Details tab: Status, Priority and Assignee, the reporter, project and date, and a comment under Comments" />

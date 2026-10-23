@@ -5,6 +5,8 @@ description: Google, GitHub, GitLab, and email codes, and how to decide who may 
 
 The sign-in page shows only the methods you configure. Each is optional, but at least one must be on; the server refuses to start without one.
 
+<Screenshot src="/screenshots/self-host/sign-in.png" alt="The sign-in page with Google and email codes on: Continue with Google, then Work email and Continue" />
+
 The rules are the same for every method: the email must be verified, and when `ALLOWED_EMAIL_DOMAINS` is set, only those domains can sign in. The same person with the same verified email always lands in the same account, whichever method they use.
 
 A provider is on when both its client ID and secret are set. Setting only one of them is an error.
