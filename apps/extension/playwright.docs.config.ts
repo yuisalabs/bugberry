@@ -12,6 +12,6 @@ export default defineConfig({
     url: "http://127.0.0.1:3999/api/health",
     reuseExistingServer: false,
     timeout: 60_000,
-    env: { E2E_STATE_FILE: "docs-shots/.state.json" },
+    env: { E2E_STATE_FILE: "docs-shots/.state.json", E2E_USER_NAME: "Alex Morgan" },
   },
 })

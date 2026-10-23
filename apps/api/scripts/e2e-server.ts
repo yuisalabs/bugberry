@@ -59,7 +59,9 @@ const config: Config = {
 const db = createDb(config.databaseUrl)
 await runMigrations(db)
 await db.execute(sql.raw(`TRUNCATE TABLE "workspace_invitation", "workspace_member", "workspace", "report_external_link", "integration", "comment", "report", "project", "api_token", "session", "account", "verification", "user" CASCADE`))
-const { token, userId } = await issueExtensionToken(db, config, { email: "e2e@kantor.test", name: "E2E" })
+// The guide's pictures (docs:screenshots) show the name on notes and reports, so they set a natural one.
+const userName = process.env.E2E_USER_NAME ?? "E2E"
+const { token, userId } = await issueExtensionToken(db, config, { email: "e2e@kantor.test", name: userName })
 // The E2E user works in "Demo", which holds the demo page's project.
 const demoWorkspace = await createWorkspace(db, userId, "Demo")
 await db
