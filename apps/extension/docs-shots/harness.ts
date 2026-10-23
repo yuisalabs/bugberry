@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync } from "node:fs"
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname } from "node:path"
 import { fileURLToPath } from "node:url"
 import { type BrowserContext, chromium, expect, type Frame, type Locator, type Page, type Worker } from "@playwright/test"
@@ -113,12 +113,49 @@ export async function shot(
   const common = { path, animations: "disabled", caret: "hide", scale: "device" } as const
   if ("goto" in target) {
     const popup = target.url().endsWith("/popup.html")
+    if (popup && !(await fitPopup(target))) {
+      // The real toolbar popup can't be resized, and Chrome caps its height: Chrome draws it past its window.
+      const box = await target.locator("main").first().boundingBox()
+      if (!box) throw new Error("No popup content")
+      const cdp = await target.context().newCDPSession(target)
+      const { data } = (await cdp.send("Page.captureScreenshot", {
+        format: "png",
+        captureBeyondViewport: true,
+        clip: { ...box, scale: 1 },
+      })) as { data: string }
+      writeFileSync(path, Buffer.from(data, "base64"))
+      return
+    }
     const clip = options.clip ?? (popup ? ((await target.locator("main").first().boundingBox()) ?? undefined) : undefined)
-    // The toolbar popup's window can be shorter than its content: the whole page, cut to the popup.
-    await target.screenshot({ ...common, clip, fullPage: popup })
+    // A popup taller than its window would be cut off: never picture it.
+    if (popup && clip) {
+      const height = await target.evaluate(() => window.innerHeight)
+      expect(clip.y + clip.height, "the popup is taller than its window").toBeLessThanOrEqual(height + 0.5)
+    }
+    await target.screenshot({ ...common, clip })
   } else {
     await target.screenshot(common)
   }
+}
+
+/**
+ * popup.html in a tab: its viewport becomes the popup's own size, at 2×, fitted until it settles (a new height can
+ * reflow it a little taller). False for the real toolbar popup, whose window can't be resized.
+ */
+async function fitPopup(page: Page): Promise<boolean> {
+  const cdp = await page.context().newCDPSession(page)
+  const bottom = () => page.evaluate(() => Math.ceil(document.querySelector("main")?.getBoundingClientRect().bottom ?? 600))
+  for (let height = await bottom(), tries = 0; tries < 4; tries++) {
+    const fitted = await cdp
+      .send("Emulation.setDeviceMetricsOverride", { width: 380, height, deviceScaleFactor: 2, mobile: false })
+      .then(() => true, () => false)
+    if (!fitted) return false
+    await page.waitForTimeout(300)
+    const next = await bottom()
+    if (next <= height) break
+    height = next
+  }
+  return true
 }
 
 /** The review over the shop, in an extension iframe inside a closed shadow root: found by its URL. */
