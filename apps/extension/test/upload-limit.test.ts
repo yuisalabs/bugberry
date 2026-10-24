@@ -1,6 +1,15 @@
 import { describe, expect, test } from "bun:test"
 import { MAX_RECORDING_MS } from "../lib/recorder"
-import { clientConfigInTime, recordingByteBudget, recordingLengthMs, uploadLimitMb, workspaceLimitsInTime } from "../lib/upload-limit"
+import { BUGBERRY_CLOUD_ORIGIN } from "../lib/settings"
+import {
+  clientConfigInTime,
+  expectedRecordingSeconds,
+  recordingByteBudget,
+  recordingLengthMs,
+  signedOutForLength,
+  uploadLimitMb,
+  workspaceLimitsInTime,
+} from "../lib/upload-limit"
 
 describe("uploadLimitMb", () => {
   test("uses the server's number", () => {
@@ -48,6 +57,12 @@ describe("recordingLengthMs", () => {
     expect(recordingLengthMs(null, { maxRecordingSeconds: 120 }, false)).toBe(MAX_RECORDING_MS)
   })
 
+  test("signed out, with the server's answer not in time: the length the server is expected to name", () => {
+    expect(recordingLengthMs(null, null, true, 120)).toBe(120_000)
+    expect(recordingLengthMs(null, { maxRecordingSeconds: 300 }, true, 120)).toBe(300_000)
+    expect(recordingLengthMs(null, null, false, 120)).toBe(MAX_RECORDING_MS)
+  })
+
   test("a 0.7.0 server names no length: 20 minutes", () => {
     expect(recordingLengthMs({ limited: true, ...counts }, {})).toBe(MAX_RECORDING_MS)
   })
@@ -55,5 +70,31 @@ describe("recordingLengthMs", () => {
   test("never past 20 minutes", () => {
     expect(recordingLengthMs(null, { maxRecordingSeconds: 7200 }, true)).toBe(MAX_RECORDING_MS)
     expect(recordingLengthMs({ limited: true, ...counts, maxRecordingMs: 7_200_000 }, null)).toBe(MAX_RECORDING_MS)
+  })
+})
+
+describe("expectedRecordingSeconds", () => {
+  test("BugBerry cloud takes recordings up to 2 minutes; another server isn't known", () => {
+    expect(expectedRecordingSeconds(BUGBERRY_CLOUD_ORIGIN)).toBe(120)
+    expect(expectedRecordingSeconds("https://bugs.example.com")).toBeNull()
+  })
+})
+
+describe("signedOutForLength", () => {
+  const counts = { screenshots: { used: 0, max: 5 }, recordings: { used: 0, max: 5 } }
+
+  test("a 401 says so", () => {
+    expect(signedOutForLength(true, null, { kind: "signed-in", name: "A", email: "a@example.com" })).toBe(true)
+  })
+
+  test("without an answer from the server, the popup's last check says so", () => {
+    expect(signedOutForLength(false, null, { kind: "signed-out" })).toBe(true)
+    expect(signedOutForLength(false, null, { kind: "signed-in", name: "A", email: "a@example.com" })).toBe(false)
+    expect(signedOutForLength(false, null, { kind: "unreachable", host: "bugs.example.com" })).toBe(false)
+    expect(signedOutForLength(false, null, null)).toBe(false)
+  })
+
+  test("a workspace the server answered for means signed in", () => {
+    expect(signedOutForLength(false, { limited: true, ...counts, maxRecordingMs: 120_000 }, { kind: "signed-out" })).toBe(false)
   })
 })
