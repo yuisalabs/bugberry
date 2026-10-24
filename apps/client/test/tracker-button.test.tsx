@@ -28,6 +28,12 @@ describe("TrackerButtonView", () => {
     expect(onSend).toHaveBeenCalledWith("gh")
   })
 
+  test("it looks like Copy link: the arrow in a part of its own, split off by a line", () => {
+    view([github])
+    const arrow = screen.getByRole("button", { name: "Send to tracker" }).querySelector("[data-slot=split-arrow]")
+    expect(arrow?.className).toContain("border-l")
+  })
+
   test("every tracker is a choice inside", () => {
     const { onSend } = view([github, activecollab])
     openMenu()

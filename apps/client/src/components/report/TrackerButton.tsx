@@ -17,10 +17,16 @@ export function TrackerButtonView({ items, onSend }: { items: TrackerItem[]; onS
   if (items.length === 0) return null
   return (
     <MenuTrigger>
-      <Button size="sm" className={LEAF}>
+      {/* Shaped like Copy link, the arrow split off by a line; the whole button opens the trackers. */}
+      <Button size="sm" className={`${LEAF} pr-0`}>
         <RiShareForwardLine aria-hidden />
         Send to tracker
-        <RiArrowDownSLine aria-hidden />
+        <span
+          data-slot="split-arrow"
+          className="ml-1.5 -my-[calc(--spacing(1.5)-1px)] flex items-center self-stretch border-l border-white/25 px-2"
+        >
+          <RiArrowDownSLine aria-hidden className="size-4 text-white" />
+        </span>
       </Button>
       <Menu placement="bottom end" className="min-w-64">
         {items.map((entry) => (
