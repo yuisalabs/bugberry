@@ -34,7 +34,7 @@ export function App({ token, embedded }: { token: string; embedded: boolean }) {
     if (!server) return
     void Promise.all([loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN), store.list()]).then(([settings, drafts]) => {
       const current = settings?.serverUrl ?? null
-      setNotes(confirmNotes(drafts, server, current, current ? serverLabel(current, BUILD_SERVER_ORIGIN) : ""))
+      setNotes(confirmNotes(drafts, server, current, current ? serverLabel(current) : ""))
     })
   }, [server])
 

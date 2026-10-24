@@ -104,7 +104,7 @@ function SettingsBody({ embedded, token }: { embedded: boolean; token: string })
       </h1>
       {settings && (
         <section className={card}>
-          <p className="text-sm">Server: {serverLabel(settings.serverUrl, BUILD_SERVER_ORIGIN)}</p>
+          <p className="text-sm">Server: {serverLabel(settings.serverUrl)}</p>
           {session?.kind === "signed-in" && (
             <p role="status" className="text-sm text-success-subtle-foreground">
               Signed in as {session.name} ({session.email})
@@ -127,7 +127,7 @@ function SettingsBody({ embedded, token }: { embedded: boolean; token: string })
           )}
           {BUILD_SERVER_ORIGIN && settings.serverUrl !== BUILD_SERVER_ORIGIN && (
             <Button size="sm" intent="outline" className="self-start" isDisabled={busy || !seen} onPress={() => void useServer(BUILD_SERVER_ORIGIN)}>
-              Use BugBerry cloud
+              Use {serverLabel(BUILD_SERVER_ORIGIN)}
             </Button>
           )}
         </section>

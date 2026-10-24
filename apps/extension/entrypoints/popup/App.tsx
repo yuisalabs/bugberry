@@ -255,7 +255,7 @@ export function App() {
       {dialog}
       <PopupView
         session={session}
-        serverHost={settings ? serverLabel(settings.serverUrl, BUILD_SERVER_ORIGIN) : ""}
+        serverHost={settings ? serverLabel(settings.serverUrl) : ""}
         prefs={prefs}
         mic={{ ...mic, level }}
         recording={recording}

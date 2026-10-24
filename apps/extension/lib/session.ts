@@ -1,5 +1,5 @@
 import { ApiError } from "./api"
-import type { Settings } from "./settings"
+import { BUGBERRY_CLOUD_ORIGIN, type Settings } from "./settings"
 
 export type SessionState =
   | { kind: "signed-in"; name: string; email: string }
@@ -40,7 +40,11 @@ export function signInUrl(serverUrl: string): string {
   return `${serverUrl}/login`
 }
 
-/** "BugBerry cloud" for the build-time server, otherwise the server's host. */
-export function serverLabel(serverUrl: string, buildDefault: string): string {
-  return buildDefault && serverUrl === buildDefault ? "BugBerry cloud" : new URL(serverUrl).host
+/**
+ * "BugBerry cloud" for BugBerry's own server, otherwise the server's host. Not the build-time server: a self-hosted
+ * or local build bakes in its own (VITE_SERVER_ORIGIN), and calling that BugBerry cloud hid where reports go.
+ */
+export function serverLabel(serverUrl: string): string {
+  const url = new URL(serverUrl)
+  return url.origin === BUGBERRY_CLOUD_ORIGIN ? "BugBerry cloud" : url.host
 }

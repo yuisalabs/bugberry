@@ -3,7 +3,7 @@ import { createCapturePrefsStorage } from "./capture-prefs"
 import type { SessionState } from "./session"
 import { defaultServerUrl, type SettingsStorage } from "./settings"
 
-/** BugBerry cloud for a store build; empty for a build without VITE_SERVER_ORIGIN. */
+/** The server built in: BugBerry cloud for a store build, a self-hoster's own, or empty without VITE_SERVER_ORIGIN. */
 export const BUILD_SERVER_ORIGIN = defaultServerUrl((import.meta.env as Record<string, string | undefined>).VITE_SERVER_ORIGIN)
 
 export const browserSettingsStorage: SettingsStorage = {

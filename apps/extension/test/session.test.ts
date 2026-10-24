@@ -64,10 +64,16 @@ describe("signInUrl and serverLabel", () => {
     expect(signInUrl("https://bugberry.kantor.com")).toBe("https://bugberry.kantor.com/login")
   })
 
-  test("the build-time server is BugBerry cloud; others show their host", () => {
-    expect(serverLabel("https://app.bugberry.dev", "https://app.bugberry.dev")).toBe("BugBerry cloud")
-    expect(serverLabel("https://bugberry.kantor.com", "https://app.bugberry.dev")).toBe("bugberry.kantor.com")
-    expect(serverLabel("http://localhost:5173", "")).toBe("localhost:5173")
+  test("only BugBerry's own server is BugBerry cloud; every other shows its host", () => {
+    expect(serverLabel("https://bugberry.yuisalabs.com")).toBe("BugBerry cloud")
+    expect(serverLabel("https://bugberry.yuisalabs.com/")).toBe("BugBerry cloud")
+    expect(serverLabel("https://bugberry.kantor.com")).toBe("bugberry.kantor.com")
+  })
+
+  test("a server built in (VITE_SERVER_ORIGIN) is not BugBerry cloud unless it is BugBerry's own", () => {
+    // A self-hosted or local build bakes in its own server; calling it BugBerry cloud hid where reports go.
+    expect(serverLabel("http://localhost:5173")).toBe("localhost:5173")
+    expect(serverLabel("https://bugberry.kantor.com")).toBe("bugberry.kantor.com")
   })
 })
 
