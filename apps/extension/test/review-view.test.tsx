@@ -460,3 +460,39 @@ describe("the ends of the strip", () => {
     expect(changed.mock.calls.at(-1)?.[0]).toBeNull()
   })
 })
+
+describe("the strip's preview", () => {
+  test("its play button plays the selection, and reads Pause selection while it plays", () => {
+    const play = mock()
+    const { rerender, props } = view({ onTrimPlay: play })
+    fireEvent.click(button("Trim"))
+    fireEvent.click(button("Play selection"))
+    expect(play).toHaveBeenCalledTimes(1)
+    rerender(<ReviewView {...props} trimPlaying />)
+    expect(button("Pause selection")).toBeTruthy()
+  })
+
+  test("moving an edge tells the page the range being edited, so the player follows it", () => {
+    const editing = mock()
+    view({ onTrimEditing: editing })
+    fireEvent.click(button("Trim"))
+    expect(editing.mock.calls.at(-1)?.[0]).toEqual({ startMs: 0, endMs: 42_000 })
+    const start = screen.getByLabelText("Trim start")
+    for (let i = 0; i < 10; i++) fireEvent.keyDown(start, { key: "ArrowRight" })
+    expect(editing.mock.calls.at(-1)?.[0]).toEqual({ startMs: 1000, endMs: 42_000 })
+    fireEvent.click(button("Done"))
+    expect(editing.mock.calls.at(-1)?.[0]).toBeNull()
+  })
+
+  test("the playhead stands where the player is", () => {
+    const { container } = view({ trimPosition: 21_000 })
+    fireEvent.click(button("Trim"))
+    expect((container.querySelector("[data-playhead]") as HTMLElement).style.left).toBe("50%")
+  })
+
+  test("each edge is a handle with a grip", () => {
+    const { container } = view()
+    fireEvent.click(button("Trim"))
+    expect(container.querySelectorAll("[data-grip]")).toHaveLength(2)
+  })
+})

@@ -12,6 +12,7 @@ import {
   markerLabel,
   formatClock,
   msUntilRangeEnd,
+  playFrom,
   PLAYBACK_RATES,
   placeMarkers,
   SEEK_STEP_SECONDS,
@@ -133,8 +134,9 @@ export function VideoPlayer({
     player.on("timeupdate", reportTime)
     player.on("seeked", reportTime)
     player.on("play", () => {
-      const range = latest.current.range
-      if (range && clampToRange(player.currentTime() ?? 0, range).atEnd) player.currentTime(range.startMs / 1000)
+      const now = player.currentTime() ?? 0
+      const from = playFrom(now, latest.current.range)
+      if (from !== now) player.currentTime(from)
     })
     player.on(["playing", "seeked", "ratechange"], scheduleStop)
     player.on("pause", scheduleStop)
@@ -142,7 +144,10 @@ export function VideoPlayer({
     player.on("loadedmetadata", () => {
       fixDuration()
       const start = latest.current.startAtSeconds
+      const range = latest.current.range
       if (start && start > 0) player.currentTime(start)
+      // A trimmed recording opens at the start of the part that is kept.
+      else if (range) player.currentTime(range.startMs / 1000)
       latest.current.onLoadedMetadata?.()
     })
     player.on("durationchange", fixDuration)

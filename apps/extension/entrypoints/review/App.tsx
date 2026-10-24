@@ -91,7 +91,11 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
   // Recordings: the part that is sent, whether its Trim strip is open, the strip's frames, and how far the
   // trimmed video's encoding is while sending (null when it isn't encoding).
   const [trim, setTrim] = useState<TrimRange | null>(null)
-  const [trimming, setTrimming] = useState(false)
+  /** The range in the open Trim strip as it moves; null while the strip is closed. */
+  const [editing, setEditing] = useState<TrimRange | null>(null)
+  // Where the player is and whether it plays, for the strip's playhead and play button.
+  const [position, setPosition] = useState(0)
+  const [playing, setPlaying] = useState(false)
   const [frames, setFrames] = useState<string[] | null>(null)
   const [preparing, setPreparing] = useState<number | null>(null)
   const [locked, setLocked] = useState(false)
@@ -282,13 +286,26 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
   }, [preparing])
 
   const changeTrim = async (range: TrimRange | null) => {
-    setTrimming(false)
+    setEditing(null)
     setTrim(range)
+    // The preview goes to the start of the part that is kept.
+    if (video.current) video.current.currentTime = (range?.startMs ?? 0) / 1000
     await writeDraft(draftId, (current) => draftWithTrim(current, range))
   }
 
+  /** The strip's play button: plays the part being kept (the player keeps inside it), or pauses. */
+  const playTrim = () => {
+    const player = video.current
+    if (!player) return
+    if (player.paused) {
+      void player.play().then(() => setPlaying(true))
+    } else {
+      player.pause()
+      setPlaying(false)
+    }
+  }
+
   const openTrim = () => {
-    setTrimming(true)
     if (frames || loaded?.draft.captureType !== "video" || !loaded.draft.video) return
     setFrames([])
     void videoFrames(loaded.draft.video, loaded.draft.durationMs ?? 0, 10).then(setFrames)
@@ -384,7 +401,12 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
             markers={reviewMarkers(markerEvents, startedAt)}
             videoRef={video}
             // While the strip is open, its edges may show moments outside the current range.
-            range={trimming ? null : trim}
+            // While the strip is open the player follows its edges, so its play button plays what would be kept.
+            range={editing ?? trim}
+            onTime={(ms) => {
+              setPosition(ms)
+              setPlaying(Boolean(video.current && !video.current.paused))
+            }}
             className="w-full"
           />
         ) : loaded.image ? (
@@ -404,6 +426,10 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       trimLocked={locked}
       trimFrames={frames ?? []}
       onTrimOpen={openTrim}
+      onTrimEditing={setEditing}
+      trimPosition={position}
+      trimPlaying={playing}
+      onTrimPlay={playTrim}
       onTrimChange={(range) => void changeTrim(range)}
       onTrimPreview={(ms) => {
         if (video.current) video.current.currentTime = ms / 1000

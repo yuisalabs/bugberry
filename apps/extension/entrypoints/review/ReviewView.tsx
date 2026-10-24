@@ -138,6 +138,14 @@ export interface ReviewViewProps {
   onTrimPreview?(ms: number): void
   /** When Trim opens, so the page can make the strip's frames. */
   onTrimOpen?(): void
+  /** The range in the open Trim strip as it is being moved, for the player to follow; null once it closes. */
+  onTrimEditing?(range: TrimRange | null): void
+  /** Where the player is (ms), for the strip's playhead. */
+  trimPosition?: number
+  /** Whether the player is playing, for the strip's play button. */
+  trimPlaying?: boolean
+  /** The strip's play button: plays the part being kept, or pauses. */
+  onTrimPlay?(): void
   /** While sending a trimmed video: how far its encoding is (0–1); null otherwise. */
   preparing?: number | null
 }
@@ -197,7 +205,11 @@ export function ReviewView(props: ReviewViewProps) {
   const trim = isTrimmed(props.trim, durationMs) ? props.trim : null
   const stats = reviewStats(trim && draft.debuggerPayload ? trimPayload(draft.debuggerPayload, startedAt, trim).events : events)
   /** The range being edited in the open Trim strip; null while it is closed. */
-  const [editing, setEditing] = useState<TrimRange | null>(null)
+  const [editing, setEditingState] = useState<TrimRange | null>(null)
+  const setEditing = (range: TrimRange | null) => {
+    setEditingState(range)
+    props.onTrimEditing?.(range)
+  }
   const sending = props.status === "sending"
   const sent = typeof props.status === "object" && "sent" in props.status ? props.status.sent : null
 
@@ -263,8 +275,11 @@ export function ReviewView(props: ReviewViewProps) {
                   durationMs={durationMs}
                   value={editing}
                   frames={props.trimFrames ?? []}
+                  positionMs={props.trimPosition ?? 0}
+                  playing={props.trimPlaying ?? false}
                   onChange={setEditing}
                   onPreview={(ms) => props.onTrimPreview?.(ms)}
+                  onPlay={() => props.onTrimPlay?.()}
                   onReset={() => setEditing({ startMs: 0, endMs: durationMs })}
                   onDone={doneTrim}
                 />

@@ -41,6 +41,12 @@ export function clampToRange(seconds: number, range: PlayRange | null | undefine
   return { seconds, atEnd: false }
 }
 
+/** Where play starts: inside the range it goes on, before its start or at its end it starts at its start. */
+export function playFrom(seconds: number, range: PlayRange | null | undefined): number {
+  const kept = clampToRange(seconds, range)
+  return kept.atEnd && range ? range.startMs / 1000 : kept.seconds
+}
+
 /** Milliseconds of playback left before the range's end at this speed; null without a range. */
 export function msUntilRangeEnd(seconds: number, range: PlayRange | null | undefined, rate: number): number | null {
   if (!range) return null
