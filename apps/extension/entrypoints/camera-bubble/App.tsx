@@ -70,8 +70,6 @@ export function CameraBubble(props: {
       ref={surface}
       data-camera-surface
       className="group relative h-screen w-screen cursor-grab overflow-hidden bg-[#1c1022] active:cursor-grabbing"
-      // A white edge, drawn inside so the frame's own size stays the bubble's.
-      style={{ boxShadow: "inset 0 0 0 3px #fff" }}
       onPointerDown={(event) => startBarDrag(event.nativeEvent, event.currentTarget, { post: postToPage })}
     >
       <video
@@ -83,6 +81,12 @@ export function CameraBubble(props: {
         style={{ transform: "scaleX(-1)" }}
         className="pointer-events-none size-full object-cover"
         onPlaying={() => void ask({ type: "bugberry:camera-ticket", token, action: "ready" }).catch(() => {})}
+      />
+      {/* The white edge: drawn above the picture (the video would cover a shadow on the surface), in the bubble's shape. */}
+      <span
+        data-slot="camera-edge"
+        aria-hidden
+        className={`pointer-events-none absolute inset-0 shadow-[inset_0_0_0_3px_#fff] ${round ? "rounded-full" : "rounded-2xl"}`}
       />
       {/* Top-right, on the circle's edge for a circle: shown while the pointer is over the bubble. */}
       <button
