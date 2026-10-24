@@ -39,9 +39,13 @@ describe("recordingLengthMs", () => {
   })
 
   test("signed out or unknown: the server's account length, else 20 minutes", () => {
-    expect(recordingLengthMs(null, { maxRecordingSeconds: 120 })).toBe(120_000)
-    expect(recordingLengthMs(null, { maxRecordingSeconds: null })).toBe(MAX_RECORDING_MS)
-    expect(recordingLengthMs(null, null)).toBe(MAX_RECORDING_MS)
+    expect(recordingLengthMs(null, { maxRecordingSeconds: 120 }, true)).toBe(120_000)
+    expect(recordingLengthMs(null, { maxRecordingSeconds: null }, true)).toBe(MAX_RECORDING_MS)
+    expect(recordingLengthMs(null, null, true)).toBe(MAX_RECORDING_MS)
+  })
+
+  test("signed in, with the workspace not known in time: 20 minutes, the server judges at Send", () => {
+    expect(recordingLengthMs(null, { maxRecordingSeconds: 120 }, false)).toBe(MAX_RECORDING_MS)
   })
 
   test("a 0.7.0 server names no length: 20 minutes", () => {
@@ -49,7 +53,7 @@ describe("recordingLengthMs", () => {
   })
 
   test("never past 20 minutes", () => {
-    expect(recordingLengthMs(null, { maxRecordingSeconds: 7200 })).toBe(MAX_RECORDING_MS)
+    expect(recordingLengthMs(null, { maxRecordingSeconds: 7200 }, true)).toBe(MAX_RECORDING_MS)
     expect(recordingLengthMs({ limited: true, ...counts, maxRecordingMs: 7_200_000 }, null)).toBe(MAX_RECORDING_MS)
   })
 })

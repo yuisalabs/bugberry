@@ -117,7 +117,14 @@ describe("loadEditor", () => {
       },
     })
     const state = await loadEditor("v1", out, () => false)
-    expect(state).toMatchObject({ kind: "loaded", videoUrl: "blob:video", signedOut: true, workspaces: [], projectsError: null })
+    expect(state).toMatchObject({
+      kind: "loaded",
+      videoUrl: "blob:video",
+      signedOut: true,
+      signInUrl: "https://bugberry.kantor.test/login",
+      workspaces: [],
+      projectsError: null,
+    })
     expect(asked).toBe(0)
   })
 
@@ -125,6 +132,7 @@ describe("loadEditor", () => {
     const { deps: back } = deps()
     expect(await loadDestination(settings, video, back)).toMatchObject({
       signedOut: false,
+      signInUrl: null,
       workspaceId: "w2",
       email: "budi@ptmaju.com",
       projects: [{ id: "p-w2" }],

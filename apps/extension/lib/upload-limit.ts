@@ -47,12 +47,13 @@ export function uploadLimitMb(clientConfig: unknown): number {
 
 /**
  * How long a recording may run: the workspace's length under ACCOUNT_LIMITS, 20 minutes in a workspace that isn't
- * limited. Signed out, or with the workspace unknown, the server's account length from `/client-config` (null on a
- * server without limits); 20 minutes when that isn't known either. Never past 20 minutes.
+ * limited. Signed out, the server's account length from `/client-config` (null on a server without limits). Signed
+ * in with the workspace not known in time, 20 minutes: it may be unlimited, and the server judges at Send. Never
+ * past 20 minutes.
  */
-export function recordingLengthMs(limits: WorkspaceLimits | null, clientConfig: unknown): number {
+export function recordingLengthMs(limits: WorkspaceLimits | null, clientConfig: unknown, signedOut = false): number {
   if (limits?.limited === false) return MAX_RECORDING_MS
-  const seconds = configNumber(clientConfig, "maxRecordingSeconds")
+  const seconds = signedOut ? configNumber(clientConfig, "maxRecordingSeconds") : null
   const length = limits?.limited ? limits.maxRecordingMs : seconds === null ? undefined : seconds * 1000
   return Math.min(length ?? MAX_RECORDING_MS, MAX_RECORDING_MS)
 }

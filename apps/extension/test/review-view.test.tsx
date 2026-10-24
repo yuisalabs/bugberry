@@ -142,6 +142,17 @@ describe("what the review shows", () => {
     }
   })
 
+  test("signed out, a draft that failed before offers no way to send but signing in", () => {
+    view({ signInUrl: "https://bugberry.test/login", status: { failed: "Upload failed" }, trim: { startMs: 0, endMs: 1000 } })
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull()
+    expect(button("Sign in to send")).toBeTruthy()
+  })
+
+  test("signed out, a trim that couldn't be made offers no full video to send", () => {
+    view({ signInUrl: "https://bugberry.test/login", status: { trimFailed: "no encoder" } })
+    expect(screen.queryByRole("button", { name: "Send full video" })).toBeNull()
+  })
+
   test("a screenshot shows its kind and size", () => {
     view({ draft: screenshot, mediaSize: { width: 1920, height: 945 } })
     expect(screen.getByText("Screenshot")).toBeTruthy()

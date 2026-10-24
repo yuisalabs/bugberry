@@ -1,5 +1,6 @@
 import type { Project, Workspace } from "./api"
 import { isSignedOut } from "./popup"
+import { signInUrl } from "./session"
 import { pickEditorWorkspace } from "./report-form"
 import type { Settings } from "./settings"
 import type { ReportDraft } from "./types"
@@ -38,6 +39,8 @@ export type EditorState =
       interrupted: boolean
       /** Not signed in: the draft is kept and can be sent after signing in. */
       signedOut: boolean
+      /** Signed out: where to sign in before sending; null otherwise. */
+      signInUrl: string | null
     }
 
 function messageOf(error: unknown): string {
@@ -100,7 +103,7 @@ export async function loadEditor(draftId: string, deps: EditorDeps, isCancelled:
 /** Where the draft goes and who is sending it. Loaded again after signing in, without reopening the draft. */
 export type Destination = Pick<
   Extract<EditorState, { kind: "loaded" }>,
-  "workspaces" | "workspaceId" | "email" | "name" | "projects" | "projectsError" | "signedOut"
+  "workspaces" | "workspaceId" | "email" | "name" | "projects" | "projectsError" | "signedOut" | "signInUrl"
 >
 
 export async function loadDestination(
@@ -134,5 +137,14 @@ export async function loadDestination(
     pickEditorWorkspace(workspaces, draft.form?.workspaceId, dashboardWorkspaceId, lastSent) ?? (workspacesError ? preferred : null)
   const { projects, error } =
     workspacesError || signedOut ? { projects: [], error: workspacesError } : await loadProjects(deps, settings, workspaceId)
-  return { workspaces, workspaceId, email, name, projects, projectsError: error, signedOut }
+  return {
+    workspaces,
+    workspaceId,
+    email,
+    name,
+    projects,
+    projectsError: error,
+    signedOut,
+    signInUrl: signedOut ? signInUrl(settings.serverUrl) : null,
+  }
 }

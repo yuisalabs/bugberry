@@ -47,6 +47,7 @@ import { cropBox, pickArea } from "../lib/select-area"
 import { loadSettings } from "../lib/settings"
 import { clientConfigInTime, DEFAULT_MAX_UPLOAD_MB, recordingByteBudget, recordingLengthMs, uploadLimitMb, workspaceLimitsInTime } from "../lib/upload-limit"
 import { limitsFor } from "../lib/limits"
+import { isSignedOut } from "../lib/popup"
 import { pickEditorWorkspace } from "../lib/report-form"
 
 /** Casts keep these valid before WXT has generated the path types for the pages. */
@@ -324,22 +325,28 @@ export default defineBackground(() => {
 
   /**
    * Where a recording stops by itself: before the server's upload limit, and at the longest recording the
-   * workspace the review will pick takes. Signed out, that workspace can't be read (401), so the server's account
-   * length from `/client-config` applies.
+   * workspace the review will pick takes. Signed out (401), the server's account length from `/client-config`
+   * applies instead.
    */
   const recordingCaps = async (): Promise<{ maxBytes: number; maxMs: number }> => {
     const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
     if (!settings) return { maxBytes: recordingByteBudget(DEFAULT_MAX_UPLOAD_MB), maxMs: recordingLengthMs(null, null) }
     const api = createBugberryApi(settings)
+    let signedOut = false
     const [clientConfig, limits] = await Promise.all([
       clientConfigInTime(() => api.clientConfig()),
       workspaceLimitsInTime(async () => {
-        const [workspaces, me, lastUsed] = await Promise.all([api.listWorkspaces(), api.me(), lastWorkspaceStorage.get()])
+        const [workspaces, me, lastUsed] = await Promise.all([api.listWorkspaces(), api.me(), lastWorkspaceStorage.get()]).catch(
+          (error: unknown) => {
+            signedOut = isSignedOut(error)
+            throw error
+          },
+        )
         const workspaceId = pickEditorWorkspace(workspaces, (me as { lastWorkspaceId?: string | null }).lastWorkspaceId, lastUsed)
         return workspaceId ? limitsFor(api, workspaceId) : null
       }),
     ])
-    return { maxBytes: recordingByteBudget(uploadLimitMb(clientConfig)), maxMs: recordingLengthMs(limits, clientConfig) }
+    return { maxBytes: recordingByteBudget(uploadLimitMb(clientConfig)), maxMs: recordingLengthMs(limits, clientConfig, signedOut) }
   }
 
   /** Without options (the shortcut) the popup's stored choices apply. */

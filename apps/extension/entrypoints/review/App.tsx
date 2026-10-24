@@ -69,6 +69,7 @@ type Loaded = {
   name: string | null
   projects: Project[]
   signedOut: boolean
+  signInUrl: string | null
 }
 
 /** The review: over the recorded page (embedded in the page layer's iframe) or in a tab of its own. */
@@ -86,8 +87,6 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
   // The selected workspace under ACCOUNT_LIMITS: its usage for this kind, and whether "Create report" waits.
   const [limitNote, setLimitNote] = useState<LimitNote>(NO_LIMIT_NOTE)
   const [members, setMembers] = useState<Assignable[]>([])
-  /** Signed out: where to sign in before sending. The draft is kept meanwhile. */
-  const [signInAt, setSignInAt] = useState<string | null>(null)
   // After sending: the report as the server has it, and the trackers it can go to.
   const [sentDetails, setSentDetails] = useState<SentDetails | null>(null)
   const [trackers, setTrackers] = useState<TrackerChoice[] | null>(null)
@@ -134,8 +133,8 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
         setLocked(trimLocked(state.draft))
         setProjects(state.projects)
         void loadMembers(state.workspaceId)
-        if (state.signedOut) void editorDeps.loadSettings().then((settings) => settings && !cancelled && setSignInAt(signInUrl(settings.serverUrl)))
-        if (state.draft.status === "failed") setStatus({ failed: state.draft.error ?? "Upload failed" })
+        // Signed out, an earlier failure isn't shown: sending waits for signing in.
+        if (state.draft.status === "failed" && !state.signedOut) setStatus({ failed: state.draft.error ?? "Upload failed" })
       })
       .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : String(cause)))
     void includeCityStorage.get().then(setIncludeCity)
@@ -172,7 +171,6 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       if (destination.signedOut || cancelled) return
       setLoaded((current) => current && { ...current, ...destination })
       setProjects(destination.projects)
-      setSignInAt(null)
       void loadMembers(destination.workspaceId)
     }
     const onFocus = () => void recheck()
@@ -463,7 +461,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       }
       workspaces={loaded.workspaces}
       workspaceId={loaded.workspaceId}
-      signInUrl={signInAt}
+      signInUrl={loaded.signInUrl}
       projects={projects}
       members={members}
       mediaSize={draft.captureType === "screenshot" && loaded.image ? { width: loaded.image.width, height: loaded.image.height } : null}
