@@ -3,6 +3,7 @@ import { dirname } from "node:path"
 import { fileURLToPath } from "node:url"
 import { type BrowserContext, chromium, expect, type Frame, type Locator, type Page, type Worker } from "@playwright/test"
 import type { CapturePrefs } from "../lib/capture-prefs"
+import type { CameraChoice } from "../lib/messages"
 
 declare const chrome: {
   tabs: {
@@ -32,6 +33,40 @@ const extensionPath = fileURLToPath(new URL("../.output/chrome-mv3", import.meta
 const statePath = fileURLToPath(new URL("./.state.json", import.meta.url))
 const DEBUG_PORT = 9333
 const OUT = fileURLToPath(new URL("../../docs/public/screenshots/", import.meta.url))
+/** A reporter at their desk, drawn: the camera bubble's picture in the guide. */
+const FACE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480">
+  <defs><linearGradient id="wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f3e7ee"/><stop offset="1" stop-color="#e4d3de"/></linearGradient></defs>
+  <rect width="640" height="480" fill="url(#wall)"/>
+  <rect x="440" y="70" width="120" height="150" rx="10" fill="#d9c3d1"/>
+  <path d="M150 480 C160 380 230 340 320 340 C410 340 480 380 490 480 Z" fill="#3d5a80"/>
+  <rect x="292" y="290" width="56" height="70" rx="20" fill="#e0a982"/>
+  <ellipse cx="320" cy="215" rx="92" ry="108" fill="#eab48d"/>
+  <path d="M226 205 C222 120 272 92 324 92 C384 92 420 130 414 205 C404 160 380 140 322 140 C266 140 240 160 226 205 Z" fill="#3b2a24"/>
+  <ellipse cx="286" cy="222" rx="9" ry="11" fill="#2b211d"/>
+  <ellipse cx="354" cy="222" rx="9" ry="11" fill="#2b211d"/>
+  <path d="M290 270 Q320 292 350 270" stroke="#9a5a45" stroke-width="7" fill="none" stroke-linecap="round"/>
+</svg>`
+
+/**
+ * The camera bubble's picture: inside its page, getUserMedia gives a canvas showing the drawn face. Chrome's
+ * own fake camera can't be used, since its flags also stop tab capture.
+ */
+function drawnCamera(svg: string) {
+  if (!location.pathname.endsWith("/camera-bubble.html")) return
+  navigator.mediaDevices.getUserMedia = async () => {
+    const canvas = document.createElement("canvas")
+    canvas.width = 640
+    canvas.height = 480
+    const image = new Image()
+    image.src = `data:image/svg+xml,${encodeURIComponent(svg)}`
+    await image.decode()
+    const context = canvas.getContext("2d")
+    const draw = () => context?.drawImage(image, 0, 0)
+    draw()
+    setInterval(draw, 100)
+    return canvas.captureStream(10)
+  }
+}
 
 /** Chromium with the built extension, signed in to the E2E server by cookie, on the shop page. */
 export async function launch(): Promise<Harness> {
@@ -69,6 +104,7 @@ async function open(extraArgs: string[]): Promise<{ context: BrowserContext; wor
       ...extraArgs,
     ],
   })
+  await context.addInitScript(drawnCamera, FACE_SVG)
   const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent("serviceworker"))
   return { context, worker, id: new URL(worker.url()).host }
 }
@@ -175,14 +211,14 @@ export async function reviewFrame(h: Harness): Promise<Frame> {
  * Records the shop tab, without the countdown, as the popup's Record button would; resolves with the Recording
  * Bar's frame. Tab capture works here because the request names the tab, as the popup's does.
  */
-export async function startRecording(h: Harness): Promise<Frame> {
+export async function startRecording(h: Harness, camera: CameraChoice | null = null): Promise<Frame> {
   const popup = await openPopup(h)
   const tabId = await shopTabId(h, popup)
   await h.shop.bringToFront()
   const answer = await send(popup, {
     type: "bugberry:record-start",
     tabId,
-    options: { source: "tab", mic: false, systemAudio: false, countdown: false },
+    options: { source: "tab", mic: false, systemAudio: false, countdown: false, camera },
   })
   expect(answer, JSON.stringify(answer)).toMatchObject({ ok: true })
   await popup.close()

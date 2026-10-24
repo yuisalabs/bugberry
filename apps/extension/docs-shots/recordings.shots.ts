@@ -101,3 +101,29 @@ test("dashboard report", async () => {
   await shot(page, "dashboard/report.png")
   await page.close()
 })
+
+test("camera bubble", async () => {
+  // The review of the last recording is still over the shop: Done takes it away (and its own frame with it).
+  const review = h.shop.frames().find((frame) => frame.url().includes("/review.html"))
+  await review?.getByRole("button", { name: "Done" }).click({ timeout: 10_000, noWaitAfter: true }).catch(() => {})
+  await expect.poll(() => h.shop.frames().some((frame) => frame.url().includes("/review.html")), { timeout: 15_000 }).toBe(false)
+  // A recording of its own, so the other pictures show no bubble.
+  const recording = await startRecording(h, { deviceId: null, shape: "circle" })
+  const find = () => h.shop.frames().find((frame) => frame.url().includes("/camera-bubble.html"))
+  await expect.poll(() => find() !== undefined, { timeout: 15_000 }).toBe(true)
+  const bubble = find()!
+  await expect
+    .poll(() => bubble.locator("video").evaluate((video: HTMLVideoElement) => video.readyState), { timeout: 15_000 })
+    .toBeGreaterThanOrEqual(2)
+  // The handle shows while the pointer is over the bubble.
+  const box = await (await bubble.frameElement()).boundingBox()
+  if (!box) throw new Error("No camera bubble")
+  await h.shop.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await h.shop.waitForTimeout(500)
+  const height = 360
+  await shot(h.shop, "recordings/camera.png", { clip: { x: 0, y: Math.max(0, box.y + box.height + 24 - height), width: 640, height } })
+  await h.shop.mouse.move(8, 8)
+  await recording.getByRole("button", { name: "Discard" }).click()
+  await recording.getByRole("alertdialog").getByRole("button", { name: "Delete" }).click()
+  await expect.poll(() => find() !== undefined, { timeout: 15_000 }).toBe(false)
+})
