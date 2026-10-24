@@ -736,7 +736,7 @@ function SentPanel(props: {
 
       <footer className="mx-5 flex items-center justify-between gap-2 border-t border-border py-5 sm:mx-7">
         {props.onAnother ? (
-          <Button intent="plain" onPress={props.onAnother} className="text-primary *:[svg]:text-primary">
+          <Button intent="plain" onPress={props.onAnother} className="[--btn-foreground:var(--color-primary)] [--btn-icon:var(--color-primary)]">
             <RiRecordCircleLine aria-hidden />
             {props.anotherLabel}
           </Button>

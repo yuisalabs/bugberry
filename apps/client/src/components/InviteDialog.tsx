@@ -108,7 +108,7 @@ function InviteLinkPanel({ url, busy, error, onTurnOn }: { url: string | null; b
         {url ? (
           <CopyButton text={url} label="Copy link" className="bg-background" />
         ) : (
-          <Button intent="plain" size="sm" className="text-primary" isDisabled={busy} onPress={onTurnOn}>
+          <Button intent="plain" size="sm" className="[--btn-foreground:var(--color-primary)] [--btn-icon:var(--color-primary)]" isDisabled={busy} onPress={onTurnOn}>
             Turn on
             <RiArrowRightLine aria-hidden />
           </Button>
