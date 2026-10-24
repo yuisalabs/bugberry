@@ -1,3 +1,4 @@
+import { MAX_RECORDING_MS } from "../lib/recorder"
 import { beforeEach, describe, expect, mock, test } from "bun:test"
 import type { DraftStore } from "../lib/draft-store"
 import type { OffscreenMessage } from "../lib/messages"
@@ -180,6 +181,7 @@ describe("startVideoRecording", () => {
       countdown: false,
       source: "tab",
       tabs: [],
+      maxMs: 120_000,
     })
     expect(ui).toEqual([[7, true]])
     expect(badges).toEqual([true])
@@ -375,6 +377,29 @@ describe("stopVideoRecording", () => {
     const payload = store.drafts.get("video-1")?.debuggerPayload
     expect(payload?.incomplete).toEqual(["navigated"])
     expect(payload?.events.map((event) => event.t)).toEqual([1600, 2000])
+  })
+
+  test("the bar shows the account's length limit; the 20-minute ceiling isn't shown", async () => {
+    const controller = createRecordingController(deps)
+    await controller.start(tab, TAB_OPTIONS)
+    expect((await controller.barStatus()).maxMs).toBe(120_000)
+    await controller.discard()
+    await controller.start(tab, { ...TAB_OPTIONS, maxMs: MAX_RECORDING_MS })
+    expect((await controller.barStatus()).maxMs).toBeNull()
+  })
+
+  test("stopped by the time limit, the draft says at what length", async () => {
+    const controller = createRecordingController(deps)
+    await controller.start(tab, TAB_OPTIONS)
+    expect(await controller.stop("max-duration")).toMatchObject({ ok: true })
+    expect((store.drafts.get("video-1") as { stoppedAtLimitMs?: number }).stoppedAtLimitMs).toBe(120_000)
+  })
+
+  test("stopped by the reporter, the draft says nothing about a limit", async () => {
+    const controller = createRecordingController(deps)
+    await controller.start(tab, TAB_OPTIONS)
+    await controller.stop()
+    expect((store.drafts.get("video-1") as { stoppedAtLimitMs?: number }).stoppedAtLimitMs).toBeUndefined()
   })
 
   test("every page flushed means one timeline and no navigated note", async () => {
@@ -839,6 +864,7 @@ describe("recording controls", () => {
       errors: 0,
       micOn: false,
       micAvailable: false,
+      maxMs: null,
     })
     expect(await controller.addNote("x")).toBeNull()
   })

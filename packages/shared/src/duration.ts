@@ -1,5 +1,5 @@
 /** Slack over a recording length limit, for the WebM's last chunk and the recorder's timer. */
-export const RECORDING_LENGTH_TOLERANCE_MS = 2000
+export const RECORDING_LENGTH_TOLERANCE_MS = 5000
 
 /** "3:10", "0:05", "60:00": a recording's length for people to read, in whole seconds. */
 export function clockLabel(ms: number): string {

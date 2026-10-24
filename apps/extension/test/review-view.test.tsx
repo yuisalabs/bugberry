@@ -159,6 +159,16 @@ describe("what the review shows", () => {
     expect(screen.queryByRole("button", { name: "Send full video" })).toBeNull()
   })
 
+  test("a recording the time limit stopped says so", () => {
+    view({ draft: { ...video, stoppedAtLimitMs: 120_000 } as ReportDraft })
+    expect(screen.getByText("The recording stopped by itself at 2:00, the longest allowed.")).toBeTruthy()
+  })
+
+  test("a recording the reporter stopped says nothing about a limit", () => {
+    view()
+    expect(screen.queryByText(/stopped by itself/)).toBeNull()
+  })
+
   test("a screenshot shows its kind and size", () => {
     view({ draft: screenshot, mediaSize: { width: 1920, height: 945 } })
     expect(screen.getByText("Screenshot")).toBeTruthy()

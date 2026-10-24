@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import { barStatusFrom } from "../entrypoints/recorder-bar/App"
 import { BarView, type BarViewProps } from "../entrypoints/recorder-bar/BarView"
 
-const RUNNING = { recording: true, elapsedMs: 42_000, paused: false, errors: 2, micOn: false, micAvailable: true }
+const RUNNING = { recording: true, elapsedMs: 42_000, paused: false, errors: 2, micOn: false, micAvailable: true, maxMs: null }
 
 function view(overrides: Partial<BarViewProps> = {}) {
   const props: BarViewProps = {
@@ -33,6 +33,15 @@ describe("status", () => {
     view()
     expect(screen.getByText("00:42")).toBeTruthy()
     expect(screen.getByText("2 errors caught")).toBeTruthy()
+  })
+
+  test("under a length limit, the timer shows it, and stands out in the last 15 seconds", () => {
+    const early = view({ status: { ...RUNNING, maxMs: 120_000 } })
+    const timer = screen.getByText("00:42 / 02:00")
+    expect(timer.hasAttribute("data-ending")).toBe(false)
+    early.unmount()
+    view({ status: { ...RUNNING, elapsedMs: 105_000, maxMs: 120_000 } })
+    expect(screen.getByText("01:45 / 02:00").hasAttribute("data-ending")).toBe(true)
   })
 
   test("one error; with none, the bar says nothing about errors", () => {

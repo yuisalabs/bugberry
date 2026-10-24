@@ -98,7 +98,7 @@ describe("recording length", () => {
     expect(lengthWarning(timed, 190_000, { isAdmin: false, hasOtherWorkspaces: false })).toBe(
       "This recording is 3:10; this workspace takes recordings up to 2:00. Trim it or record a shorter one.",
     )
-    expect(lengthWarning(timed, 122_000, admin)).toBeNull()
+    expect(lengthWarning(timed, 125_000, admin)).toBeNull()
     expect(lengthWarning(full, 190_000, admin)).toBeNull()
     expect(lengthWarning({ limited: false }, 190_000, admin)).toBeNull()
   })
