@@ -42,7 +42,7 @@ export const FIREFOX_OPEN_SHORTCUT = "Alt+Shift+B"
 
 /** The manifest for one target browser. Chrome and Opera share it; Firefox gets its own permissions and id. */
 export function manifestFor(target: string, key: string | undefined): Record<string, unknown> {
-  const name = "BugBerry"
+  const name = "BugBerry: Stop describing bugs. Show them."
   const description = "Report bugs with a screenshot or recording, plus console, network and the steps that led there."
   const rest = {
     host_permissions: ["<all_urls>"],
