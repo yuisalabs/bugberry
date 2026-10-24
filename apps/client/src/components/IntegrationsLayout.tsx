@@ -40,22 +40,43 @@ export function EmptyGroup({
   text,
   action,
   onPick,
+  stacked = false,
 }: {
   providers: readonly IntegrationProvider[]
   title: string
   text: string
   action: string
   onPick(): void
+  /** As a card in a grid of cards: the marks, words and button one under another. */
+  stacked?: boolean
 }) {
+  const marks = (
+    <span aria-hidden className="flex -space-x-4.5">
+      {providers.map((provider) => (
+        <span key={provider} className="rounded-full bg-background p-0.5">
+          <ProviderMark provider={provider} className="size-9 rounded-full" />
+        </span>
+      ))}
+    </span>
+  )
+  if (stacked) {
+    return (
+      <div className={`flex h-full flex-col gap-4 border-dashed p-6 ${integrationCard}`}>
+        {marks}
+        <div className="flex flex-1 flex-col gap-1">
+          <span className="font-semibold text-foreground">{title}</span>
+          <span className="text-sm text-muted-foreground">{text}</span>
+        </div>
+        <Button intent="plain" onPress={onPick} className={`w-full ${softButton}`}>
+          <RiAddLine aria-hidden />
+          {action}
+        </Button>
+      </div>
+    )
+  }
   return (
     <div className={`flex flex-wrap items-center gap-4 border-dashed px-6 py-5 ${integrationCard}`}>
-      <span aria-hidden className="flex -space-x-4.5">
-        {providers.map((provider) => (
-          <span key={provider} className="rounded-full bg-background p-0.5">
-            <ProviderMark provider={provider} className="size-9 rounded-full" />
-          </span>
-        ))}
-      </span>
+      {marks}
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="font-semibold text-foreground">{title}</span>
         <span className="text-sm text-muted-foreground">{text}</span>

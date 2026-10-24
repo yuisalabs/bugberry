@@ -3,7 +3,7 @@ import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { UseConnectionModal, UseConnectionSteps } from "../src/components/UseConnectionDialog"
 import type { Connection, Integration, OptionList } from "../src/lib/api"
-import { IntegrationRow, ReadyToUse } from "../src/pages/ProjectIntegrationsPage"
+import { IntegrationGroup, IntegrationRow, ReadyToUse } from "../src/pages/ProjectIntegrationsPage"
 
 const status = { failing: 0, lastError: null, lastDeliveredAt: null }
 const githubKantor: Connection = { id: "c-gh", provider: "github", kind: "tracker", name: "GitHub Kantor", usedIn: 1, status }
@@ -272,5 +272,32 @@ describe("a project's integration row", () => {
     expect(actions.onTest).toHaveBeenCalled()
     expect(actions.onRemove).toHaveBeenCalled()
     expect(screen.queryByRole("button", { name: /Edit/ })).toBeNull()
+  })
+})
+
+describe("a group of a project's integrations", () => {
+  const empty = { title: "No chat channels yet", text: "Tell Slack when a report lands.", action: "Use a channel", marks: ["slack" as const] }
+
+  test("its integrations are cards in a grid, and the card to add one more stays at its end", () => {
+    const onAdd = mock()
+    render(
+      <IntegrationGroup title="Notifications" count={1} empty={empty} onAdd={onAdd}>
+        <IntegrationRow integration={slackUse} testResult={null} testing={false} removing={false} onTest={mock()} onEdit={mock()} onRemove={mock()} />
+      </IntegrationGroup>,
+    )
+    const list = screen.getByRole("list")
+    expect(list.className).toContain("grid")
+    const items = screen.getAllByRole("listitem")
+    expect(items).toHaveLength(2)
+    expect(items[0]?.textContent).toContain("Slack #qa")
+    expect(items[1]?.textContent).toContain("No chat channels yet")
+    fireEvent.click(screen.getByRole("button", { name: "Use a channel" }))
+    expect(onAdd).toHaveBeenCalled()
+  })
+
+  test("with none, the card to add one is all there is", () => {
+    render(<IntegrationGroup title="Notifications" count={0} empty={empty} onAdd={mock()} />)
+    expect(screen.getAllByRole("listitem")).toHaveLength(1)
+    expect(screen.getByText("No chat channels yet")).toBeTruthy()
   })
 })
