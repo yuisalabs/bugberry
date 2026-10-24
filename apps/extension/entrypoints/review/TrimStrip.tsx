@@ -36,7 +36,10 @@ export function TrimStrip(props: {
         step={STEP_MS}
         value={[value.startMs, value.endMs]}
         onChange={(values) => {
-          const [startMs = 0, endMs = durationMs] = values as number[]
+          const [startMs = 0, stepped = durationMs] = values as number[]
+          // The slider stops at the last whole step: within a step of the end means the end, so a video that isn't
+          // a whole number of steps long can still be kept whole.
+          const endMs = stepped > durationMs - STEP_MS ? durationMs : stepped
           const moved = startMs !== value.startMs ? startMs : endMs
           props.onChange(clampTrim({ startMs, endMs }, durationMs))
           props.onPreview(moved)

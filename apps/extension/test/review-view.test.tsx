@@ -444,3 +444,19 @@ describe("sending while trimming", () => {
     expect((props.onSend as ReturnType<typeof mock>).mock.calls).toHaveLength(1)
   })
 })
+
+describe("the ends of the strip", () => {
+  test("moving the end back to the last step of a video that isn't a whole step long keeps the whole video", () => {
+    const changed = mock()
+    view({ draft: { ...video, durationMs: 42_350 } as ReportDraft, onTrimChange: changed })
+    fireEvent.click(button("Trim"))
+    const end = screen.getByLabelText("Trim end")
+    fireEvent.keyDown(end, { key: "ArrowLeft" })
+    fireEvent.keyDown(end, { key: "ArrowLeft" })
+    fireEvent.keyDown(end, { key: "ArrowRight" })
+    fireEvent.keyDown(end, { key: "ArrowRight" })
+    expect(screen.getByText(/^0:00 – 0:42 · 42 s of 42 s$/)).toBeTruthy()
+    fireEvent.click(button("Done"))
+    expect(changed.mock.calls.at(-1)?.[0]).toBeNull()
+  })
+})
