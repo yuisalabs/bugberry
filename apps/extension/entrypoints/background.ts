@@ -269,6 +269,9 @@ export default defineBackground(() => {
       const session = (await browserRecordingState.get())?.draftId ?? ""
       await toPage(tabId, { type: "bugberry:ui-recording", on, session }).catch(() => {})
     },
+    // Wired to the camera grants with the bubble's page.
+    showCamera: async () => {},
+    hideCamera: async () => {},
     openReview,
     author,
     micUnavailable: async () => void (await capturePrefsStorage.set({ mic: false })),

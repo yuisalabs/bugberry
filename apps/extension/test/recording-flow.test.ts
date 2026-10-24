@@ -74,6 +74,8 @@ let countdownResult: "done" | "cancel" | "unavailable"
 let countdowns: number
 let ui: Array<[number, boolean]>
 let reviewTabs: number[]
+/** The offscreen messages, the countdown and the camera, in the order they happened. */
+let steps: string[]
 
 beforeEach(() => {
   store = memoryStore()
@@ -87,6 +89,7 @@ beforeEach(() => {
   countdowns = 0
   ui = []
   reviewTabs = []
+  steps = []
   clock = 1000
   offscreenReply = (message) =>
     message.type === "bugberry:offscreen-open"
@@ -104,6 +107,7 @@ beforeEach(() => {
     },
     sendToOffscreen: async (message) => {
       sent.push(message)
+      steps.push(message.type)
       const reply = offscreenReply(message)
       // Like the real offscreen document: the video is stored in the draft before it answers.
       if (message.type === "bugberry:offscreen-stop" && (reply as { ok?: unknown }).ok === true) {
@@ -124,10 +128,13 @@ beforeEach(() => {
       reviewTabs.push(tabId)
     },
     countdown: async () => {
+      steps.push("countdown")
       countdowns += 1
       return countdownResult
     },
     showRecordingUi: async (tabId, on) => void ui.push([tabId, on]),
+    showCamera: async (tabId, camera) => void steps.push(`camera-show ${tabId} ${camera.deviceId} ${camera.shape}`),
+    hideCamera: async (tabId) => void steps.push(`camera-hide ${tabId}`),
     author: async () => "Dana",
     state,
     store,
@@ -525,6 +532,57 @@ describe("createRecordingController", () => {
       "bugberry:offscreen-begin",
     ])
     expect(offscreenOpen).toBe(true)
+  })
+})
+
+describe("the camera", () => {
+  const CAMERA = { deviceId: "cam1", shape: "circle" as const }
+  const cameraSteps = () => steps.filter((step) => step.startsWith("camera"))
+
+  test("a tab recording with the camera shows it before the countdown and the take", async () => {
+    await startVideoRecording(tab, { ...TAB_OPTIONS, countdown: true, camera: CAMERA }, deps)
+    expect(steps).toEqual(["bugberry:offscreen-open", "camera-show 7 cam1 circle", "countdown", "bugberry:offscreen-begin"])
+  })
+
+  test("without a camera nothing is shown", async () => {
+    await startVideoRecording(tab, TAB_OPTIONS, deps)
+    await startVideoRecording(tab, { ...TAB_OPTIONS, camera: null }, deps)
+    expect(cameraSteps()).toEqual([])
+  })
+
+  test("a cancelled countdown hides the camera", async () => {
+    countdownResult = "cancel"
+    await startVideoRecording(tab, { ...TAB_OPTIONS, countdown: true, camera: CAMERA }, deps)
+    expect(cameraSteps()).toEqual(["camera-show 7 cam1 circle", "camera-hide 7"])
+  })
+
+  test("a failed begin hides the camera", async () => {
+    offscreenReply = (message) => (message.type === "bugberry:offscreen-begin" ? { ok: false, error: "x" } : { ok: true, micOn: false, micAvailable: false })
+    expect(await startVideoRecording(tab, { ...TAB_OPTIONS, camera: CAMERA }, deps)).toMatchObject({ ok: false })
+    expect(cameraSteps().at(-1)).toBe("camera-hide 7")
+  })
+
+  test("a camera that fails doesn't hold the start", async () => {
+    deps.showCamera = async () => {
+      throw new Error("no camera")
+    }
+    expect(await startVideoRecording(tab, { ...TAB_OPTIONS, camera: CAMERA }, deps)).toEqual({ ok: true, draftId: "video-1" })
+  })
+
+  test("Restart keeps the camera; Discard hides it", async () => {
+    const controller = createRecordingController(deps)
+    await controller.start(tab, { ...TAB_OPTIONS, camera: CAMERA })
+    await controller.restart()
+    expect(cameraSteps()).toEqual(["camera-show 7 cam1 circle"])
+    await controller.discard()
+    expect(cameraSteps()).toEqual(["camera-show 7 cam1 circle", "camera-hide 7"])
+  })
+
+  test("Stop hides the camera", async () => {
+    const controller = createRecordingController(deps)
+    await controller.start(tab, { ...TAB_OPTIONS, camera: CAMERA })
+    await controller.stop()
+    expect(cameraSteps()).toEqual(["camera-show 7 cam1 circle", "camera-hide 7"])
   })
 })
 
