@@ -3,6 +3,7 @@ import type { DeviceInfo, Priority, Visibility } from "@bugberry/shared"
 import type { Shape } from "./annotations"
 import type { ScreenshotMode } from "./capture-prefs"
 import type { PageCaptureRecord } from "./page-merge"
+import type { TrimRange } from "./review-data"
 
 export interface ReportForm {
   /** The workspace the report goes to. Forms saved before workspaces have none. */
@@ -93,6 +94,12 @@ export interface VideoDraft extends DraftBase {
    * IndexedDB, rather than in session storage, which content scripts can read.
    */
   liveNotes?: Array<{ n: number; atMs: number; text: string }>
+  /** The part the reporter keeps (video time); absent or null sends the whole video. */
+  trim?: TrimRange | null
+  /** The video re-encoded to `range`, so a retried send uploads the same bytes. */
+  trimmed?: { range: TrimRange; video: Blob } | null
+  /** Set at the first Send: from then on the trim can't change, as part of the full video may be on the server. */
+  sendStarted?: boolean
 }
 
 export type ReportDraft = ScreenshotDraft | VideoDraft
