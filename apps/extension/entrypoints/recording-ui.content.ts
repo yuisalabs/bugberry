@@ -72,7 +72,7 @@ export default defineContentScript({
       return true // answered when the countdown ends
     })
 
-    const session = (await browser.storage.session.get("recording").catch(() => ({}))) as Record<string, unknown>
+    const session = (await browser.storage.session.get(["recording", "camera"]).catch(() => ({}))) as Record<string, unknown>
     if (!uiStateNeeded(session)) return
     const ask: UiStateRequest = { type: "bugberry:ui-state" }
     const state = (await browser.runtime.sendMessage(ask).catch(() => null)) as { recording?: unknown; session?: unknown; camera?: unknown } | null

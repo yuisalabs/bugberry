@@ -50,7 +50,10 @@ describe("manifest pages and permissions", () => {
   test("the page layer's frames are web accessible, and no permission was added", () => {
     expect(MANIFEST_PERMISSIONS).toEqual(["activeTab", "scripting", "storage", "tabs", "tabCapture", "offscreen"])
     expect(WEB_ACCESSIBLE_RESOURCES).toEqual([
-      { resources: ["recorder-bar.html", "draw.html", "review.html", "microphone.html", "confirm-server.html", "options.html"], matches: ["<all_urls>"] },
+      {
+        resources: ["recorder-bar.html", "draw.html", "review.html", "microphone.html", "confirm-server.html", "options.html", "camera-bubble.html"],
+        matches: ["<all_urls>"],
+      },
     ])
   })
 })

@@ -3,6 +3,7 @@ import { createFailureFlag } from "../lib/badge"
 import { bridgeSenderOrigin, createBridge } from "../lib/bridge"
 import { browserRecordingState } from "../lib/browser-recording-state"
 import { createBugberryApi } from "../lib/api"
+import { CAMERA_READY_MS, type CameraGrant, createCameraGrants } from "../lib/camera-grant"
 import { handleApiFetch, isApiFetchRequest } from "../lib/api-relay"
 import { hasTabRecorder } from "../lib/browser-support"
 import { recordOptionsFor, type ScreenshotMode } from "../lib/capture-prefs"
@@ -15,6 +16,7 @@ import {
   isBridgeHelloRequest,
   isBridgeOpenPopupRequest,
   isBridgeUseServerRequest,
+  isCameraTicketRequest,
   isPageFlush,
   isPageStart,
   isPopupRecordingRequest,
@@ -53,6 +55,8 @@ const OFFSCREEN_PAGE = "/offscreen.html" as Parameters<typeof browser.runtime.ge
 /** Session storage key of Firefox's recorder window id. */
 const RECORDER_WINDOW_KEY = "recorderWindow"
 const PROMPT_TICKETS_KEY = "promptTickets"
+/** Session storage key of the camera grant; the page layer reads it to know a page load should ask for the bubble. */
+const CAMERA_GRANT_KEY = "camera"
 /** Where WXT puts recording-ui.content.ts. */
 const PAGE_LAYER_SCRIPT = "/content-scripts/recording-ui.js"
 
@@ -187,6 +191,18 @@ export default defineBackground(() => {
     newId,
   }
 
+  const cameraGrants = createCameraGrants({
+    store: {
+      get: async () => ((await browser.storage.session.get(CAMERA_GRANT_KEY))[CAMERA_GRANT_KEY] as CameraGrant | undefined) ?? null,
+      set: (grant) => (grant ? browser.storage.session.set({ [CAMERA_GRANT_KEY]: grant }) : browser.storage.session.remove(CAMERA_GRANT_KEY)),
+    },
+    newToken: () => crypto.randomUUID(),
+    setTimer: (run, ms) => {
+      const id = setTimeout(run, ms)
+      return () => clearTimeout(id)
+    },
+  })
+
   /** Chrome and Opera record a tab through an offscreen document; Firefox records in a window of its own. */
   const tabRecorder = hasTabRecorder(browser)
 
@@ -269,9 +285,15 @@ export default defineBackground(() => {
       const session = (await browserRecordingState.get())?.draftId ?? ""
       await toPage(tabId, { type: "bugberry:ui-recording", on, session }).catch(() => {})
     },
-    // Wired to the camera grants with the bubble's page.
-    showCamera: async () => {},
-    hideCamera: async () => {},
+    showCamera: async (tabId, camera) => {
+      const { token, shape } = await cameraGrants.open(tabId, camera)
+      await toPage(tabId, { type: "bugberry:ui-camera", on: true, token, shape }).catch(() => {})
+      await cameraGrants.waitReady(token, CAMERA_READY_MS)
+    },
+    hideCamera: async (tabId) => {
+      await cameraGrants.close()
+      await toPage(tabId, { type: "bugberry:ui-camera", on: false }).catch(() => {})
+    },
     openReview,
     author,
     micUnavailable: async () => void (await capturePrefsStorage.set({ mic: false })),
@@ -488,9 +510,19 @@ export default defineBackground(() => {
     // The page layer asks on every page load whether its tab is being recorded.
     if (isUiStateRequest(message)) {
       return reply(
-        browserRecordingState.get().then((state) =>
-          state && state.tabId === sender.tab?.id ? { recording: true, session: state.draftId } : { recording: false },
-        ),
+        Promise.all([browserRecordingState.get(), cameraGrants.forTab(sender.tab?.id)]).then(([state, camera]) => ({
+          ...(state && state.tabId === sender.tab?.id ? { recording: true, session: state.draftId } : { recording: false }),
+          ...(camera ? { camera } : {}),
+        })),
+      )
+    }
+    // The camera bubble, by its grant's token: only from inside the granted tab (sites can embed the page).
+    if (isCameraTicketRequest(message)) {
+      if (!fromExtensionPage(sender, browser.runtime.id, extensionOrigin)) return undefined
+      return reply(
+        message.action === "read"
+          ? cameraGrants.read(message.token, sender.tab?.id)
+          : cameraGrants.ready(message.token, sender.tab?.id).then(() => ({ ok: true })),
       )
     }
     // Only the extension's own pages drive a recording: the review from anywhere, the bar and the drawing
