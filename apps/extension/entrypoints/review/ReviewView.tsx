@@ -24,7 +24,6 @@ import {
   RiHashtag,
   RiLink,
   RiRecordCircleLine,
-  RiScissorsCutLine,
   RiShieldCheckLine,
   RiTerminalBoxLine,
   RiUserLine,
@@ -35,7 +34,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react"
 import { Button as AriaButton, Input as AriaInput, ProgressBar, TextArea as AriaTextArea } from "react-aria-components"
 import type { Project, Workspace } from "../../lib/api"
 import { formProblem } from "../../lib/report-form"
-import { isTrimmed, reviewStats, suggestTitle, type TrimRange, trimLabel, trimPayload } from "../../lib/review-data"
+import { isTrimmed, reviewStats, suggestTitle, type TrimRange, trimPayload } from "../../lib/review-data"
 import type { ReportDraft } from "../../lib/types"
 import type { ReportForm, SentReport, UploadProgress } from "../../lib/upload"
 import { TrimStrip } from "./TrimStrip"
@@ -132,14 +131,12 @@ export interface ReviewViewProps {
   trimLocked?: boolean
   /** Videos: frames for the Trim strip; empty until they are made. */
   trimFrames?: string[]
-  /** On Done in the Trim strip; null when the whole video is kept. */
+  /** Each move of a Trim handle, and Reset; null when the whole video is kept. */
   onTrimChange?(range: TrimRange | null): void
-  /** While an edge of the Trim strip moves: the moment to show in the player. */
+  /** While a Trim handle moves: the moment to show in the player. */
   onTrimPreview?(ms: number): void
-  /** When Trim opens, so the page can make the strip's frames. */
-  onTrimOpen?(): void
-  /** The range in the open Trim strip as it is being moved, for the player to follow; null once it closes. */
-  onTrimEditing?(range: TrimRange | null): void
+  /** The playhead was moved, anywhere in the video (ms). */
+  onTrimSeek?(ms: number): void
   /** Where the player is (ms), for the strip's playhead. */
   trimPosition?: number
   /** Whether the player is playing, for the strip's play button. */
@@ -204,11 +201,14 @@ export function ReviewView(props: ReviewViewProps) {
   const startedAt = draft.captureType === "video" ? (draft.recordingStartedAt ?? draft.debuggerPayload?.recordingStartedAt ?? 0) : 0
   const trim = isTrimmed(props.trim, durationMs) ? props.trim : null
   const stats = reviewStats(trim && draft.debuggerPayload ? trimPayload(draft.debuggerPayload, startedAt, trim).events : events)
-  /** The range being edited in the open Trim strip; null while it is closed. */
-  const [editing, setEditingState] = useState<TrimRange | null>(null)
-  const setEditing = (range: TrimRange | null) => {
-    setEditingState(range)
-    props.onTrimEditing?.(range)
+  // The strip's range, kept here as well so a handle moves smoothly; a new trim from the page (after "Send full
+  // video", say) replaces it.
+  const whole = { startMs: 0, endMs: durationMs }
+  const [range, setRange] = useState<TrimRange>(() => trim ?? whole)
+  useEffect(() => setRange(trim ?? { startMs: 0, endMs: durationMs }), [trim?.startMs, trim?.endMs, durationMs])
+  const changeRange = (next: TrimRange) => {
+    setRange(next)
+    props.onTrimChange?.(isTrimmed(next, durationMs) ? next : null)
   }
   const sending = props.status === "sending"
   const sent = typeof props.status === "object" && "sent" in props.status ? props.status.sent : null
@@ -219,14 +219,6 @@ export function ReviewView(props: ReviewViewProps) {
     const found = formProblem(values)
     setProblem(found)
     if (!found) props.onSend(values, notes, options)
-  }
-  const openTrim = () => {
-    setEditing(trim ?? { startMs: 0, endMs: durationMs })
-    props.onTrimOpen?.()
-  }
-  const doneTrim = () => {
-    if (editing) props.onTrimChange?.(isTrimmed(editing, durationMs) ? editing : null)
-    setEditing(null)
   }
   const close = () => (sent ? props.onClose(null) : setConfirm("close"))
 
@@ -270,32 +262,20 @@ export function ReviewView(props: ReviewViewProps) {
 
           {isVideo && !sent && (
             <div className="flex flex-col gap-2">
-              {editing ? (
-                <TrimStrip
-                  durationMs={durationMs}
-                  value={editing}
-                  frames={props.trimFrames ?? []}
-                  positionMs={props.trimPosition ?? 0}
-                  playing={props.trimPlaying ?? false}
-                  onChange={setEditing}
-                  onPreview={(ms) => props.onTrimPreview?.(ms)}
-                  onPlay={() => props.onTrimPlay?.()}
-                  onReset={() => setEditing({ startMs: 0, endMs: durationMs })}
-                  onDone={doneTrim}
-                />
-              ) : null}
-              {editing ? (
-                // What is sent is the range applied with Done, so Create report waits for it.
-                <span className="text-sm text-muted-foreground">Press Done to apply the trim.</span>
-              ) : (
-                <span className="flex flex-wrap items-center gap-3">
-                  <Button intent="outline" size="sm" isDisabled={props.trimLocked || sending} onPress={openTrim}>
-                    <RiScissorsCutLine aria-hidden />
-                    {trim ? `Trim ${trimLabel(trim)}` : "Trim"}
-                  </Button>
-                  {props.trimLocked && <span className="text-sm text-muted-foreground">The video has already started sending.</span>}
-                </span>
-              )}
+              <TrimStrip
+                durationMs={durationMs}
+                value={range}
+                frames={props.trimFrames ?? []}
+                positionMs={props.trimPosition ?? 0}
+                playing={props.trimPlaying ?? false}
+                disabled={Boolean(props.trimLocked) || sending}
+                onChange={changeRange}
+                onPreview={(ms) => props.onTrimPreview?.(ms)}
+                onSeek={(ms) => props.onTrimSeek?.(ms)}
+                onPlay={() => props.onTrimPlay?.()}
+                onReset={() => changeRange(whole)}
+              />
+              {props.trimLocked && <span className="text-sm text-muted-foreground">The video has already started sending.</span>}
             </div>
           )}
 
@@ -507,7 +487,7 @@ export function ReviewView(props: ReviewViewProps) {
                   <Button intent="outline" onPress={() => setConfirm("again")}>
                     {isVideo ? "Record again" : "Retake"}
                   </Button>
-                  <Button isDisabled={sending || props.sendBlocked || editing !== null} onPress={() => send()}>
+                  <Button isDisabled={sending || props.sendBlocked} onPress={() => send()}>
                     {sending ? "Creating…" : "Create report"}
                   </Button>
                 </span>

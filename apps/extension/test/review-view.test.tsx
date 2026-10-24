@@ -362,52 +362,60 @@ describe("upload progress", () => {
 })
 
 describe("trimming a recording", () => {
-  const onTrimChange = () => mock()
-
-  test("Trim shows for videos only", () => {
+  test("the strip is there for videos from the start, with no button to open it", () => {
     view()
-    expect(button("Trim")).toBeTruthy()
+    expect(screen.getByRole("group", { name: "Trim" })).toBeTruthy()
+    expect(screen.queryByRole("button", { name: /^Trim/ })).toBeNull()
+    expect(screen.queryByRole("button", { name: "Done" })).toBeNull()
     cleanup()
     view({ draft: screenshot })
-    expect(screen.queryByRole("button", { name: "Trim" })).toBeNull()
+    expect(screen.queryByRole("group", { name: "Trim" })).toBeNull()
   })
 
-  test("Done reports the range", () => {
-    const changed = onTrimChange()
+  test("moving a handle applies the range at once", () => {
+    const changed = mock()
     view({ onTrimChange: changed })
-    fireEvent.click(button("Trim"))
     const start = screen.getByLabelText("Trim start")
     for (let i = 0; i < 10; i++) fireEvent.keyDown(start, { key: "ArrowRight" })
-    fireEvent.click(button("Done"))
     expect(changed.mock.calls.at(-1)?.[0]).toEqual({ startMs: 1000, endMs: 42_000 })
   })
 
-  test("Reset then Done reports no trim", () => {
-    const changed = onTrimChange()
+  test("Reset keeps the whole video", () => {
+    const changed = mock()
     view({ trim: { startMs: 1000, endMs: 42_000 }, onTrimChange: changed })
-    fireEvent.click(button(/^Trim/))
     fireEvent.click(button("Reset"))
-    fireEvent.click(button("Done"))
     expect(changed.mock.calls.at(-1)?.[0]).toBeNull()
   })
 
-  test("a saved trim shows on the button and in the tiles", () => {
+  test("moving the end back to the last step of a video that isn't a whole step long keeps the whole video", () => {
+    const changed = mock()
+    view({ draft: { ...video, durationMs: 42_350 } as ReportDraft, trim: { startMs: 0, endMs: 42_000 }, onTrimChange: changed })
+    const end = screen.getByLabelText("Trim end")
+    fireEvent.keyDown(end, { key: "ArrowRight" })
+    fireEvent.keyDown(end, { key: "ArrowRight" })
+    fireEvent.keyDown(end, { key: "ArrowRight" })
+    fireEvent.keyDown(end, { key: "ArrowRight" })
+    expect(changed.mock.calls.at(-1)?.[0]).toBeNull()
+  })
+
+  test("a saved trim shows in the strip and the tiles", () => {
     view({ trim: { startMs: 1000, endMs: 2000 } })
-    expect(button("Trim 0:01–0:02")).toBeTruthy()
+    expect(screen.getByText("0:01 – 0:02 · 1 s of 42 s")).toBeTruthy()
     expect(screen.getByText("0 errors")).toBeTruthy()
     expect(screen.getByText("0 failed")).toBeTruthy()
     expect(screen.getByText("13 steps")).toBeTruthy()
   })
 
-  test("the strip shows the kept part of the whole", () => {
-    view({ trim: { startMs: 6_000, endMs: 35_000 } })
-    fireEvent.click(button(/^Trim/))
-    expect(screen.getByText("0:06 – 0:35 · 29 s of 42 s")).toBeTruthy()
+  test("Create report sends with the strip as it stands", () => {
+    const { props } = view({ trim: { startMs: 1000, endMs: 2000 } })
+    fireEvent.click(button("Create report"))
+    expect((props.onSend as ReturnType<typeof mock>).mock.calls).toHaveLength(1)
   })
 
   test("locked once a send has started", () => {
     view({ trimLocked: true })
-    expect(button("Trim").hasAttribute("disabled") || button("Trim").getAttribute("aria-disabled") === "true").toBe(true)
+    expect((screen.getByLabelText("Trim start") as HTMLInputElement).disabled).toBe(true)
+    expect(button("Reset").hasAttribute("disabled") || button("Reset").getAttribute("aria-disabled") === "true").toBe(true)
     expect(screen.getByText("The video has already started sending.")).toBeTruthy()
   })
 
@@ -432,67 +440,32 @@ describe("closing while the video is prepared", () => {
   })
 })
 
-describe("sending while trimming", () => {
-  test("Create report waits until the open Trim strip is applied with Done", () => {
-    const { props } = view()
-    fireEvent.click(button("Trim"))
-    expect(screen.getByText("Press Done to apply the trim.")).toBeTruthy()
-    fireEvent.click(button("Create report"))
-    expect((props.onSend as ReturnType<typeof mock>).mock.calls).toHaveLength(0)
-    fireEvent.click(button("Done"))
-    fireEvent.click(button("Create report"))
-    expect((props.onSend as ReturnType<typeof mock>).mock.calls).toHaveLength(1)
-  })
-})
-
-describe("the ends of the strip", () => {
-  test("moving the end back to the last step of a video that isn't a whole step long keeps the whole video", () => {
-    const changed = mock()
-    view({ draft: { ...video, durationMs: 42_350 } as ReportDraft, onTrimChange: changed })
-    fireEvent.click(button("Trim"))
-    const end = screen.getByLabelText("Trim end")
-    fireEvent.keyDown(end, { key: "ArrowLeft" })
-    fireEvent.keyDown(end, { key: "ArrowLeft" })
-    fireEvent.keyDown(end, { key: "ArrowRight" })
-    fireEvent.keyDown(end, { key: "ArrowRight" })
-    expect(screen.getByText(/^0:00 – 0:42 · 42 s of 42 s$/)).toBeTruthy()
-    fireEvent.click(button("Done"))
-    expect(changed.mock.calls.at(-1)?.[0]).toBeNull()
-  })
-})
-
 describe("the strip's preview", () => {
   test("its play button plays the selection, and reads Pause selection while it plays", () => {
     const play = mock()
     const { rerender, props } = view({ onTrimPlay: play })
-    fireEvent.click(button("Trim"))
     fireEvent.click(button("Play selection"))
     expect(play).toHaveBeenCalledTimes(1)
     rerender(<ReviewView {...props} trimPlaying />)
     expect(button("Pause selection")).toBeTruthy()
   })
 
-  test("moving an edge tells the page the range being edited, so the player follows it", () => {
-    const editing = mock()
-    view({ onTrimEditing: editing })
-    fireEvent.click(button("Trim"))
-    expect(editing.mock.calls.at(-1)?.[0]).toEqual({ startMs: 0, endMs: 42_000 })
-    const start = screen.getByLabelText("Trim start")
-    for (let i = 0; i < 10; i++) fireEvent.keyDown(start, { key: "ArrowRight" })
-    expect(editing.mock.calls.at(-1)?.[0]).toEqual({ startMs: 1000, endMs: 42_000 })
-    fireEvent.click(button("Done"))
-    expect(editing.mock.calls.at(-1)?.[0]).toBeNull()
+  test("the playhead stands where the player is", () => {
+    view({ trimPosition: 21_000 })
+    expect((screen.getByLabelText("Playhead") as HTMLInputElement).value).toBe("21000")
   })
 
-  test("the playhead stands where the player is", () => {
-    const { container } = view({ trimPosition: 21_000 })
-    fireEvent.click(button("Trim"))
-    expect((container.querySelector("[data-playhead]") as HTMLElement).style.left).toBe("50%")
+  test("the playhead moves anywhere in the video, past the trim's edges too", () => {
+    const seek = mock()
+    view({ trim: { startMs: 1000, endMs: 2000 }, trimPosition: 1500, onTrimSeek: seek })
+    fireEvent.keyDown(screen.getByLabelText("Playhead"), { key: "End" })
+    expect(seek.mock.calls.at(-1)?.[0]).toBe(42_000)
+    fireEvent.keyDown(screen.getByLabelText("Playhead"), { key: "Home" })
+    expect(seek.mock.calls.at(-1)?.[0]).toBe(0)
   })
 
   test("each edge is a handle with a grip", () => {
     const { container } = view()
-    fireEvent.click(button("Trim"))
     expect(container.querySelectorAll("[data-grip]")).toHaveLength(2)
   })
 })

@@ -86,44 +86,39 @@ test("a trimmed recording sends only the kept part, video and logs", async () =>
 
   const review = await context.newPage()
   await review.goto(`chrome-extension://${extensionId}/review.html?draft=${draftId}`)
-  await review.getByRole("button", { name: "Trim" }).click()
+  // The strip is there from the start: a moved handle applies at once.
   const start = review.getByRole("slider", { name: /Trim start/ })
   for (let i = 0; i < 10; i++) await start.press("ArrowRight")
   const end = review.getByRole("slider", { name: /Trim end/ })
   for (let i = 0; i < 10; i++) await end.press("ArrowLeft")
   await expect(review.getByText("0:01 – 0:03 · 2 s of 4 s")).toBeVisible()
-  await review.getByRole("button", { name: "Done" }).click()
-  await expect(review.getByRole("button", { name: "Trim 0:01–0:03" })).toBeVisible()
   // The error at exactly 3 s is on the boundary and stays; the one at 0.5 s goes.
   await expect(review.getByText("1 error", { exact: true })).toBeVisible()
 
-  // After Done the preview waits at the start of the kept part; play runs from there and stops at its end.
   const player = review.locator("video")
   const time = () => player.evaluate((video: HTMLVideoElement) => video.currentTime)
   const paused = () => player.evaluate((video: HTMLVideoElement) => video.paused)
-  await expect.poll(time).toBeCloseTo(1, 1)
-  await player.evaluate((video: HTMLVideoElement) => video.play())
-  await expect.poll(paused, { timeout: 5_000 }).toBe(true)
+  // The preview showed the last handle moved: the end. Play from there starts at 1 s and stops at 3 s.
   expect(await time()).toBeCloseTo(3, 1)
-  // Played again from its end, it starts over at the start of the kept part.
-  await player.evaluate((video: HTMLVideoElement) => video.play())
-  await expect.poll(time).toBeLessThan(2)
-  await player.evaluate((video: HTMLVideoElement) => video.pause())
-  // A seek before the start moves back into the range.
-  await player.evaluate((video: HTMLVideoElement) => {
-    video.currentTime = 0.2
-  })
-  await expect.poll(time).toBeCloseTo(1, 1)
-
-  // In the open strip, its play button plays what the handles keep, and the player follows a moved handle.
-  await review.getByRole("button", { name: "Trim 0:01–0:03" }).click()
   await review.getByRole("button", { name: "Play selection" }).click()
+  await expect.poll(time).toBeLessThan(2)
   await expect(review.getByRole("button", { name: "Pause selection" })).toBeVisible()
   await expect.poll(paused, { timeout: 5_000 }).toBe(true)
   expect(await time()).toBeCloseTo(3, 1)
-  await review.getByRole("button", { name: "Done" }).click()
-  await expect.poll(time).toBeCloseTo(1, 1)
+
+  // The playhead goes anywhere, outside the kept part too, and stays there.
+  await review.getByRole("slider", { name: /Playhead/ }).press("Home")
+  await expect.poll(time).toBeCloseTo(0, 1)
+  await review.waitForTimeout(500)
+  expect(await time()).toBeCloseTo(0, 1)
+  // Played from outside the kept part, the preview starts at its start.
+  await review.getByRole("button", { name: "Play selection" }).click()
+  await expect.poll(time).toBeGreaterThanOrEqual(1)
+  await expect.poll(paused, { timeout: 5_000 }).toBe(true)
+  expect(await time()).toBeCloseTo(3, 1)
   await review.getByLabel("Title").fill("Trimmed recording")
+  // A handle moved right before Create report is what is sent, though its save hasn't come round yet.
+  await start.press("ArrowLeft")
   await review.getByRole("button", { name: "Create report" }).click()
   await expect(review.getByText("Report created")).toBeVisible({ timeout: 60_000 })
 
@@ -134,13 +129,13 @@ test("a trimmed recording sends only the kept part, video and logs", async () =>
     mediaUrl: string
     debuggerUrl: string
   }
-  expect(Math.abs(report.durationMs - 2000)).toBeLessThanOrEqual(100)
+  expect(Math.abs(report.durationMs - 2100)).toBeLessThanOrEqual(50)
 
   const debuggerBytes = Buffer.from(await (await fetch(new URL(report.debuggerUrl, state.serverUrl), { headers: auth })).arrayBuffer())
   const payload = JSON.parse(gunzipSync(debuggerBytes).toString("utf8")) as { events: Array<{ message?: string }> }
   expect(payload.events.map((event) => event.message)).toEqual(["kept"])
 
-  // The uploaded file itself is about 2 s long and plays.
+  // The uploaded file itself is about 2.1 s long and plays.
   const media = Buffer.from(await (await fetch(new URL(report.mediaUrl, state.serverUrl), { headers: auth })).arrayBuffer())
   const played = await page.evaluate(async (bytes) => {
     const video = document.createElement("video")
@@ -155,7 +150,7 @@ test("a trimmed recording sends only the kept part, video and logs", async () =>
     await new Promise((resolve) => setTimeout(resolve, 300))
     return { duration, moved: video.currentTime > 0 }
   }, [...media])
-  expect(Math.abs(played.duration - 2)).toBeLessThanOrEqual(0.2)
+  expect(Math.abs(played.duration - 2.1)).toBeLessThanOrEqual(0.2)
   expect(played.moved).toBe(true)
 
   await context.close()

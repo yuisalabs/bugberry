@@ -22,7 +22,7 @@ export interface VideoPlayerProps {
   topRight?: (currentSeconds: number) => ReactNode
   /** Where playback starts once the video has loaded (a shared "at 0:03" link). */
   startAtSeconds?: number
-  /** Only this part plays (ms into the video): seeking stays inside it and playback stops at its end. */
+  /** Only this part plays (ms into the video): play starts inside it and stops at its end; seeking stays free. */
   range?: PlayRange | null
 }
 

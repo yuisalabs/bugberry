@@ -88,11 +88,11 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
   const [sentDetails, setSentDetails] = useState<SentDetails | null>(null)
   const [trackers, setTrackers] = useState<TrackerChoice[] | null>(null)
   const [trackerNote, setTrackerNote] = useState<string | null>(null)
-  // Recordings: the part that is sent, whether its Trim strip is open, the strip's frames, and how far the
-  // trimmed video's encoding is while sending (null when it isn't encoding).
+  // Recordings: the part that is sent, the strip's frames, and how far the trimmed video's encoding is while
+  // sending (null when it isn't encoding).
   const [trim, setTrim] = useState<TrimRange | null>(null)
-  /** The range in the open Trim strip as it moves; null while the strip is closed. */
-  const [editing, setEditing] = useState<TrimRange | null>(null)
+  /** The trim waiting to be saved: a handle moves many times a second, and each save writes the whole video. */
+  const trimSave = useRef<{ timer: ReturnType<typeof setTimeout>; range: TrimRange | null } | null>(null)
   // Where the player is and whether it plays, for the strip's playhead and play button.
   const [position, setPosition] = useState(0)
   const [playing, setPlaying] = useState(false)
@@ -285,12 +285,20 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
     return () => window.removeEventListener("beforeunload", ask)
   }, [preparing])
 
-  const changeTrim = async (range: TrimRange | null) => {
-    setEditing(null)
+  /** Saves the trim waiting to be saved, now. */
+  const saveTrim = async () => {
+    const waiting = trimSave.current
+    if (!waiting) return
+    clearTimeout(waiting.timer)
+    trimSave.current = null
+    await writeDraft(draftId, (current) => draftWithTrim(current, waiting.range))
+  }
+
+  /** A moved handle applies at once (player, tiles, markers); the draft keeps it a moment later. */
+  const changeTrim = (range: TrimRange | null) => {
     setTrim(range)
-    // The preview goes to the start of the part that is kept.
-    if (video.current) video.current.currentTime = (range?.startMs ?? 0) / 1000
-    await writeDraft(draftId, (current) => draftWithTrim(current, range))
+    if (trimSave.current) clearTimeout(trimSave.current.timer)
+    trimSave.current = { range, timer: setTimeout(() => void saveTrim(), 400) }
   }
 
   /** The strip's play button: plays the part being kept (the player keeps inside it), or pauses. */
@@ -305,11 +313,15 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
     }
   }
 
-  const openTrim = () => {
-    if (frames || loaded?.draft.captureType !== "video" || !loaded.draft.video) return
-    setFrames([])
-    void videoFrames(loaded.draft.video, loaded.draft.durationMs ?? 0, 10).then(setFrames)
-  }
+  // The strip's frames, made once the recording is loaded.
+  useEffect(() => {
+    if (loaded?.draft.captureType !== "video" || !loaded.draft.video) return
+    let cancelled = false
+    void videoFrames(loaded.draft.video, loaded.draft.durationMs ?? 0, 10).then((made) => !cancelled && setFrames(made))
+    return () => {
+      cancelled = true
+    }
+  }, [loaded])
 
   const send = async (form: ReportForm, notes: RecordingNote[], options: { fullVideo?: boolean } = {}) => {
     const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
@@ -317,6 +329,8 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
     // An autosave still waiting would land in the middle of the send; the send saves the notes itself.
     if (saving.current) clearTimeout(saving.current)
     setStatus("sending")
+    // The strip's latest range is what is sent.
+    await saveTrim()
     setProgress(null)
     shownPercent.current = -1
     const onProgress = (next: UploadProgress) => {
@@ -400,9 +414,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
             durationMs={draft.durationMs}
             markers={reviewMarkers(markerEvents, startedAt)}
             videoRef={video}
-            // While the strip is open, its edges may show moments outside the current range.
-            // While the strip is open the player follows its edges, so its play button plays what would be kept.
-            range={editing ?? trim}
+            range={trim}
             onTime={(ms) => {
               setPosition(ms)
               setPlaying(Boolean(video.current && !video.current.paused))
@@ -425,12 +437,13 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       trim={trim}
       trimLocked={locked}
       trimFrames={frames ?? []}
-      onTrimOpen={openTrim}
-      onTrimEditing={setEditing}
+      onTrimSeek={(ms) => {
+        if (video.current) video.current.currentTime = ms / 1000
+      }}
       trimPosition={position}
       trimPlaying={playing}
       onTrimPlay={playTrim}
-      onTrimChange={(range) => void changeTrim(range)}
+      onTrimChange={changeTrim}
       onTrimPreview={(ms) => {
         if (video.current) video.current.currentTime = ms / 1000
       }}
@@ -451,8 +464,8 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       }}
       onClose={async (kept) => {
         if (kept) {
-          const current = await store.get(draftId)
-          if (current) await store.put(draftKept(current, kept.form, kept.notes))
+          await saveTrim()
+          await writeDraft(draftId, (current) => draftKept(current, kept.form, kept.notes))
         }
         close()
       }}

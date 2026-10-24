@@ -12,9 +12,10 @@ function clock(ms: number): string {
 }
 
 /**
- * The frames of the recording between two handles: the part between them is kept, the rest is greyed out. The
- * handles are dragged (or moved with the arrow keys); moving one shows that moment in the player. The play button
- * plays the part that is kept, and a line follows where the player is.
+ * The frames of the recording between two handles: the part between them is what is sent, the rest is greyed
+ * out. Moving a handle applies at once and shows that moment in the player. The playhead is a slider of its own
+ * over the whole strip: it can go anywhere, inside the kept part or not, to look at the video. The play button
+ * plays the part that is kept.
  */
 export function TrimStrip(props: {
   durationMs: number
@@ -23,11 +24,13 @@ export function TrimStrip(props: {
   /** Where the player is, in ms. */
   positionMs: number
   playing: boolean
+  /** A send has started: the handles and Reset no longer move. */
+  disabled: boolean
   onChange(range: TrimRange): void
   onPreview(ms: number): void
+  onSeek(ms: number): void
   onPlay(): void
   onReset(): void
-  onDone(): void
 }) {
   const { durationMs, value } = props
   const percent = (ms: number) => `${(Math.min(Math.max(ms, 0), durationMs) / Math.max(1, durationMs)) * 100}%`
@@ -40,75 +43,87 @@ export function TrimStrip(props: {
         <Button intent="outline" size="sq-sm" aria-label={props.playing ? "Pause selection" : "Play selection"} onPress={props.onPlay}>
           <PlayIcon aria-hidden />
         </Button>
-        <Slider
-          aria-label="Trim"
-          className="min-w-0 flex-1"
-          minValue={0}
-          maxValue={durationMs}
-          step={STEP_MS}
-          value={[value.startMs, value.endMs]}
-          onChange={(values) => {
-            const [startMs = 0, stepped = durationMs] = values as number[]
-            // The slider stops at the last whole step: within a step of the end means the end, so a video that isn't
-            // a whole number of steps long can still be kept whole.
-            const endMs = stepped > durationMs - STEP_MS ? durationMs : stepped
-            const moved = startMs !== value.startMs ? startMs : endMs
-            props.onChange(clampTrim({ startMs, endMs }, durationMs))
-            props.onPreview(moved)
-          }}
-        >
-          {/* The handles sit outside the kept part, so the track leaves room for them at both ends. */}
-          <SliderTrack className="relative mx-4 h-12">
-            {({ state }) => (
-              <>
-                <span className="absolute inset-0 flex overflow-hidden rounded-md bg-foreground/80">
-                  {props.frames.map((frame, index) => (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: frames never reorder
-                    <img key={index} src={frame} alt="" className="h-full min-w-0 flex-1 object-cover" />
-                  ))}
-                </span>
-                <span className="absolute inset-y-0 left-0 rounded-l-md bg-muted-foreground/85" style={{ width: percent(value.startMs) }} />
-                <span className="absolute inset-y-0 right-0 rounded-r-md bg-muted-foreground/85" style={{ width: `calc(100% - ${percent(value.endMs)})` }} />
-                <span
-                  className="pointer-events-none absolute inset-y-0 border-y-2 border-primary"
-                  style={{ left: percent(value.startMs), right: `calc(100% - ${percent(value.endMs)})` }}
-                />
-                <span
-                  data-playhead
-                  aria-hidden
-                  className="pointer-events-none absolute -inset-y-1 w-0.5 -translate-x-1/2 rounded-full bg-primary"
-                  style={{ left: percent(props.positionMs) }}
-                />
-                {state.values.map((_, index) => (
+        {/* The handles sit outside the kept part, so the strip leaves room for them at both ends. */}
+        <div className="relative mx-4 h-12 min-w-0 flex-1">
+          <span className="absolute inset-0 flex overflow-hidden rounded-md bg-foreground/80">
+            {props.frames.map((frame, index) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: frames never reorder
+              <img key={index} src={frame} alt="" className="h-full min-w-0 flex-1 object-cover" />
+            ))}
+          </span>
+          <span className="absolute inset-y-0 left-0 rounded-l-md bg-muted-foreground/85" style={{ width: percent(value.startMs) }} />
+          <span className="absolute inset-y-0 right-0 rounded-r-md bg-muted-foreground/85" style={{ width: `calc(100% - ${percent(value.endMs)})` }} />
+          <span
+            className="pointer-events-none absolute inset-y-0 border-y-2 border-primary"
+            style={{ left: percent(value.startMs), right: `calc(100% - ${percent(value.endMs)})` }}
+          />
+
+          {/* A click or drag anywhere on the frames moves the playhead. */}
+          <Slider
+            aria-label="Video position"
+            className="absolute inset-0"
+            minValue={0}
+            maxValue={durationMs}
+            step={STEP_MS}
+            value={Math.min(Math.max(props.positionMs, 0), durationMs)}
+            onChange={(ms) => props.onSeek(ms as number)}
+          >
+            <SliderTrack className="absolute inset-0 cursor-pointer">
+              <SliderThumb
+                aria-label="Playhead"
+                className="top-1/2 flex h-14 w-3 cursor-ew-resize justify-center outline-hidden data-focus-visible:[&>span]:ring-2 data-focus-visible:[&>span]:ring-ring"
+              >
+                <span className="h-full w-0.5 rounded-full bg-primary" />
+              </SliderThumb>
+            </SliderTrack>
+          </Slider>
+
+          {/* The trim handles, above the playhead; only the handles themselves take the pointer. */}
+          <Slider
+            aria-label="Trim"
+            className="pointer-events-none absolute inset-0"
+            minValue={0}
+            maxValue={durationMs}
+            step={STEP_MS}
+            isDisabled={props.disabled}
+            value={[value.startMs, value.endMs]}
+            onChange={(values) => {
+              const [startMs = 0, stepped = durationMs] = values as number[]
+              // The slider stops at the last whole step: within a step of the end means the end, so a video that
+              // isn't a whole number of steps long can still be kept whole.
+              const endMs = stepped > durationMs - STEP_MS ? durationMs : stepped
+              const moved = startMs !== value.startMs ? startMs : endMs
+              props.onChange(clampTrim({ startMs, endMs }, durationMs))
+              props.onPreview(moved)
+            }}
+          >
+            <SliderTrack className="absolute inset-0">
+              {({ state }) =>
+                state.values.map((_, index) => (
                   <SliderThumb
                     key={THUMB_LABELS[index]}
                     index={index}
                     aria-label={THUMB_LABELS[index]}
                     // Each handle stands just outside its edge: the start one to its left, the end one to its right.
-                    className={`top-1/2 flex h-12 w-4 cursor-ew-resize items-center justify-center bg-primary text-primary-foreground outline-hidden data-dragging:brightness-110 data-focus-visible:ring-2 data-focus-visible:ring-ring ${
+                    className={`pointer-events-auto top-1/2 z-10 flex h-12 w-4 cursor-ew-resize items-center justify-center bg-primary text-primary-foreground outline-hidden data-disabled:cursor-default data-disabled:opacity-60 data-dragging:brightness-110 data-focus-visible:ring-2 data-focus-visible:ring-ring ${
                       index === 0 ? "-ml-2 rounded-l-md" : "ml-2 rounded-r-md"
                     }`}
                   >
                     <RiMore2Fill data-grip aria-hidden size={14} />
                   </SliderThumb>
-                ))}
-              </>
-            )}
-          </SliderTrack>
-        </Slider>
+                ))
+              }
+            </SliderTrack>
+          </Slider>
+        </div>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
         <span className="tabular-nums text-muted-foreground">
           {clock(value.startMs)} – {clock(value.endMs)} · {keptSeconds} s of {Math.round(durationMs / 1000)} s
         </span>
-        <span className="flex gap-2">
-          <Button intent="outline" size="sm" onPress={props.onReset}>
-            Reset
-          </Button>
-          <Button size="sm" onPress={props.onDone}>
-            Done
-          </Button>
-        </span>
+        <Button intent="outline" size="sm" isDisabled={props.disabled} onPress={props.onReset}>
+          Reset
+        </Button>
       </div>
     </div>
   )

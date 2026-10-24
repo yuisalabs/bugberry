@@ -99,11 +99,13 @@ export function VideoPlayer({
     playerRef.current = player
     player.src({ src, type: "video/webm" })
 
-    // With a range, a position outside it moves back in, and playback stops at its end.
+    // With a range, playback stays inside it and stops at its end. A paused player may be moved anywhere, to look
+    // at the parts left out.
     const keepInRange = () => {
+      if (player.paused()) return
       const now = player.currentTime() ?? 0
       const kept = clampToRange(now, latest.current.range)
-      if (kept.atEnd && !player.paused()) player.pause()
+      if (kept.atEnd) player.pause()
       if (kept.seconds !== now) player.currentTime(kept.seconds)
     }
     const scheduleStop = () => {
@@ -175,15 +177,6 @@ export function VideoPlayer({
       player.dispose()
     }
   }, [src])
-
-  // A new range applies at once, also to a paused player sitting outside it.
-  useEffect(() => {
-    const player = playerRef.current
-    if (!player || !range) return
-    const now = player.currentTime() ?? 0
-    const kept = clampToRange(now, range)
-    if (kept.seconds !== now) player.currentTime(kept.seconds)
-  }, [range])
 
   const jumpTo = (marker: TimelineMarker) => {
     playerRef.current?.currentTime(Math.max(0, marker.atMs / 1000))
