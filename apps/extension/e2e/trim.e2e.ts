@@ -86,6 +86,23 @@ test("a trimmed recording sends only the kept part, video and logs", async () =>
 
   const review = await context.newPage()
   await review.goto(`chrome-extension://${extensionId}/review.html?draft=${draftId}`)
+  // While a handle is dragged only the strip follows it; the page (tiles, markers, player) catches up on release.
+  // Updating all of it on every move cost about 34 ms a move.
+  {
+    const handle = await review.getByRole("slider", { name: /Trim start/ }).locator("xpath=../..").boundingBox()
+    const frames = await review.getByRole("group", { name: "Trim" }).boundingBox()
+    const y = (handle?.y ?? 0) + (handle?.height ?? 0) / 2
+    await review.mouse.move((handle?.x ?? 0) + (handle?.width ?? 0) / 2, y)
+    await review.mouse.down()
+    for (let i = 1; i <= 5; i++) await review.mouse.move((frames?.x ?? 0) + ((frames?.width ?? 0) * 0.5 * i) / 5, y)
+    await expect(review.getByText(/^0:00 – 0:04/)).toBeHidden()
+    await expect(review.getByText("2 errors", { exact: true })).toBeVisible()
+    await review.mouse.up()
+    await expect(review.getByText("1 error", { exact: true })).toBeVisible()
+    await review.getByRole("button", { name: "Reset" }).click()
+    await expect(review.getByText("2 errors", { exact: true })).toBeVisible()
+  }
+
   // The strip is there from the start: a moved handle applies at once.
   const start = review.getByRole("slider", { name: /Trim start/ })
   for (let i = 0; i < 10; i++) await start.press("ArrowRight")

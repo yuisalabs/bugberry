@@ -1,5 +1,6 @@
 import { Button } from "@bugberry/ui/button"
 import { RiMore2Fill, RiPauseFill, RiPlayFill } from "@remixicon/react"
+import { useState } from "react"
 import { Slider, SliderThumb, SliderTrack } from "react-aria-components"
 import { clampTrim, type TrimRange } from "../../lib/review-data"
 
@@ -32,10 +33,23 @@ export function TrimStrip(props: {
   onPlay(): void
   onReset(): void
 }) {
-  const { durationMs, value } = props
+  const { durationMs } = props
+  // While a handle is dragged only the strip follows it: the page (tiles, markers, player range) updates on release.
+  // Updating all of it on every move cost about 34 ms a move with a busy recording.
+  const [live, setLive] = useState<TrimRange | null>(null)
+  const value = live ?? props.value
+  /** The slider's two values as a range, the end reaching the video's end within a step of it. */
+  const rangeOf = (values: number | number[]): TrimRange => {
+    const [startMs = 0, stepped = durationMs] = values as number[]
+    // The slider stops at the last whole step: within a step of the end means the end, so a video that isn't a
+    // whole number of steps long can still be kept whole.
+    return clampTrim({ startMs, endMs: stepped > durationMs - STEP_MS ? durationMs : stepped }, durationMs)
+  }
   const percent = (ms: number) => `${(Math.min(Math.max(ms, 0), durationMs) / Math.max(1, durationMs)) * 100}%`
   const keptSeconds = Math.round((value.endMs - value.startMs) / 1000)
   const PlayIcon = props.playing ? RiPauseFill : RiPlayFill
+  // While the playhead is dragged it stays under the pointer; the player catches up one seek at a time.
+  const [scrub, setScrub] = useState<number | null>(null)
 
   return (
     <div className="flex flex-col gap-2">
@@ -65,8 +79,12 @@ export function TrimStrip(props: {
             minValue={0}
             maxValue={durationMs}
             step={STEP_MS}
-            value={Math.min(Math.max(props.positionMs, 0), durationMs)}
-            onChange={(ms) => props.onSeek(ms as number)}
+            value={scrub ?? Math.min(Math.max(props.positionMs, 0), durationMs)}
+            onChange={(ms) => {
+              setScrub(ms as number)
+              props.onSeek(ms as number)
+            }}
+            onChangeEnd={() => setScrub(null)}
           >
             <SliderTrack className="h-full w-full cursor-pointer">
               <SliderThumb
@@ -88,13 +106,13 @@ export function TrimStrip(props: {
             isDisabled={props.disabled}
             value={[value.startMs, value.endMs]}
             onChange={(values) => {
-              const [startMs = 0, stepped = durationMs] = values as number[]
-              // The slider stops at the last whole step: within a step of the end means the end, so a video that
-              // isn't a whole number of steps long can still be kept whole.
-              const endMs = stepped > durationMs - STEP_MS ? durationMs : stepped
-              const moved = startMs !== value.startMs ? startMs : endMs
-              props.onChange(clampTrim({ startMs, endMs }, durationMs))
-              props.onPreview(moved)
+              const next = rangeOf(values)
+              setLive(next)
+              props.onPreview(next.startMs !== value.startMs ? next.startMs : next.endMs)
+            }}
+            onChangeEnd={(values) => {
+              setLive(null)
+              props.onChange(rangeOf(values))
             }}
           >
             <SliderTrack className="h-full w-full">

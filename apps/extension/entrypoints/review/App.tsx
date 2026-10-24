@@ -8,6 +8,7 @@ import { relayFetcher } from "../../lib/api-relay"
 import { BUILD_SERVER_ORIGIN, browserSettingsStorage, includeCityStorage, lastWorkspaceStorage } from "../../lib/browser-settings"
 import { createIndexedDbDraftStore, saveAnnotations } from "../../lib/draft-store"
 import { createDraftWriter } from "../../lib/draft-writer"
+import { createSeeker } from "../../lib/seeker"
 import { type EditorDeps, loadEditor, loadProjects } from "../../lib/editor-load"
 import { limitsFor } from "../../lib/limits"
 import { currentCoordinates, locationForSend, toggleCity } from "../../lib/location"
@@ -301,6 +302,15 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
     trimSave.current = { range, timer: setTimeout(() => void saveTrim(), 400) }
   }
 
+  /** Seeks for the strip one at a time, so a dragged handle or playhead doesn't pile them up (see createSeeker). */
+  const seeker = useRef<{ element: HTMLVideoElement; seek(seconds: number): void } | null>(null)
+  const seekTo = (ms: number) => {
+    const element = video.current
+    if (!element) return
+    if (seeker.current?.element !== element) seeker.current = { element, ...createSeeker(element) }
+    seeker.current.seek(ms / 1000)
+  }
+
   /** The strip's play button: plays the part being kept (the player keeps inside it), or pauses. */
   const playTrim = () => {
     const player = video.current
@@ -437,16 +447,12 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       trim={trim}
       trimLocked={locked}
       trimFrames={frames ?? []}
-      onTrimSeek={(ms) => {
-        if (video.current) video.current.currentTime = ms / 1000
-      }}
+      onTrimSeek={seekTo}
       trimPosition={position}
       trimPlaying={playing}
       onTrimPlay={playTrim}
       onTrimChange={changeTrim}
-      onTrimPreview={(ms) => {
-        if (video.current) video.current.currentTime = ms / 1000
-      }}
+      onTrimPreview={seekTo}
       preparing={preparing}
       includeCity={includeCity}
       cityNote={cityNote}
