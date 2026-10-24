@@ -486,9 +486,16 @@ describe("camera picker", () => {
     expect(screen.queryByRole("radiogroup", { name: "Shape" })).toBeNull()
   })
 
-  test("a chosen camera that is gone shows the first one's name", () => {
+  test("with no camera chosen, or one that is gone, the chip says Default camera: that is the one the bubble opens", () => {
     view({ prefs: { ...record("tab"), camera: true, cameraDeviceId: "gone" } })
-    expect(button(/FaceTime HD/)).toBeTruthy()
+    expect(button(/Default camera/)).toBeTruthy()
+    cleanup()
+    view({ prefs: { ...record("tab"), camera: true, cameraDeviceId: null } })
+    fireEvent.click(button(/Default camera/))
+    // On, but none of the listed cameras is picked; the shape can still be chosen.
+    expect(radio(/FaceTime HD/).checked).toBe(false)
+    expect(radio(/No camera/).checked).toBe(false)
+    expect(screen.getByRole("radiogroup", { name: "Shape" })).toBeTruthy()
   })
 
   test("before access, the picker offers to allow it", () => {

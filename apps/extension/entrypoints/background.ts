@@ -3,7 +3,7 @@ import { createFailureFlag } from "../lib/badge"
 import { bridgeSenderOrigin, createBridge } from "../lib/bridge"
 import { browserRecordingState } from "../lib/browser-recording-state"
 import { createBugberryApi } from "../lib/api"
-import { CAMERA_READY_MS, type CameraGrant, createCameraGrants } from "../lib/camera-grant"
+import { CAMERA_READY_MS, type CameraGrant, cameraTicketReply, createCameraGrants, uiStateReply } from "../lib/camera-grant"
 import { handleApiFetch, isApiFetchRequest } from "../lib/api-relay"
 import { hasTabRecorder } from "../lib/browser-support"
 import { recordOptionsFor, type ScreenshotMode } from "../lib/capture-prefs"
@@ -512,22 +512,13 @@ export default defineBackground(() => {
     // The page layer asks on every page load whether its tab is being recorded.
     if (isUiStateRequest(message)) {
       return reply(
-        Promise.all([browserRecordingState.get(), cameraGrants.forTab(sender.tab?.id)]).then(([state, camera]) => ({
-          ...(state && state.tabId === sender.tab?.id ? { recording: true, session: state.draftId } : { recording: false }),
-          ...(camera ? { camera } : {}),
-        })),
+        Promise.all([browserRecordingState.get(), cameraGrants.forTab(sender.tab?.id)]).then(([state, camera]) => uiStateReply(state, camera, sender.tab?.id)),
       )
     }
     // The camera bubble, by its grant's token: only from inside the granted tab (sites can embed the page).
     if (isCameraTicketRequest(message)) {
       if (!fromExtensionPage(sender, browser.runtime.id, extensionOrigin)) return undefined
-      return reply(
-        message.action === "read"
-          ? cameraGrants.read(message.token, sender.tab?.id)
-          : (message.action === "ready" ? cameraGrants.ready(message.token, sender.tab?.id) : cameraGrants.fail(message.token, sender.tab?.id)).then(
-              () => ({ ok: true }),
-            ),
-      )
+      return reply(cameraTicketReply(cameraGrants, message, sender.tab?.id))
     }
     // Only the extension's own pages drive a recording: the review from anywhere, the bar and the drawing
     // layer only from inside the recorded tab (another site can embed those pages, but not in that tab).

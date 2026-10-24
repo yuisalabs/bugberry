@@ -1,5 +1,5 @@
 import type { CameraShape } from "./capture-prefs"
-import type { CameraChoice } from "./messages"
+import type { CameraChoice, CameraTicketRequest } from "./messages"
 
 /** How long a recording waits for the camera bubble's first picture before it starts anyway. */
 export const CAMERA_READY_MS = 1500
@@ -89,3 +89,23 @@ export function createCameraGrants(deps: {
 }
 
 export type CameraGrants = ReturnType<typeof createCameraGrants>
+
+/** The background's answer to the camera bubble, once the sender is known to be one of the extension's pages. */
+export async function cameraTicketReply(grants: CameraGrants, message: CameraTicketRequest, senderTabId: number | undefined): Promise<unknown> {
+  if (message.action === "read") return grants.read(message.token, senderTabId)
+  if (message.action === "ready") await grants.ready(message.token, senderTabId)
+  else await grants.fail(message.token, senderTabId)
+  return { ok: true }
+}
+
+/** What a page load is told: whether its tab is being recorded, and its camera bubble, which may come first. */
+export function uiStateReply(
+  state: { tabId: number; draftId: string } | null,
+  camera: { token: string; shape: CameraShape } | null,
+  senderTabId: number | undefined,
+) {
+  return {
+    ...(state && state.tabId === senderTabId ? { recording: true, session: state.draftId } : { recording: false }),
+    ...(camera ? { camera } : {}),
+  }
+}

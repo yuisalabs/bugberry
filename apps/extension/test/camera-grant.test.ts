@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test"
-import { type CameraGrant, createCameraGrants } from "../lib/camera-grant"
+import { type CameraGrant, cameraTicketReply, createCameraGrants, uiStateReply } from "../lib/camera-grant"
 
 let stored: CameraGrant | null
 let timers: Array<() => void>
@@ -90,5 +90,29 @@ describe("camera grants", () => {
     expect(await grants.forTab(7)).toEqual({ token, shape: "rectangle" })
     expect(await grants.forTab(8)).toBeNull()
     expect(await grants.forTab(undefined)).toBeNull()
+  })
+})
+
+describe("the background's answers", () => {
+  test("a camera ticket: read gives the choice, ready and failed end the wait, all from the granted tab", async () => {
+    const grants = setup()
+    const { token } = await grants.open(7, { deviceId: "cam1", shape: "circle" })
+    expect(await cameraTicketReply(grants, { type: "bugberry:camera-ticket", token, action: "read" }, 7)).toEqual({ deviceId: "cam1", shape: "circle" })
+    expect(await cameraTicketReply(grants, { type: "bugberry:camera-ticket", token, action: "read" }, 8)).toBeNull()
+    const ready = grants.waitReady(token, 1500)
+    expect(await cameraTicketReply(grants, { type: "bugberry:camera-ticket", token, action: "ready" }, 7)).toEqual({ ok: true })
+    expect(await ready).toBe("ready")
+    const failed = grants.waitReady(token, 1500)
+    await cameraTicketReply(grants, { type: "bugberry:camera-ticket", token, action: "failed" }, 7)
+    expect(await failed).toBe("failed")
+  })
+
+  test("ui-state: the recording for its own tab, and the camera whenever this tab has one", () => {
+    const state = { tabId: 7, draftId: "d1" }
+    const camera = { token: "t", shape: "circle" as const }
+    expect(uiStateReply(state, camera, 7)).toEqual({ recording: true, session: "d1", camera })
+    expect(uiStateReply(state, null, 8)).toEqual({ recording: false })
+    // During the countdown the camera grant exists before the recording state.
+    expect(uiStateReply(null, camera, 7)).toEqual({ recording: false, camera })
   })
 })

@@ -14,7 +14,7 @@ const NONE = "none"
 export function CameraPicker(props: {
   access: CameraAccess
   devices: CameraDevice[]
-  /** The chosen camera; null is "No camera". */
+  /** The chosen camera; null is "No camera", "" is on with the system's default camera. */
   chosen: string | null
   shape: CameraShape
   /** The Camera chip: a press there toggles the picker, so it doesn't count as a click outside. */

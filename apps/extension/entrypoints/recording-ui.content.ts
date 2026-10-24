@@ -1,6 +1,6 @@
 import { browser } from "wxt/browser"
 import { isPageUiMessage, type UiStateRequest } from "../lib/messages"
-import { type BarPosition, createPageUi, uiStateNeeded } from "../lib/page-ui"
+import { type BarPosition, cameraFromUiState, createPageUi, uiStateNeeded } from "../lib/page-ui"
 
 const POSITION_KEY = "barPosition"
 const CAMERA_POSITION_KEY = "cameraPosition"
@@ -75,10 +75,10 @@ export default defineContentScript({
     const session = (await browser.storage.session.get(["recording", "camera"]).catch(() => ({}))) as Record<string, unknown>
     if (!uiStateNeeded(session)) return
     const ask: UiStateRequest = { type: "bugberry:ui-state" }
-    const state = (await browser.runtime.sendMessage(ask).catch(() => null)) as { recording?: unknown; session?: unknown; camera?: unknown } | null
+    const state = (await browser.runtime.sendMessage(ask).catch(() => null)) as { recording?: unknown; session?: unknown } | null
     if (state?.recording === true && typeof state.session === "string") ui.showRecording(state.session)
     // The camera comes back on its own: it is already on during the countdown, before the recording state exists.
-    const camera = state?.camera as { token?: unknown; shape?: unknown } | undefined
-    if (typeof camera?.token === "string" && (camera.shape === "circle" || camera.shape === "rectangle")) ui.showCamera(camera.token, camera.shape)
+    const camera = cameraFromUiState(state)
+    if (camera) ui.showCamera(camera.token, camera.shape)
   },
 })

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, mock, test } from "bun:test"
-import { type BarPosition, clampPosition, createPageUi, uiStateNeeded } from "../lib/page-ui"
+import { type BarPosition, cameraFromUiState, clampPosition, createPageUi, uiStateNeeded } from "../lib/page-ui"
 
 const ORIGIN = "chrome-extension://abcdefghijklmnopabcdefghijklmnop"
 
@@ -166,6 +166,23 @@ describe("the camera bubble", () => {
     expect(cameraFrame(root())?.src).toContain("camera=t2")
   })
 
+  test("the bubble sits above the drawing layer and below the bar, whichever came first", () => {
+    const order = (root: ShadowRoot | null) =>
+      [...(root?.children ?? [])].map((element) =>
+        element.hasAttribute("data-camera") ? "camera" : element.hasAttribute("data-bar") ? "bar" : (element as HTMLIFrameElement).src?.includes("draw.html") ? "draw" : "?",
+      )
+    const fresh = setup()
+    fresh.ui.showCamera("t1", "circle")
+    fresh.ui.showRecording("s1")
+    expect(order(fresh.root())).toEqual(["draw", "camera", "bar"])
+    fresh.ui.hideRecording()
+    fresh.ui.hideCamera()
+    const reloaded = setup()
+    reloaded.ui.showRecording("s1")
+    reloaded.ui.showCamera("t1", "circle")
+    expect(order(reloaded.root())).toEqual(["draw", "camera", "bar"])
+  })
+
   test("hiding the recording keeps the camera", () => {
     const { ui, root } = setup()
     ui.showRecording("s1")
@@ -212,6 +229,14 @@ describe("countdown", () => {
     expect(await result).toBe("cancel")
     expect(root()?.textContent ?? "").not.toContain("Recording starts")
   })
+})
+
+test("after a reload, the camera comes back only from a well-formed ui-state answer", () => {
+  expect(cameraFromUiState({ recording: false, camera: { token: "t", shape: "rectangle" } })).toEqual({ token: "t", shape: "rectangle" })
+  expect(cameraFromUiState({ recording: true, session: "d1" })).toBeNull()
+  expect(cameraFromUiState({ camera: { token: 1, shape: "circle" } })).toBeNull()
+  expect(cameraFromUiState({ camera: { token: "t", shape: "oval" } })).toBeNull()
+  expect(cameraFromUiState(null)).toBeNull()
 })
 
 test("a page load only wakes the background while something is being recorded", () => {

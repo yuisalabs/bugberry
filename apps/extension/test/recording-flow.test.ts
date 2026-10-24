@@ -584,6 +584,12 @@ describe("the camera", () => {
     expect(await startVideoRecording(tab, { ...TAB_OPTIONS, camera: CAMERA }, deps)).toEqual({ ok: true, draftId: "video-1" })
   })
 
+  test("a start that fails after the take began still turns the camera off", async () => {
+    deps.state = { ...state, set: async () => Promise.reject(new Error("storage is full")) }
+    await expect(startVideoRecording(tab, { ...TAB_OPTIONS, camera: CAMERA }, deps)).rejects.toThrow("storage is full")
+    expect(cameraSteps().at(-1)).toBe("camera-hide 7")
+  })
+
   test("Restart keeps the camera; Discard hides it", async () => {
     const controller = createRecordingController(deps)
     await controller.start(tab, { ...TAB_OPTIONS, camera: CAMERA })

@@ -299,23 +299,29 @@ export async function startVideoRecording(
     return { ok: false, error: `Couldn't start recording: ${begun.error}` }
   }
 
-  if (options.mic && opened.micOn === false) await deps.micUnavailable()
   const startedAt = begun.startedAt ?? deps.now()
-  await deps.store.put({ ...draft, recordingStartedAt: startedAt })
-  await deps.state.set({
-    draftId: draft.id,
-    tabId: tab.id,
-    startedAt,
-    loads: 0,
-    logs,
-    pauses: [],
-    pausedAt: null,
-    micOn: opened.micOn === true,
-    micAvailable: opened.micAvailable,
-    countdown: options.countdown,
-    source: options.source,
-    tabs: [],
-  })
+  try {
+    if (options.mic && opened.micOn === false) await deps.micUnavailable()
+    await deps.store.put({ ...draft, recordingStartedAt: startedAt })
+    await deps.state.set({
+      draftId: draft.id,
+      tabId: tab.id,
+      startedAt,
+      loads: 0,
+      logs,
+      pauses: [],
+      pausedAt: null,
+      micOn: opened.micOn === true,
+      micAvailable: opened.micAvailable,
+      countdown: options.countdown,
+      source: options.source,
+      tabs: [],
+    })
+  } catch (error) {
+    // Without a recording state no Stop or Discard will come to turn the camera off.
+    await deps.hideCamera(tab.id).catch(() => {})
+    throw error
+  }
   await deps.setBadge(true)
   await deps.showRecordingUi(tab.id, true)
   return { ok: true, draftId: draft.id }

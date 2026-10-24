@@ -58,6 +58,12 @@ export function uiStateNeeded(stored: Record<string, unknown>): boolean {
   return present(stored.recording) || present(stored.camera)
 }
 
+/** The camera bubble a ui-state answer brings back after a reload; null when there is none or it is malformed. */
+export function cameraFromUiState(state: unknown): { token: string; shape: CameraShape } | null {
+  const camera = (state as { camera?: { token?: unknown; shape?: unknown } } | null)?.camera
+  return typeof camera?.token === "string" && (camera.shape === "circle" || camera.shape === "rectangle") ? { token: camera.token, shape: camera.shape } : null
+}
+
 /** Keeps a box of `size` inside the viewport. */
 export function clampPosition(
   position: BarPosition,
@@ -225,7 +231,11 @@ export function createPageUi(doc: Document, win: Window, deps: PageUiDeps): Page
       const barFrame = frame(doc, deps.extensionUrl(`recorder-bar.html?session=${encodeURIComponent(session)}`), `width:${barSize.width}px;height:${barSize.height}px`)
       // The bar is dragged from anywhere on it but its buttons; its frame sends the moves (lib/bar-drag.ts).
       bar.append(barFrame)
-      shadow.append(draw, bar)
+      // Drawing layer, camera bubble, bar: strokes never cover the reporter's face, and the bar stays on top.
+      if (camera?.box.parentNode === shadow) {
+        camera.box.before(draw)
+        camera.box.after(bar)
+      } else shadow.append(draw, bar)
       const { width, height } = viewport()
       place(bar, deps.loadPosition() ?? { x: (width - outerSize().width) / 2, y: height - outerSize().height - BOTTOM_GAP })
 
@@ -335,7 +345,9 @@ export function createPageUi(doc: Document, win: Window, deps: PageUiDeps): Page
       // The bubble's page asks for the camera from inside this frame.
       cameraFrame.setAttribute("allow", "camera")
       box.append(cameraFrame)
-      ensureRoot().append(box)
+      const shadow = ensureRoot()
+      if (recording?.bar.parentNode === shadow) recording.bar.before(box)
+      else shadow.append(box)
       place(box, deps.loadCameraPosition?.() ?? { x: CAMERA_GAP, y: viewport().height - size.height - CAMERA_GAP }, size)
       camera = { token, shape, box, frame: cameraFrame, dragFrom: null }
     },

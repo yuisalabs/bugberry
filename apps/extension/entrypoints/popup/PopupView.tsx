@@ -117,9 +117,12 @@ export function micMeterOn(
   return choiceOf(prefs, tabRecorder).kind === "record" && (pickerOpen || prefs.mic)
 }
 
-/** The camera the bubble shows: the chosen one, or the first one when it is unplugged or none was chosen. */
+/**
+ * The chosen camera, when it is still there. Otherwise the bubble opens the system's default camera, which
+ * Chrome doesn't name: the chip says "Default camera".
+ */
 function cameraInUse(prefs: CapturePrefs, camera: PopupViewProps["camera"]) {
-  return camera.devices.find((device) => device.id === prefs.cameraDeviceId) ?? camera.devices[0]
+  return camera.devices.find((device) => device.id === prefs.cameraDeviceId)
 }
 
 /** The toolbar popup: tiles to choose what to capture, a dial to do it. No browser APIs here; App wires them. */
@@ -151,7 +154,7 @@ export function PopupView(props: PopupViewProps) {
   const micShort = micShortName(prefs, props.mic)
   // The camera's bubble is on the page: only a tab recording shows it.
   const cameraShown = choice.kind === "record" && choice.source === "tab" && props.tabRecorder
-  const cameraName = prefs.camera ? (cameraInUse(prefs, props.camera)?.name ?? "Camera on") : null
+  const cameraName = prefs.camera ? (cameraInUse(prefs, props.camera)?.name ?? "Default camera") : null
   const warning = choice.kind === "screenshot" ? props.screenshotWarning : props.recordWarning
 
   return (
@@ -265,7 +268,8 @@ export function PopupView(props: PopupViewProps) {
                   <CameraPicker
                     access={props.camera.access}
                     devices={props.camera.devices}
-                    chosen={prefs.camera ? (cameraInUse(prefs, props.camera)?.id ?? null) : null}
+                    // "" while on with the default camera: no row is picked, the shape still shows.
+                    chosen={prefs.camera ? (cameraInUse(prefs, props.camera)?.id ?? "") : null}
                     shape={prefs.cameraShape}
                     chipRef={cameraChipRef}
                     onChoose={(id) => {
