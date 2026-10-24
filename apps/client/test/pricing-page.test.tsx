@@ -11,10 +11,21 @@ describe("PricingView", () => {
     render(<PricingView signedIn={false} installUrl={null} />)
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("BugBerry is free while we’re in early access.")
     const free = plan("Free")
-    for (const line of ["1 workspace", "5 screenshots", "5 video recordings", "250 MB of storage", "Files up to 50 MB", "Unlimited projects"]) {
+    for (const line of ["1 workspace", "5 screenshots", "5 video recordings", "Recordings up to 2 minutes", "Unlimited projects"]) {
       expect(within(free).getByText(line)).toBeTruthy()
     }
     expect(within(free).getByRole("link", { name: "Start for free" }).getAttribute("href")).toBe("/login")
+  })
+
+  test("limits are counted in reports and minutes, never in MB", () => {
+    render(<PricingView signedIn={false} installUrl={null} />)
+    for (const button of screen.getAllByRole("button", { name: /\?$/ })) {
+      if (button.getAttribute("aria-expanded") === "false") fireEvent.click(button)
+    }
+    expect(text()).not.toMatch(/MB/)
+    expect(text()).toContain("5 screenshots and 5 video recordings per workspace, each recording up to 2 minutes")
+    const cells = within(row("Longest recording")).getAllByRole("cell")
+    expect(cells.map((cell) => cell.textContent)).toEqual(["2 minutes", "Unlimited", "Unlimited"])
   })
 
   test("Free stands in the middle and larger than the plans beside it", () => {
@@ -83,6 +94,8 @@ describe("PricingView", () => {
     }
     expect(answer("What counts toward the 5 + 5 limit?")).toContain("Delete one and its place is free again")
     expect(answer("What happens when I hit the limit?")).toContain("delete one")
+    expect(answer("What happens when I hit the limit?")).toContain("stops by itself at 2 minutes")
+    expect(answer("Do I need a credit card?")).toContain("before you sign in")
   })
 
   test("every question has an answer", () => {
