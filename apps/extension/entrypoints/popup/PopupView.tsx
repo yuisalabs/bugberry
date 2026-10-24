@@ -146,7 +146,8 @@ export function PopupView(props: PopupViewProps) {
   if (showDrafts) return <DraftList {...props} onBack={() => setShowDrafts(false)} />
 
   const { session, prefs } = props
-  const blocked = session?.kind === "signed-out" || session?.kind === "no-server"
+  // Signed out, captures still work: they wait as drafts until the reporter signs in to send them.
+  const blocked = session?.kind === "no-server"
   const live = props.live?.recording ? props.live : null
   // While recording the tiles show what is being recorded, faded: nothing else can start.
   const choice: CaptureChoice = live ? { kind: "record", source: live.source } : choiceOf(prefs, props.tabRecorder)
@@ -190,6 +191,17 @@ export function PopupView(props: PopupViewProps) {
         </Strip>
       )}
 
+      {!live && session?.kind === "signed-out" && (
+        <Strip tone="warning">
+          <span className="flex items-center justify-between gap-2">
+            <span>Sign in to send your captures to BugBerry</span>
+            <Button size="sm" onPress={props.onSignIn}>
+              Sign in
+            </Button>
+          </span>
+        </Strip>
+      )}
+
       {live && (
         <>
           <Tiles choice={choice} tabRecorder={props.tabRecorder} disabled onChoose={props.onPrefs} />
@@ -221,7 +233,6 @@ export function PopupView(props: PopupViewProps) {
         </>
       )}
 
-      {!live && session?.kind === "signed-out" && <StatusCard title="Sign in to BugBerry" action="Sign in" onAction={props.onSignIn} />}
       {!live && session?.kind === "no-server" && <StatusCard title="Choose your BugBerry server" action="Open settings" onAction={props.onOpenSettings} />}
 
       {props.live && !live && !blocked && (

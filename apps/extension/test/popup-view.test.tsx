@@ -208,13 +208,13 @@ describe("limits", () => {
 })
 
 describe("not ready to send", () => {
-  test("signed out: only the sign-in card", () => {
+  test("signed out: captures, with a strip to sign in", () => {
     const props = view({ session: { kind: "signed-out" } })
-    expect(screen.getByText("Sign in to BugBerry")).toBeTruthy()
+    expect(screen.getByText("Sign in to send your captures to BugBerry")).toBeTruthy()
     fireEvent.click(button("Sign in"))
     expect(props.onSignIn).toHaveBeenCalledTimes(1)
-    expect(screen.queryByRole("radio")).toBeNull()
-    expect(screen.queryByRole("button", { name: "Capture visible area" })).toBeNull()
+    fireEvent.click(button("Capture visible area"))
+    expect(props.onScreenshot).toHaveBeenCalledTimes(1)
   })
 
   test("no server: the settings card", () => {
