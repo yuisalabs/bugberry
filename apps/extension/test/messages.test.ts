@@ -8,7 +8,7 @@ import {
   isRecordStatusRequest,
   isBarRequest,
   isReviewAgainRequest,
-  isScreenshotRequest, isRecorderReadyNotice, isPopupRecordingRequest } from "../lib/messages"
+  isScreenshotRequest, isRecorderReadyNotice, isPopupRecordingRequest, isCameraTicketRequest } from "../lib/messages"
 
 describe("messages", () => {
   test("background requests are recognised by type and shape", () => {
@@ -32,6 +32,13 @@ describe("messages", () => {
     }
     expect(isRecordStatusRequest({ type: "bugberry:record-status" })).toBe(true)
     expect(isRecordingEndedNotice({ type: "bugberry:recording-ended", reason: "max-duration" })).toBe(true)
+  })
+
+  test("the camera bubble asks with its token, to read or to say it's ready", () => {
+    expect(isCameraTicketRequest({ type: "bugberry:camera-ticket", token: "t", action: "read" })).toBe(true)
+    expect(isCameraTicketRequest({ type: "bugberry:camera-ticket", token: "t", action: "ready" })).toBe(true)
+    expect(isCameraTicketRequest({ type: "bugberry:camera-ticket", token: 1, action: "read" })).toBe(false)
+    expect(isCameraTicketRequest({ type: "bugberry:camera-ticket", token: "t", action: "start" })).toBe(false)
   })
 
   test("a page flush carries its document id, events and incomplete names", () => {

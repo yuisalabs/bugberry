@@ -365,3 +365,18 @@ export function isPromptTicketRequest(message: unknown): message is PromptTicket
   const action = field(message, "action")
   return typeOf(message) === "bugberry:prompt-ticket" && typeof field(message, "token") === "string" && (action === "read" || action === "done" || action === "tab")
 }
+
+/**
+ * The camera bubble → background, naming the grant from its URL: which camera to show ("read"), or that its
+ * first picture is on screen ("ready"). Only a bubble inside the granted tab gets an answer.
+ */
+export interface CameraTicketRequest {
+  type: "bugberry:camera-ticket"
+  token: string
+  action: "read" | "ready"
+}
+
+export function isCameraTicketRequest(message: unknown): message is CameraTicketRequest {
+  const action = field(message, "action")
+  return typeOf(message) === "bugberry:camera-ticket" && typeof field(message, "token") === "string" && (action === "read" || action === "ready")
+}
