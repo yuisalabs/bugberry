@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { ReportTrackers } from "../src/lib/api"
-import { sendOutcome, trackerItems } from "../src/lib/more-menu"
+import { primaryTracker, sendOutcome, trackerItems } from "../src/lib/more-menu"
 
 const now = new Date("2026-10-16T08:00:00Z")
 const integrations = [
@@ -80,6 +80,28 @@ describe("trackerItems", () => {
     const earlier = link({ integrationId: null, provider: "linear", externalId: "ENG-142", externalUrl: "https://linear.app/kantor/issue/ENG-142" })
     const [item] = trackerItems({ needsProject: false, integrations: [], links: [earlier] }, now.getTime())
     expect(item?.label).toBe("Open issue ENG-142")
+  })
+})
+
+describe("primaryTracker", () => {
+  test("the green button acts on the project's first tracker, named by its tracker alone", () => {
+    expect(primaryTracker(data([]), now.getTime())).toEqual({
+      label: "Send to GitHub",
+      item: { integrationId: "gh", label: "Send to GitHub · kantor/web", action: "send", href: null, note: null },
+    })
+  })
+
+  test("once sent it opens the issue; while sending and after a failure it says so", () => {
+    const sent = primaryTracker(data([link({ externalId: "142", externalUrl: "https://github.com/kantor/web/issues/142" })]), now.getTime())
+    expect(sent).toMatchObject({ label: "Open in GitHub #142", item: { action: "open", href: "https://github.com/kantor/web/issues/142" } })
+    expect(primaryTracker(data([]), now.getTime(), "gh")?.label).toBe("Sending to GitHub…")
+    expect(primaryTracker(data([link({ error: "Bad token" })]), now.getTime())?.label).toBe("Retry send to GitHub")
+  })
+
+  test("without a tracker in the project, an earlier issue still opens; with neither there is no button", () => {
+    const earlier = link({ integrationId: "gone", externalId: "42", externalUrl: "https://github.com/kantor/web/issues/42" })
+    expect(primaryTracker({ needsProject: true, integrations: [], links: [earlier] }, now.getTime())?.label).toBe("Open issue #42")
+    expect(primaryTracker({ needsProject: true, integrations: [], links: [] }, now.getTime())).toBeNull()
   })
 })
 

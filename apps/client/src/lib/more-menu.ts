@@ -59,6 +59,23 @@ export function trackerItems(data: ReportTrackers, now: number, sendingId: strin
 }
 
 /**
+ * What the green tracker button does: the project's first tracker (its other trackers are under the arrow),
+ * or an issue made before the report moved projects. Its label names the tracker alone, without the repo or
+ * project the menu shows. Null when there is nothing to send to or open.
+ */
+export function primaryTracker(
+  data: ReportTrackers,
+  now: number,
+  sendingId: string | null = null,
+): { item: TrackerItem; label: string } | null {
+  const items = trackerItems(data, now, sendingId)
+  const first = data.integrations[0]
+  const item = (first && items.find((entry) => entry.integrationId === first.id)) ?? items[0]
+  if (!item) return null
+  return { item, label: first && item.action === "send" ? `Send to ${PROVIDER_LABELS[first.provider]}` : item.label }
+}
+
+/**
  * What a send to a tracker came to, for the toast after the menu closed. The server answers a send that
  * reached the tracker but failed there with the link and its error, not with an error response.
  */
