@@ -9,14 +9,18 @@ export interface LimitNote {
   blocked: boolean
   /** Only admins can delete reports, so only they get "Open dashboard". */
   admin: boolean
+  /** The whole recording, untrimmed, is longer than the workspace takes: it can't be sent in place of the trim. */
+  fullTooLong: boolean
 }
 
-export const NO_LIMIT_NOTE: LimitNote = { usage: null, warning: null, blocked: false, admin: false }
+export const NO_LIMIT_NOTE: LimitNote = { usage: null, warning: null, blocked: false, admin: false, fullTooLong: false }
 
 export interface ReviewLimitsDeps {
   kind: CaptureKind
   /** The recording's length as it would be sent (trimmed), checked against the longest the workspace takes. */
   durationMs?: number
+  /** The whole recording's length, untrimmed. */
+  fullDurationMs?: number
   workspaces: readonly { id: string; role: string }[]
   fetchLimits(workspaceId: string): Promise<WorkspaceLimits | null>
   /** The draft as stored now: a failed send may have started its own upload since the review opened. */
@@ -49,6 +53,7 @@ export function createReviewLimits(deps: ReviewLimitsDeps, initialWorkspaceId: s
       warning: blocked ? (fullWarning(limits, deps.kind, "review", who) ?? lengthWarning(limits, durationMs, who)) : null,
       blocked,
       admin: who.isAdmin,
+      fullTooLong: deps.kind === "video" && lengthWarning(limits, deps.fullDurationMs ?? 0, who) !== null,
     })
   }
 

@@ -112,6 +112,8 @@ export interface ReviewViewProps {
   limitWarning?: string | null
   /** "Create report" waits for a free slot (never while resuming this draft's own upload). */
   sendBlocked?: boolean
+  /** The untrimmed recording is longer than the workspace takes, so "Send full video" isn't offered. */
+  fullVideoTooLong?: boolean
   /** Admins only: opens the dashboard on this workspace to delete a report. */
   onOpenDashboard?(): void
   onIncludeCityChange(on: boolean): void
@@ -450,7 +452,7 @@ export function ReviewView(props: ReviewViewProps) {
                 {typeof props.status === "object" && "trimFailed" in props.status && (
                   <p role="alert" className="flex flex-wrap items-center gap-2 rounded-xl bg-danger-subtle px-3.5 py-2.5 text-sm text-danger-subtle-foreground">
                     Couldn't trim the video: {props.status.trimFailed}
-                    {!props.signInUrl && (
+                    {!props.signInUrl && !props.fullVideoTooLong && (
                       <AriaButton
                         className="rounded-sm font-semibold underline outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                         onPress={() => send({ fullVideo: true })}

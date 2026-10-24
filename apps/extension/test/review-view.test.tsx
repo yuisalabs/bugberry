@@ -153,6 +153,12 @@ describe("what the review shows", () => {
     expect(screen.queryByRole("button", { name: "Send full video" })).toBeNull()
   })
 
+  test("a trim that couldn't be made offers no full video the workspace won't take", () => {
+    view({ status: { trimFailed: "no encoder" }, fullVideoTooLong: true })
+    expect(screen.getByText(/Couldn't trim the video/)).toBeTruthy()
+    expect(screen.queryByRole("button", { name: "Send full video" })).toBeNull()
+  })
+
   test("a screenshot shows its kind and size", () => {
     view({ draft: screenshot, mediaSize: { width: 1920, height: 945 } })
     expect(screen.getByText("Screenshot")).toBeTruthy()

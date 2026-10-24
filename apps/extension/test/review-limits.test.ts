@@ -89,10 +89,10 @@ describe("openDashboardFor", () => {
 
 describe("a recording longer than the workspace takes", () => {
   const timed: WorkspaceLimits = { limited: true, screenshots: { used: 0, max: 5 }, recordings: { used: 1, max: 5 }, maxRecordingMs: 120_000 }
-  const noteFor = async (kind: "video" | "screenshot", durationMs: number) => {
+  const noteFor = async (kind: "video" | "screenshot", durationMs: number, fullDurationMs = durationMs) => {
     const notes: LimitNote[] = []
     const limits = createReviewLimits(
-      { kind, durationMs, workspaces, fetchLimits: async () => timed, currentDraft: async () => null, onChange: (note) => notes.push(note) },
+      { kind, durationMs, fullDurationMs, workspaces, fetchLimits: async () => timed, currentDraft: async () => null, onChange: (note) => notes.push(note) },
       "a",
     )
     await limits.refresh()
@@ -109,6 +109,11 @@ describe("a recording longer than the workspace takes", () => {
 
   test("trimmed to fit, it goes", async () => {
     expect(await noteFor("video", 90_000)).toMatchObject({ blocked: false, warning: null })
+  })
+
+  test("trimmed to fit from a longer take: the whole take couldn't be sent instead", async () => {
+    expect(await noteFor("video", 90_000, 600_000)).toMatchObject({ blocked: false, fullTooLong: true })
+    expect(await noteFor("video", 90_000, 100_000)).toMatchObject({ fullTooLong: false })
   })
 
   test("a screenshot has no length", async () => {

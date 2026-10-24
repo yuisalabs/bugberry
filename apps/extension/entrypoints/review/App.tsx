@@ -22,6 +22,7 @@ import { loadSettings, type Settings } from "../../lib/settings"
 import { makeThumbnail } from "../../lib/thumbnail"
 import { browserThumbnailDeps } from "../../lib/thumbnail-browser"
 import { type PreparedMedia, prepareVideo } from "../../lib/trim-send"
+import { whenBack } from "../../lib/when-back"
 import type { trimVideo as TrimVideo } from "../../lib/trim-video"
 import type { ReportDraft } from "../../lib/types"
 import { LOCKED, putFile, type ReportForm, submitDraft, type UploadProgress } from "../../lib/upload"
@@ -173,11 +174,10 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       setProjects(destination.projects)
       void loadMembers(destination.workspaceId)
     }
-    const onFocus = () => void recheck()
-    window.addEventListener("focus", onFocus)
+    const stop = whenBack(window, document, () => void recheck())
     return () => {
       cancelled = true
-      window.removeEventListener("focus", onFocus)
+      stop()
     }
   }, [loaded?.signedOut, draftId, loadMembers])
 
@@ -190,6 +190,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
               // The part of the recording that is sent; the server checks the length again.
               durationMs:
                 loaded.draft.captureType !== "video" ? 0 : trim ? trim.endMs - trim.startMs : (loaded.draft.durationMs ?? 0),
+              fullDurationMs: loaded.draft.captureType === "video" ? (loaded.draft.durationMs ?? 0) : 0,
               workspaces: loaded.workspaces,
               fetchLimits: async (workspaceId) => {
                 const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
@@ -505,6 +506,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       usage={limitNote.usage}
       limitWarning={limitNote.warning}
       sendBlocked={limitNote.blocked}
+      fullVideoTooLong={limitNote.fullTooLong}
       onOpenDashboard={limitNote.admin ? () => void openDashboard() : undefined}
       onIncludeCityChange={(on) => void changeIncludeCity(on)}
       sentDetails={sentDetails}
