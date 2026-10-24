@@ -224,6 +224,9 @@ export type PageUiMessage =
   | { type: "bugberry:ui-review-close" }
   /** Answered with { ok: true } once the prompt is shown over the page: allow the microphone, switch servers, the settings. */
   | { type: "bugberry:ui-prompt"; page: PromptPage; token: string }
+  /** Shows the camera bubble for the camera grant `token`, or takes it away. */
+  | { type: "bugberry:ui-camera"; on: true; token: string; shape: CameraShape }
+  | { type: "bugberry:ui-camera"; on: false }
 
 /** The extension pages shown over the page the reporter is on: questions, and the settings. */
 export type PromptPage = "microphone" | "confirm-server" | "options"
@@ -234,6 +237,11 @@ export function isPageUiMessage(message: unknown): message is PageUiMessage {
   const type = typeOf(message)
   if (type === "bugberry:ui-countdown" || type === "bugberry:ui-review-close") return true
   if (type === "bugberry:ui-review") return typeof field(message, "draftId") === "string"
+  if (type === "bugberry:ui-camera") {
+    if (field(message, "on") === false) return true
+    const shape = field(message, "shape")
+    return field(message, "on") === true && typeof field(message, "token") === "string" && (shape === "circle" || shape === "rectangle")
+  }
   if (type === "bugberry:ui-prompt") {
     const page = field(message, "page")
     return PROMPT_PAGES.includes(page) && typeof field(message, "token") === "string"

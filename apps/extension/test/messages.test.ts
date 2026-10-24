@@ -8,7 +8,7 @@ import {
   isRecordStatusRequest,
   isBarRequest,
   isReviewAgainRequest,
-  isScreenshotRequest, isRecorderReadyNotice, isPopupRecordingRequest, isCameraTicketRequest } from "../lib/messages"
+  isScreenshotRequest, isRecorderReadyNotice, isPopupRecordingRequest, isCameraTicketRequest, isPageUiMessage } from "../lib/messages"
 
 describe("messages", () => {
   test("background requests are recognised by type and shape", () => {
@@ -39,6 +39,13 @@ describe("messages", () => {
     expect(isCameraTicketRequest({ type: "bugberry:camera-ticket", token: "t", action: "ready" })).toBe(true)
     expect(isCameraTicketRequest({ type: "bugberry:camera-ticket", token: 1, action: "read" })).toBe(false)
     expect(isCameraTicketRequest({ type: "bugberry:camera-ticket", token: "t", action: "start" })).toBe(false)
+  })
+
+  test("the page layer is told to show or take away the camera bubble", () => {
+    expect(isPageUiMessage({ type: "bugberry:ui-camera", on: true, token: "t", shape: "circle" })).toBe(true)
+    expect(isPageUiMessage({ type: "bugberry:ui-camera", on: false })).toBe(true)
+    expect(isPageUiMessage({ type: "bugberry:ui-camera", on: true, token: 1, shape: "circle" })).toBe(false)
+    expect(isPageUiMessage({ type: "bugberry:ui-camera", on: true, token: "t", shape: "oval" })).toBe(false)
   })
 
   test("a page flush carries its document id, events and incomplete names", () => {

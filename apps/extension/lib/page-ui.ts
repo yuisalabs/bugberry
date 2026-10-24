@@ -1,4 +1,6 @@
-/** Top-left corner of the Recording Bar, in CSS pixels of the viewport. */
+import type { CameraShape } from "./capture-prefs"
+
+/** Top-left corner of the Recording Bar (or the camera bubble), in CSS pixels of the viewport. */
 export interface BarPosition {
   x: number
   y: number
@@ -10,6 +12,9 @@ export interface PageUiDeps {
   extensionOrigin: string
   savePosition(position: BarPosition): void
   loadPosition(): BarPosition | null
+  /** The camera bubble's place, kept apart from the bar's. */
+  saveCameraPosition?(position: BarPosition): void
+  loadCameraPosition?(): BarPosition | null
   /** "closed" in the page, so page scripts can't reach in; tests use "open". */
   shadowMode?: ShadowRootMode
   /** Whether a key event came from the reporter. A page can dispatch its own; tests' events are never trusted. */
@@ -28,18 +33,29 @@ export interface PageUi {
   showPrompt(page: string, token: string): void
   hidePrompt(): void
   setDrawing(on: boolean): void
+  /** The camera bubble for the recording's camera grant `token`; apart from the bar, so a Restart keeps it. */
+  showCamera(token: string, shape: CameraShape): void
+  hideCamera(): void
 }
 
 const BAR_SIZE = { width: 560, height: 96 }
 const BOTTOM_GAP = 24
 const COUNTDOWN_SECONDS = 3
+export const CAMERA_SIZE: Record<CameraShape, { width: number; height: number }> = {
+  circle: { width: 96, height: 96 },
+  rectangle: { width: 144, height: 96 },
+}
+/** The camera bubble starts bottom-left, away from the bar. */
+const CAMERA_GAP = 24
 
 /**
  * Whether a page load should ask the background if its tab is being recorded. The recording state sits in
  * session storage, which content scripts can read, so an ordinary page load never wakes the worker.
  */
 export function uiStateNeeded(stored: Record<string, unknown>): boolean {
-  return typeof stored.recording === "object" && stored.recording !== null
+  const present = (value: unknown) => typeof value === "object" && value !== null
+  // A tab recording's camera grant comes before its recording state: during the countdown there is only that.
+  return present(stored.recording) || present(stored.camera)
 }
 
 /** Keeps a box of `size` inside the viewport. */
@@ -88,6 +104,7 @@ export function createPageUi(doc: Document, win: Window, deps: PageUiDeps): Page
   let cancelCountdown: (() => void) | null = null
   /** Where the bar was when the drag under way started; the bar's frame reports how far it has moved since. */
   let dragFrom: BarPosition | null = null
+  let camera: { token: string; shape: CameraShape; box: HTMLElement; frame: HTMLIFrameElement; dragFrom: BarPosition | null } | null = null
 
   const viewport = () => ({ width: win.innerWidth, height: win.innerHeight })
   const outerSize = () => barSize
@@ -123,8 +140,8 @@ export function createPageUi(doc: Document, win: Window, deps: PageUiDeps): Page
     }
   }
 
-  const place = (bar: HTMLElement, position: BarPosition) => {
-    const clamped = clampPosition(position, outerSize(), viewport())
+  const place = (bar: HTMLElement, position: BarPosition, size = outerSize()) => {
+    const clamped = clampPosition(position, size, viewport())
     bar.style.left = `${clamped.x}px`
     bar.style.top = `${clamped.y}px`
     return clamped
@@ -139,6 +156,12 @@ export function createPageUi(doc: Document, win: Window, deps: PageUiDeps): Page
     }
     else if (data.bugberry === "bar-drag" && recording && event.source !== null && event.source === recording.barFrame.contentWindow) {
       onBarDrag(recording.bar, data)
+    }
+    else if (data.bugberry === "bar-drag" && camera && event.source !== null && event.source === camera.frame.contentWindow) {
+      onCameraDrag(camera, data)
+    }
+    else if (data.bugberry === "camera-failed" && camera && event.source !== null && event.source === camera.frame.contentWindow) {
+      ui.hideCamera()
     }
     else if (data.bugberry === "drawing") ui.setDrawing(data.on === true)
     else if (data.bugberry === "review-close") ui.hideReview()
@@ -166,8 +189,22 @@ export function createPageUi(doc: Document, win: Window, deps: PageUiDeps): Page
       deps.savePosition(at)
     }
   }
+  /** The camera's frame sends its drags like the bar's; the bubble keeps a place of its own. */
+  const onCameraDrag = (bubble: NonNullable<typeof camera>, data: Record<string, unknown>) => {
+    if (data.phase === "start") {
+      bubble.dragFrom = positionOf(bubble.box)
+      return
+    }
+    if (!bubble.dragFrom || typeof data.dx !== "number" || typeof data.dy !== "number") return
+    const at = place(bubble.box, { x: bubble.dragFrom.x + data.dx, y: bubble.dragFrom.y + data.dy }, CAMERA_SIZE[bubble.shape])
+    if (data.phase === "end") {
+      bubble.dragFrom = null
+      deps.saveCameraPosition?.(at)
+    }
+  }
   const onResize = () => {
     if (recording) place(recording.bar, positionOf(recording.bar))
+    if (camera) place(camera.box, positionOf(camera.box), CAMERA_SIZE[camera.shape])
   }
   win.addEventListener("message", onMessage)
   win.addEventListener("resize", onResize)
@@ -283,6 +320,28 @@ export function createPageUi(doc: Document, win: Window, deps: PageUiDeps): Page
 
     setDrawing(on) {
       if (recording) recording.draw.style.pointerEvents = on ? "auto" : "none"
+    },
+
+    showCamera(token, shape) {
+      if (camera?.token === token && camera.box.isConnected) return
+      ui.hideCamera()
+      const size = CAMERA_SIZE[shape]
+      const box = doc.createElement("div")
+      box.setAttribute("data-camera", "")
+      box.style.cssText = `position:fixed;overflow:hidden;width:${size.width}px;height:${size.height}px;border-radius:${shape === "circle" ? "50%" : "16px"};box-shadow:0 6px 20px rgba(28,16,34,0.35)`
+      const cameraFrame = frame(doc, deps.extensionUrl(`camera-bubble.html?camera=${encodeURIComponent(token)}`), `width:${size.width}px;height:${size.height}px;display:block`)
+      // The bubble's page asks for the camera from inside this frame.
+      cameraFrame.setAttribute("allow", "camera")
+      box.append(cameraFrame)
+      ensureRoot().append(box)
+      place(box, deps.loadCameraPosition?.() ?? { x: CAMERA_GAP, y: viewport().height - size.height - CAMERA_GAP }, size)
+      camera = { token, shape, box, frame: cameraFrame, dragFrom: null }
+    },
+
+    hideCamera() {
+      camera?.box.remove()
+      camera = null
+      removeHostIfEmpty()
     },
   }
   return ui

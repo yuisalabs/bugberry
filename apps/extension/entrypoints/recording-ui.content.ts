@@ -3,6 +3,7 @@ import { isPageUiMessage, type UiStateRequest } from "../lib/messages"
 import { type BarPosition, createPageUi, uiStateNeeded } from "../lib/page-ui"
 
 const POSITION_KEY = "barPosition"
+const CAMERA_POSITION_KEY = "cameraPosition"
 
 function positionFrom(value: unknown): BarPosition | null {
   const position = value as Partial<BarPosition> | undefined
@@ -10,7 +11,7 @@ function positionFrom(value: unknown): BarPosition | null {
 }
 
 /**
- * The page layer (isolated world): the countdown, the Recording Bar and the drawing layer on the recorded
+ * The page layer (isolated world): the countdown, the Recording Bar, the camera bubble and the drawing layer on the recorded
  * tab, the review modal after a capture, and prompts (allow the microphone, switch servers). On load it asks whether this tab is being recorded, so the bar
  * comes back after a reload or a navigation.
  */
@@ -20,8 +21,9 @@ export default defineContentScript({
   allFrames: false,
   async main() {
     const extensionRoot = browser.runtime.getURL("/")
-    const stored = (await browser.storage.local.get(POSITION_KEY).catch(() => ({}))) as Record<string, unknown>
+    const stored = (await browser.storage.local.get([POSITION_KEY, CAMERA_POSITION_KEY]).catch(() => ({}))) as Record<string, unknown>
     let position = positionFrom(stored[POSITION_KEY])
+    let cameraPosition = positionFrom(stored[CAMERA_POSITION_KEY])
     const ui = createPageUi(document, window, {
       extensionUrl: (path) => `${extensionRoot}${path}`,
       extensionOrigin: new URL(extensionRoot).origin,
@@ -30,6 +32,11 @@ export default defineContentScript({
         void browser.storage.local.set({ [POSITION_KEY]: next }).catch(() => {})
       },
       loadPosition: () => position,
+      saveCameraPosition: (next) => {
+        cameraPosition = next
+        void browser.storage.local.set({ [CAMERA_POSITION_KEY]: next }).catch(() => {})
+      },
+      loadCameraPosition: () => cameraPosition,
     })
 
     browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -37,6 +44,12 @@ export default defineContentScript({
       if (message.type === "bugberry:ui-recording") {
         if (message.on) ui.showRecording(message.session)
         else ui.hideRecording()
+        sendResponse({ ok: true })
+        return undefined
+      }
+      if (message.type === "bugberry:ui-camera") {
+        if (message.on) ui.showCamera(message.token, message.shape)
+        else ui.hideCamera()
         sendResponse({ ok: true })
         return undefined
       }
@@ -62,7 +75,10 @@ export default defineContentScript({
     const session = (await browser.storage.session.get("recording").catch(() => ({}))) as Record<string, unknown>
     if (!uiStateNeeded(session)) return
     const ask: UiStateRequest = { type: "bugberry:ui-state" }
-    const state = (await browser.runtime.sendMessage(ask).catch(() => null)) as { recording?: unknown; session?: unknown } | null
+    const state = (await browser.runtime.sendMessage(ask).catch(() => null)) as { recording?: unknown; session?: unknown; camera?: unknown } | null
     if (state?.recording === true && typeof state.session === "string") ui.showRecording(state.session)
+    // The camera comes back on its own: it is already on during the countdown, before the recording state exists.
+    const camera = state?.camera as { token?: unknown; shape?: unknown } | undefined
+    if (typeof camera?.token === "string" && (camera.shape === "circle" || camera.shape === "rectangle")) ui.showCamera(camera.token, camera.shape)
   },
 })
