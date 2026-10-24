@@ -7,6 +7,7 @@ import { createBugberryApi, type Project, type Workspace } from "../../lib/api"
 import { relayFetcher } from "../../lib/api-relay"
 import { BUILD_SERVER_ORIGIN, browserSettingsStorage, includeCityStorage, lastWorkspaceStorage } from "../../lib/browser-settings"
 import { createIndexedDbDraftStore, saveAnnotations } from "../../lib/draft-store"
+import { createDraftWriter } from "../../lib/draft-writer"
 import { type EditorDeps, loadEditor, loadProjects } from "../../lib/editor-load"
 import { limitsFor } from "../../lib/limits"
 import { currentCoordinates, locationForSend, toggleCity } from "../../lib/location"
@@ -28,6 +29,7 @@ import { AnnotationCanvas, type AnnotationCanvasHandle } from "./AnnotationCanva
 import { type Assignable, ReviewView, type ReviewStatus, type SentDetails, type TrackerChoice } from "./ReviewView"
 
 const store = createIndexedDbDraftStore()
+const writeDraft = createDraftWriter(store)
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 /** The encoder (mediabunny) loads only when a trimmed recording is sent: most reviews never need it. */
 const trimVideo: typeof TrimVideo = async (...args) => (await import("../../lib/trim-video")).trimVideo(...args)
@@ -142,9 +144,8 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
     (form: ReportForm, notes: RecordingNote[]) => {
       if (saving.current) clearTimeout(saving.current)
       if (busy) return
-      saving.current = setTimeout(async () => {
-        const current = await store.get(draftId)
-        if (current && current.status !== "uploading") await store.put(draftKept(current, form, notes))
+      saving.current = setTimeout(() => {
+        void writeDraft(draftId, (current) => (current.status !== "uploading" ? draftKept(current, form, notes) : null))
       }, 400)
     },
     [draftId, busy],
@@ -280,8 +281,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
   const changeTrim = async (range: TrimRange | null) => {
     setTrimming(false)
     setTrim(range)
-    const current = await store.get(draftId)
-    if (current) await store.put(draftWithTrim(current, range))
+    await writeDraft(draftId, (current) => draftWithTrim(current, range))
   }
 
   const openTrim = () => {
@@ -294,6 +294,8 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
   const send = async (form: ReportForm, notes: RecordingNote[], options: { fullVideo?: boolean } = {}) => {
     const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
     if (!settings || !loaded) return
+    // An autosave still waiting would land in the middle of the send; the send saves the notes itself.
+    if (saving.current) clearTimeout(saving.current)
     setStatus("sending")
     setProgress(null)
     shownPercent.current = -1
@@ -304,8 +306,8 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       setProgress(next)
     }
     try {
-      const current = draftWithNotes((await store.get(draftId)) ?? loaded.draft, notes)
-      await store.put(current)
+      await writeDraft(draftId, (stored) => draftWithNotes(stored, notes))
+      const current = (await store.get(draftId)) ?? draftWithNotes(loaded.draft, notes)
       // prepareVideo marks the draft as sending once its media is ready: from then on the trim stays as sent, as
       // part of the video may reach the server. A failed encode leaves the trim open to change.
       let prepared: PreparedMedia | null = null
