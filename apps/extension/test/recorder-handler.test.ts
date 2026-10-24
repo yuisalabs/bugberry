@@ -26,6 +26,7 @@ function fakeStream(...tracks: FakeTrack[]) {
 function setup(stream: Partial<StreamDeps> = {}) {
   const video = new FakeTrack("video")
   const drafts = new Map<string, ReportDraft>([["d1", { id: "d1", captureType: "video", video: null, durationMs: null } as unknown as ReportDraft]])
+  const timers: number[] = []
   const recording: RecordingDeps = {
     createRecorder: (_stream, _options, handlers) => {
       const recorder = {
@@ -44,7 +45,10 @@ function setup(stream: Partial<StreamDeps> = {}) {
     isTypeSupported: () => true,
     fixDuration: async (blob) => blob,
     now: () => 1000,
-    setTimer: () => () => {},
+    setTimer: (_callback, ms) => {
+      timers.push(ms)
+      return () => {}
+    },
   }
   const streamDeps: StreamDeps = {
     tabStream: mock(async () => fakeStream(video)),
@@ -63,7 +67,7 @@ function setup(stream: Partial<StreamDeps> = {}) {
     stream: streamDeps,
     noticeEnded: () => {},
   })
-  return { handler, drafts, video }
+  return { handler, drafts, video, timers }
 }
 
 const open: OffscreenMessage = {
@@ -73,6 +77,7 @@ const open: OffscreenMessage = {
   mic: false,
   micDeviceId: null,
   maxBytes: 1_000_000,
+  maxMs: 120_000,
 }
 
 test("a chosen microphone is asked for as ideal, so an unplugged one falls back instead of failing", () => {
@@ -90,6 +95,13 @@ describe("createRecorderHandler", () => {
     const draft = drafts.get("d1") as unknown as { video: Blob | null; durationMs: number | null }
     expect(draft.video).toBeInstanceOf(Blob)
     expect(draft.durationMs).toBe(0)
+  })
+
+  test("the recording's time limit is the one the open asked for", async () => {
+    const { handler, timers } = setup()
+    await handler.handle(open)
+    await handler.handle({ type: "bugberry:offscreen-begin" })
+    expect(timers).toEqual([120_000])
   })
 
   test("a second open while one is running is refused", async () => {

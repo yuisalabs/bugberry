@@ -117,6 +117,8 @@ export function createApp(deps: AppDeps) {
       maxUploadMb: Math.floor(config.maxUploadBytes / 1024 / 1024),
       // Self-hosted servers send the marketing pages to sign-in.
       publicSite: config.publicSite,
+      // The longest recording under ACCOUNT_LIMITS: a signed-out extension can't read a workspace's limits.
+      maxRecordingSeconds: config.accountLimits ? config.accountLimits.recordingMs / 1000 : null,
     }))
     // Method-specific routes: an `all` route loses to the dashboard's GET catch-all (scripts/e2e-dashboard.ts).
     .get("/auth/*", ({ request, server }) => betterAuth.handler(withClientIp(request, server, config.proxyHops)), {

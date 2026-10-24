@@ -1,5 +1,5 @@
-import { type CaptureType, sizeLabel } from "@bugberry/shared"
-import { and, count, eq, gt, ne, or, sql } from "drizzle-orm"
+import { type CaptureType, clockLabel, tooLong } from "@bugberry/shared"
+import { and, count, eq, gt, ne, or } from "drizzle-orm"
 import type { AccountLimits, Config } from "../config"
 import type { Db } from "../db/client"
 import { report, user, workspace } from "../db/schema"
@@ -15,10 +15,8 @@ export type WorkspaceLimits =
       limited: true
       screenshots: { used: number; max: number }
       recordings: { used: number; max: number }
-      /** Bytes the workspace's reports take up, all files counted. */
-      storage: { used: number; max: number }
-      /** The largest file one report may upload, in bytes. */
-      maxFileBytes: number
+      /** The longest recording the workspace takes. */
+      maxRecordingMs: number
     }
 
 /**
@@ -66,24 +64,6 @@ export async function countReports(
   return row?.value ?? 0
 }
 
-/** Bytes the reports the workspace keeps take up: the media, the logs and the preview, as declared at upload. */
-export async function storageUsed(
-  db: Reader,
-  workspaceId: string,
-  uploadTtlSeconds: number,
-  now = new Date(),
-  except?: string,
-): Promise<number> {
-  const [row] = await db
-    .select({
-      value: sql<string | null>`sum(${report.mediaSize} + coalesce(${report.debuggerSize}, 0) + coalesce(${report.thumbnailSize}, 0))`,
-    })
-    .from(report)
-    .where(kept(workspaceId, uploadTtlSeconds, now, except))
-  return Number(row?.value ?? 0)
-}
-
-
 export async function workspaceLimits(db: Reader, config: LimitsConfig, workspaceId: string): Promise<WorkspaceLimits> {
   const limits = config.accountLimits
   if (!limits || !(await isWorkspaceLimited(db, limits, workspaceId))) return { limited: false }
@@ -91,8 +71,7 @@ export async function workspaceLimits(db: Reader, config: LimitsConfig, workspac
     limited: true,
     screenshots: { used: await countReports(db, workspaceId, "screenshot", config.uploadUrlTtlSeconds), max: limits.screenshots },
     recordings: { used: await countReports(db, workspaceId, "video", config.uploadUrlTtlSeconds), max: limits.recordings },
-    storage: { used: await storageUsed(db, workspaceId, config.uploadUrlTtlSeconds), max: limits.storageBytes },
-    maxFileBytes: limits.fileBytes,
+    maxRecordingMs: limits.recordingMs,
   }
 }
 
@@ -109,45 +88,26 @@ export async function canCreateWorkspace(db: Reader, limits: AccountLimits | nul
   return (owned?.value ?? 0) < limits.ownedWorkspaces
 }
 
-/** The files one report uploads, in bytes. */
-export interface ReportSizes {
-  media: number
-  debugger?: number | null
-  thumbnail?: number | null
-}
-
 /**
- * Refuses one more report of this kind, or one that is too big: a file over the per-file limit, or more than the
- * workspace has room for. On finalize, `except` is the report itself: an upload that outlived its link stopped
- * counting, so it is checked again before it becomes ready.
+ * Refuses one more report of this kind, or a recording longer than the workspace takes (`durationMs` as the
+ * extension declared it; MAX_UPLOAD_MB still bounds a file whatever it claims). On finalize, `except` is the report
+ * itself: an upload that outlived its link stopped counting, so it is checked again before it becomes ready.
  */
 export async function assertCanCreateReport(
   db: Reader,
   config: LimitsConfig,
   workspaceId: string,
   captureType: CaptureType,
-  sizes: ReportSizes,
+  durationMs: number | null,
   except?: string,
 ): Promise<void> {
   const limits = config.accountLimits
   if (!limits || !(await isWorkspaceLimited(db, limits, workspaceId))) return
-  const largest = Math.max(sizes.media, sizes.debugger ?? 0)
-  if (largest > limits.fileBytes) {
-    const what = captureType === "video" ? "recording" : "screenshot"
+  if (captureType === "video" && durationMs !== null && tooLong(durationMs, limits.recordingMs)) {
     throw new AppError(
       403,
-      "file_limit_reached",
-      `This ${what} is ${sizeLabel(largest)}; this workspace takes files up to ${sizeLabel(limits.fileBytes)}. ${captureType === "video" ? "Record a shorter one." : "Take a smaller one."}`,
-    )
-  }
-  const total = sizes.media + (sizes.debugger ?? 0) + (sizes.thumbnail ?? 0)
-  const used = await storageUsed(db, workspaceId, config.uploadUrlTtlSeconds, new Date(), except)
-  if (used + total > limits.storageBytes) {
-    const left = Math.max(0, limits.storageBytes - used)
-    throw new AppError(
-      403,
-      "storage_limit_reached",
-      `This report needs ${sizeLabel(total)}, but this workspace has ${sizeLabel(left)} of its ${sizeLabel(limits.storageBytes)} left. Delete a report in the dashboard to make room.`,
+      "duration_limit_reached",
+      `This recording is ${clockLabel(durationMs)}; this workspace takes recordings up to ${clockLabel(limits.recordingMs)}. Trim it or record a shorter one.`,
     )
   }
   const max = captureType === "video" ? limits.recordings : limits.screenshots

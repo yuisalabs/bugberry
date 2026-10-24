@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { ApiError } from "../lib/api"
-import { type EditorDeps, loadEditor } from "../lib/editor-load"
+import { type EditorDeps, loadDestination, loadEditor } from "../lib/editor-load"
 import { blurRegion } from "../lib/render"
 import type { ReportDraft } from "../lib/types"
 
@@ -103,6 +103,50 @@ describe("loadEditor", () => {
     })
     const state = await loadEditor("v1", down, () => false)
     expect(state).toMatchObject({ kind: "loaded", videoUrl: "blob:video", projects: [], projectsError: "Can't reach the BugBerry server" })
+  })
+
+  test("signed out: the draft opens to be sent later, without an error or a project list", async () => {
+    let asked = 0
+    const { deps: out } = deps({
+      me: async () => {
+        throw new ApiError(401, "unauthorized", "Your session ended. Sign in, then send again.")
+      },
+      listProjects: async () => {
+        asked++
+        return []
+      },
+    })
+    const state = await loadEditor("v1", out, () => false)
+    expect(state).toMatchObject({
+      kind: "loaded",
+      videoUrl: "blob:video",
+      signedOut: true,
+      signInUrl: "https://bugberry.kantor.test/login",
+      workspaces: [],
+      projectsError: null,
+    })
+    expect(asked).toBe(0)
+  })
+
+  test("after signing in elsewhere, the destination loads again without reopening the draft", async () => {
+    const { deps: back } = deps()
+    expect(await loadDestination(settings, video, back)).toMatchObject({
+      signedOut: false,
+      signInUrl: null,
+      workspaceId: "w2",
+      email: "budi@ptmaju.com",
+      projects: [{ id: "p-w2" }],
+      projectsError: null,
+    })
+  })
+
+  test("a server that fails otherwise isn't signed out: the error shows", async () => {
+    const { deps: broken } = deps({
+      me: async () => {
+        throw new ApiError(500, "internal", "Something went wrong")
+      },
+    })
+    expect(await loadEditor("v1", broken, () => false)).toMatchObject({ signedOut: false, projectsError: "Something went wrong" })
   })
 
   test("a draft left 'uploading' by a closed editor is marked as interrupted, ready to send again", async () => {

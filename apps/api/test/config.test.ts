@@ -166,13 +166,12 @@ describe("loadConfig", () => {
     expect(loadConfig({ ...baseEnv, ACCOUNT_LIMITS: "false" }).accountLimits).toBeNull()
   })
 
-  test("ACCOUNT_LIMITS=true uses 5 / 5 / 1, 250 MB and 50 MB by default", () => {
+  test("ACCOUNT_LIMITS=true uses 5 / 5 / 1 and recordings up to 2 minutes by default", () => {
     expect(loadConfig({ ...baseEnv, ACCOUNT_LIMITS: "true" }).accountLimits).toEqual({
       screenshots: 5,
       recordings: 5,
       ownedWorkspaces: 1,
-      storageBytes: 250 * 1024 * 1024,
-      fileBytes: 50 * 1024 * 1024,
+      recordingMs: 120_000,
     })
   })
 
@@ -183,31 +182,30 @@ describe("loadConfig", () => {
       LIMIT_SCREENSHOTS: "10",
       LIMIT_RECORDINGS: "2",
       LIMIT_OWNED_WORKSPACES: "3",
-      LIMIT_STORAGE_MB: "1024",
-      LIMIT_FILE_MB: "100",
+      LIMIT_RECORDING_SECONDS: "300",
     }
     expect(loadConfig(env).accountLimits).toEqual({
       screenshots: 10,
       recordings: 2,
       ownedWorkspaces: 3,
-      storageBytes: 1024 * 1024 * 1024,
-      fileBytes: 100 * 1024 * 1024,
+      recordingMs: 300_000,
     })
   })
 
   test("the startup line says when account limits are on", () => {
     expect(accountLimitsNotice(null)).toBeNull()
-    const sizes = { storageBytes: 250 * 1024 * 1024, fileBytes: 50 * 1024 * 1024 }
-    expect(accountLimitsNotice({ screenshots: 5, recordings: 5, ownedWorkspaces: 1, ...sizes })).toBe(
-      "Account limits on: 5 screenshots / 5 recordings / 1 workspace per account, 250 MB per workspace, 50 MB per file",
+    expect(accountLimitsNotice({ screenshots: 5, recordings: 5, ownedWorkspaces: 1, recordingMs: 120_000 })).toBe(
+      "Account limits on: 5 screenshots / 5 recordings / 1 workspace per account, recordings up to 2:00",
     )
-    expect(accountLimitsNotice({ screenshots: 1, recordings: 2, ownedWorkspaces: 3, ...sizes })).toBe(
-      "Account limits on: 1 screenshot / 2 recordings / 3 workspaces per account, 250 MB per workspace, 50 MB per file",
+    expect(accountLimitsNotice({ screenshots: 1, recordings: 2, ownedWorkspaces: 3, recordingMs: 90_000 })).toBe(
+      "Account limits on: 1 screenshot / 2 recordings / 3 workspaces per account, recordings up to 1:30",
     )
   })
 
   test("limit numbers must be positive integers", () => {
     const env = { ...baseEnv, ACCOUNT_LIMITS: "true", LIMIT_RECORDINGS: "0" }
     expect(() => loadConfig(env)).toThrow(new ConfigError("LIMIT_RECORDINGS must be an integer between 1 and 10000"))
+    const short = { ...baseEnv, ACCOUNT_LIMITS: "true", LIMIT_RECORDING_SECONDS: "5" }
+    expect(() => loadConfig(short)).toThrow(new ConfigError("LIMIT_RECORDING_SECONDS must be an integer between 10 and 3600"))
   })
 })

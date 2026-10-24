@@ -27,12 +27,13 @@ const tab = {
   height: 900,
 }
 
-const TAB_OPTIONS: RecordOptions & { maxBytes: number } = {
+const TAB_OPTIONS: RecordOptions & { maxBytes: number; maxMs: number } = {
   source: "tab",
   mic: false,
   systemAudio: true,
   countdown: false,
   maxBytes: 199_229_440,
+  maxMs: 120_000,
 }
 
 function memoryStore(): DraftStore & { drafts: Map<string, ReportDraft> } {
@@ -161,6 +162,7 @@ describe("startVideoRecording", () => {
         mic: false,
         micDeviceId: null,
         maxBytes: 199_229_440,
+        maxMs: 120_000,
       },
       { type: "bugberry:offscreen-begin" },
     ])
@@ -205,7 +207,7 @@ describe("startVideoRecording", () => {
     deps.getStreamId = async () => `stream-${++streamIds}`
     const readPage = mock(deps.readPageCapture)
     deps.readPageCapture = readPage
-    const options = { source: "screen" as const, mic: true, systemAudio: true, countdown: false, maxBytes: 1234 }
+    const options = { source: "screen" as const, mic: true, systemAudio: true, countdown: false, maxBytes: 1234, maxMs: 60_000 }
     expect(await startVideoRecording(newTab, options, deps)).toEqual({ ok: true, draftId: "video-1" })
     expect(sent[0]).toEqual({
       type: "bugberry:offscreen-open",
@@ -214,6 +216,7 @@ describe("startVideoRecording", () => {
       mic: true,
       micDeviceId: null,
       maxBytes: 1234,
+      maxMs: 60_000,
     })
     expect(streamIds).toBe(0)
     expect(store.drafts.get("video-1")?.page.url).toBe("chrome://newtab/")

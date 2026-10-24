@@ -87,24 +87,36 @@ describe("openDashboardFor", () => {
   })
 })
 
-test("a capture too big for the workspace holds Create report back and says why", async () => {
-  const notes: LimitNote[] = []
-  const MB = 1024 * 1024
-  const sized: WorkspaceLimits = {
-    limited: true,
-    screenshots: { used: 0, max: 5 },
-    recordings: { used: 1, max: 5 },
-    storage: { used: 10 * MB, max: 250 * MB },
-    maxFileBytes: 50 * MB,
+describe("a recording longer than the workspace takes", () => {
+  const timed: WorkspaceLimits = { limited: true, screenshots: { used: 0, max: 5 }, recordings: { used: 1, max: 5 }, maxRecordingMs: 120_000 }
+  const noteFor = async (kind: "video" | "screenshot", durationMs: number, fullDurationMs = durationMs) => {
+    const notes: LimitNote[] = []
+    const limits = createReviewLimits(
+      { kind, durationMs, fullDurationMs, workspaces, fetchLimits: async () => timed, currentDraft: async () => null, onChange: (note) => notes.push(note) },
+      "a",
+    )
+    await limits.refresh()
+    return notes.at(-1)
   }
-  const limits = createReviewLimits(
-    { kind: "video", bytes: 70 * MB, workspaces, fetchLimits: async () => sized, currentDraft: async () => null, onChange: (note) => notes.push(note) },
-    "a",
-  )
-  await limits.refresh()
-  expect(notes.at(-1)).toMatchObject({
-    blocked: true,
-    usage: "Recordings 1/5 · 10 MB of 250 MB",
-    warning: "This recording is 70 MB; this workspace takes files up to 50 MB. Record a shorter one, or pick another workspace.",
+
+  test("holds Create report back and says why", async () => {
+    expect(await noteFor("video", 180_000)).toMatchObject({
+      blocked: true,
+      usage: "Recordings 1/5",
+      warning: "This recording is 3:00; this workspace takes recordings up to 2:00. Trim it or record a shorter one, or pick another workspace.",
+    })
+  })
+
+  test("trimmed to fit, it goes", async () => {
+    expect(await noteFor("video", 90_000)).toMatchObject({ blocked: false, warning: null })
+  })
+
+  test("trimmed to fit from a longer take: the whole take couldn't be sent instead", async () => {
+    expect(await noteFor("video", 90_000, 600_000)).toMatchObject({ blocked: false, fullTooLong: true })
+    expect(await noteFor("video", 90_000, 100_000)).toMatchObject({ fullTooLong: false })
+  })
+
+  test("a screenshot has no length", async () => {
+    expect(await noteFor("screenshot", 180_000)).toMatchObject({ blocked: false, warning: null })
   })
 })

@@ -9,12 +9,12 @@ import { BUILD_SERVER_ORIGIN, browserSettingsStorage, includeCityStorage, lastWo
 import { createIndexedDbDraftStore, saveAnnotations } from "../../lib/draft-store"
 import { createDraftWriter } from "../../lib/draft-writer"
 import { createSeeker } from "../../lib/seeker"
-import { type EditorDeps, loadEditor, loadProjects } from "../../lib/editor-load"
+import { type EditorDeps, loadDestination, loadEditor, loadProjects } from "../../lib/editor-load"
 import { limitsFor } from "../../lib/limits"
 import { currentCoordinates, locationForSend, toggleCity } from "../../lib/location"
 import type { ReviewAgainRequest, ReviewAnotherRequest } from "../../lib/messages"
 import { isSignedOut } from "../../lib/popup"
-import { expectedVideoBytes, reviewMarkers, type TrimRange, trimPayload } from "../../lib/review-data"
+import { reviewMarkers, type TrimRange, trimPayload } from "../../lib/review-data"
 import { draftKept, draftWithNotes, draftWithTrim, trimLocked } from "../../lib/review-draft"
 import { createReviewLimits, type LimitNote, NO_LIMIT_NOTE, openDashboardFor } from "../../lib/review-limits"
 import { signInUrl } from "../../lib/session"
@@ -22,6 +22,7 @@ import { loadSettings, type Settings } from "../../lib/settings"
 import { makeThumbnail } from "../../lib/thumbnail"
 import { browserThumbnailDeps } from "../../lib/thumbnail-browser"
 import { type PreparedMedia, prepareVideo } from "../../lib/trim-send"
+import { whenBack } from "../../lib/when-back"
 import type { trimVideo as TrimVideo } from "../../lib/trim-video"
 import type { ReportDraft } from "../../lib/types"
 import { LOCKED, putFile, type ReportForm, submitDraft, type UploadProgress } from "../../lib/upload"
@@ -68,6 +69,8 @@ type Loaded = {
   email: string | null
   name: string | null
   projects: Project[]
+  signedOut: boolean
+  signInUrl: string | null
 }
 
 /** The review: over the recorded page (embedded in the page layer's iframe) or in a tab of its own. */
@@ -131,7 +134,8 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
         setLocked(trimLocked(state.draft))
         setProjects(state.projects)
         void loadMembers(state.workspaceId)
-        if (state.draft.status === "failed") setStatus({ failed: state.draft.error ?? "Upload failed" })
+        // Signed out, an earlier failure isn't shown: sending waits for signing in.
+        if (state.draft.status === "failed" && !state.signedOut) setStatus({ failed: state.draft.error ?? "Upload failed" })
       })
       .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : String(cause)))
     void includeCityStorage.get().then(setIncludeCity)
@@ -156,27 +160,48 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
     [draftId, busy],
   )
 
+  // Signed in from another tab: back here, the workspaces and Create report appear without reopening the draft.
+  useEffect(() => {
+    if (!loaded?.signedOut) return
+    let cancelled = false
+    const recheck = async () => {
+      const settings = await editorDeps.loadSettings()
+      const draft = await store.get(draftId)
+      if (!settings || !draft || cancelled) return
+      const destination = await loadDestination(settings, draft, editorDeps)
+      if (destination.signedOut || cancelled) return
+      setLoaded((current) => current && { ...current, ...destination })
+      setProjects(destination.projects)
+      void loadMembers(destination.workspaceId)
+    }
+    const stop = whenBack(window, document, () => void recheck())
+    return () => {
+      cancelled = true
+      stop()
+    }
+  }, [loaded?.signedOut, draftId, loadMembers])
+
   const limits = useMemo(
     () =>
-      loaded &&
-      createReviewLimits(
-        {
-          kind: loaded.draft.captureType,
-          // The (trimmed) video, or the screenshot before its marks: close to what is uploaded, and the server checks again.
-          bytes:
-            loaded.draft.captureType === "video"
-              ? expectedVideoBytes(loaded.draft.video?.size ?? 0, loaded.draft.durationMs ?? 0, trim)
-              : loaded.draft.screenshot.size,
-          workspaces: loaded.workspaces,
-          fetchLimits: async (workspaceId) => {
-            const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
-            return settings ? limitsFor(apiOf(settings), workspaceId) : null
-          },
-          currentDraft: () => store.get(draftId),
-          onChange: setLimitNote,
-        },
-        loaded.workspaceId,
-      ),
+      loaded && !loaded.signedOut
+        ? createReviewLimits(
+            {
+              kind: loaded.draft.captureType,
+              // The part of the recording that is sent; the server checks the length again.
+              durationMs:
+                loaded.draft.captureType !== "video" ? 0 : trim ? trim.endMs - trim.startMs : (loaded.draft.durationMs ?? 0),
+              fullDurationMs: loaded.draft.captureType === "video" ? (loaded.draft.durationMs ?? 0) : 0,
+              workspaces: loaded.workspaces,
+              fetchLimits: async (workspaceId) => {
+                const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
+                return settings ? limitsFor(apiOf(settings), workspaceId) : null
+              },
+              currentDraft: () => store.get(draftId),
+              onChange: setLimitNote,
+            },
+            loaded.workspaceId,
+          )
+        : null,
     [draftId, loaded, trim],
   )
   const refreshLimits = useCallback(() => void limits?.refresh(), [limits])
@@ -437,6 +462,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       }
       workspaces={loaded.workspaces}
       workspaceId={loaded.workspaceId}
+      signInUrl={loaded.signInUrl}
       projects={projects}
       members={members}
       mediaSize={draft.captureType === "screenshot" && loaded.image ? { width: loaded.image.width, height: loaded.image.height } : null}
@@ -480,6 +506,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       usage={limitNote.usage}
       limitWarning={limitNote.warning}
       sendBlocked={limitNote.blocked}
+      fullVideoTooLong={limitNote.fullTooLong}
       onOpenDashboard={limitNote.admin ? () => void openDashboard() : undefined}
       onIncludeCityChange={(on) => void changeIncludeCity(on)}
       sentDetails={sentDetails}

@@ -1,5 +1,5 @@
 import type { CameraShape, RecordSource, ScreenshotMode } from "./capture-prefs"
-import type { RecordingEndReason } from "./recorder"
+import { MAX_RECORDING_MS, type RecordingEndReason } from "./recorder"
 
 export interface ScreenshotRequest {
   type: "bugberry:screenshot"
@@ -69,10 +69,11 @@ export type CaptureSource =
 
 /**
  * Background → offscreen document. `open` gets the stream (and Chrome's share picker) ready; `begin` starts
- * recording after the countdown. `maxBytes`: the recording ends by itself once the video reaches it.
+ * recording after the countdown. The recording ends by itself once the video reaches `maxBytes`, or after `maxMs` of
+ * recording time.
  */
 export type OffscreenMessage =
-  | { type: "bugberry:offscreen-open"; draftId: string; capture: CaptureSource; mic: boolean; micDeviceId: string | null; maxBytes: number }
+  | { type: "bugberry:offscreen-open"; draftId: string; capture: CaptureSource; mic: boolean; micDeviceId: string | null; maxBytes: number; maxMs: number }
   | { type: "bugberry:offscreen-begin" }
   | { type: "bugberry:offscreen-pause" }
   | { type: "bugberry:offscreen-resume" }
@@ -160,6 +161,7 @@ export function isOffscreenMessage(message: unknown): message is OffscreenMessag
   if (type !== null && BARE_OFFSCREEN.has(type)) return true
   if (type === "bugberry:offscreen-mic") return typeof field(message, "on") === "boolean"
   const maxBytes = field(message, "maxBytes")
+  const maxMs = field(message, "maxMs")
   return (
     type === "bugberry:offscreen-open" &&
     typeof field(message, "draftId") === "string" &&
@@ -168,7 +170,10 @@ export function isOffscreenMessage(message: unknown): message is OffscreenMessag
     (field(message, "micDeviceId") === null || typeof field(message, "micDeviceId") === "string") &&
     typeof maxBytes === "number" &&
     Number.isFinite(maxBytes) &&
-    maxBytes > 0
+    maxBytes > 0 &&
+    typeof maxMs === "number" &&
+    maxMs > 0 &&
+    maxMs <= MAX_RECORDING_MS
   )
 }
 

@@ -121,6 +121,44 @@ describe("what the review shows", () => {
     expect(button(/Cuy Workspaces/)).toBeTruthy()
   })
 
+  test("signed out: no workspace to pick, and Sign in to send in place of Create report", () => {
+    const opened: string[] = []
+    const realOpen = window.open
+    window.open = ((url: string) => {
+      opened.push(url)
+      return null
+    }) as typeof window.open
+    try {
+      view({ signInUrl: "https://bugberry.test/login" })
+      expect(screen.queryByText("Save to")).toBeNull()
+      expect(screen.queryByRole("button", { name: "Create report" })).toBeNull()
+      const title = screen.getByLabelText("Title") as HTMLInputElement
+      fireEvent.change(title, { target: { value: "Checkout hangs" } })
+      expect(title.value).toBe("Checkout hangs")
+      fireEvent.click(button("Sign in to send"))
+      expect(opened).toEqual(["https://bugberry.test/login"])
+    } finally {
+      window.open = realOpen
+    }
+  })
+
+  test("signed out, a draft that failed before offers no way to send but signing in", () => {
+    view({ signInUrl: "https://bugberry.test/login", status: { failed: "Upload failed" }, trim: { startMs: 0, endMs: 1000 } })
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull()
+    expect(button("Sign in to send")).toBeTruthy()
+  })
+
+  test("signed out, a trim that couldn't be made offers no full video to send", () => {
+    view({ signInUrl: "https://bugberry.test/login", status: { trimFailed: "no encoder" } })
+    expect(screen.queryByRole("button", { name: "Send full video" })).toBeNull()
+  })
+
+  test("a trim that couldn't be made offers no full video the workspace won't take", () => {
+    view({ status: { trimFailed: "no encoder" }, fullVideoTooLong: true })
+    expect(screen.getByText(/Couldn't trim the video/)).toBeTruthy()
+    expect(screen.queryByRole("button", { name: "Send full video" })).toBeNull()
+  })
+
   test("a screenshot shows its kind and size", () => {
     view({ draft: screenshot, mediaSize: { width: 1920, height: 945 } })
     expect(screen.getByText("Screenshot")).toBeTruthy()

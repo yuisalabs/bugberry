@@ -227,7 +227,7 @@ async function abandon(draftId: string, deps: RecordingFlowDeps): Promise<void> 
  */
 export async function startVideoRecording(
   tab: ActiveTab,
-  options: RecordOptions & { maxBytes: number },
+  options: RecordOptions & { maxBytes: number; maxMs: number },
   deps: RecordingFlowDeps,
 ): Promise<CaptureResult> {
   if (await deps.state.get()) {
@@ -271,7 +271,7 @@ export async function startVideoRecording(
   let opened: OffscreenReply
   try {
     await deps.ensureOffscreen()
-    opened = await ask(deps, { type: "bugberry:offscreen-open", draftId: draft.id, capture, mic: options.mic, micDeviceId: options.micDeviceId ?? null, maxBytes: options.maxBytes })
+    opened = await ask(deps, { type: "bugberry:offscreen-open", draftId: draft.id, capture, mic: options.mic, micDeviceId: options.micDeviceId ?? null, maxBytes: options.maxBytes, maxMs: options.maxMs })
   } catch (error) {
     opened = { ok: false, error: messageOf(error) }
   }
@@ -505,7 +505,7 @@ async function openPage(
 }
 
 export interface RecordingController {
-  start(tab: ActiveTab, options: RecordOptions & { maxBytes: number }): Promise<CaptureResult>
+  start(tab: ActiveTab, options: RecordOptions & { maxBytes: number; maxMs: number }): Promise<CaptureResult>
   stop(): Promise<CaptureResult>
   status(): Promise<RecordingStatus>
   noteNavigation(tabId: number): Promise<void>

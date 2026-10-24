@@ -28,6 +28,7 @@ const open: OffscreenMessage = {
   mic: false,
   micDeviceId: null,
   maxBytes: 1000,
+  maxMs: 120_000,
 }
 
 describe("createWindowRecorderHost", () => {

@@ -8,17 +8,13 @@ import {
   canCreateWorkspace,
   countReports,
   isWorkspaceLimited,
-  storageUsed,
   workspaceLimits,
 } from "../src/workspaces/limits"
 import { createReadyReport, createUser, createWorkspaceRow, setupTestApp } from "./helpers"
 
-const LIMITS = { screenshots: 5, recordings: 5, ownedWorkspaces: 1, storageBytes: 250 * 1024 * 1024, fileBytes: 50 * 1024 * 1024 }
+const LIMITS = { screenshots: 5, recordings: 5, ownedWorkspaces: 1, recordingMs: 120_000 }
 const TTL = 3600
 const ON = { accountLimits: LIMITS, uploadUrlTtlSeconds: TTL }
-const MB = 1024 * 1024
-/** A report small enough that only the count can refuse it. */
-const SMALL = { media: 4 }
 
 let ctx: Awaited<ReturnType<typeof setupTestApp>>
 let owner: Awaited<ReturnType<typeof createUser>>
@@ -89,59 +85,37 @@ describe("workspaceLimits", () => {
       limited: true,
       screenshots: { used: 3, max: 5 },
       recordings: { used: 0, max: 5 },
-      storage: { used: 9, max: 250 * MB },
-      maxFileBytes: 50 * MB,
+      maxRecordingMs: 120_000,
     })
   })
 })
 
-describe("size limits", () => {
-  test("a file over the per-file limit is refused, whatever room is left", async () => {
-    await expect(assertCanCreateReport(ctx.db, ON, workspaceId, "video", { media: 51 * MB })).rejects.toMatchObject({
-      code: "file_limit_reached",
-      message: "This recording is 51 MB; this workspace takes files up to 50 MB. Record a shorter one.",
+describe("recording length", () => {
+  test("a recording up to the limit and its 2 s of slack passes; longer is refused", async () => {
+    await assertCanCreateReport(ctx.db, ON, workspaceId, "video", 122_000)
+    await expect(assertCanCreateReport(ctx.db, ON, workspaceId, "video", 122_001)).rejects.toMatchObject({
+      status: 403,
+      code: "duration_limit_reached",
+      message: "This recording is 2:02; this workspace takes recordings up to 2:00. Trim it or record a shorter one.",
     })
-    await expect(assertCanCreateReport(ctx.db, ON, workspaceId, "screenshot", { media: 1 * MB, debugger: 60 * MB })).rejects.toMatchObject({
-      code: "file_limit_reached",
-    })
-    await assertCanCreateReport(ctx.db, ON, workspaceId, "video", { media: 50 * MB })
   })
 
-  test("the workspace's storage counts every file of the reports it keeps", async () => {
-    await createReadyReport(ctx.db, { reporterId: owner.id, captureType: "video", durationMs: 1000, mediaSize: 40 * MB, debuggerSize: 1 * MB, thumbnailSize: 1 * MB })
-    await createReadyReport(ctx.db, { reporterId: owner.id, captureType: "video", durationMs: 1000, mediaSize: 48 * MB, debuggerSize: 2 * MB })
-    expect(await storageUsed(ctx.db, workspaceId, TTL)).toBe(92 * MB)
-    // An upload whose link has expired no longer counts.
-    await createReadyReport(ctx.db, { reporterId: owner.id, uploadStatus: "uploading", mediaSize: 5 * MB, createdAt: new Date(Date.now() - 2 * TTL * 1000) })
-    expect(await storageUsed(ctx.db, workspaceId, TTL)).toBe(92 * MB)
+  test("screenshots have no length to check", async () => {
+    await assertCanCreateReport(ctx.db, ON, workspaceId, "screenshot", null)
   })
 
-  test("a report that doesn't fit in the room left is refused; deleting one makes room", async () => {
-    const big = { reporterId: owner.id, captureType: "video" as const, durationMs: 1000, mediaSize: 50 * MB }
-    const kept = []
-    for (let i = 0; i < 4; i++) kept.push(await createReadyReport(ctx.db, big))
-    // 200 MB used, 50 MB left.
-    await assertCanCreateReport(ctx.db, ON, workspaceId, "screenshot", { media: 50 * MB })
-    await expect(assertCanCreateReport(ctx.db, ON, workspaceId, "screenshot", { media: 49 * MB, debugger: 1 * MB, thumbnail: 1 })).rejects.toMatchObject({
-      code: "storage_limit_reached",
-      message: "This report needs 50 MB, but this workspace has 50 MB of its 250 MB left. Delete a report in the dashboard to make room.",
-    })
-    await ctx.db.delete(report).where(eq(report.id, kept[0]?.id ?? ""))
-    await assertCanCreateReport(ctx.db, ON, workspaceId, "screenshot", { media: 49 * MB, debugger: 1 * MB, thumbnail: 1 })
-  })
-
-  test("an unlimited owner's workspace has no size limits", async () => {
+  test("an unlimited owner's workspace takes recordings of any length", async () => {
     await makeUnlimited(owner.id)
-    await assertCanCreateReport(ctx.db, ON, workspaceId, "video", { media: 300 * MB })
+    await assertCanCreateReport(ctx.db, ON, workspaceId, "video", 600_000)
   })
 })
 
 describe("assertCanCreateReport", () => {
   test("allows the 5th and refuses the 6th screenshot", async () => {
     await screenshots(4)
-    await assertCanCreateReport(ctx.db, ON, workspaceId, "screenshot", SMALL)
+    await assertCanCreateReport(ctx.db, ON, workspaceId, "screenshot", null)
     await screenshots(1)
-    await expect(assertCanCreateReport(ctx.db, ON, workspaceId, "screenshot", SMALL)).rejects.toMatchObject({
+    await expect(assertCanCreateReport(ctx.db, ON, workspaceId, "screenshot", null)).rejects.toMatchObject({
       status: 403,
       code: "report_limit_reached",
       message: "This workspace already has 5 screenshots, the most it can keep. Delete one in the dashboard to take a new one.",
@@ -150,7 +124,7 @@ describe("assertCanCreateReport", () => {
 
   test("recordings have their own message", async () => {
     await videos(5)
-    await expect(assertCanCreateReport(ctx.db, ON, workspaceId, "video", SMALL)).rejects.toMatchObject({
+    await expect(assertCanCreateReport(ctx.db, ON, workspaceId, "video", 1000)).rejects.toMatchObject({
       code: "report_limit_reached",
       message: "This workspace already has 5 recordings, the most it can keep. Delete one in the dashboard to record a new one.",
     })
@@ -158,15 +132,15 @@ describe("assertCanCreateReport", () => {
 
   test("a workspace over the limit stays refused for that kind only", async () => {
     await screenshots(7)
-    await expect(assertCanCreateReport(ctx.db, ON, workspaceId, "screenshot", SMALL)).rejects.toMatchObject({ code: "report_limit_reached" })
-    await assertCanCreateReport(ctx.db, ON, workspaceId, "video", SMALL)
+    await expect(assertCanCreateReport(ctx.db, ON, workspaceId, "screenshot", null)).rejects.toMatchObject({ code: "report_limit_reached" })
+    await assertCanCreateReport(ctx.db, ON, workspaceId, "video", 1000)
   })
 
   test("no limit for an unlimited owner or with limits off", async () => {
     await screenshots(5)
-    await assertCanCreateReport(ctx.db, { accountLimits: null, uploadUrlTtlSeconds: TTL }, workspaceId, "screenshot", SMALL)
+    await assertCanCreateReport(ctx.db, { accountLimits: null, uploadUrlTtlSeconds: TTL }, workspaceId, "screenshot", null)
     await makeUnlimited(owner.id)
-    await assertCanCreateReport(ctx.db, ON, workspaceId, "screenshot", SMALL)
+    await assertCanCreateReport(ctx.db, ON, workspaceId, "screenshot", null)
   })
 })
 

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { MAX_RECORDING_MS } from "../lib/recorder"
 import {
   isOffscreenMessage,
   isPageFlush,
@@ -65,12 +66,16 @@ describe("messages", () => {
   test("offscreen messages need their ids, a known source and a budget", () => {
     const tab = { kind: "tab", streamId: "s" }
     const screen = { kind: "display", surface: "monitor", systemAudio: true }
-    const start = { type: "bugberry:offscreen-open", draftId: "d", mic: false, micDeviceId: null, maxBytes: 1000 }
+    const start = { type: "bugberry:offscreen-open", draftId: "d", mic: false, micDeviceId: null, maxBytes: 1000, maxMs: 120_000 }
     expect(isOffscreenMessage({ ...start, capture: tab })).toBe(true)
     expect(isOffscreenMessage({ ...start, capture: screen })).toBe(true)
     expect(isOffscreenMessage({ ...start, capture: { kind: "x" } })).toBe(false)
     expect(isOffscreenMessage({ ...start, capture: { kind: "display", surface: "tab", systemAudio: true } })).toBe(false)
     expect(isOffscreenMessage({ ...start, capture: tab, maxBytes: undefined })).toBe(false)
+    expect(isOffscreenMessage({ ...start, capture: tab, maxMs: undefined })).toBe(false)
+    expect(isOffscreenMessage({ ...start, capture: tab, maxMs: 0 })).toBe(false)
+    expect(isOffscreenMessage({ ...start, capture: tab, maxMs: MAX_RECORDING_MS + 1 })).toBe(false)
+    expect(isOffscreenMessage({ ...start, capture: tab, maxMs: MAX_RECORDING_MS })).toBe(true)
     expect(isOffscreenMessage({ ...start, capture: tab, micDeviceId: "abc" })).toBe(true)
     expect(isOffscreenMessage({ ...start, capture: tab, micDeviceId: undefined })).toBe(false)
     expect(isOffscreenMessage({ type: "bugberry:offscreen-start", draftId: "d", capture: tab, mic: false, maxBytes: 1 })).toBe(false)

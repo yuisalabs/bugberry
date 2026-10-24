@@ -4,7 +4,6 @@ import {
   applyPauses,
   clampTrim,
   errorsCaught,
-  expectedVideoBytes,
   isTrimmed,
   liveCounts,
   pauseMarks,
@@ -183,17 +182,3 @@ describe("trim", () => {
   })
 })
 
-describe("expectedVideoBytes", () => {
-  test("a whole video counts at its own size", () => {
-    expect(expectedVideoBytes(84_000_000, 42_000, null)).toBe(84_000_000)
-    expect(expectedVideoBytes(84_000_000, 42_000, { startMs: 0, endMs: 42_000 })).toBe(84_000_000)
-  })
-
-  test("a trimmed one counts at its share of the length, as it is encoded again at about the recording's rate", () => {
-    expect(expectedVideoBytes(84_000_000, 42_000, { startMs: 6_000, endMs: 27_000 })).toBe(42_000_000)
-  })
-
-  test("an unknown length counts the whole video", () => {
-    expect(expectedVideoBytes(84_000_000, 0, { startMs: 0, endMs: 1_000 })).toBe(84_000_000)
-  })
-})

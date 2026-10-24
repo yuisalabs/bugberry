@@ -1,4 +1,4 @@
-import { type CaptureKind, fullWarning, sendBlocked, sizeWarning, usageLine, type WorkspaceLimits } from "./limits"
+import { type CaptureKind, fullWarning, lengthWarning, sendBlocked, usageLine, type WorkspaceLimits } from "./limits"
 import type { ReportDraft } from "./types"
 
 /** What the review shows about the selected workspace's limits. */
@@ -9,14 +9,18 @@ export interface LimitNote {
   blocked: boolean
   /** Only admins can delete reports, so only they get "Open dashboard". */
   admin: boolean
+  /** The whole recording, untrimmed, is longer than the workspace takes: it can't be sent in place of the trim. */
+  fullTooLong: boolean
 }
 
-export const NO_LIMIT_NOTE: LimitNote = { usage: null, warning: null, blocked: false, admin: false }
+export const NO_LIMIT_NOTE: LimitNote = { usage: null, warning: null, blocked: false, admin: false, fullTooLong: false }
 
 export interface ReviewLimitsDeps {
   kind: CaptureKind
-  /** The capture's size, checked against the workspace's file limit and the room it has left. */
-  bytes?: number
+  /** The recording's length as it would be sent (trimmed), checked against the longest the workspace takes. */
+  durationMs?: number
+  /** The whole recording's length, untrimmed. */
+  fullDurationMs?: number
   workspaces: readonly { id: string; role: string }[]
   fetchLimits(workspaceId: string): Promise<WorkspaceLimits | null>
   /** The draft as stored now: a failed send may have started its own upload since the review opened. */
@@ -41,14 +45,15 @@ export function createReviewLimits(deps: ReviewLimitsDeps, initialWorkspaceId: s
     if (ask !== latest) return
     const role = deps.workspaces.find((entry) => entry.id === workspaceId)?.role
     const who = { isAdmin: role === "admin", hasOtherWorkspaces: deps.workspaces.length > 1 }
-    const bytes = deps.bytes ?? 0
-    const blocked = sendBlocked(limits, deps.kind, draft, workspaceId, bytes)
+    const durationMs = deps.kind === "video" ? (deps.durationMs ?? 0) : 0
+    const blocked = sendBlocked(limits, deps.kind, draft, workspaceId, durationMs)
     // A draft resuming its own upload isn't held back, so it gets no warning either.
     deps.onChange({
       usage: usageLine(limits, deps.kind),
-      warning: blocked ? (fullWarning(limits, deps.kind, "review", who) ?? sizeWarning(limits, deps.kind, bytes, who)) : null,
+      warning: blocked ? (fullWarning(limits, deps.kind, "review", who) ?? lengthWarning(limits, durationMs, who)) : null,
       blocked,
       admin: who.isAdmin,
+      fullTooLong: deps.kind === "video" && lengthWarning(limits, deps.fullDurationMs ?? 0, who) !== null,
     })
   }
 

@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm"
 import { report, user, workspace } from "../src/db/schema"
 import { createReadyReport, createUserWithToken, putUpload, setupTestApp, uploadBody } from "./helpers"
 
-const LIMITS = { screenshots: 5, recordings: 5, ownedWorkspaces: 1, storageBytes: 250 * 1024 * 1024, fileBytes: 50 * 1024 * 1024 }
+const LIMITS = { screenshots: 5, recordings: 5, ownedWorkspaces: 1, recordingMs: 120_000 }
 
 /** An app with limits on (or off), whose test workspace is owned by the uploading admin. */
 async function setup(limitsOn = true) {
@@ -38,18 +38,28 @@ describe("report limit on upload", () => {
     expect(after?.next).toBe(before?.next)
   })
 
-  test("a recording over 50 MB, or one the workspace has no room for, is refused before anything is uploaded", async () => {
-    const { ctx, owner, seed, upload } = await setup()
-    const big = await upload(owner.headers, { ...video, mediaSize: 51 * 1024 * 1024 })
-    expect(statusOf(big)).toBe(403)
-    expect(big.error?.value).toMatchObject({ code: "file_limit_reached" })
-    // 210 MB of 250 MB used: a 50 MB recording doesn't fit.
-    await seed(4, { captureType: "video", durationMs: 1000, mediaSize: 50 * 1024 * 1024 })
-    await seed(1, { mediaSize: 10 * 1024 * 1024 })
-    const full = await upload(owner.headers, { ...video, mediaSize: 50 * 1024 * 1024 })
-    expect(statusOf(full)).toBe(403)
-    expect(full.error?.value).toMatchObject({ code: "storage_limit_reached" })
-    expect(await ctx.db.select().from(report)).toHaveLength(5)
+  test("a recording over 2 minutes is refused before anything is uploaded; size alone never is", async () => {
+    const { ctx, owner, upload } = await setup()
+    const long = await upload(owner.headers, { ...video, durationMs: 180_000 })
+    expect(statusOf(long)).toBe(403)
+    expect(long.error?.value).toMatchObject({
+      code: "duration_limit_reached",
+      message: "This recording is 3:00; this workspace takes recordings up to 2:00. Trim it or record a shorter one.",
+    })
+    expect(await ctx.db.select().from(report)).toHaveLength(0)
+    const big = await upload(owner.headers, { ...video, durationMs: 120_000, mediaSize: 200 * 1024 * 1024 })
+    expect(statusOf(big)).toBe(200)
+  })
+
+  test("an upload started before limits applied is judged on its length at finalize", async () => {
+    const { ctx, owner, upload } = await setup()
+    const session = (await upload(owner.headers, video)).data
+    if (!session) throw new Error("expected an upload session")
+    await putUpload(ctx.app, session.mediaUpload, new Uint8Array([1, 2, 3, 4]))
+    await ctx.db.update(report).set({ durationMs: 600_000 }).where(eq(report.id, session.reportId))
+    const result = await ctx.api.api.reports({ id: session.reportId }).finalize.post(undefined, { headers: owner.headers })
+    expect(Number(result.error?.status)).toBe(403)
+    expect(result.error?.value).toMatchObject({ code: "duration_limit_reached" })
   })
 
   test("recordings have their own 5", async () => {

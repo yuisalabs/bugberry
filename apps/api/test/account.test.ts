@@ -140,7 +140,7 @@ describe("account", () => {
 
   test("client config", async () => {
     // The test config allows 1 MB uploads.
-    expect((await ctx.api.api["client-config"].get()).data).toEqual({ extensionInstallUrl: null, maxUploadMb: 1, publicSite: false })
+    expect((await ctx.api.api["client-config"].get()).data).toEqual({ extensionInstallUrl: null, maxUploadMb: 1, publicSite: false, maxRecordingSeconds: null })
     const configured = await setupTestApp({
       extensionInstallUrl: "https://chromewebstore.google.com/detail/x",
       maxUploadBytes: 120 * 1024 * 1024,
@@ -149,9 +149,12 @@ describe("account", () => {
       extensionInstallUrl: "https://chromewebstore.google.com/detail/x",
       maxUploadMb: 120,
       publicSite: false,
+      maxRecordingSeconds: null,
     })
     const hosted = await setupTestApp({ publicSite: true })
     expect((await hosted.api.api["client-config"].get()).data).toMatchObject({ publicSite: true })
+    const limited = await setupTestApp({ accountLimits: { screenshots: 5, recordings: 5, ownedWorkspaces: 1, recordingMs: 120_000 } })
+    expect((await limited.api.api["client-config"].get()).data).toMatchObject({ maxRecordingSeconds: 120 })
     const env = {
       APP_URL: "http://localhost:3000",
       DATABASE_URL: "postgres://u:p@localhost:5432/db",

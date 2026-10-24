@@ -60,15 +60,6 @@ export function isTrimmed(range: TrimRange | null | undefined, durationMs: numbe
   return range != null && (range.startMs > 0 || range.endMs < durationMs)
 }
 
-/**
- * About how large the sent video will be, for the workspace's size limit before sending: a trimmed one is encoded
- * again at about the recording's bitrate, so its share of the length. The server checks the real file again.
- */
-export function expectedVideoBytes(videoBytes: number, durationMs: number, range: TrimRange | null | undefined): number {
-  if (durationMs <= 0 || !isTrimmed(range, durationMs)) return videoBytes
-  return Math.ceil((videoBytes * (range.endMs - range.startMs)) / durationMs)
-}
-
 const clock = (ms: number) => {
   const seconds = Math.max(0, Math.floor(ms / 1000))
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`
