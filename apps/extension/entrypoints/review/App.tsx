@@ -304,11 +304,10 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       setProgress(next)
     }
     try {
-      const stored = (await store.get(draftId)) ?? loaded.draft
-      // From the first send on, the trim stays as sent: part of the full video may reach the server.
-      const current = draftWithNotes(stored.captureType === "video" ? { ...stored, sendStarted: true } : stored, notes)
+      const current = draftWithNotes((await store.get(draftId)) ?? loaded.draft, notes)
       await store.put(current)
-      if (current.captureType === "video") setLocked(true)
+      // prepareVideo marks the draft as sending once its media is ready: from then on the trim stays as sent, as
+      // part of the video may reach the server. A failed encode leaves the trim open to change.
       let prepared: PreparedMedia | null = null
       if (current.captureType === "video" && options.fullVideo) {
         prepared = await prepareVideo(current, { store, trimVideo }, undefined, { fullVideo: true })
@@ -324,6 +323,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
           setPreparing(null)
         }
       }
+      if (prepared) setLocked(true)
       let media: Blob | null = prepared ? prepared.media : current.captureType === "video" ? current.video : null
       if (current.captureType === "screenshot" && canvas.current) {
         // Saved first, so a draft reopened after a failure still carries its blur.

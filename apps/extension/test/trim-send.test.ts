@@ -111,4 +111,25 @@ describe("prepareVideo", () => {
     expect((await prepareVideo(after, { store, trimVideo })).media).toBe(original)
     expect(encodes).toEqual([])
   })
+
+  test("the trim locks once the media to send is ready, not before", async () => {
+    const trimmed = { ...draft, trim: range }
+    stored.set("v1", trimmed)
+    await prepareVideo(trimmed, { store, trimVideo })
+    expect((stored.get("v1") as VideoDraft).sendStarted).toBe(true)
+
+    stored.set("v1", draft)
+    await prepareVideo(draft, { store, trimVideo })
+    expect((stored.get("v1") as VideoDraft).sendStarted).toBe(true)
+  })
+
+  test("a failed encode leaves the trim open to change", async () => {
+    const trimmed = { ...draft, trim: range }
+    stored.set("v1", trimmed)
+    const failing = async () => {
+      throw new Error("codec")
+    }
+    await expect(prepareVideo(trimmed, { store, trimVideo: failing })).rejects.toThrow()
+    expect((stored.get("v1") as VideoDraft).sendStarted).toBeUndefined()
+  })
 })
