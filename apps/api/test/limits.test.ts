@@ -91,12 +91,12 @@ describe("workspaceLimits", () => {
 })
 
 describe("recording length", () => {
-  test("a recording up to the limit and its 2 s of slack passes; longer is refused", async () => {
-    await assertCanCreateReport(ctx.db, ON, workspaceId, "video", 122_000)
-    await expect(assertCanCreateReport(ctx.db, ON, workspaceId, "video", 122_001)).rejects.toMatchObject({
+  test("a recording up to the limit and its 5 s of slack passes; longer is refused", async () => {
+    await assertCanCreateReport(ctx.db, ON, workspaceId, "video", 125_000)
+    await expect(assertCanCreateReport(ctx.db, ON, workspaceId, "video", 125_001)).rejects.toMatchObject({
       status: 403,
       code: "duration_limit_reached",
-      message: "This recording is 2:02; this workspace takes recordings up to 2:00. Trim it or record a shorter one.",
+      message: "This recording is 2:05; this workspace takes recordings up to 2:00. Trim it or record a shorter one.",
     })
   })
 

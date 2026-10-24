@@ -8,7 +8,7 @@ test("lengths read as minutes and seconds, whole seconds down", () => {
   expect(clockLabel(3_600_000)).toBe("60:00")
 })
 
-test("a recording is too long only past the limit and its 2 s of slack", () => {
-  expect(tooLong(122_000, 120_000)).toBe(false)
-  expect(tooLong(122_001, 120_000)).toBe(true)
+test("a recording is too long only past the limit and its 5 s of slack", () => {
+  expect(tooLong(125_000, 120_000)).toBe(false)
+  expect(tooLong(125_001, 120_000)).toBe(true)
 })
