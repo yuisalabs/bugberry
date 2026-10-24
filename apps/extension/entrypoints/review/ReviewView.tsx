@@ -268,6 +268,10 @@ export function ReviewView(props: ReviewViewProps) {
                   onReset={() => setEditing({ startMs: 0, endMs: durationMs })}
                   onDone={doneTrim}
                 />
+              ) : null}
+              {editing ? (
+                // What is sent is the range applied with Done, so Create report waits for it.
+                <span className="text-sm text-muted-foreground">Press Done to apply the trim.</span>
               ) : (
                 <span className="flex flex-wrap items-center gap-3">
                   <Button intent="outline" size="sm" isDisabled={props.trimLocked || sending} onPress={openTrim}>
@@ -488,7 +492,7 @@ export function ReviewView(props: ReviewViewProps) {
                   <Button intent="outline" onPress={() => setConfirm("again")}>
                     {isVideo ? "Record again" : "Retake"}
                   </Button>
-                  <Button isDisabled={sending || props.sendBlocked} onPress={() => send()}>
+                  <Button isDisabled={sending || props.sendBlocked || editing !== null} onPress={() => send()}>
                     {sending ? "Creating…" : "Create report"}
                   </Button>
                 </span>

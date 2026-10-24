@@ -8,6 +8,14 @@ export function conversionTrim(range: TrimRange): { start: number; end: number }
 }
 
 /**
+ * What a conversion would leave out, or null. Any track counts, sound included: a trimmed video that silently
+ * lost the reporter's narration is worse than the choice to send the full one.
+ */
+export function lostTracks(discarded: ReadonlyArray<{ type: string; reason: string }>): string | null {
+  return discarded.length > 0 ? discarded.map((track) => `${track.type}: ${track.reason}`).join(", ") : null
+}
+
+/**
  * The recording cut to `range`, as a new WebM. Every frame is encoded again (WebCodecs, through mediabunny): a
  * copy could only cut at keyframes, which MediaRecorder puts far apart. mediabunny writes the Duration itself, so
  * this is not run through withWebmDuration, which would move the bytes its SeekHead and Cues point at.
@@ -23,11 +31,8 @@ export async function trimVideo(video: Blob, range: TrimRange, onProgress?: (fra
       video: { forceTranscode: true, bitrate: VIDEO_BITS_PER_SECOND },
       audio: { forceTranscode: true, bitrate: AUDIO_BITS_PER_SECOND },
     })
-    const lostVideo = conversion.discardedTracks.filter((discarded) => discarded.track.type === "video")
-    if (!conversion.isValid || lostVideo.length > 0) {
-      const reasons = conversion.discardedTracks.map((discarded) => `${discarded.track.type}: ${discarded.reason}`)
-      throw new Error(reasons.join(", ") || "this browser can't encode the video")
-    }
+    const lost = lostTracks(conversion.discardedTracks.map((discarded) => ({ type: discarded.track.type, reason: discarded.reason })))
+    if (!conversion.isValid || lost) throw new Error(lost ?? "this browser can't encode the video")
     if (onProgress) conversion.onProgress = (fraction) => onProgress(fraction)
     await conversion.execute()
     if (!target.buffer) throw new Error("the encoder produced no video")

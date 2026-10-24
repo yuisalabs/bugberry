@@ -310,7 +310,10 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       await store.put(current)
       if (current.captureType === "video") setLocked(true)
       let prepared: PreparedMedia | null = null
-      if (current.captureType === "video" && !options.fullVideo) {
+      if (current.captureType === "video" && options.fullVideo) {
+        prepared = await prepareVideo(current, { store, trimVideo }, undefined, { fullVideo: true })
+        setTrim(null)
+      } else if (current.captureType === "video") {
         setPreparing(0)
         try {
           prepared = await prepareVideo(current, { store, trimVideo }, setPreparing)

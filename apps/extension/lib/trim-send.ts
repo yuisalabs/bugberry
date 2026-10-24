@@ -1,7 +1,7 @@
 import type { DebuggerPayload } from "@bugberry/capture"
 import type { DraftStore } from "./draft-store"
 import { isTrimmed, trimPayload } from "./review-data"
-import { sameRange } from "./review-draft"
+import { draftWithTrim, sameRange } from "./review-draft"
 import type { trimVideo } from "./trim-video"
 import type { VideoDraft } from "./types"
 
@@ -20,8 +20,16 @@ export async function prepareVideo(
   draft: VideoDraft,
   deps: { store: Pick<DraftStore, "get" | "put">; trimVideo: typeof trimVideo },
   onProgress?: (fraction: number) => void,
+  options: { fullVideo?: boolean } = {},
 ): Promise<PreparedMedia> {
   if (!draft.video) throw new Error("The report's media isn't available")
+  if (options.fullVideo) {
+    // The reporter chose the full video: the trim goes, with the video and payload encoding made for it, so a
+    // later "Try again" (which passes no option) sends the full video and logs as well.
+    const latest = await deps.store.get(draft.id)
+    if (latest) await deps.store.put(draftWithTrim(latest, null))
+    return { media: draft.video, payload: draft.debuggerPayload, durationMs: draft.durationMs }
+  }
   const range = draft.trim
   if (!isTrimmed(range, draft.durationMs ?? 0)) {
     return { media: draft.video, payload: draft.debuggerPayload, durationMs: draft.durationMs }

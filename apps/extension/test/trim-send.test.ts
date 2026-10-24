@@ -96,4 +96,19 @@ describe("prepareVideo", () => {
     await expect(prepareVideo(trimmed, { store, trimVideo: failing })).rejects.toThrow("codec")
     expect(stored.get("v1")).toBe(trimmed)
   })
+
+  test("sending the full video drops the trim and what was made for it, so a retry sends the full video too", async () => {
+    const trimmed = { ...draft, trim: range, trimmed: { range, video: encoded }, debuggerGzip: new Blob(["cut-gz"]) }
+    stored.set("v1", trimmed)
+    const prepared = await prepareVideo(trimmed, { store, trimVideo }, undefined, { fullVideo: true })
+    expect(prepared).toEqual({ media: original, payload: draft.debuggerPayload, durationMs: 42_000 })
+    const after = stored.get("v1") as VideoDraft
+    expect(after.trim).toBeNull()
+    expect(after.trimmed).toBeNull()
+    expect(after.debuggerGzip).toBeNull()
+
+    // "Try again" sends without the option: the stored draft is no longer trimmed.
+    expect((await prepareVideo(after, { store, trimVideo })).media).toBe(original)
+    expect(encodes).toEqual([])
+  })
 })

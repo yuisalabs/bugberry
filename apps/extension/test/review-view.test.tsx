@@ -431,3 +431,16 @@ describe("closing while the video is prepared", () => {
     expect(screen.getByText("The video is still being prepared. Leave anyway?")).toBeTruthy()
   })
 })
+
+describe("sending while trimming", () => {
+  test("Create report waits until the open Trim strip is applied with Done", () => {
+    const { props } = view()
+    fireEvent.click(button("Trim"))
+    expect(screen.getByText("Press Done to apply the trim.")).toBeTruthy()
+    fireEvent.click(button("Create report"))
+    expect((props.onSend as ReturnType<typeof mock>).mock.calls).toHaveLength(0)
+    fireEvent.click(button("Done"))
+    fireEvent.click(button("Create report"))
+    expect((props.onSend as ReturnType<typeof mock>).mock.calls).toHaveLength(1)
+  })
+})
