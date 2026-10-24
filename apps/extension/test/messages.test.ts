@@ -37,6 +37,7 @@ describe("messages", () => {
   test("the camera bubble asks with its token, to read or to say it's ready", () => {
     expect(isCameraTicketRequest({ type: "bugberry:camera-ticket", token: "t", action: "read" })).toBe(true)
     expect(isCameraTicketRequest({ type: "bugberry:camera-ticket", token: "t", action: "ready" })).toBe(true)
+    expect(isCameraTicketRequest({ type: "bugberry:camera-ticket", token: "t", action: "failed" })).toBe(true)
     expect(isCameraTicketRequest({ type: "bugberry:camera-ticket", token: 1, action: "read" })).toBe(false)
     expect(isCameraTicketRequest({ type: "bugberry:camera-ticket", token: "t", action: "start" })).toBe(false)
   })

@@ -79,10 +79,10 @@ export interface RecordingFlowDeps {
   /** Shows or removes the Recording Bar and the drawing layer on the recorded tab. */
   showRecordingUi(tabId: number, on: boolean): Promise<void>
   /**
-   * Shows the camera bubble on the tab and waits until it shows a picture, for a short while at most. Apart
-   * from the Recording Bar: a Restart rebuilds the bar, the camera stays on.
+   * Shows the camera bubble on the tab. `ready` settles once it shows a picture, can't, or a short while
+   * passed; it never rejects. Apart from the Recording Bar: a Restart rebuilds the bar, the camera stays on.
    */
-  showCamera(tabId: number, camera: CameraChoice): Promise<void>
+  showCamera(tabId: number, camera: CameraChoice): Promise<{ ready: Promise<void> }>
   /** Takes the camera bubble off the tab and turns the camera off; nothing happens when there is none. */
   hideCamera(tabId: number): Promise<void>
   /** The review modal over the tab, or in a tab of its own when the page can't show it. */
@@ -283,13 +283,15 @@ export async function startVideoRecording(
   }
 
   await deps.focusTab?.(tab).catch(() => {})
-  // Before the countdown, so the camera is warm when the take starts. A camera that fails costs nothing else.
-  if (options.camera) await deps.showCamera(tab.id, options.camera).catch(() => {})
+  // Before the countdown, so the camera warms up while it counts. A camera that fails costs nothing else.
+  const camera = options.camera ? await deps.showCamera(tab.id, options.camera).catch(() => null) : null
   if (options.countdown && (await deps.countdown(tab.id)) === "cancel") {
     await deps.hideCamera(tab.id).catch(() => {})
     await abandon(draft.id, deps)
     return { ok: false, code: "cancelled", error: "Cancelled" }
   }
+  // The first second of the take shows the reporter, not an empty bubble.
+  await camera?.ready.catch(() => {})
   const begun = await ask(deps, { type: "bugberry:offscreen-begin" })
   if (!begun.ok) {
     await deps.hideCamera(tab.id).catch(() => {})

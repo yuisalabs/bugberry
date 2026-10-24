@@ -133,7 +133,10 @@ beforeEach(() => {
       return countdownResult
     },
     showRecordingUi: async (tabId, on) => void ui.push([tabId, on]),
-    showCamera: async (tabId, camera) => void steps.push(`camera-show ${tabId} ${camera.deviceId} ${camera.shape}`),
+    showCamera: async (tabId, camera) => {
+      steps.push(`camera-show ${tabId} ${camera.deviceId} ${camera.shape}`)
+      return { ready: Promise.resolve() }
+    },
     hideCamera: async (tabId) => void steps.push(`camera-hide ${tabId}`),
     author: async () => "Dana",
     state,
@@ -542,6 +545,18 @@ describe("the camera", () => {
   test("a tab recording with the camera shows it before the countdown and the take", async () => {
     await startVideoRecording(tab, { ...TAB_OPTIONS, countdown: true, camera: CAMERA }, deps)
     expect(steps).toEqual(["bugberry:offscreen-open", "camera-show 7 cam1 circle", "countdown", "bugberry:offscreen-begin"])
+  })
+
+  test("the camera warms up during the countdown, and the take waits for it", async () => {
+    let warm = () => {}
+    deps.showCamera = async () => ({ ready: new Promise<void>((resolve) => (warm = resolve)) })
+    const started = startVideoRecording(tab, { ...TAB_OPTIONS, countdown: true, camera: CAMERA }, deps)
+    for (let i = 0; i < 20; i += 1) await Promise.resolve()
+    expect(steps).toContain("countdown")
+    expect(steps).not.toContain("bugberry:offscreen-begin")
+    warm()
+    expect(await started).toEqual({ ok: true, draftId: "video-1" })
+    expect(steps.at(-1)).toBe("bugberry:offscreen-begin")
   })
 
   test("without a camera nothing is shown", async () => {

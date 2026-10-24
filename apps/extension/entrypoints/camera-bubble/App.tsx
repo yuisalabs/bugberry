@@ -32,6 +32,8 @@ export function CameraBubble(props: {
       try {
         opened = await getUserMedia(constraints)
       } catch {
+        // The start waits for the first picture: tell it there won't be one.
+        void ask({ type: "bugberry:camera-ticket", token, action: "failed" }).catch(() => {})
         return fail()
       }
       if (gone) {

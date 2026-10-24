@@ -74,6 +74,16 @@ describe("camera grants", () => {
     expect(await waiting).toBe("timeout")
   })
 
+  test("a bubble that can't show the camera ends the wait at once, from the granted tab only", async () => {
+    const grants = setup()
+    const { token } = await grants.open(7, { deviceId: null, shape: "circle" })
+    const waiting = grants.waitReady(token, 1500)
+    await grants.fail(token, 8)
+    await grants.fail(token, 7)
+    expect(await waiting).toBe("failed")
+    expect(timers).toHaveLength(0)
+  })
+
   test("forTab gives token and shape, never the device", async () => {
     const grants = setup()
     const { token } = await grants.open(7, { deviceId: "cam1", shape: "rectangle" })

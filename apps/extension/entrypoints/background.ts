@@ -287,8 +287,10 @@ export default defineBackground(() => {
     },
     showCamera: async (tabId, camera) => {
       const { token, shape } = await cameraGrants.open(tabId, camera)
-      await toPage(tabId, { type: "bugberry:ui-camera", on: true, token, shape }).catch(() => {})
-      await cameraGrants.waitReady(token, CAMERA_READY_MS)
+      const ready = cameraGrants.waitReady(token, CAMERA_READY_MS)
+      // A page without a page layer (or that can't show the bubble) has nothing to wait for.
+      await toPage(tabId, { type: "bugberry:ui-camera", on: true, token, shape }).catch(() => cameraGrants.fail(token, tabId))
+      return { ready: ready.then(() => {}) }
     },
     hideCamera: async (tabId) => {
       await cameraGrants.close()
@@ -522,7 +524,9 @@ export default defineBackground(() => {
       return reply(
         message.action === "read"
           ? cameraGrants.read(message.token, sender.tab?.id)
-          : cameraGrants.ready(message.token, sender.tab?.id).then(() => ({ ok: true })),
+          : (message.action === "ready" ? cameraGrants.ready(message.token, sender.tab?.id) : cameraGrants.fail(message.token, sender.tab?.id)).then(
+              () => ({ ok: true }),
+            ),
       )
     }
     // Only the extension's own pages drive a recording: the review from anywhere, the bar and the drawing

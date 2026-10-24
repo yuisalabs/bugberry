@@ -52,6 +52,13 @@ describe("the camera bubble", () => {
     expect(posted).toEqual([{ bugberry: "camera-failed" }])
   })
 
+  test("a camera that fails tells the background, so the start doesn't wait for it", async () => {
+    const { asked } = await setup({ deviceId: null, shape: "circle" }, async () => {
+      throw new DOMException("blocked", "NotAllowedError")
+    })
+    expect(asked.at(-1)).toEqual({ type: "bugberry:camera-ticket", token: "t1", action: "failed" })
+  })
+
   test("the picture is mirrored and silent", async () => {
     const { view } = await setup({ deviceId: null, shape: "circle" })
     const video = view.container.querySelector("video") as HTMLVideoElement

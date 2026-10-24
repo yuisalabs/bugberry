@@ -28,7 +28,7 @@ export function createCameraGrants(deps: {
   setTimer(run: () => void, ms: number): () => void
 }) {
   /** Waiting for a bubble's first picture, by token. In memory: only the start that opened the grant waits. */
-  const waiting = new Map<string, () => void>()
+  const waiting = new Map<string, (result: "ready" | "failed") => void>()
 
   const granted = async (token: string, senderTabId: number | undefined) => {
     const grant = await deps.store.get()
@@ -57,20 +57,25 @@ export function createCameraGrants(deps: {
 
     /** The bubble shows its first picture. */
     async ready(token: string, senderTabId: number | undefined): Promise<void> {
-      if (await granted(token, senderTabId)) waiting.get(token)?.()
+      if (await granted(token, senderTabId)) waiting.get(token)?.("ready")
     },
 
-    /** The bubble's first picture, or `ms` passing, whichever comes first. */
-    waitReady(token: string, ms: number): Promise<"ready" | "timeout"> {
+    /** The bubble can't show the camera (blocked, busy, forbidden by the page): nothing to wait for. */
+    async fail(token: string, senderTabId: number | undefined): Promise<void> {
+      if (await granted(token, senderTabId)) waiting.get(token)?.("failed")
+    },
+
+    /** The bubble's first picture, its failure, or `ms` passing, whichever comes first. */
+    waitReady(token: string, ms: number): Promise<"ready" | "failed" | "timeout"> {
       return new Promise((resolve) => {
         const cancel = deps.setTimer(() => {
           waiting.delete(token)
           resolve("timeout")
         }, ms)
-        waiting.set(token, () => {
+        waiting.set(token, (result) => {
           cancel()
           waiting.delete(token)
-          resolve("ready")
+          resolve(result)
         })
       })
     },
