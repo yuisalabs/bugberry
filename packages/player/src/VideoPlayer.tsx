@@ -5,6 +5,7 @@ import type Player from "video.js/dist/types/player"
 import "video.js/dist/video-js.css"
 import "./theme.css"
 import {
+  clampToRange,
   displayDuration,
   hotkeyAction,
   type MarkerGroup,
@@ -49,6 +50,7 @@ export function VideoPlayer({
   topLeft,
   topRight,
   startAtSeconds,
+  range,
 }: VideoPlayerProps) {
   const host = useRef<HTMLDivElement>(null)
   const playerRef = useRef<Player | null>(null)
@@ -56,8 +58,8 @@ export function VideoPlayer({
   const [seconds, setSeconds] = useState(0)
   const [length, setLength] = useState<number | null>(durationMs ? durationMs / 1000 : null)
   // Handlers change on every render; the player reads the latest ones instead of being rebuilt.
-  const latest = useRef({ durationMs, videoRef, onTime, onError, onLoadedMetadata, startAtSeconds })
-  latest.current = { durationMs, videoRef, onTime, onError, onLoadedMetadata, startAtSeconds }
+  const latest = useRef({ durationMs, videoRef, onTime, onError, onLoadedMetadata, startAtSeconds, range })
+  latest.current = { durationMs, videoRef, onTime, onError, onLoadedMetadata, startAtSeconds, range }
 
   useEffect(() => {
     const container = host.current
@@ -93,7 +95,15 @@ export function VideoPlayer({
     playerRef.current = player
     player.src({ src, type: "video/webm" })
 
+    // With a range, a position outside it moves back in, and playback stops at its end.
+    const keepInRange = () => {
+      const now = player.currentTime() ?? 0
+      const kept = clampToRange(now, latest.current.range)
+      if (kept.atEnd && !player.paused()) player.pause()
+      if (kept.seconds !== now) player.currentTime(kept.seconds)
+    }
     const reportTime = () => {
+      keepInRange()
       const now = player.currentTime() ?? 0
       setSeconds(now)
       latest.current.onTime?.(now * 1000)
@@ -107,6 +117,10 @@ export function VideoPlayer({
     }
     player.on("timeupdate", reportTime)
     player.on("seeked", reportTime)
+    player.on("play", () => {
+      const range = latest.current.range
+      if (range && clampToRange(player.currentTime() ?? 0, range).atEnd) player.currentTime(range.startMs / 1000)
+    })
     player.on("error", () => latest.current.onError?.())
     player.on("loadedmetadata", () => {
       fixDuration()

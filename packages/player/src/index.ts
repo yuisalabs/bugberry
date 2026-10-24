@@ -22,6 +22,23 @@ export interface VideoPlayerProps {
   topRight?: (currentSeconds: number) => ReactNode
   /** Where playback starts once the video has loaded (a shared "at 0:03" link). */
   startAtSeconds?: number
+  /** Only this part plays (ms into the video): seeking stays inside it and playback stops at its end. */
+  range?: PlayRange | null
+}
+
+export interface PlayRange {
+  startMs: number
+  endMs: number
+}
+
+/** Where the player belongs for a position in seconds: inside the range, and whether that is its end. */
+export function clampToRange(seconds: number, range: PlayRange | null | undefined): { seconds: number; atEnd: boolean } {
+  if (!range) return { seconds, atEnd: false }
+  const start = range.startMs / 1000
+  const end = range.endMs / 1000
+  if (seconds < start) return { seconds: start, atEnd: false }
+  if (seconds >= end) return { seconds: end, atEnd: true }
+  return { seconds, atEnd: false }
 }
 
 export const PLAYBACK_RATES = [0.5, 1, 1.5, 2]

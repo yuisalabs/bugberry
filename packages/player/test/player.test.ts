@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { displayDuration, formatClock, hotkeyAction, markerLabel, PLAYBACK_RATES, placeMarkers, seekTarget } from "../src"
+import { clampToRange, displayDuration, formatClock, hotkeyAction, markerLabel, PLAYBACK_RATES, placeMarkers, seekTarget } from "../src"
 
 describe("markerLabel", () => {
   const marker = (id: string) => ({ id, atMs: 1000, kind: "error" as const, label: "err", detail: "boom" })
@@ -84,5 +84,26 @@ describe("formatClock", () => {
     expect(formatClock(3.4)).toBe("0:03")
     expect(formatClock(65)).toBe("1:05")
     expect(formatClock(3725)).toBe("1:02:05")
+  })
+})
+
+describe("clampToRange", () => {
+  const range = { startMs: 6_000, endMs: 35_000 }
+
+  test("without a range the position is left alone", () => {
+    expect(clampToRange(40, null)).toEqual({ seconds: 40, atEnd: false })
+  })
+
+  test("before the start jumps to the start", () => {
+    expect(clampToRange(2, range)).toEqual({ seconds: 6, atEnd: false })
+  })
+
+  test("at or past the end stops at the end", () => {
+    expect(clampToRange(35, range)).toEqual({ seconds: 35, atEnd: true })
+    expect(clampToRange(40, range)).toEqual({ seconds: 35, atEnd: true })
+  })
+
+  test("inside the range is left alone", () => {
+    expect(clampToRange(10, range)).toEqual({ seconds: 10, atEnd: false })
   })
 })
