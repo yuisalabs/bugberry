@@ -92,6 +92,13 @@ test("a trimmed recording sends only the kept part, video and logs", async () =>
   const end = review.getByRole("slider", { name: /Trim end/ })
   for (let i = 0; i < 10; i++) await end.press("ArrowLeft")
   await expect(review.getByText("0:01 – 0:03 · 2 s of 4 s")).toBeVisible()
+  // Both handles line up with the strip of frames, top and bottom.
+  const frames = await review.getByRole("group", { name: "Trim" }).locator("xpath=..").boundingBox()
+  for (const handle of [start, end]) {
+    const box = await handle.locator("xpath=..").locator("xpath=..").boundingBox()
+    expect(Math.abs((box?.y ?? 0) - (frames?.y ?? 0))).toBeLessThanOrEqual(1)
+    expect(Math.abs((box?.height ?? 0) - (frames?.height ?? 0))).toBeLessThanOrEqual(1)
+  }
   // The error at exactly 3 s is on the boundary and stays; the one at 0.5 s goes.
   await expect(review.getByText("1 error", { exact: true })).toBeVisible()
 

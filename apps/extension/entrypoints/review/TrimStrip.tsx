@@ -68,7 +68,7 @@ export function TrimStrip(props: {
             value={Math.min(Math.max(props.positionMs, 0), durationMs)}
             onChange={(ms) => props.onSeek(ms as number)}
           >
-            <SliderTrack className="absolute inset-0 cursor-pointer">
+            <SliderTrack className="h-full w-full cursor-pointer">
               <SliderThumb
                 aria-label="Playhead"
                 className="top-1/2 flex h-14 w-3 cursor-ew-resize justify-center outline-hidden data-focus-visible:[&>span]:ring-2 data-focus-visible:[&>span]:ring-ring"
@@ -97,7 +97,7 @@ export function TrimStrip(props: {
               props.onPreview(moved)
             }}
           >
-            <SliderTrack className="absolute inset-0">
+            <SliderTrack className="h-full w-full">
               {({ state }) =>
                 state.values.map((_, index) => (
                   <SliderThumb
