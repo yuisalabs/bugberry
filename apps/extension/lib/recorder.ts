@@ -70,14 +70,14 @@ export function pickMimeType(isTypeSupported: (type: string) => boolean, withAud
 
 /**
  * Records `stream` with MediaRecorder. `onEnded` fires once when the recording ends by itself
- * (time limit, video reached `maxBytes`, captured source gone, recorder error); the caller then
+ * (`maxMs` of recording time, video reached `maxBytes`, captured source gone, recorder error); the caller then
  * calls `stop()` to collect it.
  */
 export function startRecording(
   stream: StreamLike,
   deps: RecordingDeps,
   onEnded: (reason: RecordingEndReason) => void,
-  options: { maxBytes: number },
+  options: { maxBytes: number; maxMs: number },
 ): Recording {
   const chunks: Blob[] = []
   let bytes = 0
@@ -121,7 +121,7 @@ export function startRecording(
   // Only recording time counts, for the duration and for the time limit.
   let activeMs = 0
   let runningSince: number | null = startedAt
-  let cancelTimer = deps.setTimer(() => notify("max-duration"), MAX_RECORDING_MS)
+  let cancelTimer = deps.setTimer(() => notify("max-duration"), options.maxMs)
   for (const track of stream.getTracks()) track.addEventListener("ended", () => notify("source-ended"))
   recorder.start(TIMESLICE_MS)
 
@@ -135,7 +135,7 @@ export function startRecording(
   const resume = () => {
     if (runningSince !== null || recorder.state !== "paused") return
     runningSince = deps.now()
-    cancelTimer = deps.setTimer(() => notify("max-duration"), Math.max(0, MAX_RECORDING_MS - activeMs))
+    cancelTimer = deps.setTimer(() => notify("max-duration"), Math.max(0, options.maxMs - activeMs))
     recorder.resume()
   }
   const cancel = async () => {

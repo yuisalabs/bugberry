@@ -25,7 +25,7 @@ type OpenedRecording = Extract<OpenedStream, { kind: "ok" }>
 
 export function createRecorderHandler(deps: RecorderHandlerDeps) {
   /** The stream from `open`, and the take running on it since `begin` (null before it, and after a Restart). */
-  let opened: { draftId: string; stream: OpenedRecording; maxBytes: number; recording: Recording | null } | null = null
+  let opened: { draftId: string; stream: OpenedRecording; maxBytes: number; maxMs: number; recording: Recording | null } | null = null
 
   async function handle(message: OffscreenMessage): Promise<RecorderReply> {
     switch (message.type) {
@@ -33,12 +33,12 @@ export function createRecorderHandler(deps: RecorderHandlerDeps) {
         if (opened) return { ok: false, error: "Another recording is still running" }
         const stream = await openRecordingStream(message.capture, message.mic, deps.stream, message.micDeviceId)
         if (stream.kind === "cancelled") return { ok: false, error: "Cancelled", code: "cancelled" }
-        opened = { draftId: message.draftId, stream, maxBytes: message.maxBytes, recording: null }
+        opened = { draftId: message.draftId, stream, maxBytes: message.maxBytes, maxMs: message.maxMs, recording: null }
         return { ok: true, micOn: stream.micOn, micAvailable: stream.micAvailable }
       }
       case "bugberry:offscreen-begin": {
         if (!opened || opened.recording) return { ok: false, error: "Nothing to begin" }
-        opened.recording = startRecording(opened.stream.stream, deps.recording, deps.noticeEnded, { maxBytes: opened.maxBytes })
+        opened.recording = startRecording(opened.stream.stream, deps.recording, deps.noticeEnded, { maxBytes: opened.maxBytes, maxMs: opened.maxMs })
         return { ok: true, startedAt: opened.recording.startedAt }
       }
       case "bugberry:offscreen-pause":

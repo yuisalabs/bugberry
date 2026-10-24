@@ -52,7 +52,7 @@ class FakeRecorder {
   }
 }
 
-function setup(overrides: Partial<RecordingDeps> = {}, maxBytes = 1_000_000_000) {
+function setup(overrides: Partial<RecordingDeps> = {}, maxBytes = 1_000_000_000, maxMs = MAX_RECORDING_MS) {
   const track = new FakeTrack()
   const recorders: FakeRecorder[] = []
   const ended: RecordingEndReason[] = []
@@ -76,7 +76,7 @@ function setup(overrides: Partial<RecordingDeps> = {}, maxBytes = 1_000_000_000)
     },
     ...overrides,
   }
-  const start = () => startRecording({ getTracks: () => [track] }, deps, (reason) => ended.push(reason), { maxBytes })
+  const start = () => startRecording({ getTracks: () => [track] }, deps, (reason) => ended.push(reason), { maxBytes, maxMs })
   return { track, recorders, ended, timers, deps, start, advance: (ms: number) => (clock += ms) }
 }
 
@@ -98,7 +98,7 @@ describe("pickMimeType", () => {
 test("a stream with an audio track records with an audio codec", () => {
   const s = setup({ isTypeSupported: (type) => !type.includes("vp9") })
   const audio = Object.assign(new FakeTrack(), { kind: "audio" })
-  startRecording({ getTracks: () => [s.track, audio] }, s.deps, () => {}, { maxBytes: 1_000_000 })
+  startRecording({ getTracks: () => [s.track, audio] }, s.deps, () => {}, { maxBytes: 1_000_000, maxMs: MAX_RECORDING_MS })
   expect(s.recorders[0]?.options.mimeType).toBe("video/webm;codecs=vp8,opus")
 })
 
@@ -192,6 +192,24 @@ describe("pause, resume and cancel", () => {
     recording.resume()
     s.advance(5_000)
     expect((await recording.stop()).durationMs).toBe(15_000)
+  })
+
+  test("a shorter time limit given at the start ends the recording there", () => {
+    const s = setup({}, undefined, 120_000)
+    s.start()
+    expect(s.timers[0]?.ms).toBe(120_000)
+    s.timers[0]?.callback()
+    expect(s.ended).toEqual(["max-duration"])
+  })
+
+  test("a given time limit counts recording time only, across a pause", () => {
+    const s = setup({}, undefined, 120_000)
+    const recording = s.start()
+    s.advance(50_000)
+    recording.pause()
+    s.advance(30_000)
+    recording.resume()
+    expect(s.timers[1]?.ms).toBe(70_000)
   })
 
   test("the time limit counts recording time only", () => {
