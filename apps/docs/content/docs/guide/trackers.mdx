@@ -9,13 +9,13 @@ Workspace admins connect the accounts once, under **Integrations** in the dashbo
 
 <Screenshot src="/screenshots/trackers/integrations.png" alt="The Integrations page: Issue trackers and Notifications, both empty, then all ten integrations with a Connect button each" />
 
-- **By hand:** open the report, open its **More** menu, and choose **Send to GitHub · …**, **Send to Jira · …** and so on (the name after the dot is the integration's).
+- **By hand:** open the report and press the green **Send to tracker** button next to **Copy link**. It lists the project's trackers: choose **Send to GitHub · …**, **Send to Jira · …** and so on (the name after the dot is the integration's). Once sent, the same list opens the issue. On phones the trackers are in the report's **More** menu.
 - **Automatically:** when the integration has auto-send on, every new report in the project is sent as soon as it finishes uploading.
 
 The issue gets the report's title and description, a link back to the report, the page, the browser, the OS, the viewport, the number of console errors and failed requests, and the error messages. The reporter's city is never included.
 
 Once sent, the report shows the issue the way the tracker names it: `#42` for GitHub, GitLab and ActiveCollab, and the key itself for Linear, Jira and Plane, such as `ENG-142`, `BUG-12` or `WEB-7`.
 
-A report without a project can't be sent; add it to a project first, from its page. Moving a report into a project doesn't send it automatically, so send it from the **More** menu.
+A report without a project can't be sent; add it to a project first, from its page. Moving a report into a project doesn't send it automatically, so send it with **Send to tracker**.
 
 To have a chat channel hear about new reports instead, see [Notifications](/self-host/integrations#notifications).

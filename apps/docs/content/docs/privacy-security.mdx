@@ -9,7 +9,7 @@ So that a screenshot can carry what happened just before it, the extension liste
 
 A report holds:
 
-- the screenshot or the video, and sound if you turned it on;
+- the screenshot or the video, and sound if you turned it on, and your camera's bubble if you turned that on (it is part of the recorded page, so it's in the video; the camera is used only while a tab recording runs, and only from inside the tab being recorded);
 - console messages and errors;
 - network requests: address, method, status, timing, headers, and bodies up to 10 KB each;
 - your clicks, key presses, and navigation, as steps;
@@ -20,6 +20,7 @@ A report holds:
 - **Credentials in requests.** The `Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie`, and `X-Api-Key` headers are replaced with `[redacted]`. So are headers, JSON fields, and `key=value` pairs whose name contains `password`, `token`, `secret`, `apikey` (or `api_key`, `api-key`), or `authorization`, in URLs, request and response bodies, and objects logged to the console. Plain text in a console message is kept as written. URL parameters named exactly `code`, `key`, `sig`, `signature`, `session`, `sid`, or `credential` (and the AWS and Google signing parameters) are redacted too. Other names, such as `sessionId` or `account_number`, are **not**.
 - **What's typed into form fields.** Steps record typed values as dots, never the text. Labels of password fields, editable areas, and anything inside an element marked `data-bugberry-mask` are left out of the steps too.
 - **Anything while you pause.** **Pause** on the Recording Bar stops the video and the console, network, and action capture until you resume.
+- **The parts of a recording you trim off.** The trimmed video is made in your browser; the parts cut off, and the logs from them, are never sent.
 
 `data-bugberry-mask` only affects the steps. Developers can use it on their own pages for text that shouldn't appear in step descriptions:
 

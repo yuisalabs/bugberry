@@ -5,6 +5,18 @@ description: What changed in BugBerry, newest first.
 
 Each entry is named after the browser extension's version. Changes to the dashboard and the server ship with it.
 
+## 0.7.0 · 24 October 2026
+
+- **Your camera in the recording.** When you record a tab, the new **Camera** chip in the popup puts your face in a bubble on the page, so it's in the video. Pick a camera and a shape, **Circle** or **Rectangle**. The bubble shows up as the countdown starts; drag it where you like, and drag its corner to make it bigger or smaller (96 to 320 px high). Its place and size are kept for next time. The camera turns off as soon as the recording ends. See [Recordings](/guide/recordings#your-camera).
+- **Trim a recording before sending it.** The review shows a strip of the video's frames: drag its edges to keep only the part that shows the bug. Only that part is sent, and the console, network, actions, notes and pauses follow it. See [Review and send](/guide/review-and-send#trim-a-recording).
+- **Send to tracker** has its own green button on a report's page, next to **Copy link**, with the project's trackers inside. On phones it stays in the **More** menu.
+- **Choosing who can open a link** no longer flickers while it saves.
+- The microphone and camera lists fit in the popup, however many devices you have.
+- **Integrations** show as a grid of cards, the card to connect or add one more always last.
+- The extension calls a server **BugBerry cloud** only when it is BugBerry's own.
+- **Firefox 130 or newer** is needed, the first Firefox that can cut a video for Trim.
+- **Self-hosting:** no server change is needed for this version.
+
 ## 0.6.0 · 23 October 2026
 
 - **Long recordings get through.** A recording over 16 MB now goes up in 16 MB parts, each its own request, so a server behind Cloudflare takes recordings up to its upload limit (300 MB by default, about 20 minutes) instead of stopping near 100 MB. A part that fails is sent again on its own, not the whole video, and on a slow connection whose upload links run out the extension gets new ones and carries on.
