@@ -93,7 +93,7 @@ describe("manifestFor", () => {
     expect("key" in manifest).toBe(false)
     expect(manifest.browser_specific_settings.gecko).toEqual({
       id: "yuisalabs@gmail.com",
-      strict_min_version: "128.0",
+      strict_min_version: "130.0",
       data_collection_permissions: { required: ["websiteContent", "websiteActivity"] },
     })
   })

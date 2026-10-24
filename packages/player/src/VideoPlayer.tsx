@@ -5,11 +5,14 @@ import type Player from "video.js/dist/types/player"
 import "video.js/dist/video-js.css"
 import "./theme.css"
 import {
+  clampToRange,
   displayDuration,
   hotkeyAction,
   type MarkerGroup,
   markerLabel,
   formatClock,
+  msUntilRangeEnd,
+  playFrom,
   PLAYBACK_RATES,
   placeMarkers,
   SEEK_STEP_SECONDS,
@@ -49,15 +52,18 @@ export function VideoPlayer({
   topLeft,
   topRight,
   startAtSeconds,
+  range,
 }: VideoPlayerProps) {
   const host = useRef<HTMLDivElement>(null)
   const playerRef = useRef<Player | null>(null)
+  /** Pauses playback at the range's end; timeupdate alone comes about four times a second and would overshoot. */
+  const stopAt = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [slots, setSlots] = useState<Slots | null>(null)
   const [seconds, setSeconds] = useState(0)
   const [length, setLength] = useState<number | null>(durationMs ? durationMs / 1000 : null)
   // Handlers change on every render; the player reads the latest ones instead of being rebuilt.
-  const latest = useRef({ durationMs, videoRef, onTime, onError, onLoadedMetadata, startAtSeconds })
-  latest.current = { durationMs, videoRef, onTime, onError, onLoadedMetadata, startAtSeconds }
+  const latest = useRef({ durationMs, videoRef, onTime, onError, onLoadedMetadata, startAtSeconds, range })
+  latest.current = { durationMs, videoRef, onTime, onError, onLoadedMetadata, startAtSeconds, range }
 
   useEffect(() => {
     const container = host.current
@@ -93,7 +99,29 @@ export function VideoPlayer({
     playerRef.current = player
     player.src({ src, type: "video/webm" })
 
+    // With a range, playback stays inside it and stops at its end. A paused player may be moved anywhere, to look
+    // at the parts left out.
+    const keepInRange = () => {
+      if (player.paused()) return
+      const now = player.currentTime() ?? 0
+      const kept = clampToRange(now, latest.current.range)
+      if (kept.atEnd) player.pause()
+      if (kept.seconds !== now) player.currentTime(kept.seconds)
+    }
+    const scheduleStop = () => {
+      if (stopAt.current) clearTimeout(stopAt.current)
+      stopAt.current = null
+      const left = msUntilRangeEnd(player.currentTime() ?? 0, latest.current.range, player.playbackRate() ?? 1)
+      if (left === null || player.paused()) return
+      stopAt.current = setTimeout(() => {
+        const range = latest.current.range
+        if (!range) return
+        player.pause()
+        player.currentTime(range.endMs / 1000)
+      }, left)
+    }
     const reportTime = () => {
+      keepInRange()
       const now = player.currentTime() ?? 0
       setSeconds(now)
       latest.current.onTime?.(now * 1000)
@@ -107,11 +135,21 @@ export function VideoPlayer({
     }
     player.on("timeupdate", reportTime)
     player.on("seeked", reportTime)
+    player.on("play", () => {
+      const now = player.currentTime() ?? 0
+      const from = playFrom(now, latest.current.range)
+      if (from !== now) player.currentTime(from)
+    })
+    player.on(["playing", "seeked", "ratechange"], scheduleStop)
+    player.on("pause", scheduleStop)
     player.on("error", () => latest.current.onError?.())
     player.on("loadedmetadata", () => {
       fixDuration()
       const start = latest.current.startAtSeconds
+      const range = latest.current.range
       if (start && start > 0) player.currentTime(start)
+      // A trimmed recording opens at the start of the part that is kept.
+      else if (range) player.currentTime(range.startMs / 1000)
       latest.current.onLoadedMetadata?.()
     })
     player.on("durationchange", fixDuration)
@@ -132,6 +170,7 @@ export function VideoPlayer({
     })
 
     return () => {
+      if (stopAt.current) clearTimeout(stopAt.current)
       setSlots(null)
       playerRef.current = null
       assignRef(latest.current.videoRef, null)

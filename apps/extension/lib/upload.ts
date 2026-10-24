@@ -1,4 +1,4 @@
-import { encodeDebuggerPayload, summarize } from "@bugberry/capture"
+import { type DebuggerPayload, encodeDebuggerPayload, summarize } from "@bugberry/capture"
 import { ApiError, type BugberryApi } from "./api"
 import type { DraftStore } from "./draft-store"
 import type { Coordinates } from "./location"
@@ -106,6 +106,9 @@ export interface SendOptions {
   location?: Coordinates | null
   /** How much has gone up, all files together; called often while a file is being sent. */
   onProgress?: (progress: UploadProgress) => void
+  /** A trimmed recording's own payload and length, in place of the draft's (which stays whole). */
+  payload?: DebuggerPayload | null
+  durationMs?: number | null
 }
 
 /**
@@ -145,8 +148,10 @@ async function submitUnlocked(
     await deps.store.put(draft)
   }
 
-  if (draft.debuggerPayload && !draft.debuggerGzip) {
-    await save({ debuggerGzip: await encodeDebuggerPayload(draft.debuggerPayload) })
+  const payload = options.payload ?? draft.debuggerPayload
+  const durationMs = options.durationMs ?? (draft.captureType === "video" ? draft.durationMs : null)
+  if (payload && !draft.debuggerGzip) {
+    await save({ debuggerGzip: await encodeDebuggerPayload(payload) })
   }
   // A session fixes the server, the media and the report fields, so a change in any of them needs a new one.
   // Size alone is not enough: an annotation can change the picture without changing the byte count.
@@ -177,11 +182,11 @@ async function submitUnlocked(
         mediaSize: media.size,
         debuggerSize: draft.debuggerGzip?.size,
         ...(thumbnail ? { thumbnailSize: thumbnail.size } : {}),
-        durationMs: draft.captureType === "video" ? (draft.durationMs ?? undefined) : undefined,
+        durationMs: draft.captureType === "video" ? (durationMs ?? undefined) : undefined,
         pageUrl: draft.page.url.slice(0, 2048),
         pageTitle: draft.page.title.slice(0, 500),
         device: draft.device,
-        debuggerSummary: summarize(draft.debuggerPayload?.events ?? [], draft.debuggerPayload?.incomplete ?? []),
+        debuggerSummary: summarize(payload?.events ?? [], payload?.incomplete ?? []),
       })
       current = {
         ...created,

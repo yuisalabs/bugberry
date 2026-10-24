@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { displayDuration, formatClock, hotkeyAction, markerLabel, PLAYBACK_RATES, placeMarkers, seekTarget } from "../src"
+import { clampToRange, msUntilRangeEnd, playFrom, displayDuration, formatClock, hotkeyAction, markerLabel, PLAYBACK_RATES, placeMarkers, seekTarget } from "../src"
 
 describe("markerLabel", () => {
   const marker = (id: string) => ({ id, atMs: 1000, kind: "error" as const, label: "err", detail: "boom" })
@@ -84,5 +84,61 @@ describe("formatClock", () => {
     expect(formatClock(3.4)).toBe("0:03")
     expect(formatClock(65)).toBe("1:05")
     expect(formatClock(3725)).toBe("1:02:05")
+  })
+})
+
+describe("clampToRange", () => {
+  const range = { startMs: 6_000, endMs: 35_000 }
+
+  test("without a range the position is left alone", () => {
+    expect(clampToRange(40, null)).toEqual({ seconds: 40, atEnd: false })
+  })
+
+  test("before the start jumps to the start", () => {
+    expect(clampToRange(2, range)).toEqual({ seconds: 6, atEnd: false })
+  })
+
+  test("at or past the end stops at the end", () => {
+    expect(clampToRange(35, range)).toEqual({ seconds: 35, atEnd: true })
+    expect(clampToRange(40, range)).toEqual({ seconds: 35, atEnd: true })
+  })
+
+  test("inside the range is left alone", () => {
+    expect(clampToRange(10, range)).toEqual({ seconds: 10, atEnd: false })
+  })
+})
+
+describe("msUntilRangeEnd", () => {
+  const range = { startMs: 6_000, endMs: 35_000 }
+
+  test("no range, no stop", () => {
+    expect(msUntilRangeEnd(10, null, 1)).toBeNull()
+  })
+
+  test("the time left to the end, at the playback speed", () => {
+    expect(msUntilRangeEnd(30, range, 1)).toBe(5_000)
+    expect(msUntilRangeEnd(30, range, 2)).toBe(2_500)
+  })
+
+  test("at or past the end there is nothing left", () => {
+    expect(msUntilRangeEnd(35, range, 1)).toBe(0)
+    expect(msUntilRangeEnd(40, range, 1)).toBe(0)
+  })
+})
+
+describe("playFrom", () => {
+  const range = { startMs: 6_000, endMs: 35_000 }
+
+  test("without a range play goes on from where it is", () => {
+    expect(playFrom(0, null)).toBe(0)
+  })
+
+  test("before the start or at the end, play starts at the start of the range", () => {
+    expect(playFrom(0, range)).toBe(6)
+    expect(playFrom(35, range)).toBe(6)
+  })
+
+  test("inside the range play goes on from where it is", () => {
+    expect(playFrom(10, range)).toBe(10)
   })
 })

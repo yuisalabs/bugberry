@@ -1,6 +1,7 @@
 import type { IntegrationProvider } from "@bugberry/shared"
 import { RiAddLine } from "@remixicon/react"
 import { Button } from "@bugberry/ui/button"
+import type { ReactNode } from "react"
 import { ProviderMark } from "./IntegrationForm"
 
 /** The pieces the workspace's and a project's Integrations pages share. */
@@ -40,22 +41,43 @@ export function EmptyGroup({
   text,
   action,
   onPick,
+  stacked = false,
 }: {
   providers: readonly IntegrationProvider[]
   title: string
   text: string
   action: string
   onPick(): void
+  /** As a card in a grid of cards: the marks, words and button one under another. */
+  stacked?: boolean
 }) {
+  const marks = (
+    <span aria-hidden className="flex -space-x-4.5">
+      {providers.map((provider) => (
+        <span key={provider} className="rounded-full bg-background p-0.5">
+          <ProviderMark provider={provider} className="size-9 rounded-full" />
+        </span>
+      ))}
+    </span>
+  )
+  if (stacked) {
+    return (
+      <div className={`flex h-full flex-col gap-4 border-dashed p-6 ${integrationCard}`}>
+        {marks}
+        <div className="flex flex-1 flex-col gap-1">
+          <span className="font-semibold text-foreground">{title}</span>
+          <span className="text-sm text-muted-foreground">{text}</span>
+        </div>
+        <Button intent="plain" onPress={onPick} className={`w-full ${softButton}`}>
+          <RiAddLine aria-hidden />
+          {action}
+        </Button>
+      </div>
+    )
+  }
   return (
     <div className={`flex flex-wrap items-center gap-4 border-dashed px-6 py-5 ${integrationCard}`}>
-      <span aria-hidden className="flex -space-x-4.5">
-        {providers.map((provider) => (
-          <span key={provider} className="rounded-full bg-background p-0.5">
-            <ProviderMark provider={provider} className="size-9 rounded-full" />
-          </span>
-        ))}
-      </span>
+      {marks}
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="font-semibold text-foreground">{title}</span>
         <span className="text-sm text-muted-foreground">{text}</span>
@@ -65,5 +87,44 @@ export function EmptyGroup({
         {action}
       </Button>
     </div>
+  )
+}
+
+/** The card at the end of each group that adds one more; its words are those of an empty group. */
+export interface EmptyCard {
+  title: string
+  text: string
+  action: string
+  marks: readonly IntegrationProvider[]
+}
+
+/**
+ * One group of integrations (trackers, or chat channels) as a grid of cards, like the projects page: a single one no
+ * longer stretches across the page. The card that adds one more always ends the grid.
+ */
+export function IntegrationGroup({
+  title,
+  count,
+  empty,
+  onAdd,
+  children,
+}: {
+  title: string
+  count: number
+  empty: EmptyCard
+  onAdd(): void
+  /** The group's cards. */
+  children?: ReactNode
+}) {
+  return (
+    <section className="flex flex-col gap-3">
+      <GroupTitle title={title} count={count} />
+      <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        {children}
+        <li>
+          <EmptyGroup stacked providers={empty.marks} title={empty.title} text={empty.text} action={empty.action} onPick={onAdd} />
+        </li>
+      </ul>
+    </section>
   )
 }

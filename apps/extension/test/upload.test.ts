@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test"
-import { decodeDebuggerPayload } from "@bugberry/capture"
+import { type CaptureEvent, decodeDebuggerPayload } from "@bugberry/capture"
 import { ApiError, type CreateUploadBody, type UploadSession } from "../lib/api"
 import type { DraftStore } from "../lib/draft-store"
 import type { ReportDraft, UploadTarget } from "../lib/types"
@@ -229,6 +229,39 @@ describe("submitDraft", () => {
     expect(bodies[0]).toMatchObject({ captureType: "video", durationMs: 12_345, mediaSize: video.size })
     expect(bodies[0]?.debuggerSize).toBeUndefined()
     expect(calls).toEqual(["createUpload", "put:r1-media", "finalize:r1"])
+  })
+
+  test("a trimmed send uploads the given payload and length, and leaves the draft's own payload whole", async () => {
+    const kept: CaptureEvent = { kind: "console", t: 2000, level: "error", args: ["kept"] }
+    const events: CaptureEvent[] = [kept, { kind: "console", t: 9000, level: "error", args: ["cut"] }, { kind: "action", t: 9500, type: "click", target: "b" }]
+    const whole = { version: 1 as const, capturedAt: 1, recordingStartedAt: 1000, incomplete: [], events }
+    await store.put({
+      id: "v2",
+      createdAt: 2,
+      captureType: "video",
+      page: { url: "https://app.test/pay", title: "Bayar" },
+      device: { browser: "Chrome 141", os: "Windows", viewport: "1440x900" },
+      video: new Blob(["webm"]),
+      durationMs: 42_000,
+      recordingStartedAt: 1000,
+      debuggerPayload: whole,
+      debuggerGzip: null,
+      status: "editing",
+      error: null,
+      session: null,
+      form: null,
+    })
+    // Kept as failed, so the draft can be read afterwards.
+    failures.push(() => {
+      throw new ApiError(400, "invalid", "nope")
+    })
+    const cut = { ...whole, recordingStartedAt: 1500, events: [kept] }
+    await expect(submitDraft("v2", form, new Blob(["cut-webm"]), deps, null, { payload: cut, durationMs: 29_000 })).rejects.toThrow()
+
+    expect(bodies[0]).toMatchObject({ durationMs: 29_000, debuggerSummary: { errors: 1, actions: 0 } })
+    const gzip = [...uploaded].find(([url]) => url.includes("debugger"))?.[1] as Blob
+    expect((await decodeDebuggerPayload(gzip)).events).toEqual([kept])
+    expect((await store.get("v2"))?.debuggerPayload?.events).toHaveLength(3)
   })
 
   test("creates the session, uploads both files, finalizes and removes the draft", async () => {

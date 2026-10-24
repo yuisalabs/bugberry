@@ -17,7 +17,7 @@ import { useConfirm } from "@bugberry/ui/confirm-dialog"
 import { Dialog, DialogBody, DialogHeader, DialogTitle } from "@bugberry/ui/dialog"
 import { BrandedHeader } from "../components/BrandedHeader"
 import { ProviderMark, PROVIDER_GROUPS } from "../components/IntegrationForm"
-import { EmptyGroup, GroupTitle, integrationCard, softButton, StatusChip } from "../components/IntegrationsLayout"
+import { GroupTitle, integrationCard, IntegrationGroup, softButton, StatusChip } from "../components/IntegrationsLayout"
 import { SettingsRowsSkeleton } from "../components/Skeletons"
 import { Badge, dangerText, EmptyState, ErrorState } from "../components/ui"
 import { EditIntegrationSteps, type LoadOptions, UseConnectionModal, usedUp } from "../components/UseConnectionDialog"
@@ -104,7 +104,9 @@ export function ReadyToUse({
   )
 }
 
-/** What each group says while this project uses nothing in it. */
+export { IntegrationGroup }
+
+/** What each group's last card says: the words of a project that uses nothing in it yet. */
 const EMPTY_GROUPS: Record<string, { title: string; text: (project: string) => string; action: string; marks: Connection["provider"][] }> = {
   "Issue trackers": {
     title: "No tracker yet",
@@ -147,54 +149,54 @@ export function IntegrationRow({
   const title = titleOf(integration)
   const labels = "labels" in integration.target ? (integration.target.labels as string[]) : []
   return (
-    <li className={`flex flex-col gap-3 px-6 py-5 ${integrationCard}`}>
-      <div className="flex flex-wrap items-center gap-4">
-        <ProviderMark provider={integration.provider} className="size-12 rounded-xl" />
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="flex flex-wrap items-center gap-2">
-            <span className="truncate font-heading font-semibold text-foreground">{title}</span>
-            <StatusChip failing={notifier && Boolean(integration.lastError)} />
-            {integration.autoSend && <Badge className="bg-primary-subtle text-primary">Sends every report</Badge>}
-          </span>
-          <span className="text-sm text-muted-foreground">
-            {PROVIDER_LABELS[integration.provider]} · {notifier ? "Posts new reports" : labels.length ? `Labels: ${labels.join(", ")}` : "Creates issues"}
-          </span>
-        </div>
-        <span className="flex flex-wrap gap-2">
-          <Button size="sm" intent="outline" isDisabled={testing} onPress={onTest}>
-            {notifier ? <RiSendPlaneLine aria-hidden /> : <RiPulseLine aria-hidden />}
-            {notifier ? "Send test message" : "Test connection"}
-          </Button>
-          {!notifier && (
-            <Button size="sm" intent="outline" onPress={onEdit} aria-label={`Edit ${title}`}>
-              <RiPencilLine aria-hidden />
-              Edit
-            </Button>
-          )}
-          <Button size="sm" intent="plain" isDisabled={removing} onPress={onRemove} aria-label={`Remove ${title}`} className={dangerText}>
-            <RiDeleteBinLine aria-hidden />
-            Remove
-          </Button>
+    <li className={`flex flex-col gap-4 p-6 ${integrationCard}`}>
+      <div className="flex items-start justify-between gap-3">
+        <ProviderMark provider={integration.provider} className="size-11" />
+        <span className="flex flex-wrap justify-end gap-2">
+          <StatusChip failing={notifier && Boolean(integration.lastError)} />
+          {integration.autoSend && <Badge className="bg-primary-subtle text-primary">Sends every report</Badge>}
         </span>
       </div>
-      {notifier && integration.lastError && (
-        <p className="flex items-center gap-1.5 text-sm text-danger-subtle-foreground">
-          <RiCloseCircleLine aria-hidden className="size-4 shrink-0" />
-          Last message failed: {integration.lastError}
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <h3 className="break-words font-heading font-semibold text-foreground">{title}</h3>
+        <p className="text-sm text-muted-foreground">
+          {PROVIDER_LABELS[integration.provider]} · {notifier ? "Posts new reports" : labels.length ? `Labels: ${labels.join(", ")}` : "Creates issues"}
         </p>
-      )}
-      {notifier && !integration.lastError && integration.lastDeliveredAt && (
-        <p className="text-sm text-muted-foreground">Last message {formatRelative(integration.lastDeliveredAt, now)}</p>
-      )}
-      {testResult && (
-        <p
-          role="status"
-          className={`flex items-center gap-1.5 text-sm ${testResult.ok ? "text-success-subtle-foreground" : "text-danger-subtle-foreground"}`}
-        >
-          {testResult.ok ? <RiCheckboxCircleLine aria-hidden className="size-4" /> : <RiCloseCircleLine aria-hidden className="size-4" />}
-          {testResult.message}
-        </p>
-      )}
+        {notifier && integration.lastError && (
+          <p className="flex items-center gap-1.5 text-sm text-danger-subtle-foreground">
+            <RiCloseCircleLine aria-hidden className="size-4 shrink-0" />
+            Last message failed: {integration.lastError}
+          </p>
+        )}
+        {notifier && !integration.lastError && integration.lastDeliveredAt && (
+          <p className="text-sm text-muted-foreground">Last message {formatRelative(integration.lastDeliveredAt, now)}</p>
+        )}
+        {testResult && (
+          <p
+            role="status"
+            className={`flex items-center gap-1.5 text-sm ${testResult.ok ? "text-success-subtle-foreground" : "text-danger-subtle-foreground"}`}
+          >
+            {testResult.ok ? <RiCheckboxCircleLine aria-hidden className="size-4" /> : <RiCloseCircleLine aria-hidden className="size-4" />}
+            {testResult.message}
+          </p>
+        )}
+      </div>
+      <span className="flex flex-wrap gap-2">
+        <Button size="sm" intent="outline" isDisabled={testing} onPress={onTest}>
+          {notifier ? <RiSendPlaneLine aria-hidden /> : <RiPulseLine aria-hidden />}
+          {notifier ? "Send test message" : "Test connection"}
+        </Button>
+        {!notifier && (
+          <Button size="sm" intent="outline" onPress={onEdit} aria-label={`Edit ${title}`}>
+            <RiPencilLine aria-hidden />
+            Edit
+          </Button>
+        )}
+        <Button size="sm" intent="plain" isDisabled={removing} onPress={onRemove} aria-label={`Remove ${title}`} className={dangerText}>
+          <RiDeleteBinLine aria-hidden />
+          Remove
+        </Button>
+      </span>
     </li>
   )
 }
@@ -290,41 +292,35 @@ export function ProjectIntegrationsPage() {
           {PROVIDER_GROUPS.map((group) => {
             const rows = integrations.data.filter((item) => (group.items as readonly string[]).includes(item.provider))
             const empty = EMPTY_GROUPS[group.title]
+            if (!empty) return null
             return (
-              <section key={group.title} className="flex flex-col gap-3">
-                <GroupTitle title={group.title} count={rows.length} />
-                {rows.length === 0 && empty ? (
-                  <EmptyGroup
-                    providers={empty.marks}
-                    title={empty.title}
-                    text={empty.text(project.name)}
-                    action={empty.action}
-                    onPick={() => setAdding({})}
+              <IntegrationGroup
+                key={group.title}
+                title={group.title}
+                count={rows.length}
+                empty={{ ...empty, text: empty.text(project.name) }}
+                onAdd={() => setAdding({})}
+              >
+                {rows.map((item) => (
+                  <IntegrationRow
+                    key={item.id}
+                    integration={item}
+                    testResult={testResult?.id === item.id ? testResult : null}
+                    testing={check.isPending}
+                    removing={remove.isPending}
+                    onTest={() => check.mutate(item.id)}
+                    onEdit={() => setEditing(item)}
+                    onRemove={async () => {
+                      const yes = await confirm({
+                        title: `Remove ${titleOf(item)}?`,
+                        description: "Issues already sent keep their links on their reports.",
+                        confirmLabel: "Remove",
+                      })
+                      if (yes) remove.mutate(item.id)
+                    }}
                   />
-                ) : (
-                  <ul className="flex flex-col gap-3">
-                    {rows.map((item) => (
-                      <IntegrationRow
-                        key={item.id}
-                        integration={item}
-                        testResult={testResult?.id === item.id ? testResult : null}
-                        testing={check.isPending}
-                        removing={remove.isPending}
-                        onTest={() => check.mutate(item.id)}
-                        onEdit={() => setEditing(item)}
-                        onRemove={async () => {
-                          const yes = await confirm({
-                            title: `Remove ${titleOf(item)}?`,
-                            description: "Issues already sent keep their links on their reports.",
-                            confirmLabel: "Remove",
-                          })
-                          if (yes) remove.mutate(item.id)
-                        }}
-                      />
-                    ))}
-                  </ul>
-                )}
-              </section>
+                ))}
+              </IntegrationGroup>
             )
           })}
           <ReadyToUse

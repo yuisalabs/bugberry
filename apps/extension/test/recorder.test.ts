@@ -29,7 +29,7 @@ class FakeRecorder {
   timeslice: number | undefined
   stopCalls = 0
   constructor(
-    readonly options: { mimeType: string; videoBitsPerSecond: number; audioBitsPerSecond: number },
+    readonly options: { mimeType: string; videoBitsPerSecond: number; audioBitsPerSecond: number; videoKeyFrameIntervalDuration?: number },
     readonly handlers: RecorderHandlers,
   ) {}
   start(timeslice?: number) {
@@ -111,6 +111,8 @@ describe("startRecording", () => {
       mimeType: "video/webm;codecs=vp9",
       videoBitsPerSecond: VIDEO_BITS_PER_SECOND,
       audioBitsPerSecond: AUDIO_BITS_PER_SECOND,
+      // A keyframe every second, so the review's player and Trim strip seek fast.
+      videoKeyFrameIntervalDuration: 1000,
     })
     expect(VIDEO_BITS_PER_SECOND).toBe(1_500_000)
     expect(AUDIO_BITS_PER_SECOND).toBe(128_000)

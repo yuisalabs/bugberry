@@ -32,8 +32,8 @@ export const FIREFOX_PERMISSIONS = ["activeTab", "scripting", "storage", "tabs"]
 /** Pinned for good: Firefox identifies the extension (and its signed updates) by this id. */
 export const FIREFOX_GECKO = {
   id: "yuisalabs@gmail.com",
-  // `world: "MAIN"` content scripts (capture.content.ts) need Firefox 128.
-  strict_min_version: "128.0",
+  // Firefox 130: WebCodecs video, for trimming recordings (and world: "MAIN" content scripts need 128).
+  strict_min_version: "130.0",
   data_collection_permissions: { required: ["websiteContent", "websiteActivity"] },
 }
 
