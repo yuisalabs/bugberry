@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test"
 import type { CaptureEvent } from "@bugberry/capture"
-import { fireEvent, render, screen, within } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react"
 import { ReviewView, type ReviewViewProps } from "../entrypoints/review/ReviewView"
 import type { ReportDraft } from "../lib/types"
 
@@ -110,10 +110,9 @@ describe("what the review shows", () => {
     expect(screen.getByText("Chrome 141 · Windows")).toBeTruthy()
   })
 
-  test("the masked line, and no Trim", () => {
+  test("the masked line", () => {
     view()
     expect(screen.getByText("Passwords and card numbers were masked in the logs")).toBeTruthy()
-    expect(screen.queryByText(/Trim/)).toBeNull()
   })
 
   test("where it goes: Save to the workspace", () => {
@@ -359,5 +358,68 @@ describe("upload progress", () => {
   test("no bar while sending until progress is known", () => {
     view({ status: "sending", uploadProgress: null })
     expect(screen.queryByRole("progressbar")).toBeNull()
+  })
+})
+
+describe("trimming a recording", () => {
+  const onTrimChange = () => mock()
+
+  test("Trim shows for videos only", () => {
+    view()
+    expect(button("Trim")).toBeTruthy()
+    cleanup()
+    view({ draft: screenshot })
+    expect(screen.queryByRole("button", { name: "Trim" })).toBeNull()
+  })
+
+  test("Done reports the range", () => {
+    const changed = onTrimChange()
+    view({ onTrimChange: changed })
+    fireEvent.click(button("Trim"))
+    const start = screen.getByLabelText("Trim start")
+    for (let i = 0; i < 10; i++) fireEvent.keyDown(start, { key: "ArrowRight" })
+    fireEvent.click(button("Done"))
+    expect(changed.mock.calls.at(-1)?.[0]).toEqual({ startMs: 1000, endMs: 42_000 })
+  })
+
+  test("Reset then Done reports no trim", () => {
+    const changed = onTrimChange()
+    view({ trim: { startMs: 1000, endMs: 42_000 }, onTrimChange: changed })
+    fireEvent.click(button(/^Trim/))
+    fireEvent.click(button("Reset"))
+    fireEvent.click(button("Done"))
+    expect(changed.mock.calls.at(-1)?.[0]).toBeNull()
+  })
+
+  test("a saved trim shows on the button and in the tiles", () => {
+    view({ trim: { startMs: 1000, endMs: 2000 } })
+    expect(button("Trim 0:01–0:02")).toBeTruthy()
+    expect(screen.getByText("0 errors")).toBeTruthy()
+    expect(screen.getByText("0 failed")).toBeTruthy()
+    expect(screen.getByText("13 steps")).toBeTruthy()
+  })
+
+  test("the strip shows the kept part of the whole", () => {
+    view({ trim: { startMs: 6_000, endMs: 35_000 } })
+    fireEvent.click(button(/^Trim/))
+    expect(screen.getByText("0:06 – 0:35 · 29 s of 42 s")).toBeTruthy()
+  })
+
+  test("locked once a send has started", () => {
+    view({ trimLocked: true })
+    expect(button("Trim").hasAttribute("disabled") || button("Trim").getAttribute("aria-disabled") === "true").toBe(true)
+    expect(screen.getByText("The video has already started sending.")).toBeTruthy()
+  })
+
+  test("preparing the video shows its percent", () => {
+    view({ status: "sending", preparing: 0.45 })
+    expect(screen.getByText("Preparing video… 45%")).toBeTruthy()
+  })
+
+  test("a failed trim offers the full video", () => {
+    const { props } = view({ status: { trimFailed: "codec" } })
+    expect(screen.getByText("Couldn't trim the video: codec")).toBeTruthy()
+    fireEvent.click(button("Send full video"))
+    expect((props.onSend as ReturnType<typeof mock>).mock.calls.at(-1)?.[2]).toEqual({ fullVideo: true })
   })
 })

@@ -24,6 +24,7 @@ import {
   RiHashtag,
   RiLink,
   RiRecordCircleLine,
+  RiScissorsCutLine,
   RiShieldCheckLine,
   RiTerminalBoxLine,
   RiUserLine,
@@ -34,9 +35,10 @@ import { type ReactNode, useEffect, useRef, useState } from "react"
 import { Button as AriaButton, Input as AriaInput, ProgressBar, TextArea as AriaTextArea } from "react-aria-components"
 import type { Project, Workspace } from "../../lib/api"
 import { formProblem } from "../../lib/report-form"
-import { reviewStats, suggestTitle } from "../../lib/review-data"
+import { isTrimmed, reviewStats, suggestTitle, type TrimRange, trimLabel, trimPayload } from "../../lib/review-data"
 import type { ReportDraft } from "../../lib/types"
 import type { ReportForm, SentReport, UploadProgress } from "../../lib/upload"
+import { TrimStrip } from "./TrimStrip"
 
 export type ReviewStatus =
   | "ready"
@@ -45,6 +47,8 @@ export type ReviewStatus =
   /** The dashboard session ended while sending. */
   | { signedOut: string }
   | { sent: SentReport }
+  /** The trimmed video couldn't be made; the reporter may send the full one instead. */
+  | { trimFailed: string }
 
 /** Someone a report can be assigned to. */
 export interface Assignable {
@@ -94,7 +98,8 @@ export interface ReviewViewProps {
   uploadProgress?: UploadProgress | null
   includeCity: boolean
   cityNote: string | null
-  onSend(form: ReportForm, notes: RecordingNote[]): void
+  /** `fullVideo`: send the whole recording although it is trimmed (after the trimmed one couldn't be made). */
+  onSend(form: ReportForm, notes: RecordingNote[], options?: { fullVideo?: boolean }): void
   onDiscard(): void
   onAgain(): void
   /** `kept`: save these into the draft before closing; null after sending. */
@@ -121,6 +126,20 @@ export interface ReviewViewProps {
   onSendToTracker?(integrationId: string): void
   /** After sending: a new capture of the same kind on the same page. */
   onAnother?(): void
+  /** Videos: the part that is sent (video time); null or absent sends it all. */
+  trim?: TrimRange | null
+  /** Videos: a send has started, so the trim can't change any more. */
+  trimLocked?: boolean
+  /** Videos: frames for the Trim strip; empty until they are made. */
+  trimFrames?: string[]
+  /** On Done in the Trim strip; null when the whole video is kept. */
+  onTrimChange?(range: TrimRange | null): void
+  /** While an edge of the Trim strip moves: the moment to show in the player. */
+  onTrimPreview?(ms: number): void
+  /** When Trim opens, so the page can make the strip's frames. */
+  onTrimOpen?(): void
+  /** While sending a trimmed video: how far its encoding is (0–1); null otherwise. */
+  preparing?: number | null
 }
 
 /** "No project" in the project list; a list key can't be empty. */
@@ -173,16 +192,29 @@ export function ReviewView(props: ReviewViewProps) {
   }, [form, notes, onChange])
 
   const isVideo = draft.captureType === "video"
-  const stats = reviewStats(events)
+  const durationMs = draft.captureType === "video" ? (draft.durationMs ?? 0) : 0
+  const startedAt = draft.captureType === "video" ? (draft.recordingStartedAt ?? draft.debuggerPayload?.recordingStartedAt ?? 0) : 0
+  const trim = isTrimmed(props.trim, durationMs) ? props.trim : null
+  const stats = reviewStats(trim && draft.debuggerPayload ? trimPayload(draft.debuggerPayload, startedAt, trim).events : events)
+  /** The range being edited in the open Trim strip; null while it is closed. */
+  const [editing, setEditing] = useState<TrimRange | null>(null)
   const sending = props.status === "sending"
   const sent = typeof props.status === "object" && "sent" in props.status ? props.status.sent : null
 
-  const send = () => {
+  const send = (options?: { fullVideo?: boolean }) => {
     if (props.sendBlocked) return
     const values = { ...form, workspaceId: form.workspaceId ?? props.workspaceId ?? undefined }
     const found = formProblem(values)
     setProblem(found)
-    if (!found) props.onSend(values, notes)
+    if (!found) props.onSend(values, notes, options)
+  }
+  const openTrim = () => {
+    setEditing(trim ?? { startMs: 0, endMs: durationMs })
+    props.onTrimOpen?.()
+  }
+  const doneTrim = () => {
+    if (editing) props.onTrimChange?.(isTrimmed(editing, durationMs) ? editing : null)
+    setEditing(null)
   }
   const close = () => (sent ? props.onClose(null) : setConfirm("close"))
 
@@ -223,6 +255,30 @@ export function ReviewView(props: ReviewViewProps) {
           <div className="flex min-h-64 flex-1 items-center justify-center overflow-hidden rounded-2xl bg-muted p-4 sm:p-6">
             <div className={isVideo ? "w-full overflow-hidden rounded-xl bg-foreground shadow-lg" : "flex h-full w-full items-center justify-center"}>{props.media}</div>
           </div>
+
+          {isVideo && !sent && (
+            <div className="flex flex-col gap-2">
+              {editing ? (
+                <TrimStrip
+                  durationMs={durationMs}
+                  value={editing}
+                  frames={props.trimFrames ?? []}
+                  onChange={setEditing}
+                  onPreview={(ms) => props.onTrimPreview?.(ms)}
+                  onReset={() => setEditing({ startMs: 0, endMs: durationMs })}
+                  onDone={doneTrim}
+                />
+              ) : (
+                <span className="flex flex-wrap items-center gap-3">
+                  <Button intent="outline" size="sm" isDisabled={props.trimLocked || sending} onPress={openTrim}>
+                    <RiScissorsCutLine aria-hidden />
+                    {trim ? `Trim ${trimLabel(trim)}` : "Trim"}
+                  </Button>
+                  {props.trimLocked && <span className="text-sm text-muted-foreground">The video has already started sending.</span>}
+                </span>
+              )}
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
             <Tile icon={RiTerminalBoxLine} tone={stats.errors > 0 ? "danger" : "muted"} title="Console" value={`${stats.errors} ${stats.errors === 1 ? "error" : "errors"}`} />
@@ -384,11 +440,19 @@ export function ReviewView(props: ReviewViewProps) {
                     )}
                   </p>
                 )}
+                {typeof props.status === "object" && "trimFailed" in props.status && (
+                  <p role="alert" className="flex flex-wrap items-center gap-2 rounded-xl bg-danger-subtle px-3.5 py-2.5 text-sm text-danger-subtle-foreground">
+                    Couldn't trim the video: {props.status.trimFailed}
+                    <AriaButton className="rounded-sm font-semibold underline outline-hidden focus-visible:ring-2 focus-visible:ring-ring" onPress={() => send({ fullVideo: true })}>
+                      Send full video
+                    </AriaButton>
+                  </p>
+                )}
                 {typeof props.status === "object" && "failed" in props.status && (
                   <p role="alert" className="flex flex-wrap items-center gap-2 rounded-xl bg-danger-subtle px-3.5 py-2.5 text-sm text-danger-subtle-foreground">
                     {props.status.failed}
                     {!props.sendBlocked && (
-                      <AriaButton className="rounded-sm font-semibold underline outline-hidden focus-visible:ring-2 focus-visible:ring-ring" onPress={send}>
+                      <AriaButton className="rounded-sm font-semibold underline outline-hidden focus-visible:ring-2 focus-visible:ring-ring" onPress={() => send()}>
                         Try again
                       </AriaButton>
                     )}
@@ -410,7 +474,11 @@ export function ReviewView(props: ReviewViewProps) {
                 )}
               </div>
 
-              {sending && props.uploadProgress && <UploadBar progress={props.uploadProgress} isVideo={isVideo} />}
+              {sending && props.preparing != null ? (
+                <PreparingBar fraction={props.preparing} />
+              ) : (
+                sending && props.uploadProgress && <UploadBar progress={props.uploadProgress} isVideo={isVideo} />
+              )}
               <footer className="mx-5 flex items-center justify-between gap-2 border-t border-border py-5 sm:mx-7">
                 <Button intent="plain" onPress={() => setConfirm("discard")} className="text-danger-subtle-foreground *:[svg]:text-danger-subtle-foreground">
                   <RiDeleteBinLine aria-hidden />
@@ -420,7 +488,7 @@ export function ReviewView(props: ReviewViewProps) {
                   <Button intent="outline" onPress={() => setConfirm("again")}>
                     {isVideo ? "Record again" : "Retake"}
                   </Button>
-                  <Button isDisabled={sending || props.sendBlocked} onPress={send}>
+                  <Button isDisabled={sending || props.sendBlocked} onPress={() => send()}>
                     {sending ? "Creating…" : "Create report"}
                   </Button>
                 </span>
@@ -700,6 +768,19 @@ function Tile({ icon: Icon, tone, title, value }: { icon: RemixiconComponentType
 function clock(ms: number): string {
   const seconds = Math.max(0, Math.floor(ms / 1000))
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`
+}
+
+/** Above the footer while a trimmed video is encoded, before its upload starts. */
+function PreparingBar({ fraction }: { fraction: number }) {
+  const percent = Math.min(100, Math.max(0, Math.floor(fraction * 100)))
+  return (
+    <ProgressBar value={percent} aria-label="Preparing video" className="mx-5 flex flex-col gap-1.5 pb-3 sm:mx-7">
+      <span className="text-xs text-muted-foreground tabular-nums">Preparing video… {percent}%</span>
+      <span className="h-1 overflow-hidden rounded-full bg-secondary">
+        <span className="block h-full rounded-full bg-primary transition-[width] duration-300" style={{ width: `${percent}%` }} />
+      </span>
+    </ProgressBar>
+  )
 }
 
 /** Above the footer while sending: how far the upload is, then that the server is making the report. */
