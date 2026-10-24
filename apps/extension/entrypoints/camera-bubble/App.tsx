@@ -50,6 +50,15 @@ export function CameraBubble(props: {
     if (video.current && stream) video.current.srcObject = stream
   }, [stream])
 
+  // A press on the bubble gives it the focus: Esc must still cancel the countdown on the page.
+  useEffect(() => {
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") postToPage({ bugberry: "escape" })
+    }
+    window.addEventListener("keydown", escape)
+    return () => window.removeEventListener("keydown", escape)
+  }, [postToPage])
+
   return (
     <div
       data-camera-surface

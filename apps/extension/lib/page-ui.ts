@@ -152,7 +152,9 @@ export function createPageUi(doc: Document, win: Window, deps: PageUiDeps): Page
     if (event.origin !== deps.extensionOrigin) return
     const data = (typeof event.data === "object" && event.data !== null ? event.data : {}) as Record<string, unknown>
     if (data.bugberry === "escape") {
-      if (recording && event.source !== null && event.source === recording.barFrame.contentWindow) cancelCountdown?.()
+      const fromBar = recording && event.source === recording.barFrame.contentWindow
+      const fromCamera = camera && event.source === camera.frame.contentWindow
+      if (event.source !== null && (fromBar || fromCamera)) cancelCountdown?.()
     }
     else if (data.bugberry === "bar-drag" && recording && event.source !== null && event.source === recording.barFrame.contentWindow) {
       onBarDrag(recording.bar, data)

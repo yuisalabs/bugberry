@@ -81,4 +81,10 @@ describe("the camera bubble", () => {
     fireEvent.pointerDown(surface, { button: 0, screenX: 10, screenY: 10 })
     expect(posted).toContainEqual({ bugberry: "bar-drag", phase: "start" })
   })
+
+  test("Esc while the bubble has focus goes to the page, for the countdown", async () => {
+    const { posted } = await setup({ deviceId: null, shape: "circle" })
+    fireEvent.keyDown(window, { key: "Escape" })
+    expect(posted).toContainEqual({ bugberry: "escape" })
+  })
 })

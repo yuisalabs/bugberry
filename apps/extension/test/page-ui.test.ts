@@ -266,6 +266,16 @@ test("Esc pressed while the bar has focus cancels the countdown too, from the ba
   expect(await result).toBe("cancel")
 })
 
+test("Esc pressed while the camera bubble has focus cancels the countdown too", async () => {
+  const { ui, root } = setup()
+  ui.showCamera("t1", "circle")
+  const frame = [...(root()?.querySelectorAll("iframe") ?? [])].find((element) => element.src.includes("camera-bubble.html"))
+  if (frame) Object.defineProperty(frame, "contentWindow", { value: window, configurable: true })
+  const result = ui.countdown()
+  window.dispatchEvent(new MessageEvent("message", { data: { bugberry: "escape" }, origin: ORIGIN, source: window }))
+  expect(await result).toBe("cancel")
+})
+
 test("an escape from another extension frame doesn't cancel the countdown", async () => {
   const { ui } = setup()
   ui.showRecording("s1")
