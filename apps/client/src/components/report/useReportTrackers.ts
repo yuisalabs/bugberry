@@ -2,13 +2,13 @@ import { PROVIDER_LABELS } from "@bugberry/shared"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { errorMessage, type ReportDetail } from "../../lib/api"
 import { api } from "../../lib/client"
-import { primaryTracker, sendOutcome, trackerItems } from "../../lib/more-menu"
+import { sendOutcome, trackerItems } from "../../lib/more-menu"
 import { queries } from "../../lib/queries"
 import { toast } from "../../lib/toast"
 import { trackersRefetchInterval } from "../../lib/tracker-links"
 
 /**
- * A report's trackers as the green button and the phone's ⋯ sheet show them, and the send to one of them.
+ * A report's trackers as the green button's menu and the phone's ⋯ sheet show them, and the send to one of them.
  * The button or menu is gone once pressed, so a toast says whether the issue was made.
  */
 export function useReportTrackers(report: ReportDetail) {
@@ -40,11 +40,8 @@ export function useReportTrackers(report: ReportDetail) {
     },
   })
 
-  const sendingId = send.isPending ? (send.variables ?? null) : null
-  const now = Date.now()
   return {
-    items: trackers.data ? trackerItems(trackers.data, now, sendingId) : [],
-    primary: trackers.data ? primaryTracker(trackers.data, now, sendingId) : null,
+    items: trackers.data ? trackerItems(trackers.data, Date.now(), send.isPending ? (send.variables ?? null) : null) : [],
     needsProject: trackers.data?.needsProject ?? false,
     send: (integrationId: string) => send.mutate(integrationId),
   }
