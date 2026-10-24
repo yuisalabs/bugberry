@@ -98,6 +98,8 @@ export interface VideoDraft extends DraftBase {
   trim?: TrimRange | null
   /** The video re-encoded to `range`, so a retried send uploads the same bytes. */
   trimmed?: { range: TrimRange; video: Blob } | null
+  /** Set when the time limit ended the recording: the limit it stopped at. */
+  stoppedAtLimitMs?: number
   /** Set at the first Send: from then on the trim can't change, as part of the full video may be on the server. */
   sendStarted?: boolean
 }

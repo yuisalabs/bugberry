@@ -151,7 +151,14 @@ export function BarView(props: BarViewProps) {
       <div data-bar-pill onPointerDown={props.onDragStart} className={`flex h-12 items-center gap-1 rounded-2xl bg-foreground px-2 shadow-lg ${surface}`}>
         <span className="flex items-center gap-2 pr-1 pl-1 font-mono text-sm font-semibold tabular-nums">
           <span data-dot className={`size-2.5 rounded-full bg-danger ${status.paused ? "" : "animate-pulse"}`} />
-          {clock(status.elapsedMs)}
+          {status.maxMs === null ? (
+            clock(status.elapsedMs)
+          ) : (
+            // The last 15 seconds before the limit stand out, so the reporter can wrap up.
+            <span data-ending={status.maxMs - status.elapsedMs <= 15_000 || undefined} className="data-ending:text-warning">
+              {`${clock(status.elapsedMs)} / ${clock(status.maxMs)}`}
+            </span>
+          )}
         </span>
         {status.errors > 0 && (
           <span className="flex items-center gap-1 rounded-full bg-danger/20 px-2 py-0.5 text-xs font-semibold text-danger">

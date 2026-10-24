@@ -6,6 +6,7 @@ import type { RecordSource } from "./capture-prefs"
 import type { CameraChoice, CaptureSource, OffscreenMessage, RecordOptions } from "./messages"
 import { capPages, mergePages, type PageCaptureRecord } from "./page-merge"
 import { applyPauses, errorsCaught, keptEvents, type LiveCounts, liveCounts, type PauseSpan, pauseMarks, videoTime } from "./review-data"
+import { MAX_RECORDING_MS, type RecordingEndReason } from "./recorder"
 import type { VideoDraft } from "./types"
 
 export type { RecordOptions } from "./messages"
@@ -35,6 +36,8 @@ export interface RecordingState {
    * recording, whose logs go in too. Always empty when recording a tab.
    */
   tabs: number[]
+  /** Where the recording stops by itself; absent on one started before 0.8.1, which stops at MAX_RECORDING_MS. */
+  maxMs?: number
 }
 
 /** Kept in storage.session, so a recording survives the service worker going to sleep. */
@@ -62,6 +65,8 @@ export interface BarStatus {
   errors: number
   micOn: boolean
   micAvailable: boolean
+  /** The account's length limit, shown next to the timer; null at the 20-minute ceiling everyone has. */
+  maxMs: number | null
 }
 
 export interface RecordingFlowDeps {
@@ -316,6 +321,7 @@ export async function startVideoRecording(
       countdown: options.countdown,
       source: options.source,
       tabs: [],
+      maxMs: options.maxMs,
     })
   } catch (error) {
     // Without a recording state no Stop or Discard will come to turn the camera off.
@@ -407,9 +413,12 @@ async function extras(
   }
 }
 
-export async function stopVideoRecording(deps: RecordingFlowDeps): Promise<CaptureResult> {
+/** `reason`: why the recording ended by itself; absent when the reporter stopped it. */
+export async function stopVideoRecording(deps: RecordingFlowDeps, reason?: RecordingEndReason): Promise<CaptureResult> {
   const state = await deps.state.get()
   if (!state) return { ok: false, error: "No recording is running" }
+  // The review says why a recording ended before the reporter stopped it.
+  const stoppedBy = reason === "max-duration" ? { stoppedAtLimitMs: state.maxMs ?? MAX_RECORDING_MS } : {}
   const end = deps.now()
   // Cleared first, so a second stop (shortcut plus time limit) finds nothing to do.
   await deps.state.clear()
@@ -444,6 +453,7 @@ export async function stopVideoRecording(deps: RecordingFlowDeps): Promise<Captu
         ...added,
       },
       recordingStartedAt: state.startedAt,
+      ...stoppedBy,
       status: "editing",
       error: null,
     })
@@ -475,6 +485,7 @@ export async function stopVideoRecording(deps: RecordingFlowDeps): Promise<Captu
     // Nothing from before this take or from a pause is sent; the rest lines up with the cut video.
     debuggerPayload: { ...payload, events: applyPauses(events, state.startedAt, pauses), incomplete, ...added },
     recordingStartedAt: state.startedAt,
+    ...stoppedBy,
     status: "editing",
     error: null,
   })
@@ -506,7 +517,7 @@ async function openPage(
 
 export interface RecordingController {
   start(tab: ActiveTab, options: RecordOptions & { maxBytes: number; maxMs: number }): Promise<CaptureResult>
-  stop(): Promise<CaptureResult>
+  stop(reason?: RecordingEndReason): Promise<CaptureResult>
   status(): Promise<RecordingStatus>
   noteNavigation(tabId: number): Promise<void>
   notePageFlush(tabId: number, raw: unknown): Promise<void>
@@ -523,7 +534,7 @@ export interface RecordingController {
 
 const NO_COUNTS: LiveCounts = { errors: 0, failedRequests: 0, actions: 0 }
 
-const QUIET: BarStatus = { recording: false, elapsedMs: 0, paused: false, errors: 0, micOn: false, micAvailable: false }
+const QUIET: BarStatus = { recording: false, elapsedMs: 0, paused: false, errors: 0, micOn: false, micAvailable: false, maxMs: null }
 
 /**
  * Runs every change one after another. The popup, the bar, the shortcuts and the time limit can ask at
@@ -559,7 +570,7 @@ export function createRecordingController(deps: RecordingFlowDeps): RecordingCon
 
   return {
     start: (tab, options) => enqueue(() => startVideoRecording(tab, options, deps)),
-    stop: () => enqueue(() => stopVideoRecording(deps)),
+    stop: (reason) => enqueue(() => stopVideoRecording(deps, reason)),
     status: () => enqueue(() => recordingStatus(deps)),
     noteNavigation: (tabId) => enqueue(() => noteNavigation(tabId, deps)),
     notePageFlush: (tabId, raw) => enqueue(() => notePageFlush(tabId, raw, deps)),
@@ -573,7 +584,8 @@ export function createRecordingController(deps: RecordingFlowDeps): RecordingCon
     barStatus: async () => {
       const state = await deps.state.get()
       if (!state) return QUIET
-      if (state.restarting) return { ...QUIET, recording: true, micOn: state.micOn, micAvailable: state.micAvailable }
+      const maxMs = state.maxMs !== undefined && state.maxMs < MAX_RECORDING_MS ? state.maxMs : null
+      if (state.restarting) return { ...QUIET, recording: true, micOn: state.micOn, micAvailable: state.micAvailable, maxMs }
       const now = deps.now()
       const pauses = pausesUntil(state, now)
       const errors = hasLogs(state) ? errorsCaught(await liveEvents(state), state.startedAt, pauses) : 0
@@ -584,6 +596,7 @@ export function createRecordingController(deps: RecordingFlowDeps): RecordingCon
         errors,
         micOn: state.micOn,
         micAvailable: state.micAvailable,
+        maxMs,
       }
     },
     popupStatus: async () => {

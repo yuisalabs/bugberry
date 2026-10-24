@@ -6,7 +6,7 @@ import type { BarStatus } from "../../lib/recording-flow"
 import { BarView, type DrawTool } from "./BarView"
 
 const POLL_MS = 1000
-const QUIET: BarStatus = { recording: true, elapsedMs: 0, paused: false, errors: 0, micOn: false, micAvailable: false }
+const QUIET: BarStatus = { recording: true, elapsedMs: 0, paused: false, errors: 0, micOn: false, micAvailable: false, maxMs: null }
 
 /** What the bar tells the drawing layer of the same recording. */
 export type DrawSignal = { tool: DrawTool; drawing: boolean } | { clear: true } | { exitDraw: true }

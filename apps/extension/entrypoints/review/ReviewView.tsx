@@ -1,5 +1,5 @@
 import type { RecordingNote } from "@bugberry/capture"
-import { defaultReportTitle, emailDomain, matchProject, PRIORITIES, type Priority, sizeLabel, type Visibility, visibilityChoices, visibilityOptions } from "@bugberry/shared"
+import { clockLabel, defaultReportTitle, emailDomain, matchProject, PRIORITIES, type Priority, sizeLabel, type Visibility, visibilityChoices, visibilityOptions } from "@bugberry/shared"
 import { Button, buttonStyles } from "@bugberry/ui/button"
 import { Checkbox, CheckboxField } from "@bugberry/ui/checkbox"
 import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@bugberry/ui/dialog"
@@ -435,6 +435,11 @@ export function ReviewView(props: ReviewViewProps) {
                     </CheckboxField>
                     {props.cityNote && <p className="text-xs text-muted-foreground">{props.cityNote}</p>}
                   </div>
+                )}
+                {draft.captureType === "video" && draft.stoppedAtLimitMs !== undefined && (
+                  <p role="status" className="rounded-xl bg-warning-subtle px-3.5 py-2.5 text-sm text-warning-subtle-foreground">
+                    {`The recording stopped by itself at ${clockLabel(draft.stoppedAtLimitMs)}, the longest allowed.`}
+                  </p>
                 )}
                 {props.limitWarning && (
                   <p role="status" className="flex flex-wrap items-center gap-2 rounded-xl bg-warning-subtle px-3.5 py-2.5 text-sm text-warning-subtle-foreground">

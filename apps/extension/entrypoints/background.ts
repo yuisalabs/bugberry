@@ -48,6 +48,7 @@ import { loadSettings } from "../lib/settings"
 import { clientConfigInTime, DEFAULT_MAX_UPLOAD_MB, recordingByteBudget, recordingLengthMs, uploadLimitMb, workspaceLimitsInTime } from "../lib/upload-limit"
 import { limitsFor } from "../lib/limits"
 import { isSignedOut } from "../lib/popup"
+import type { RecordingEndReason } from "../lib/recorder"
 import { pickEditorWorkspace } from "../lib/report-form"
 
 /** Casts keep these valid before WXT has generated the path types for the pages. */
@@ -367,9 +368,10 @@ export default defineBackground(() => {
   }
 
   /** A stop from the shortcut or the time limit has no popup either, so its failure goes on the badge. */
-  const stopRecording = async (): Promise<CaptureResult> => {
+  /** `reason`: why the recording ended by itself; absent when the reporter stopped it. */
+  const stopRecording = async (reason?: RecordingEndReason): Promise<CaptureResult> => {
     const status = await recordings.status()
-    const result = await recordings.stop()
+    const result = await recordings.stop(reason)
     return status.recording ? flagFailure(status.tabId, result) : result
   }
 
@@ -590,7 +592,7 @@ export default defineBackground(() => {
       return undefined
     }
     // The offscreen recorder stopped by itself (time limit, tab closed, error).
-    if (isRecordingEndedNotice(message)) void stopRecording()
+    if (isRecordingEndedNotice(message)) void stopRecording(message.reason)
     return undefined
   })
 
