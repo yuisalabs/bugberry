@@ -8,7 +8,7 @@ import {
   isRecordStatusRequest,
   isBarRequest,
   isReviewAgainRequest,
-  isScreenshotRequest, isRecorderReadyNotice, isPopupRecordingRequest } from "../lib/messages"
+  isScreenshotRequest, isRecorderReadyNotice, isPopupRecordingRequest, isCameraTicketRequest, isPageUiMessage, isPopupPromptRequest } from "../lib/messages"
 
 describe("messages", () => {
   test("background requests are recognised by type and shape", () => {
@@ -24,8 +24,34 @@ describe("messages", () => {
       expect(isRecordStartRequest({ type: "bugberry:record-start", tabId: 7, options: { ...options, micDeviceId } })).toBe(true)
     }
     expect(isRecordStartRequest({ type: "bugberry:record-start", tabId: 7, options: { ...options, micDeviceId: 5 } })).toBe(false)
+    for (const camera of [undefined, null, { deviceId: null, shape: "circle" }, { deviceId: "cam1", shape: "rectangle" }]) {
+      expect(isRecordStartRequest({ type: "bugberry:record-start", tabId: 7, options: { ...options, camera } })).toBe(true)
+    }
+    for (const camera of [{ deviceId: 1, shape: "circle" }, { deviceId: null, shape: "oval" }, "on"]) {
+      expect(isRecordStartRequest({ type: "bugberry:record-start", tabId: 7, options: { ...options, camera } })).toBe(false)
+    }
     expect(isRecordStatusRequest({ type: "bugberry:record-status" })).toBe(true)
     expect(isRecordingEndedNotice({ type: "bugberry:recording-ended", reason: "max-duration" })).toBe(true)
+  })
+
+  test("the camera bubble asks with its token, to read or to say it's ready", () => {
+    expect(isCameraTicketRequest({ type: "bugberry:camera-ticket", token: "t", action: "read" })).toBe(true)
+    expect(isCameraTicketRequest({ type: "bugberry:camera-ticket", token: "t", action: "ready" })).toBe(true)
+    expect(isCameraTicketRequest({ type: "bugberry:camera-ticket", token: "t", action: "failed" })).toBe(true)
+    expect(isCameraTicketRequest({ type: "bugberry:camera-ticket", token: 1, action: "read" })).toBe(false)
+    expect(isCameraTicketRequest({ type: "bugberry:camera-ticket", token: "t", action: "start" })).toBe(false)
+  })
+
+  test("the page layer is told to show or take away the camera bubble", () => {
+    expect(isPageUiMessage({ type: "bugberry:ui-camera", on: true, token: "t", shape: "circle" })).toBe(true)
+    expect(isPageUiMessage({ type: "bugberry:ui-camera", on: false })).toBe(true)
+    expect(isPageUiMessage({ type: "bugberry:ui-camera", on: true, token: 1, shape: "circle" })).toBe(false)
+    expect(isPageUiMessage({ type: "bugberry:ui-camera", on: true, token: "t", shape: "oval" })).toBe(false)
+  })
+
+  test("the popup may ask for the camera over the page, like the microphone", () => {
+    expect(isPopupPromptRequest({ type: "bugberry:popup-prompt", page: "camera", tabId: 1 })).toBe(true)
+    expect(isPageUiMessage({ type: "bugberry:ui-prompt", page: "camera", token: "t" })).toBe(true)
   })
 
   test("a page flush carries its document id, events and incomplete names", () => {

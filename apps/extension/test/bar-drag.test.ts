@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, mock, test } from "bun:test"
-import { type BarDragMessage, startBarDrag } from "../lib/bar-drag"
+import { type BarDragMessage, startBarDrag, startCameraResize } from "../lib/bar-drag"
 
 function bar() {
   document.body.innerHTML = '<div id="pill"><span id="clock">00:02</span><button id="stop">Stop</button></div>'
@@ -53,5 +53,24 @@ describe("startBarDrag", () => {
     frames[0]?.()
     expect(post).toHaveBeenLastCalledWith({ bugberry: "bar-drag", phase: "move", dx: 30, dy: 0 })
     expect(post).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe("startCameraResize", () => {
+  test("a press on the camera's handle sends resize moves, measured on the screen, even though it is a button", () => {
+    document.body.innerHTML = '<div id="bubble"><button id="handle">Resize</button></div>'
+    const bubble = document.getElementById("bubble") as HTMLElement
+    const handle = document.getElementById("handle") as HTMLElement
+    const post = mock((_message: unknown) => {})
+    const deps = { post, requestFrame: (run: () => void) => (run(), 1), cancelFrame: () => {} }
+    let started = false
+    handle.addEventListener("pointerdown", (event) => (started = startCameraResize(event as PointerEvent, bubble, deps)), { once: true })
+    handle.dispatchEvent(new PointerEvent("pointerdown", { button: 0, bubbles: true, screenX: 100, screenY: 50 }))
+    expect(started).toBe(true)
+    expect(post).toHaveBeenLastCalledWith({ bugberry: "camera-resize", phase: "start" })
+    bubble.dispatchEvent(new PointerEvent("pointermove", { screenX: 120, screenY: 30 }))
+    expect(post).toHaveBeenLastCalledWith({ bugberry: "camera-resize", phase: "move", dx: 20, dy: -20 })
+    bubble.dispatchEvent(new PointerEvent("pointerup", { screenX: 140, screenY: 20 }))
+    expect(post).toHaveBeenLastCalledWith({ bugberry: "camera-resize", phase: "end", dx: 40, dy: -30 })
   })
 })

@@ -1,21 +1,27 @@
 import { afterEach, describe, expect, mock, test } from "bun:test"
-import { type BarPosition, clampPosition, createPageUi, uiStateNeeded } from "../lib/page-ui"
+import { type BarPosition, cameraFromUiState, cameraHeightFrom, clampPosition, createPageUi, uiStateNeeded } from "../lib/page-ui"
 
 const ORIGIN = "chrome-extension://abcdefghijklmnopabcdefghijklmnop"
 
-function setup(saved: BarPosition | null = null) {
+function setup(saved: BarPosition | null = null, savedCamera: BarPosition | null = null, savedHeight: number | null = null) {
   const savePosition = mock((_position: BarPosition) => {})
+  const saveCameraPosition = mock((_position: BarPosition) => {})
+  const saveCameraHeight = mock((_height: number) => {})
   const ui = createPageUi(document, window, {
     extensionUrl: (path) => `${ORIGIN}/${path}`,
     extensionOrigin: ORIGIN,
     savePosition,
     loadPosition: () => saved,
+    saveCameraPosition,
+    loadCameraPosition: () => savedCamera,
+    saveCameraHeight,
+    loadCameraHeight: () => savedHeight,
     shadowMode: "open",
     // happy-dom's events are never trusted; the real page layer only takes the reporter's own keys.
     trusted: () => true,
   })
   const root = () => document.querySelector("[data-bugberry-ui]")?.shadowRoot ?? null
-  return { ui, savePosition, root }
+  return { ui, savePosition, saveCameraPosition, saveCameraHeight, root }
 }
 
 const post = (data: unknown, origin = ORIGIN) => window.dispatchEvent(new MessageEvent("message", { data, origin }))
@@ -111,6 +117,158 @@ describe("the recording layer", () => {
     post({ bugberry: "prompt-close" })
     expect(root()).toBeNull()
   })
+
+  test("the camera prompt may ask for the camera", () => {
+    const { ui, root } = setup()
+    ui.showPrompt("camera", "t1")
+    expect(root()?.querySelector("iframe")?.getAttribute("allow")).toBe("camera")
+  })
+})
+
+describe("the camera bubble", () => {
+  const cameraFrame = (root: ShadowRoot | null) => [...(root?.querySelectorAll("iframe") ?? [])].find((frame) => frame.src.includes("camera-bubble.html"))
+  const boxOf = (root: ShadowRoot | null) => root?.querySelector("[data-camera]") as HTMLElement | null
+
+  test("the camera bubble is its own frame, allowed the camera", () => {
+    const { ui, root } = setup()
+    ui.showCamera("t1", "circle")
+    const frame = cameraFrame(root())
+    expect(frame?.src).toBe(`${ORIGIN}/camera-bubble.html?camera=t1`)
+    expect(frame?.getAttribute("allow")).toBe("camera")
+    expect([frame?.style.width, frame?.style.height]).toEqual(["160px", "160px"])
+    expect(boxOf(root())?.style.borderRadius).toBe("50%")
+    ui.hideCamera()
+    expect(root()).toBeNull()
+  })
+
+  test("rectangle is wider, with rounded corners", () => {
+    const { ui, root } = setup()
+    ui.showCamera("t1", "rectangle")
+    const frame = cameraFrame(root())
+    expect([frame?.style.width, frame?.style.height]).toEqual(["240px", "160px"])
+    expect(boxOf(root())?.style.borderRadius).toBe("16px")
+  })
+
+  test("it starts bottom-left, or where it was left", () => {
+    const first = setup()
+    first.ui.showCamera("t1", "circle")
+    expect([boxOf(first.root())?.style.left, boxOf(first.root())?.style.top]).toEqual(["24px", `${window.innerHeight - 160 - 24}px`])
+    first.ui.hideCamera()
+    const again = setup(null, { x: 300, y: 200 })
+    again.ui.showCamera("t1", "circle")
+    expect([boxOf(again.root())?.style.left, boxOf(again.root())?.style.top]).toEqual(["300px", "200px"])
+  })
+
+  test("the same grant shown twice is one bubble; another grant replaces it", () => {
+    const { ui, root } = setup()
+    ui.showCamera("t1", "circle")
+    ui.showCamera("t1", "circle")
+    expect(root()?.querySelectorAll("[data-camera]")).toHaveLength(1)
+    ui.showCamera("t2", "rectangle")
+    expect(root()?.querySelectorAll("[data-camera]")).toHaveLength(1)
+    expect(cameraFrame(root())?.src).toContain("camera=t2")
+  })
+
+  test("the bubble sits above the drawing layer and below the bar, whichever came first", () => {
+    const order = (root: ShadowRoot | null) =>
+      [...(root?.children ?? [])].map((element) =>
+        element.hasAttribute("data-camera") ? "camera" : element.hasAttribute("data-bar") ? "bar" : (element as HTMLIFrameElement).src?.includes("draw.html") ? "draw" : "?",
+      )
+    const fresh = setup()
+    fresh.ui.showCamera("t1", "circle")
+    fresh.ui.showRecording("s1")
+    expect(order(fresh.root())).toEqual(["draw", "camera", "bar"])
+    fresh.ui.hideRecording()
+    fresh.ui.hideCamera()
+    const reloaded = setup()
+    reloaded.ui.showRecording("s1")
+    reloaded.ui.showCamera("t1", "circle")
+    expect(order(reloaded.root())).toEqual(["draw", "camera", "bar"])
+  })
+
+  test("the size it was left at comes back, kept within 96 to 320 px", () => {
+    const sized = (height: number | null, shape: "circle" | "rectangle" = "circle") => {
+      const { ui, root } = setup(null, null, height)
+      ui.showCamera("t1", shape)
+      const frame = cameraFrame(root())
+      const size = [frame?.style.width, frame?.style.height]
+      ui.hideCamera()
+      return size
+    }
+    expect(sized(200)).toEqual(["200px", "200px"])
+    expect(sized(200, "rectangle")).toEqual(["300px", "200px"])
+    expect(sized(1000)).toEqual(["320px", "320px"])
+    expect(sized(10)).toEqual(["96px", "96px"])
+  })
+
+  test("the corner handle resizes it, its bottom-left corner staying put, and the size is saved", () => {
+    const { ui, root, saveCameraHeight, saveCameraPosition } = setup(null, { x: 100, y: 400 })
+    ui.showCamera("t1", "circle")
+    const frame = cameraFrame(root())
+    if (frame) Object.defineProperty(frame, "contentWindow", { value: window, configurable: true })
+    const fromCamera = (data: unknown) => window.dispatchEvent(new MessageEvent("message", { data, origin: ORIGIN, source: window }))
+    fromCamera({ bugberry: "camera-resize", phase: "start" })
+    // Up and to the right grows it: by the average of the two, in height.
+    fromCamera({ bugberry: "camera-resize", phase: "move", dx: 30, dy: -30 })
+    expect([frame?.style.width, frame?.style.height]).toEqual(["190px", "190px"])
+    expect([boxOf(root())?.style.left, boxOf(root())?.style.top]).toEqual(["100px", "370px"])
+    expect(saveCameraHeight).not.toHaveBeenCalled()
+    fromCamera({ bugberry: "camera-resize", phase: "end", dx: 40, dy: -40 })
+    expect(saveCameraHeight).toHaveBeenCalledWith(200)
+    expect(saveCameraPosition).toHaveBeenCalledWith({ x: 100, y: 360 })
+  })
+
+  test("a resize can't go past 96 or 320 px, and only the camera's frame can resize it", () => {
+    const { ui, root } = setup(null, { x: 100, y: 300 })
+    ui.showCamera("t1", "rectangle")
+    const frame = cameraFrame(root())
+    post({ bugberry: "camera-resize", phase: "start" })
+    post({ bugberry: "camera-resize", phase: "move", dx: 0, dy: -100 })
+    expect(frame?.style.height).toBe("160px")
+    if (frame) Object.defineProperty(frame, "contentWindow", { value: window, configurable: true })
+    const fromCamera = (data: unknown) => window.dispatchEvent(new MessageEvent("message", { data, origin: ORIGIN, source: window }))
+    fromCamera({ bugberry: "camera-resize", phase: "start" })
+    fromCamera({ bugberry: "camera-resize", phase: "move", dx: 0, dy: -1000 })
+    expect([frame?.style.width, frame?.style.height]).toEqual(["480px", "320px"])
+    fromCamera({ bugberry: "camera-resize", phase: "move", dx: 0, dy: 1000 })
+    expect([frame?.style.width, frame?.style.height]).toEqual(["144px", "96px"])
+  })
+
+  test("hiding the recording keeps the camera", () => {
+    const { ui, root } = setup()
+    ui.showRecording("s1")
+    ui.showCamera("t1", "circle")
+    ui.hideRecording()
+    expect(cameraFrame(root())?.isConnected).toBe(true)
+  })
+
+  test("a drag from the camera's frame moves only the camera and saves its own place", () => {
+    const { ui, root, savePosition, saveCameraPosition } = setup({ x: 400, y: 400 }, { x: 100, y: 100 })
+    ui.showRecording("s1")
+    ui.showCamera("t1", "circle")
+    const frame = cameraFrame(root())
+    // happy-dom gives frames no window of their own; this one stands in for the camera's.
+    if (frame) Object.defineProperty(frame, "contentWindow", { value: window, configurable: true })
+    const fromCamera = (data: unknown) => window.dispatchEvent(new MessageEvent("message", { data, origin: ORIGIN, source: window }))
+    fromCamera({ bugberry: "bar-drag", phase: "start" })
+    fromCamera({ bugberry: "bar-drag", phase: "end", dx: 30, dy: -10 })
+    expect([boxOf(root())?.style.left, boxOf(root())?.style.top]).toEqual(["130px", "90px"])
+    expect(saveCameraPosition).toHaveBeenCalledWith({ x: 130, y: 90 })
+    expect(savePosition).not.toHaveBeenCalled()
+    const bar = root()?.querySelector("[data-bar]") as HTMLElement
+    expect(bar.style.left).toBe("400px")
+  })
+
+  test("a camera frame that fails takes itself away, and only that frame can say so", () => {
+    const { ui, root } = setup()
+    ui.showCamera("t1", "circle")
+    post({ bugberry: "camera-failed" })
+    expect(cameraFrame(root())).toBeDefined()
+    const frame = cameraFrame(root())
+    if (frame) Object.defineProperty(frame, "contentWindow", { value: window, configurable: true })
+    window.dispatchEvent(new MessageEvent("message", { data: { bugberry: "camera-failed" }, origin: ORIGIN, source: window }))
+    expect(root()).toBeNull()
+  })
 })
 
 describe("countdown", () => {
@@ -124,9 +282,26 @@ describe("countdown", () => {
   })
 })
 
+test("a stored camera height is used only when it is a real number", () => {
+  expect(cameraHeightFrom(200)).toBe(200)
+  expect(cameraHeightFrom("200")).toBeNull()
+  expect(cameraHeightFrom(Number.NaN)).toBeNull()
+  expect(cameraHeightFrom(undefined)).toBeNull()
+})
+
+test("after a reload, the camera comes back only from a well-formed ui-state answer", () => {
+  expect(cameraFromUiState({ recording: false, camera: { token: "t", shape: "rectangle" } })).toEqual({ token: "t", shape: "rectangle" })
+  expect(cameraFromUiState({ recording: true, session: "d1" })).toBeNull()
+  expect(cameraFromUiState({ camera: { token: 1, shape: "circle" } })).toBeNull()
+  expect(cameraFromUiState({ camera: { token: "t", shape: "oval" } })).toBeNull()
+  expect(cameraFromUiState(null)).toBeNull()
+})
+
 test("a page load only wakes the background while something is being recorded", () => {
   expect(uiStateNeeded({})).toBe(false)
   expect(uiStateNeeded({ recording: { draftId: "d1", tabId: 7, startedAt: 1 } })).toBe(true)
+  // Between opening a tab recording and its take (the countdown), only the camera grant exists.
+  expect(uiStateNeeded({ camera: { token: "t", tabId: 7 } })).toBe(true)
 })
 
 test("a page can't cancel the countdown with a made-up Esc", async () => {
@@ -169,6 +344,16 @@ test("Esc pressed while the bar has focus cancels the countdown too, from the ba
   const bar = [...(root()?.querySelectorAll("iframe") ?? [])].find((frame) => frame.src.includes("recorder-bar.html"))
   // happy-dom gives frames no window of their own; this one stands in for the bar's.
   if (bar) Object.defineProperty(bar, "contentWindow", { value: window, configurable: true })
+  const result = ui.countdown()
+  window.dispatchEvent(new MessageEvent("message", { data: { bugberry: "escape" }, origin: ORIGIN, source: window }))
+  expect(await result).toBe("cancel")
+})
+
+test("Esc pressed while the camera bubble has focus cancels the countdown too", async () => {
+  const { ui, root } = setup()
+  ui.showCamera("t1", "circle")
+  const frame = [...(root()?.querySelectorAll("iframe") ?? [])].find((element) => element.src.includes("camera-bubble.html"))
+  if (frame) Object.defineProperty(frame, "contentWindow", { value: window, configurable: true })
   const result = ui.countdown()
   window.dispatchEvent(new MessageEvent("message", { data: { bugberry: "escape" }, origin: ORIGIN, source: window }))
   expect(await result).toBe("cancel")

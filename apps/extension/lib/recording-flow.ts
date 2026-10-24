@@ -3,7 +3,7 @@ import { type ActiveTab, type CaptureResult, capturable, pagePayloadFor, sanitiz
 import { deviceInfoFrom } from "./device"
 import type { DraftStore } from "./draft-store"
 import type { RecordSource } from "./capture-prefs"
-import type { CaptureSource, OffscreenMessage, RecordOptions } from "./messages"
+import type { CameraChoice, CaptureSource, OffscreenMessage, RecordOptions } from "./messages"
 import { capPages, mergePages, type PageCaptureRecord } from "./page-merge"
 import { applyPauses, errorsCaught, keptEvents, type LiveCounts, liveCounts, type PauseSpan, pauseMarks, videoTime } from "./review-data"
 import type { VideoDraft } from "./types"
@@ -78,6 +78,13 @@ export interface RecordingFlowDeps {
   countdown(tabId: number): Promise<"done" | "cancel" | "unavailable">
   /** Shows or removes the Recording Bar and the drawing layer on the recorded tab. */
   showRecordingUi(tabId: number, on: boolean): Promise<void>
+  /**
+   * Shows the camera bubble on the tab. `ready` settles once it shows a picture, can't, or a short while
+   * passed; it never rejects. Apart from the Recording Bar: a Restart rebuilds the bar, the camera stays on.
+   */
+  showCamera(tabId: number, camera: CameraChoice): Promise<{ ready: Promise<void> }>
+  /** Takes the camera bubble off the tab and turns the camera off; nothing happens when there is none. */
+  hideCamera(tabId: number): Promise<void>
   /** The review modal over the tab, or in a tab of its own when the page can't show it. */
   openReview(draftId: string, tabId: number): Promise<void>
   /** The signed-in name written on notes; "" when unknown. */
@@ -276,33 +283,45 @@ export async function startVideoRecording(
   }
 
   await deps.focusTab?.(tab).catch(() => {})
+  // Before the countdown, so the camera warms up while it counts. A camera that fails costs nothing else.
+  const camera = options.camera ? await deps.showCamera(tab.id, options.camera).catch(() => null) : null
   if (options.countdown && (await deps.countdown(tab.id)) === "cancel") {
+    await deps.hideCamera(tab.id).catch(() => {})
     await abandon(draft.id, deps)
     return { ok: false, code: "cancelled", error: "Cancelled" }
   }
+  // The first second of the take shows the reporter, not an empty bubble.
+  await camera?.ready.catch(() => {})
   const begun = await ask(deps, { type: "bugberry:offscreen-begin" })
   if (!begun.ok) {
+    await deps.hideCamera(tab.id).catch(() => {})
     await abandon(draft.id, deps)
     return { ok: false, error: `Couldn't start recording: ${begun.error}` }
   }
 
-  if (options.mic && opened.micOn === false) await deps.micUnavailable()
   const startedAt = begun.startedAt ?? deps.now()
-  await deps.store.put({ ...draft, recordingStartedAt: startedAt })
-  await deps.state.set({
-    draftId: draft.id,
-    tabId: tab.id,
-    startedAt,
-    loads: 0,
-    logs,
-    pauses: [],
-    pausedAt: null,
-    micOn: opened.micOn === true,
-    micAvailable: opened.micAvailable,
-    countdown: options.countdown,
-    source: options.source,
-    tabs: [],
-  })
+  try {
+    if (options.mic && opened.micOn === false) await deps.micUnavailable()
+    await deps.store.put({ ...draft, recordingStartedAt: startedAt })
+    await deps.state.set({
+      draftId: draft.id,
+      tabId: tab.id,
+      startedAt,
+      loads: 0,
+      logs,
+      pauses: [],
+      pausedAt: null,
+      micOn: opened.micOn === true,
+      micAvailable: opened.micAvailable,
+      countdown: options.countdown,
+      source: options.source,
+      tabs: [],
+    })
+  } catch (error) {
+    // Without a recording state no Stop or Discard will come to turn the camera off.
+    await deps.hideCamera(tab.id).catch(() => {})
+    throw error
+  }
   await deps.setBadge(true)
   await deps.showRecordingUi(tab.id, true)
   return { ok: true, draftId: draft.id }
@@ -370,6 +389,7 @@ export async function discardRecording(deps: RecordingFlowDeps): Promise<Capture
   await deps.setBadge(false)
   await abandon(state.draftId, deps)
   await deps.showRecordingUi(state.tabId, false)
+  await deps.hideCamera(state.tabId).catch(() => {})
   return { ok: false, code: "cancelled", error: "Discarded" }
 }
 
@@ -395,6 +415,7 @@ export async function stopVideoRecording(deps: RecordingFlowDeps): Promise<Captu
   await deps.state.clear()
   await deps.setBadge(false)
   await deps.showRecordingUi(state.tabId, false)
+  await deps.hideCamera(state.tabId).catch(() => {})
 
   const reply = await ask(deps, { type: "bugberry:offscreen-stop" })
   await deps.closeOffscreen()

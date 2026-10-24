@@ -1,4 +1,4 @@
-import type { RecordSource, ScreenshotMode } from "./capture-prefs"
+import type { CameraShape, RecordSource, ScreenshotMode } from "./capture-prefs"
 import type { RecordingEndReason } from "./recorder"
 
 export interface ScreenshotRequest {
@@ -16,6 +16,20 @@ export interface RecordOptions {
   micDeviceId?: string | null
   systemAudio: boolean
   countdown: boolean
+  /** The camera bubble on the recorded tab; null or absent is no camera. */
+  camera?: CameraChoice | null
+}
+
+/** Which camera the bubble shows, and its shape. `deviceId` null is the system's default camera. */
+export interface CameraChoice {
+  deviceId: string | null
+  shape: CameraShape
+}
+
+export function isCameraChoice(value: unknown): value is CameraChoice {
+  if (typeof value !== "object" || value === null) return false
+  const choice = value as Record<string, unknown>
+  return (choice.deviceId === null || typeof choice.deviceId === "string") && (choice.shape === "circle" || choice.shape === "rectangle")
 }
 
 export interface RecordStartRequest {
@@ -114,7 +128,8 @@ function isRecordOptions(value: unknown): value is RecordOptions {
     typeof options.mic === "boolean" &&
     (options.micDeviceId === undefined || options.micDeviceId === null || typeof options.micDeviceId === "string") &&
     typeof options.systemAudio === "boolean" &&
-    typeof options.countdown === "boolean"
+    typeof options.countdown === "boolean" &&
+    (options.camera === undefined || options.camera === null || isCameraChoice(options.camera))
   )
 }
 
@@ -209,16 +224,24 @@ export type PageUiMessage =
   | { type: "bugberry:ui-review-close" }
   /** Answered with { ok: true } once the prompt is shown over the page: allow the microphone, switch servers, the settings. */
   | { type: "bugberry:ui-prompt"; page: PromptPage; token: string }
+  /** Shows the camera bubble for the camera grant `token`, or takes it away. */
+  | { type: "bugberry:ui-camera"; on: true; token: string; shape: CameraShape }
+  | { type: "bugberry:ui-camera"; on: false }
 
 /** The extension pages shown over the page the reporter is on: questions, and the settings. */
-export type PromptPage = "microphone" | "confirm-server" | "options"
+export type PromptPage = "microphone" | "camera" | "confirm-server" | "options"
 
-const PROMPT_PAGES: readonly unknown[] = ["microphone", "confirm-server", "options"]
+const PROMPT_PAGES: readonly unknown[] = ["microphone", "camera", "confirm-server", "options"]
 
 export function isPageUiMessage(message: unknown): message is PageUiMessage {
   const type = typeOf(message)
   if (type === "bugberry:ui-countdown" || type === "bugberry:ui-review-close") return true
   if (type === "bugberry:ui-review") return typeof field(message, "draftId") === "string"
+  if (type === "bugberry:ui-camera") {
+    if (field(message, "on") === false) return true
+    const shape = field(message, "shape")
+    return field(message, "on") === true && typeof field(message, "token") === "string" && (shape === "circle" || shape === "rectangle")
+  }
   if (type === "bugberry:ui-prompt") {
     const page = field(message, "page")
     return PROMPT_PAGES.includes(page) && typeof field(message, "token") === "string"
@@ -308,19 +331,19 @@ export function isReviewAnotherRequest(message: unknown): message is ReviewAnoth
 }
 
 /**
- * The popup → background: show the microphone prompt, which the popup can't show itself, or the settings
- * over the active tab, so the reporter stays on their page.
+ * The popup → background: show the microphone or camera prompt, which the popup can't show itself, or the
+ * settings over the active tab, so the reporter stays on their page.
  */
 export interface PopupPromptRequest {
   type: "bugberry:popup-prompt"
-  page: "microphone" | "options"
+  page: "microphone" | "camera" | "options"
   tabId: number | null
 }
 
 export function isPopupPromptRequest(message: unknown): message is PopupPromptRequest {
   const tabId = field(message, "tabId")
   const page = field(message, "page")
-  return typeOf(message) === "bugberry:popup-prompt" && (page === "microphone" || page === "options") && (tabId === null || typeof tabId === "number")
+  return typeOf(message) === "bugberry:popup-prompt" && (page === "microphone" || page === "camera" || page === "options") && (tabId === null || typeof tabId === "number")
 }
 
 /** The popup → background: reopen a draft's review over the active tab. */
@@ -349,4 +372,24 @@ export interface PromptTicketRequest {
 export function isPromptTicketRequest(message: unknown): message is PromptTicketRequest {
   const action = field(message, "action")
   return typeOf(message) === "bugberry:prompt-ticket" && typeof field(message, "token") === "string" && (action === "read" || action === "done" || action === "tab")
+}
+
+/**
+ * The camera bubble → background, naming the grant from its URL: which camera to show ("read"), that its
+ * first picture is on screen ("ready"), or that it can't show one ("failed"). Only a bubble inside the
+ * granted tab gets an answer.
+ */
+export interface CameraTicketRequest {
+  type: "bugberry:camera-ticket"
+  token: string
+  action: "read" | "ready" | "failed"
+}
+
+export function isCameraTicketRequest(message: unknown): message is CameraTicketRequest {
+  const action = field(message, "action")
+  return (
+    typeOf(message) === "bugberry:camera-ticket" &&
+    typeof field(message, "token") === "string" &&
+    (action === "read" || action === "ready" || action === "failed")
+  )
 }

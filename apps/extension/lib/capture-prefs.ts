@@ -4,6 +4,8 @@ export type ScreenshotMode = "visible" | "area"
 export type RecordSource = "tab" | "screen" | "window"
 /** Which row of the popup is chosen: its dial takes a screenshot or starts a recording. */
 export type CaptureKind = "screenshot" | "record"
+/** The camera bubble on a recorded tab. */
+export type CameraShape = "circle" | "rectangle"
 
 /** What the popup's rows are set to; the keyboard shortcuts use the same choices. */
 export interface CapturePrefs {
@@ -16,6 +18,11 @@ export interface CapturePrefs {
   captureKind: CaptureKind
   /** The microphone picked in the popup; null is the system's default one. */
   micDeviceId: string | null
+  /** The camera in a bubble on the page; only when recording a tab. */
+  camera: boolean
+  /** The camera picked in the popup; null is the system's default one. */
+  cameraDeviceId: string | null
+  cameraShape: CameraShape
 }
 
 export const DEFAULT_CAPTURE_PREFS: CapturePrefs = {
@@ -26,11 +33,15 @@ export const DEFAULT_CAPTURE_PREFS: CapturePrefs = {
   countdown: true,
   captureKind: "screenshot",
   micDeviceId: null,
+  camera: false,
+  cameraDeviceId: null,
+  cameraShape: "circle",
 }
 
 const SCREENSHOT_MODES: readonly string[] = ["visible", "area"]
 const RECORD_SOURCES: readonly string[] = ["tab", "screen", "window"]
 const CAPTURE_KINDS: readonly string[] = ["screenshot", "record"]
+const CAMERA_SHAPES: readonly string[] = ["circle", "rectangle"]
 
 /** Each missing or unknown field falls back to its default, so an old or damaged value never blocks the popup. */
 export function capturePrefsFrom(raw: unknown): CapturePrefs {
@@ -47,6 +58,9 @@ export function capturePrefsFrom(raw: unknown): CapturePrefs {
     countdown: typeof value.countdown === "boolean" ? value.countdown : DEFAULT_CAPTURE_PREFS.countdown,
     captureKind: CAPTURE_KINDS.includes(value.captureKind as string) ? (value.captureKind as CaptureKind) : DEFAULT_CAPTURE_PREFS.captureKind,
     micDeviceId: typeof value.micDeviceId === "string" ? value.micDeviceId : DEFAULT_CAPTURE_PREFS.micDeviceId,
+    camera: typeof value.camera === "boolean" ? value.camera : DEFAULT_CAPTURE_PREFS.camera,
+    cameraDeviceId: typeof value.cameraDeviceId === "string" ? value.cameraDeviceId : DEFAULT_CAPTURE_PREFS.cameraDeviceId,
+    cameraShape: CAMERA_SHAPES.includes(value.cameraShape as string) ? (value.cameraShape as CameraShape) : DEFAULT_CAPTURE_PREFS.cameraShape,
   }
 }
 
@@ -55,17 +69,22 @@ export function effectiveSource(source: RecordSource, tabRecorder: boolean): Rec
   return !tabRecorder && source === "tab" ? "window" : source
 }
 
-/** What a recording starts with; without a tab recorder there is no system audio either (Firefox can't share it). */
+/**
+ * What a recording starts with; without a tab recorder there is no system audio either (Firefox can't share it).
+ * The camera only goes with a tab: its bubble is on the page, which only a tab recording shows.
+ */
 export function recordOptionsFor(
-  prefs: Pick<CapturePrefs, "recordSource" | "mic" | "micDeviceId" | "systemAudio" | "countdown">,
+  prefs: Pick<CapturePrefs, "recordSource" | "mic" | "micDeviceId" | "systemAudio" | "countdown" | "camera" | "cameraDeviceId" | "cameraShape">,
   tabRecorder: boolean,
 ): RecordOptions {
+  const source = effectiveSource(prefs.recordSource, tabRecorder)
   return {
-    source: effectiveSource(prefs.recordSource, tabRecorder),
+    source,
     mic: prefs.mic,
     micDeviceId: prefs.micDeviceId,
     systemAudio: tabRecorder && prefs.systemAudio,
     countdown: prefs.countdown,
+    camera: prefs.camera && source === "tab" ? { deviceId: prefs.cameraDeviceId, shape: prefs.cameraShape } : null,
   }
 }
 

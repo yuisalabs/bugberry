@@ -1,5 +1,5 @@
 import { RiHeadphoneLine, RiMicLine, RiMicOffLine, RiShieldCheckLine, RiUsbLine } from "@remixicon/react"
-import { type ReactNode, type RefObject, useEffect, useRef } from "react"
+import { type ReactNode, type RefObject, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Button as AriaButton, Radio, RadioGroup } from "react-aria-components"
 import type { MicAccess, MicDevice, MicKind } from "../../lib/microphone"
 import { LevelBars } from "./CapturePanel"
@@ -32,57 +32,44 @@ export function MicPicker(props: {
   onClose(): void
 }) {
   const panel = useRef<HTMLDivElement>(null)
-  const { onClose, chipRef } = props
-  // Capture phase: React Aria's buttons stop their presses from bubbling, and Esc must work wherever focus is.
-  useEffect(() => {
-    const outside = (event: PointerEvent) => {
-      const target = event.target as Node
-      if (!panel.current?.contains(target) && !chipRef.current?.contains(target)) onClose()
-    }
-    const escape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return
-      event.stopPropagation()
-      onClose()
-    }
-    document.addEventListener("pointerdown", outside, true)
-    document.addEventListener("keydown", escape, true)
-    return () => {
-      document.removeEventListener("pointerdown", outside, true)
-      document.removeEventListener("keydown", escape, true)
-    }
-  }, [onClose, chipRef])
-
+  usePickerDismiss(panel, props.chipRef, props.onClose)
+  const room = usePickerRoom(props.chipRef)
   const granted = props.access === "granted"
+
   return (
     <div
       ref={panel}
       role="dialog"
       aria-label="Microphone"
-      className="absolute bottom-full left-1/2 z-10 mb-2 w-[330px] -translate-x-1/2 rounded-2xl border border-border bg-background p-1.5 text-left shadow-[0_12px_32px_-8px_rgb(28_16_34/0.22)]"
+      style={{ maxHeight: room }}
+      className="absolute bottom-full left-1/2 z-10 mb-2 flex w-[330px] -translate-x-1/2 flex-col rounded-2xl border border-border bg-background p-1.5 text-left shadow-[0_12px_32px_-8px_rgb(28_16_34/0.22)] [&>*]:shrink-0"
     >
       <div className="flex items-center justify-between px-2.5 pt-1.5 pb-2">
         <span className="font-mono text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">Microphone</span>
         {granted && <span className="text-xs text-muted-foreground">{`${props.devices.length} found`}</span>}
       </div>
-      <RadioGroup
-        aria-label="Microphone"
-        value={props.chosen ?? NONE}
-        onChange={(value) => props.onChoose(value === NONE ? null : value)}
-        className="flex flex-col gap-1"
-      >
-        <Row id={NONE} name="No microphone" detail="Record without voice" icon={<RiMicOffLine size={18} aria-hidden />} />
-        {granted &&
-          props.devices.map((device) => (
-            <Row
-              key={device.id}
-              id={device.id}
-              name={device.name}
-              detail={device.detail}
-              icon={ICONS[device.kind]}
-              level={device.id === props.metered ? props.level : null}
-            />
-          ))}
-      </RadioGroup>
+      {/* Only the microphones scroll: the header and the note always show. */}
+      <div className="min-h-0 !shrink overflow-y-auto">
+        <RadioGroup
+          aria-label="Microphone"
+          value={props.chosen ?? NONE}
+          onChange={(value) => props.onChoose(value === NONE ? null : value)}
+          className="flex flex-col gap-1"
+        >
+          <Row id={NONE} name="No microphone" detail="Record without voice" icon={<RiMicOffLine size={18} aria-hidden />} />
+          {granted &&
+            props.devices.map((device) => (
+              <Row
+                key={device.id}
+                id={device.id}
+                name={device.name}
+                detail={device.detail}
+                icon={ICONS[device.kind]}
+                level={device.id === props.metered ? props.level : null}
+              />
+            ))}
+        </RadioGroup>
+      </div>
       {props.access === "prompt" && (
         <AriaButton
           onPress={props.onAllow}
@@ -107,7 +94,7 @@ export function MicPicker(props: {
   )
 }
 
-function Row(props: { id: string; name: string; detail: string; icon: ReactNode; level?: LevelSource | null }) {
+export function Row(props: { id: string; name: string; detail: string; icon: ReactNode; level?: LevelSource | null }) {
   return (
     <Radio
       value={props.id}
@@ -135,4 +122,42 @@ function Row(props: { id: string; name: string; detail: string; icon: ReactNode;
       )}
     </Radio>
   )
+}
+
+/** The gap between the picker and its chip (mb-2), and between the picker and the popup's top edge. */
+const PICKER_MARGIN = 12
+
+/**
+ * How tall a picker may be: it opens upwards from its chip, and the popup can't grow past Chrome's limit, so
+ * whatever is higher than the room above the chip would be cut off. Its list of devices scrolls instead.
+ */
+export function usePickerRoom(chipRef: RefObject<HTMLElement | null>): number | undefined {
+  const [room, setRoom] = useState<number | undefined>(undefined)
+  useLayoutEffect(() => {
+    const top = chipRef.current?.getBoundingClientRect().top
+    if (top !== undefined) setRoom(Math.max(0, Math.round(top - PICKER_MARGIN)))
+  }, [chipRef])
+  return room
+}
+
+/** A picker over the chips closes on a press outside it (but not on its chip, which toggles it) and on Esc. */
+export function usePickerDismiss(panel: RefObject<HTMLElement | null>, chipRef: RefObject<HTMLElement | null>, onClose: () => void) {
+  // Capture phase: React Aria's buttons stop their presses from bubbling, and Esc must work wherever focus is.
+  useEffect(() => {
+    const outside = (event: PointerEvent) => {
+      const target = event.target as Node
+      if (!panel.current?.contains(target) && !chipRef.current?.contains(target)) onClose()
+    }
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return
+      event.stopPropagation()
+      onClose()
+    }
+    document.addEventListener("pointerdown", outside, true)
+    document.addEventListener("keydown", escape, true)
+    return () => {
+      document.removeEventListener("pointerdown", outside, true)
+      document.removeEventListener("keydown", escape, true)
+    }
+  }, [panel, onClose, chipRef])
 }

@@ -1,4 +1,3 @@
-import { PROVIDER_LABELS } from "@bugberry/shared"
 import {
   RiAddLine,
   RiArrowLeftSLine,
@@ -30,12 +29,12 @@ import {
 } from "@bugberry/ui/menu"
 import { errorMessage, type ReportDetail } from "../../lib/api"
 import { api } from "../../lib/client"
-import { copyForAiText, sendOutcome, type TrackerItem, trackerItems } from "../../lib/more-menu"
+import { copyForAiText, type TrackerItem } from "../../lib/more-menu"
 import { queries } from "../../lib/queries"
 import { backTarget } from "../../lib/report-page"
 import { toast } from "../../lib/toast"
-import { trackersRefetchInterval } from "../../lib/tracker-links"
 import { roleIn } from "../../lib/workspace"
+import { useReportTrackers } from "./useReportTrackers"
 
 const NO_PROJECT = "none"
 const NEW_PROJECT = "new"
@@ -56,26 +55,15 @@ interface MoreMenuProps {
 
 /**
  * The ⋯ menu as it looks; MoreMenu wires it to the server. On phones it is a sheet from the bottom, with
- * Move to project as a second step inside it: a submenu beside the menu would open off the screen.
+ * Move to project as a second step inside it: a submenu beside the menu would open off the screen. Trackers
+ * are in the sheet only: on wider screens they have their own green button beside Copy link.
  */
 export function MoreMenuView(props: MoreMenuProps) {
   const phone = useMediaQuery(PHONE_QUERY)
   return phone ? <MoreSheet {...props} /> : <MoreDropdown {...props} />
 }
 
-function MoreDropdown({
-  projectId,
-  projects,
-  trackers,
-  needsProject,
-  canDelete,
-  onCopyForAi,
-  onSetUpAi,
-  onMove,
-  onNewProject,
-  onSend,
-  onDelete,
-}: MoreMenuProps) {
+function MoreDropdown({ projectId, projects, canDelete, onCopyForAi, onSetUpAi, onMove, onNewProject, onDelete }: MoreMenuProps) {
   return (
     <MenuTrigger>
       <Button intent="outline" size="sq-sm" aria-label="More actions">
@@ -119,27 +107,6 @@ function MoreDropdown({
             </MenuItem>
           </Menu>
         </MenuSubMenu>
-        <MenuSeparator />
-        {trackers.map((item) => (
-          <MenuItem
-            key={item.integrationId ?? `earlier-${item.label}`}
-            textValue={item.label}
-            isDisabled={item.action === "none" || (item.action === "open" && !item.href)}
-            href={item.action === "open" && item.href ? item.href : undefined}
-            target={item.action === "open" ? "_blank" : undefined}
-            rel={item.action === "open" ? "noreferrer" : undefined}
-            onAction={(item.action === "send" || item.action === "retry") && item.integrationId ? () => onSend(item.integrationId as string) : undefined}
-          >
-            <MenuLabel>{item.label}</MenuLabel>
-            {item.note && <MenuDescription>{item.note}</MenuDescription>}
-          </MenuItem>
-        ))}
-        {needsProject && trackers.length === 0 && (
-          <MenuItem isDisabled textValue="Send to a tracker">
-            <MenuLabel>Send to a tracker</MenuLabel>
-            <MenuDescription>Move the report to a project first</MenuDescription>
-          </MenuItem>
-        )}
         {canDelete && (
           <>
             <MenuSeparator />
@@ -313,7 +280,7 @@ function MoreSheet({
   )
 }
 
-/** Copy for AI, move to project, send to trackers, and (admins) delete the report. */
+/** Copy for AI, move to project, send to trackers (on phones), and (admins) delete the report. */
 export function MoreMenu({ report }: { report: ReportDetail }) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -322,10 +289,7 @@ export function MoreMenu({ report }: { report: ReportDetail }) {
   const { confirm, dialog } = useConfirm()
   const workspaces = useQuery(queries.workspaces())
   const projects = useQuery(queries.projects(report.workspaceId))
-  const trackers = useQuery({
-    ...queries.reportTrackers(report.id),
-    refetchInterval: (query) => trackersRefetchInterval(query.state.data, Date.now()),
-  })
+  const trackers = useReportTrackers(report)
   const reportKey = queries.report(report.id).queryKey
   const trackersKey = queries.reportTrackers(report.id).queryKey
   const failed = (error: unknown) => toast({ title: errorMessage(error), tone: "error" })
@@ -349,28 +313,6 @@ export function MoreMenu({ report }: { report: ReportDetail }) {
     },
     onError: failed,
   })
-  // The menu closes on the click, so a toast says whether the issue was made.
-  const send = useMutation({
-    mutationFn: (integrationId: string) => api.sendToTracker(report.id, integrationId),
-    onSuccess: (link) => {
-      const outcome = sendOutcome(link)
-      const href = outcome.href
-      toast({
-        title: outcome.title,
-        description: outcome.description,
-        tone: outcome.tone,
-        action: href ? { label: "Open", onClick: () => window.open(href, "_blank", "noopener,noreferrer") } : undefined,
-      })
-    },
-    onError: (error, integrationId) => {
-      const provider = trackers.data?.integrations.find((item) => item.id === integrationId)?.provider
-      toast({ title: `Couldn't send to ${provider ? PROVIDER_LABELS[provider] : "the tracker"}`, description: errorMessage(error), tone: "error" })
-    },
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: trackersKey })
-      void queryClient.invalidateQueries({ queryKey: ["activity", report.id] })
-    },
-  })
   const remove = useMutation({
     mutationFn: () => api.deleteReport(report.id),
     onSuccess: async () => {
@@ -389,14 +331,14 @@ export function MoreMenu({ report }: { report: ReportDetail }) {
       <MoreMenuView
         projectId={report.projectId}
         projects={projects.data ?? []}
-        trackers={trackers.data ? trackerItems(trackers.data, Date.now(), send.isPending ? (send.variables ?? null) : null) : []}
-        needsProject={trackers.data?.needsProject ?? false}
+        trackers={trackers.items}
+        needsProject={trackers.needsProject}
         canDelete={roleIn(workspaces.data ?? [], report.workspaceId) === "admin"}
         onCopyForAi={() => void copyForAi()}
         onSetUpAi={() => void navigate({ to: "/app/settings/ai" })}
         onMove={(projectId) => move.mutate(projectId)}
         onNewProject={() => void navigate({ to: "/app/settings/projects" })}
-        onSend={(integrationId) => send.mutate(integrationId)}
+        onSend={trackers.send}
         onDelete={async () => {
           const yes = await confirm({
             title: "Delete this report?",

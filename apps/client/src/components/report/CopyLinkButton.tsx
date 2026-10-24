@@ -7,7 +7,7 @@ import { Popover } from "@bugberry/ui/popover"
 import { errorMessage, type ReportDetail } from "../../lib/api"
 import { api } from "../../lib/client"
 import { queries } from "../../lib/queries"
-import { copiedDescription } from "../../lib/share-access"
+import { copiedDescription, sharePopoverState } from "../../lib/share-access"
 import { toast } from "../../lib/toast"
 import { shareUrl } from "../../lib/urls"
 import { roleIn } from "../../lib/workspace"
@@ -62,6 +62,10 @@ export function CopyLinkButton({
     },
     onError: (error) => toast({ title: errorMessage(error), tone: "error" }),
   })
+  const shown = sharePopoverState(report.visibility, {
+    saving: access.isPending ? access.variables : undefined,
+    resetting: reset.isPending,
+  })
 
   return (
     <div className={bar ? "flex gap-3" : "inline-flex"}>
@@ -88,10 +92,10 @@ export function CopyLinkButton({
             <Dialog aria-label="Share report" className="outline-hidden">
               <SharePopoverView
                 number={report.number}
-                visibility={report.visibility}
+                visibility={shown.visibility}
                 internalDomain={report.internalDomain}
                 editable={editable}
-                busy={access.isPending || reset.isPending}
+                busy={shown.busy}
                 onChange={(visibility) => access.mutate(visibility)}
                 onCopy={() => copy()}
                 onReset={async () => {

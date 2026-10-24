@@ -52,10 +52,9 @@ describe("MoreMenuView", () => {
     expect(props.onSetUpAi).toHaveBeenCalledTimes(1)
   })
 
-  test("tracker items send", () => {
-    const props = view()
-    fireEvent.click(screen.getByRole("menuitem", { name: "Send to GitHub · kantor/web" }))
-    expect(props.onSend).toHaveBeenCalledWith("gh")
+  test("trackers have their own green button beside Copy link, not a place in the menu", () => {
+    view({ needsProject: true })
+    expect(screen.queryByRole("menuitem", { name: /Send to/ })).toBeNull()
   })
 
   test("Delete is for admins only", () => {

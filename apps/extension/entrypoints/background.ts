@@ -3,6 +3,7 @@ import { createFailureFlag } from "../lib/badge"
 import { bridgeSenderOrigin, createBridge } from "../lib/bridge"
 import { browserRecordingState } from "../lib/browser-recording-state"
 import { createBugberryApi } from "../lib/api"
+import { CAMERA_READY_MS, type CameraGrant, cameraTicketReply, createCameraGrants, uiStateReply } from "../lib/camera-grant"
 import { handleApiFetch, isApiFetchRequest } from "../lib/api-relay"
 import { hasTabRecorder } from "../lib/browser-support"
 import { recordOptionsFor, type ScreenshotMode } from "../lib/capture-prefs"
@@ -15,6 +16,7 @@ import {
   isBridgeHelloRequest,
   isBridgeOpenPopupRequest,
   isBridgeUseServerRequest,
+  isCameraTicketRequest,
   isPageFlush,
   isPageStart,
   isPopupRecordingRequest,
@@ -53,6 +55,8 @@ const OFFSCREEN_PAGE = "/offscreen.html" as Parameters<typeof browser.runtime.ge
 /** Session storage key of Firefox's recorder window id. */
 const RECORDER_WINDOW_KEY = "recorderWindow"
 const PROMPT_TICKETS_KEY = "promptTickets"
+/** Session storage key of the camera grant; the page layer reads it to know a page load should ask for the bubble. */
+const CAMERA_GRANT_KEY = "camera"
 /** Where WXT puts recording-ui.content.ts. */
 const PAGE_LAYER_SCRIPT = "/content-scripts/recording-ui.js"
 
@@ -187,6 +191,18 @@ export default defineBackground(() => {
     newId,
   }
 
+  const cameraGrants = createCameraGrants({
+    store: {
+      get: async () => ((await browser.storage.session.get(CAMERA_GRANT_KEY))[CAMERA_GRANT_KEY] as CameraGrant | undefined) ?? null,
+      set: (grant) => (grant ? browser.storage.session.set({ [CAMERA_GRANT_KEY]: grant }) : browser.storage.session.remove(CAMERA_GRANT_KEY)),
+    },
+    newToken: () => crypto.randomUUID(),
+    setTimer: (run, ms) => {
+      const id = setTimeout(run, ms)
+      return () => clearTimeout(id)
+    },
+  })
+
   /** Chrome and Opera record a tab through an offscreen document; Firefox records in a window of its own. */
   const tabRecorder = hasTabRecorder(browser)
 
@@ -269,6 +285,17 @@ export default defineBackground(() => {
       const session = (await browserRecordingState.get())?.draftId ?? ""
       await toPage(tabId, { type: "bugberry:ui-recording", on, session }).catch(() => {})
     },
+    showCamera: async (tabId, camera) => {
+      const { token, shape } = await cameraGrants.open(tabId, camera)
+      const ready = cameraGrants.waitReady(token, CAMERA_READY_MS)
+      // A page without a page layer (or that can't show the bubble) has nothing to wait for.
+      await toPage(tabId, { type: "bugberry:ui-camera", on: true, token, shape }).catch(() => cameraGrants.fail(token, tabId))
+      return { ready: ready.then(() => {}) }
+    },
+    hideCamera: async (tabId) => {
+      await cameraGrants.close()
+      await toPage(tabId, { type: "bugberry:ui-camera", on: false }).catch(() => {})
+    },
     openReview,
     author,
     micUnavailable: async () => void (await capturePrefsStorage.set({ mic: false })),
@@ -315,7 +342,16 @@ export default defineBackground(() => {
   /** Without options (the shortcut) the popup's stored choices apply. */
   const record = async (tab: ActiveTab | null, options?: RecordOptions): Promise<CaptureResult> => {
     if (!tab) return { ok: false, error: "No active tab" }
-    const picked = options ? { ...options, recordSource: options.source, micDeviceId: options.micDeviceId ?? null } : await capturePrefsStorage.get()
+    const picked = options
+      ? {
+          ...options,
+          recordSource: options.source,
+          micDeviceId: options.micDeviceId ?? null,
+          camera: Boolean(options.camera),
+          cameraDeviceId: options.camera?.deviceId ?? null,
+          cameraShape: options.camera?.shape ?? "circle",
+        }
+      : await capturePrefsStorage.get()
     const chosen = recordOptionsFor(picked, tabRecorder)
     return flagFailure(tab.id, await recordings.start(tab, { ...chosen, maxBytes: await recordingBudget() }))
   }
@@ -476,10 +512,13 @@ export default defineBackground(() => {
     // The page layer asks on every page load whether its tab is being recorded.
     if (isUiStateRequest(message)) {
       return reply(
-        browserRecordingState.get().then((state) =>
-          state && state.tabId === sender.tab?.id ? { recording: true, session: state.draftId } : { recording: false },
-        ),
+        Promise.all([browserRecordingState.get(), cameraGrants.forTab(sender.tab?.id)]).then(([state, camera]) => uiStateReply(state, camera, sender.tab?.id)),
       )
+    }
+    // The camera bubble, by its grant's token: only from inside the granted tab (sites can embed the page).
+    if (isCameraTicketRequest(message)) {
+      if (!fromExtensionPage(sender, browser.runtime.id, extensionOrigin)) return undefined
+      return reply(cameraTicketReply(cameraGrants, message, sender.tab?.id))
     }
     // Only the extension's own pages drive a recording: the review from anywhere, the bar and the drawing
     // layer only from inside the recorded tab (another site can embed those pages, but not in that tab).
@@ -513,8 +552,8 @@ export default defineBackground(() => {
             await openPrompt({ page: ticket.page, ...(ticket.server ? { server: ticket.server } : {}) }, null)
             return { ok: true }
           }
-          // Back where they asked from: the popup shows the microphone on.
-          if (ticket.page === "microphone") await browser.action.openPopup().catch(() => {})
+          // Back where they asked from: the popup shows the microphone (or camera) on.
+          if (ticket.page === "microphone" || ticket.page === "camera") await browser.action.openPopup().catch(() => {})
           return { ok: true }
         }),
       )

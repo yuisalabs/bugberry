@@ -4,6 +4,7 @@ import { useEffect } from "react"
 import { NotificationBell } from "../components/NotificationBell"
 import { CopyLinkButton } from "../components/report/CopyLinkButton"
 import { MoreMenu } from "../components/report/MoreMenu"
+import { TrackerButton } from "../components/report/TrackerButton"
 import { ReportFields } from "../components/report/ReportFields"
 import { ReportHeader } from "../components/report/ReportHeader"
 import { ReportTitle } from "../components/report/ReportTitle"
@@ -87,7 +88,9 @@ export function ReportPage() {
       report={report.data}
       header={
         <ReportHeader back={backLink(report.data, projects.data ?? [], reportsFrom)} leading={<NotificationBell placement="bottom start" />}>
-          <span className="hidden md:inline-flex">
+          {/* On phones both live elsewhere: Copy link in the bottom bar, trackers in the ⋯ sheet. */}
+          <span className="hidden gap-2 md:inline-flex">
+            <TrackerButton report={report.data} />
             <CopyLinkButton report={report.data} />
           </span>
           <MoreMenu report={report.data} />

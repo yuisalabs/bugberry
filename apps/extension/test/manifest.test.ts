@@ -50,14 +50,17 @@ describe("manifest pages and permissions", () => {
   test("the page layer's frames are web accessible, and no permission was added", () => {
     expect(MANIFEST_PERMISSIONS).toEqual(["activeTab", "scripting", "storage", "tabs", "tabCapture", "offscreen"])
     expect(WEB_ACCESSIBLE_RESOURCES).toEqual([
-      { resources: ["recorder-bar.html", "draw.html", "review.html", "microphone.html", "confirm-server.html", "options.html"], matches: ["<all_urls>"] },
+      {
+        resources: ["recorder-bar.html", "draw.html", "review.html", "microphone.html", "confirm-server.html", "options.html", "camera-bubble.html", "camera.html"],
+        matches: ["<all_urls>"],
+      },
     ])
   })
 })
 
 describe("manifestFor", () => {
   const chrome = {
-    name: "BugBerry",
+    name: "BugBerry: Stop describing bugs. Show them.",
     description: "Report bugs with a screenshot or recording, plus console, network and the steps that led there.",
     permissions: MANIFEST_PERMISSIONS,
     host_permissions: ["<all_urls>"],

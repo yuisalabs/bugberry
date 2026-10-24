@@ -10,6 +10,8 @@ import {
   RiMicOffLine,
   RiPictureInPictureLine,
   RiTimerLine,
+  RiVideoOffLine,
+  RiVideoOnLine,
   RiVolumeUpLine,
 } from "@remixicon/react"
 import { type ReactNode, type RefObject, useSyncExternalStore } from "react"
@@ -118,6 +120,8 @@ export function CaptureControls(props: {
   /** The picker, drawn above the chips. */
   picker?: ReactNode
   chipRef?: RefObject<HTMLButtonElement | null>
+  /** The Camera chip, only for a tab recording; its label is the chosen camera's name, null while it is off. */
+  camera?: { short: string | null; open: boolean; onChip(): void; chipRef: RefObject<HTMLButtonElement | null> }
 }) {
   const { choice, prefs } = props
   const copy = captureCopy(choice, props.micShort, true)
@@ -139,6 +143,18 @@ export function CaptureControls(props: {
             {props.micShort !== null && <LevelBars level={props.level} />}
             {props.micOpen ? <RiArrowUpSLine size={16} aria-hidden /> : <RiArrowDownSLine size={16} aria-hidden />}
           </AriaButton>
+          {props.camera && (
+            <AriaButton
+              ref={props.camera.chipRef}
+              aria-expanded={props.camera.open}
+              onPress={props.camera.onChip}
+              className={`${chip(props.camera.short !== null)} ${props.camera.open ? "ring-[1.5px] ring-primary" : ""}`}
+            >
+              {props.camera.short !== null ? <RiVideoOnLine size={16} aria-hidden /> : <RiVideoOffLine size={16} aria-hidden />}
+              <span className={`max-w-[120px] truncate ${props.camera.short !== null ? "" : "text-foreground/80"}`}>{props.camera.short ?? "Camera off"}</span>
+              {props.camera.open ? <RiArrowUpSLine size={16} aria-hidden /> : <RiArrowDownSLine size={16} aria-hidden />}
+            </AriaButton>
+          )}
           <ToggleButton isSelected={prefs.countdown} onChange={(on) => props.onPrefs({ countdown: on })} className={chip(prefs.countdown)}>
             <RiTimerLine size={16} aria-hidden />
             {choice.source === "screen" && props.tabRecorder ? "3s" : "3s countdown"}

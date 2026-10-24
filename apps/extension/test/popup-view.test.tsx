@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test"
-import { act, fireEvent, render, screen } from "@testing-library/react"
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { micMeterOn, PopupView, type PopupViewProps } from "../entrypoints/popup/PopupView"
 import { DEFAULT_CAPTURE_PREFS } from "../lib/capture-prefs"
 import type { ReportDraft } from "../lib/types"
@@ -26,6 +26,9 @@ function view(overrides: Partial<PopupViewProps> = {}) {
     onMicChoose: mock(),
     onMicAllow: mock(),
     onMicPicker: mock(),
+    camera: { access: "granted", devices: [{ id: "cam1", name: "FaceTime HD" }] },
+    onCameraChoose: mock(),
+    onCameraAllow: mock(),
     onScreenshot: mock(),
     onRecord: mock(),
     onPause: mock(),
@@ -442,4 +445,121 @@ test("the level bars follow the meter without the popup re-rendering", () => {
     for (const listener of listeners) listener()
   })
   expect(lit()).toBe(4)
+})
+
+describe("camera picker", () => {
+  test("the Camera chip shows only for a tab", () => {
+    view({ prefs: record("tab") })
+    expect(button(/Camera off/)).toBeTruthy()
+    cleanup()
+    view({ prefs: record("screen") })
+    expect(screen.queryByRole("button", { name: /Camera/ })).toBeNull()
+    cleanup()
+    view({ prefs: record("tab"), tabRecorder: false })
+    expect(screen.queryByRole("button", { name: /Camera/ })).toBeNull()
+  })
+
+  test("picking a camera, and No camera", () => {
+    const props = view({ prefs: record("tab") })
+    fireEvent.click(button(/Camera off/))
+    fireEvent.click(radio(/FaceTime HD/))
+    expect(props.onCameraChoose).toHaveBeenCalledWith("cam1")
+    expect(screen.queryByRole("dialog")).toBeNull()
+  })
+
+  test("No camera turns it off", () => {
+    const props = view({ prefs: { ...record("tab"), camera: true, cameraDeviceId: "cam1" } })
+    fireEvent.click(button(/FaceTime HD/))
+    fireEvent.click(radio(/No camera/))
+    expect(props.onCameraChoose).toHaveBeenCalledWith(null)
+  })
+
+  test("the shape is chosen while the camera is on", () => {
+    const props = view({ prefs: { ...record("tab"), camera: true, cameraDeviceId: "cam1" } })
+    fireEvent.click(button(/FaceTime HD/))
+    expect(radio("Circle").checked).toBe(true)
+    fireEvent.click(radio("Rectangle"))
+    expect(props.onPrefs).toHaveBeenCalledWith({ cameraShape: "rectangle" })
+    cleanup()
+    view({ prefs: record("tab") })
+    fireEvent.click(button(/Camera off/))
+    expect(screen.queryByRole("radiogroup", { name: "Shape" })).toBeNull()
+  })
+
+  test("with no camera chosen, or one that is gone, the chip says Default camera: that is the one the bubble opens", () => {
+    view({ prefs: { ...record("tab"), camera: true, cameraDeviceId: "gone" } })
+    expect(button(/Default camera/)).toBeTruthy()
+    cleanup()
+    view({ prefs: { ...record("tab"), camera: true, cameraDeviceId: null } })
+    fireEvent.click(button(/Default camera/))
+    // On, but none of the listed cameras is picked; the shape can still be chosen.
+    expect(radio(/FaceTime HD/).checked).toBe(false)
+    expect(radio(/No camera/).checked).toBe(false)
+    expect(screen.getByRole("radiogroup", { name: "Shape" })).toBeTruthy()
+  })
+
+  test("before access, the picker offers to allow it", () => {
+    const props = view({ prefs: record("tab"), camera: { access: "prompt", devices: [] } })
+    fireEvent.click(button(/Camera off/))
+    expect(screen.queryByRole("radio", { name: /FaceTime HD/ })).toBeNull()
+    fireEvent.click(button(/Allow camera access/))
+    expect(props.onCameraAllow).toHaveBeenCalledTimes(1)
+  })
+
+  test("access blocked: an instruction instead of Allow", () => {
+    view({ prefs: record("tab"), camera: { access: "denied", devices: [] } })
+    fireEvent.click(button(/Camera off/))
+    expect(screen.getByText("Camera is blocked. Allow it for BugBerry in Chrome's site settings.")).toBeTruthy()
+    expect(screen.queryByRole("button", { name: /Allow camera access/ })).toBeNull()
+  })
+
+  test("opening one picker closes the other", () => {
+    view({ prefs: record("tab") })
+    fireEvent.click(button(/Mic off/))
+    fireEvent.click(button(/Camera off/))
+    expect(screen.getAllByRole("dialog")).toHaveLength(1)
+    expect(screen.getByRole("dialog", { name: "Camera" })).toBeTruthy()
+  })
+})
+
+describe("pickers with many devices", () => {
+  const many = Array.from({ length: 8 }, (_, index) => ({ id: `cam${index}`, name: `ByteCast VirtualCamera${index}` }))
+  const mics = Array.from({ length: 8 }, (_, index) => ({ id: `m${index}`, name: `Mic ${index}`, detail: "", short: `Mic ${index}`, kind: "other" as const }))
+
+  /** The chips sit this far from the popup's top: the picker opens upwards into that room. */
+  function chipsAt(top: number) {
+    const real = HTMLElement.prototype.getBoundingClientRect
+    HTMLElement.prototype.getBoundingClientRect = function () {
+      return { top, bottom: top + 32, left: 0, right: 100, width: 100, height: 32, x: 0, y: top, toJSON: () => ({}) } as DOMRect
+    }
+    return () => {
+      HTMLElement.prototype.getBoundingClientRect = real
+    }
+  }
+
+  test("the camera picker fits above its chip, and its cameras scroll", () => {
+    const restore = chipsAt(300)
+    try {
+      view({ prefs: record("tab"), camera: { access: "granted", devices: many } })
+      fireEvent.click(button(/Camera off/))
+      const dialog = screen.getByRole("dialog", { name: "Camera" })
+      expect(dialog.style.maxHeight).toBe("288px")
+      expect(screen.getByRole("radiogroup", { name: "Camera" }).parentElement?.className).toContain("overflow-y-auto")
+    } finally {
+      restore()
+    }
+  })
+
+  test("the microphone picker too", () => {
+    const restore = chipsAt(300)
+    try {
+      view({ prefs: record("tab"), mic: { access: "granted", devices: mics, defaultId: "m0", level: still(0) } })
+      fireEvent.click(button(/Mic off/))
+      const dialog = screen.getByRole("dialog", { name: "Microphone" })
+      expect(dialog.style.maxHeight).toBe("288px")
+      expect(screen.getByRole("radiogroup", { name: "Microphone" }).parentElement?.className).toContain("overflow-y-auto")
+    } finally {
+      restore()
+    }
+  })
 })

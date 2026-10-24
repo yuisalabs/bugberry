@@ -24,3 +24,15 @@ export function copiedDescription(visibility: Visibility, internalDomain: string
   if (visibility === "internal") return `Anyone at ${internalDomain ? `@${internalDomain}` : "your company"} can open it`
   return "Anyone with the link can open it"
 }
+
+/**
+ * What the Share popover shows while a change is on its way: the access being saved at once (the server
+ * answers a moment later), with nothing faded or locked, so the choice doesn't jump back and forth. Only a
+ * link reset holds the buttons; a failed save shows the report's own access again.
+ */
+export function sharePopoverState(
+  saved: Visibility,
+  change: { saving: Visibility | undefined; resetting: boolean },
+): { visibility: Visibility; busy: boolean } {
+  return { visibility: change.saving ?? saved, busy: change.resetting }
+}

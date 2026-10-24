@@ -76,7 +76,7 @@ export function UrlPatternsForm({
             </div>
           ))}
           {rows.length < MAX_PATTERNS && (
-            <Button intent="plain" size="sm" className="self-start text-primary" onPress={() => setRows((current) => [...current, ""])}>
+            <Button intent="plain" size="sm" className="self-start [--btn-foreground:var(--color-primary)] [--btn-icon:var(--color-primary)]" onPress={() => setRows((current) => [...current, ""])}>
               <RiAddLine aria-hidden />
               Add another pattern
             </Button>

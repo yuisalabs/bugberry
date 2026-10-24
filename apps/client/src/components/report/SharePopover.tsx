@@ -148,7 +148,7 @@ export function SharePopoverView({
             </Button>
           )}
           {state === "copied" ? (
-            <Button size="sm" className="ml-auto bg-success text-success-foreground hover:bg-success">
+            <Button size="sm" intent="success" className="ml-auto hover:bg-success">
               <RiCheckLine aria-hidden className="size-4" />
               Copied
             </Button>

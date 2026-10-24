@@ -3,8 +3,13 @@ import { createHash } from "node:crypto"
 /** Only permissions without an install warning may ever be added: a new warning disables the extension on update. */
 export const MANIFEST_PERMISSIONS = ["activeTab", "scripting", "storage", "tabs", "tabCapture", "offscreen"]
 
-/** The extension pages the page layer shows in iframes (Recording Bar, drawing layer, review modal). */
-export const WEB_ACCESSIBLE_RESOURCES = [{ resources: ["recorder-bar.html", "draw.html", "review.html", "microphone.html", "confirm-server.html", "options.html"], matches: ["<all_urls>"] }]
+/** The extension pages the page layer shows in iframes (Recording Bar, drawing layer, review modal, camera bubble, prompts). */
+export const WEB_ACCESSIBLE_RESOURCES = [
+  {
+    resources: ["recorder-bar.html", "draw.html", "review.html", "microphone.html", "confirm-server.html", "options.html", "camera-bubble.html", "camera.html"],
+    matches: ["<all_urls>"],
+  },
+]
 
 /** Keyboard shortcuts. Chrome allows four suggested keys; `_execute_action` opens the toolbar popup. */
 export const MANIFEST_COMMANDS = {
