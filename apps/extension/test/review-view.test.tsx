@@ -423,3 +423,11 @@ describe("trimming a recording", () => {
     expect((props.onSend as ReturnType<typeof mock>).mock.calls.at(-1)?.[2]).toEqual({ fullVideo: true })
   })
 })
+
+describe("closing while the video is prepared", () => {
+  test("Close asks whether to leave the video being prepared", () => {
+    view({ status: "sending", preparing: 0.3 })
+    fireEvent.click(button("Close"))
+    expect(screen.getByText("The video is still being prepared. Leave anyway?")).toBeTruthy()
+  })
+})

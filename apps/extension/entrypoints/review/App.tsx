@@ -12,20 +12,25 @@ import { limitsFor } from "../../lib/limits"
 import { currentCoordinates, locationForSend, toggleCity } from "../../lib/location"
 import type { ReviewAgainRequest, ReviewAnotherRequest } from "../../lib/messages"
 import { isSignedOut } from "../../lib/popup"
-import { reviewMarkers } from "../../lib/review-data"
-import { draftKept, draftWithNotes } from "../../lib/review-draft"
+import { reviewMarkers, type TrimRange, trimPayload } from "../../lib/review-data"
+import { draftKept, draftWithNotes, draftWithTrim, trimLocked } from "../../lib/review-draft"
 import { createReviewLimits, type LimitNote, NO_LIMIT_NOTE, openDashboardFor } from "../../lib/review-limits"
 import { signInUrl } from "../../lib/session"
 import { loadSettings, type Settings } from "../../lib/settings"
 import { makeThumbnail } from "../../lib/thumbnail"
 import { browserThumbnailDeps } from "../../lib/thumbnail-browser"
+import { type PreparedMedia, prepareVideo } from "../../lib/trim-send"
+import type { trimVideo as TrimVideo } from "../../lib/trim-video"
 import type { ReportDraft } from "../../lib/types"
 import { LOCKED, putFile, type ReportForm, submitDraft, type UploadProgress } from "../../lib/upload"
+import { videoFrames } from "../../lib/video-frames"
 import { AnnotationCanvas, type AnnotationCanvasHandle } from "./AnnotationCanvas"
 import { type Assignable, ReviewView, type ReviewStatus, type SentDetails, type TrackerChoice } from "./ReviewView"
 
 const store = createIndexedDbDraftStore()
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+/** The encoder (mediabunny) loads only when a trimmed recording is sent: most reviews never need it. */
+const trimVideo: typeof TrimVideo = async (...args) => (await import("../../lib/trim-video")).trimVideo(...args)
 /** Web Locks are shared by every extension page and released when a page closes. */
 function lock<T>(name: string, work: () => Promise<T>): Promise<T | typeof LOCKED> {
   // request() resolves with the callback's settled value; the DOM types do not unwrap the promise.
@@ -81,6 +86,14 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
   const [sentDetails, setSentDetails] = useState<SentDetails | null>(null)
   const [trackers, setTrackers] = useState<TrackerChoice[] | null>(null)
   const [trackerNote, setTrackerNote] = useState<string | null>(null)
+  // Recordings: the part that is sent, whether its Trim strip is open, the strip's frames, and how far the
+  // trimmed video's encoding is while sending (null when it isn't encoding).
+  const [trim, setTrim] = useState<TrimRange | null>(null)
+  const [trimming, setTrimming] = useState(false)
+  const [frames, setFrames] = useState<string[] | null>(null)
+  const [preparing, setPreparing] = useState<number | null>(null)
+  const [locked, setLocked] = useState(false)
+  const video = useRef<HTMLVideoElement>(null)
 
   /** The people of a workspace, for Assignee; none when the server can't say. */
   const loadMembers = useCallback(async (workspaceId: string | null) => {
@@ -107,6 +120,8 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
         if (!state || cancelled) return
         if (state.kind === "error") return setError(state.message)
         setLoaded(state)
+        if (state.draft.captureType === "video") setTrim(state.draft.trim ?? null)
+        setLocked(trimLocked(state.draft))
         setProjects(state.projects)
         void loadMembers(state.workspaceId)
         if (state.draft.status === "failed") setStatus({ failed: state.draft.error ?? "Upload failed" })
@@ -254,7 +269,29 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
     await includeCityStorage.set(result.includeCity)
   }
 
-  const send = async (form: ReportForm, notes: RecordingNote[]) => {
+  // Leaving while the trimmed video is being made loses that work: the browser asks first.
+  useEffect(() => {
+    if (preparing === null) return
+    const ask = (event: BeforeUnloadEvent) => event.preventDefault()
+    window.addEventListener("beforeunload", ask)
+    return () => window.removeEventListener("beforeunload", ask)
+  }, [preparing])
+
+  const changeTrim = async (range: TrimRange | null) => {
+    setTrimming(false)
+    setTrim(range)
+    const current = await store.get(draftId)
+    if (current) await store.put(draftWithTrim(current, range))
+  }
+
+  const openTrim = () => {
+    setTrimming(true)
+    if (frames || loaded?.draft.captureType !== "video" || !loaded.draft.video) return
+    setFrames([])
+    void videoFrames(loaded.draft.video, loaded.draft.durationMs ?? 0, 10).then(setFrames)
+  }
+
+  const send = async (form: ReportForm, notes: RecordingNote[], options: { fullVideo?: boolean } = {}) => {
     const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
     if (!settings || !loaded) return
     setStatus("sending")
@@ -267,9 +304,24 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       setProgress(next)
     }
     try {
-      const current = (await store.get(draftId)) ?? loaded.draft
-      await store.put(draftWithNotes(current, notes))
-      let media: Blob | null = current.captureType === "video" ? current.video : null
+      const stored = (await store.get(draftId)) ?? loaded.draft
+      // From the first send on, the trim stays as sent: part of the full video may reach the server.
+      const current = draftWithNotes(stored.captureType === "video" ? { ...stored, sendStarted: true } : stored, notes)
+      await store.put(current)
+      if (current.captureType === "video") setLocked(true)
+      let prepared: PreparedMedia | null = null
+      if (current.captureType === "video" && !options.fullVideo) {
+        setPreparing(0)
+        try {
+          prepared = await prepareVideo(current, { store, trimVideo }, setPreparing)
+        } catch (cause) {
+          setStatus({ trimFailed: cause instanceof Error ? cause.message : String(cause) })
+          return
+        } finally {
+          setPreparing(null)
+        }
+      }
+      let media: Blob | null = prepared ? prepared.media : current.captureType === "video" ? current.video : null
       if (current.captureType === "screenshot" && canvas.current) {
         // Saved first, so a draft reopened after a failure still carries its blur.
         await saveAnnotations(store, draftId, canvas.current.getShapes())
@@ -278,7 +330,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       if (!media) throw new Error("The report's media isn't available")
       const thumbnail = await makeThumbnail(
         media,
-        { captureType: current.captureType, durationMs: current.captureType === "video" ? current.durationMs : null },
+        { captureType: current.captureType, durationMs: prepared ? prepared.durationMs : current.captureType === "video" ? current.durationMs : null },
         browserThumbnailDeps,
       )
       // Over someone else's page the city can't be asked for, so only the tab version sends one.
@@ -289,7 +341,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
         media,
         { api: apiOf(settings), store, putFile: (target, body, onSent) => putFile(target, body, onSent), sleep, lock, serverUrl: settings.serverUrl },
         thumbnail,
-        { location: asked.location, onProgress },
+        { location: asked.location, onProgress, ...(prepared ? { payload: prepared.payload, durationMs: prepared.durationMs } : {}) },
       )
       if (form.workspaceId) await lastWorkspaceStorage.set(form.workspaceId)
       // The report exists by now: a refused assignment leaves it unassigned rather than unsent.
@@ -308,6 +360,9 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
   const { draft } = loaded
   const sent = typeof status === "object" && "sent" in status ? status.sent : null
   const startedAt = draft.captureType === "video" ? (draft.recordingStartedAt ?? draft.debuggerPayload?.recordingStartedAt ?? 0) : 0
+  // Markers stay where they are in the uncut video; those in the parts cut off go.
+  const payload = draft.debuggerPayload
+  const markerEvents = payload && trim ? trimPayload(payload, startedAt, trim).events : (payload?.events ?? [])
 
   return (
     <ReviewView
@@ -318,7 +373,10 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
           <VideoPlayer
             src={loaded.videoUrl}
             durationMs={draft.durationMs}
-            markers={reviewMarkers(draft.debuggerPayload?.events ?? [], startedAt)}
+            markers={reviewMarkers(markerEvents, startedAt)}
+            videoRef={video}
+            // While the strip is open, its edges may show moments outside the current range.
+            range={trimming ? null : trim}
             className="w-full"
           />
         ) : loaded.image ? (
@@ -334,9 +392,18 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       name={loaded.name}
       status={status}
       uploadProgress={status === "sending" ? progress : null}
+      trim={trim}
+      trimLocked={locked}
+      trimFrames={frames ?? []}
+      onTrimOpen={openTrim}
+      onTrimChange={(range) => void changeTrim(range)}
+      onTrimPreview={(ms) => {
+        if (video.current) video.current.currentTime = ms / 1000
+      }}
+      preparing={preparing}
       includeCity={includeCity}
       cityNote={cityNote}
-      onSend={(form, notes) => void send(form, notes)}
+      onSend={(form, notes, options) => void send(form, notes, options)}
       onDiscard={async () => {
         await store.delete(draftId)
         close()

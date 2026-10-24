@@ -508,7 +508,9 @@ export function ReviewView(props: ReviewViewProps) {
           <DialogHeader>
             <DialogTitle>
               {asked === "close"
-                ? "Keep this as a draft?"
+                ? props.preparing != null
+                  ? "The video is still being prepared. Leave anyway?"
+                  : "Keep this as a draft?"
                 : asked === "again"
                   ? isVideo
                     ? "Record again?"
