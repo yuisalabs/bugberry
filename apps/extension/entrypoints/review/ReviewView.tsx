@@ -243,7 +243,7 @@ export function ReviewView(props: ReviewViewProps) {
               </Button>
               <img src="/assets/bugberry_logo_small.webp" alt="BugBerry" className="h-7 w-auto object-contain" />
             </span>
-            <span className="flex items-center gap-2 rounded-full px-3 py-1.5 text-sm ring-1 ring-border">
+            <span className="flex items-center gap-2 rounded-full px-1.5 py-1.5 text-sm ring-1 ring-border">
               <span className="grid size-6 place-items-center rounded-full bg-primary/10 text-primary">
                 <KindIcon size={14} aria-hidden />
               </span>
