@@ -8,7 +8,7 @@ import {
   isRecordStatusRequest,
   isBarRequest,
   isReviewAgainRequest,
-  isScreenshotRequest, isRecorderReadyNotice, isPopupRecordingRequest, isCameraTicketRequest, isPageUiMessage } from "../lib/messages"
+  isScreenshotRequest, isRecorderReadyNotice, isPopupRecordingRequest, isCameraTicketRequest, isPageUiMessage, isPopupPromptRequest } from "../lib/messages"
 
 describe("messages", () => {
   test("background requests are recognised by type and shape", () => {
@@ -46,6 +46,11 @@ describe("messages", () => {
     expect(isPageUiMessage({ type: "bugberry:ui-camera", on: false })).toBe(true)
     expect(isPageUiMessage({ type: "bugberry:ui-camera", on: true, token: 1, shape: "circle" })).toBe(false)
     expect(isPageUiMessage({ type: "bugberry:ui-camera", on: true, token: "t", shape: "oval" })).toBe(false)
+  })
+
+  test("the popup may ask for the camera over the page, like the microphone", () => {
+    expect(isPopupPromptRequest({ type: "bugberry:popup-prompt", page: "camera", tabId: 1 })).toBe(true)
+    expect(isPageUiMessage({ type: "bugberry:ui-prompt", page: "camera", token: "t" })).toBe(true)
   })
 
   test("a page flush carries its document id, events and incomplete names", () => {

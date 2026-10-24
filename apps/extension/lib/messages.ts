@@ -229,9 +229,9 @@ export type PageUiMessage =
   | { type: "bugberry:ui-camera"; on: false }
 
 /** The extension pages shown over the page the reporter is on: questions, and the settings. */
-export type PromptPage = "microphone" | "confirm-server" | "options"
+export type PromptPage = "microphone" | "camera" | "confirm-server" | "options"
 
-const PROMPT_PAGES: readonly unknown[] = ["microphone", "confirm-server", "options"]
+const PROMPT_PAGES: readonly unknown[] = ["microphone", "camera", "confirm-server", "options"]
 
 export function isPageUiMessage(message: unknown): message is PageUiMessage {
   const type = typeOf(message)
@@ -331,19 +331,19 @@ export function isReviewAnotherRequest(message: unknown): message is ReviewAnoth
 }
 
 /**
- * The popup → background: show the microphone prompt, which the popup can't show itself, or the settings
- * over the active tab, so the reporter stays on their page.
+ * The popup → background: show the microphone or camera prompt, which the popup can't show itself, or the
+ * settings over the active tab, so the reporter stays on their page.
  */
 export interface PopupPromptRequest {
   type: "bugberry:popup-prompt"
-  page: "microphone" | "options"
+  page: "microphone" | "camera" | "options"
   tabId: number | null
 }
 
 export function isPopupPromptRequest(message: unknown): message is PopupPromptRequest {
   const tabId = field(message, "tabId")
   const page = field(message, "page")
-  return typeOf(message) === "bugberry:popup-prompt" && (page === "microphone" || page === "options") && (tabId === null || typeof tabId === "number")
+  return typeOf(message) === "bugberry:popup-prompt" && (page === "microphone" || page === "camera" || page === "options") && (tabId === null || typeof tabId === "number")
 }
 
 /** The popup → background: reopen a draft's review over the active tab. */

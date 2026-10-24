@@ -51,7 +51,7 @@ describe("manifest pages and permissions", () => {
     expect(MANIFEST_PERMISSIONS).toEqual(["activeTab", "scripting", "storage", "tabs", "tabCapture", "offscreen"])
     expect(WEB_ACCESSIBLE_RESOURCES).toEqual([
       {
-        resources: ["recorder-bar.html", "draw.html", "review.html", "microphone.html", "confirm-server.html", "options.html", "camera-bubble.html"],
+        resources: ["recorder-bar.html", "draw.html", "review.html", "microphone.html", "confirm-server.html", "options.html", "camera-bubble.html", "camera.html"],
         matches: ["<all_urls>"],
       },
     ])

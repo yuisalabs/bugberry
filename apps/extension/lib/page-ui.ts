@@ -307,8 +307,8 @@ export function createPageUi(doc: Document, win: Window, deps: PageUiDeps): Page
     showPrompt(page, token) {
       ui.hidePrompt()
       prompt = frame(doc, deps.extensionUrl(`${page}.html?prompt=${encodeURIComponent(token)}&embedded=1`), "position:fixed;inset:0;width:100vw;height:100vh")
-      // The microphone prompt asks for it from inside this frame.
-      prompt.setAttribute("allow", "microphone")
+      // The microphone and camera prompts ask for them from inside this frame.
+      prompt.setAttribute("allow", page === "camera" ? "camera" : "microphone")
       ensureRoot().append(prompt)
     },
 

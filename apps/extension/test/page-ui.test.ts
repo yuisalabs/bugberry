@@ -114,6 +114,12 @@ describe("the recording layer", () => {
     post({ bugberry: "prompt-close" })
     expect(root()).toBeNull()
   })
+
+  test("the camera prompt may ask for the camera", () => {
+    const { ui, root } = setup()
+    ui.showPrompt("camera", "t1")
+    expect(root()?.querySelector("iframe")?.getAttribute("allow")).toBe("camera")
+  })
 })
 
 describe("the camera bubble", () => {

@@ -557,8 +557,8 @@ export default defineBackground(() => {
             await openPrompt({ page: ticket.page, ...(ticket.server ? { server: ticket.server } : {}) }, null)
             return { ok: true }
           }
-          // Back where they asked from: the popup shows the microphone on.
-          if (ticket.page === "microphone") await browser.action.openPopup().catch(() => {})
+          // Back where they asked from: the popup shows the microphone (or camera) on.
+          if (ticket.page === "microphone" || ticket.page === "camera") await browser.action.openPopup().catch(() => {})
           return { ok: true }
         }),
       )
