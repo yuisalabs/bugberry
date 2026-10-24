@@ -45,7 +45,7 @@ import { createTakeAgain } from "../lib/take-again"
 import { isBugBerryServer } from "../lib/session"
 import { cropBox, pickArea } from "../lib/select-area"
 import { loadSettings } from "../lib/settings"
-import { DEFAULT_MAX_UPLOAD_MB, recordingByteBudget, uploadLimitMb, workspaceRecordingCap } from "../lib/upload-limit"
+import { clientConfigInTime, DEFAULT_MAX_UPLOAD_MB, recordingByteBudget, recordingLengthMs, uploadLimitMb, workspaceLimitsInTime } from "../lib/upload-limit"
 import { limitsFor } from "../lib/limits"
 import { pickEditorWorkspace } from "../lib/report-form"
 
@@ -322,21 +322,24 @@ export default defineBackground(() => {
 
   const recordings = createRecordingController(recordingDeps)
 
-  /** The server's upload limit, so the recording stops before the report would be refused for its size. */
-  const recordingBudget = async () => {
+  /**
+   * Where a recording stops by itself: before the server's upload limit, and at the longest recording the
+   * workspace the review will pick takes. Signed out, that workspace can't be read (401), so the server's account
+   * length from `/client-config` applies.
+   */
+  const recordingCaps = async (): Promise<{ maxBytes: number; maxMs: number }> => {
     const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
-    if (!settings) return recordingByteBudget(DEFAULT_MAX_UPLOAD_MB)
+    if (!settings) return { maxBytes: recordingByteBudget(DEFAULT_MAX_UPLOAD_MB), maxMs: recordingLengthMs(null, null) }
     const api = createBugberryApi(settings)
-    const [maxUploadMb, cap] = await Promise.all([
-      uploadLimitMb(() => api.clientConfig()),
-      // Under ACCOUNT_LIMITS the workspace the review will pick may take less: the recording stops before that.
-      workspaceRecordingCap(async () => {
+    const [clientConfig, limits] = await Promise.all([
+      clientConfigInTime(() => api.clientConfig()),
+      workspaceLimitsInTime(async () => {
         const [workspaces, me, lastUsed] = await Promise.all([api.listWorkspaces(), api.me(), lastWorkspaceStorage.get()])
         const workspaceId = pickEditorWorkspace(workspaces, (me as { lastWorkspaceId?: string | null }).lastWorkspaceId, lastUsed)
         return workspaceId ? limitsFor(api, workspaceId) : null
       }),
     ])
-    return Math.min(recordingByteBudget(maxUploadMb), cap ?? Number.POSITIVE_INFINITY)
+    return { maxBytes: recordingByteBudget(uploadLimitMb(clientConfig)), maxMs: recordingLengthMs(limits, clientConfig) }
   }
 
   /** Without options (the shortcut) the popup's stored choices apply. */
@@ -353,7 +356,7 @@ export default defineBackground(() => {
         }
       : await capturePrefsStorage.get()
     const chosen = recordOptionsFor(picked, tabRecorder)
-    return flagFailure(tab.id, await recordings.start(tab, { ...chosen, maxBytes: await recordingBudget() }))
+    return flagFailure(tab.id, await recordings.start(tab, { ...chosen, ...(await recordingCaps()) }))
   }
 
   /** A stop from the shortcut or the time limit has no popup either, so its failure goes on the badge. */

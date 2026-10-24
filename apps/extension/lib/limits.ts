@@ -1,15 +1,14 @@
-import { sizeLabel } from "@bugberry/shared"
+import { clockLabel, tooLong } from "@bugberry/shared"
 import { ApiError, type BugberryApi } from "./api"
 import type { ReportDraft } from "./types"
 
 type ServerLimits = Extract<Awaited<ReturnType<BugberryApi["workspaceLimits"]>>, { limited: true }>
-type SizeLimits = Pick<ServerLimits, "storage" | "maxFileBytes">
 
 /**
- * A workspace's usage under the server's ACCOUNT_LIMITS, or `{ limited: false }`. Servers before 0.5.0 limit
- * no sizes, so they send no storage or file size.
+ * A workspace's usage under the server's ACCOUNT_LIMITS, or `{ limited: false }`. Servers before 0.8.0 name no
+ * recording length (0.5.0 to 0.7.x send storage and file sizes instead, which are no longer limits).
  */
-export type WorkspaceLimits = { limited: false } | (Omit<ServerLimits, keyof SizeLimits> & Partial<SizeLimits>)
+export type WorkspaceLimits = { limited: false } | (Omit<ServerLimits, "maxRecordingMs"> & Partial<Pick<ServerLimits, "maxRecordingMs">>)
 export type CaptureKind = "screenshot" | "video"
 
 /**
@@ -35,67 +34,25 @@ export function isFull(limits: WorkspaceLimits | null, kind: CaptureKind): boole
   return count.used >= count.max
 }
 
-/**
- * "Screenshots 3/5 · Recordings 5/5 · 120 MB of 250 MB" (popup), or one kind's "Recordings 5/5 · 120 MB of 250 MB"
- * (review); null without limits.
- */
+/** "Screenshots 3/5 · Recordings 5/5" (popup), or one kind's "Recordings 5/5" (review); null without limits. */
 export function usageLine(limits: WorkspaceLimits | null, kind?: CaptureKind): string | null {
   if (!limits?.limited) return null
   const one = (each: CaptureKind) => {
     const count = countOf(limits, each)
     return `${each === "video" ? "Recordings" : "Screenshots"} ${count.used}/${count.max}`
   }
-  const counts = kind ? one(kind) : `${one("screenshot")} · ${one("video")}`
-  return limits.storage ? `${counts} · ${sizeLabel(limits.storage.used)} of ${sizeLabel(limits.storage.max)}` : counts
+  return kind ? one(kind) : `${one("screenshot")} · ${one("video")}`
 }
 
-/** Below this much room a workspace counts as out of storage: no capture would fit. */
-export const MIN_ROOM_BYTES = 1024 * 1024
-
-/** Bytes the workspace has left; null when its storage isn't limited. */
-export function roomLeft(limits: WorkspaceLimits | null): number | null {
-  if (!limits?.limited || !limits.storage) return null
-  return Math.max(0, limits.storage.max - limits.storage.used)
-}
-
-/**
- * How big a recording into this workspace may grow: 95% of its file limit or of the room left, whichever is
- * smaller, so the logs and the preview still fit. Null without size limits. A workspace out of room isn't
- * capped by it: the popup already warns, and the review says what to do.
- */
-export function recordingCap(limits: WorkspaceLimits | null): number | null {
-  if (!limits?.limited || limits.maxFileBytes === undefined) return null
-  const room = roomLeft(limits)
-  const cap = room !== null && room >= MIN_ROOM_BYTES ? Math.min(limits.maxFileBytes, room) : limits.maxFileBytes
-  return Math.floor(cap * 0.95)
-}
-
-/** Why a report of `bytes` can't go to this workspace: a file over its limit, or more than the room left. */
-export function sizeProblem(limits: WorkspaceLimits | null, bytes: number): "file" | "storage" | null {
-  if (!limits?.limited) return null
-  if (limits.maxFileBytes !== undefined && bytes > limits.maxFileBytes) return "file"
-  if (limits.storage && limits.storage.used + bytes > limits.storage.max) return "storage"
-  return null
-}
-
-/** What to do about a report too big for the workspace, worded like fullWarning. */
-export function sizeWarning(
+/** Why a recording can't go to this workspace: longer than it takes. Null when it fits, or without a length. */
+export function lengthWarning(
   limits: WorkspaceLimits | null,
-  kind: CaptureKind,
-  bytes: number,
+  durationMs: number,
   who: { isAdmin: boolean; hasOtherWorkspaces: boolean },
 ): string | null {
-  const problem = sizeProblem(limits, bytes)
-  if (!problem || !limits?.limited) return null
+  if (!limits?.limited || limits.maxRecordingMs === undefined || !tooLong(durationMs, limits.maxRecordingMs)) return null
   const elsewhere = who.hasOtherWorkspaces ? ", or pick another workspace" : ""
-  if (problem === "file") {
-    const max = sizeLabel(limits.maxFileBytes ?? 0)
-    const again = kind === "video" ? "Record a shorter one" : "Take a smaller one"
-    return `This ${noun(kind, 1)} is ${sizeLabel(bytes)}; this workspace takes files up to ${max}. ${again}${elsewhere}.`
-  }
-  const left = sizeLabel(Math.max(0, (limits.storage?.max ?? 0) - (limits.storage?.used ?? 0)))
-  const action = who.isAdmin ? "Delete a report in the dashboard to make room" : "Ask a workspace admin to delete a report"
-  return `This ${noun(kind, 1)} needs ${sizeLabel(bytes)}, but this workspace has ${left} left. ${action}${elsewhere}.`
+  return `This recording is ${clockLabel(durationMs)}; this workspace takes recordings up to ${clockLabel(limits.maxRecordingMs)}. Trim it or record a shorter one${elsewhere}.`
 }
 
 /** What to do about a full workspace, worded for who is asking: only admins can delete reports. */
@@ -105,14 +62,7 @@ export function fullWarning(
   place: "popup" | "review",
   who: { isAdmin: boolean; hasOtherWorkspaces: boolean },
 ): string | null {
-  if (!limits?.limited) return null
-  if (!isFull(limits, kind)) {
-    const room = roomLeft(limits)
-    if (room === null || room >= MIN_ROOM_BYTES) return null
-    const action = who.isAdmin ? "Delete a report in the dashboard to make room" : "Ask a workspace admin to delete a report"
-    const elsewhere = who.hasOtherWorkspaces ? (place === "popup" ? ", or send to another workspace" : ", or pick another workspace") : ""
-    return `This workspace has no storage left. ${action}${elsewhere}.`
-  }
+  if (!limits?.limited || !isFull(limits, kind)) return null
   const { max } = countOf(limits, kind)
   const fact = place === "popup" ? `This workspace is full for ${noun(kind, 2)}.` : `This workspace already has ${max} ${noun(kind, max)}.`
   const action = who.isAdmin ? "Delete one in the dashboard" : "Ask a workspace admin to delete one"
@@ -129,9 +79,10 @@ export function sendBlocked(
   kind: CaptureKind,
   currentDraft: Pick<ReportDraft, "session" | "form"> | null,
   workspaceId: string | null,
-  bytes = 0,
+  durationMs = 0,
 ): boolean {
-  if (!isFull(limits, kind) && !sizeProblem(limits, bytes)) return false
+  const tooLongHere = kind === "video" && lengthWarning(limits, durationMs, { isAdmin: false, hasOtherWorkspaces: false }) !== null
+  if (!isFull(limits, kind) && !tooLongHere) return false
   return !resuming(currentDraft, workspaceId)
 }
 

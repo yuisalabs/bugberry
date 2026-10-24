@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { ApiError } from "../lib/api"
-import { fullWarning, isFull, limitsFor, recordingCap, sendBlocked, sizeProblem, sizeWarning, usageLine, type WorkspaceLimits } from "../lib/limits"
+import { fullWarning, isFull, lengthWarning, limitsFor, sendBlocked, usageLine, type WorkspaceLimits } from "../lib/limits"
 import type { UploadSessionState } from "../lib/types"
 
 const full: WorkspaceLimits = { limited: true, screenshots: { used: 3, max: 5 }, recordings: { used: 5, max: 5 } }
@@ -82,52 +82,32 @@ describe("sendBlocked", () => {
   })
 })
 
-describe("size limits", () => {
-  const MB = 1024 * 1024
-  const sized = (usedMb: number): WorkspaceLimits => ({
-    limited: true,
-    screenshots: { used: 1, max: 5 },
-    recordings: { used: 1, max: 5 },
-    storage: { used: usedMb * MB, max: 250 * MB },
-    maxFileBytes: 50 * MB,
+describe("recording length", () => {
+  const timed: WorkspaceLimits = { limited: true, screenshots: { used: 1, max: 5 }, recordings: { used: 1, max: 5 }, maxRecordingMs: 120_000 }
+
+  test("usage counts reports only, even when a 0.7.0 server sends its storage", () => {
+    const older = { ...timed, storage: { used: 1, max: 2 }, maxFileBytes: 3 } as WorkspaceLimits
+    expect(usageLine(older)).toBe("Screenshots 1/5 · Recordings 1/5")
+    expect(usageLine(older, "video")).toBe("Recordings 1/5")
   })
 
-  test("usage shows the storage too, when the server sends it", () => {
-    expect(usageLine(sized(120))).toBe("Screenshots 1/5 · Recordings 1/5 · 120 MB of 250 MB")
-    expect(usageLine(sized(120), "video")).toBe("Recordings 1/5 · 120 MB of 250 MB")
-  })
-
-  test("a file over the limit, or more than the room left", () => {
-    expect(sizeProblem(sized(0), 51 * MB)).toBe("file")
-    expect(sizeProblem(sized(230), 30 * MB)).toBe("storage")
-    expect(sizeProblem(sized(200), 50 * MB)).toBeNull()
-    expect(sizeProblem({ limited: false }, 500 * MB)).toBeNull()
-    expect(sizeWarning(sized(0), "video", 62 * MB, admin)).toBe(
-      "This recording is 62 MB; this workspace takes files up to 50 MB. Record a shorter one, or pick another workspace.",
+  test("a recording over the workspace's length, past its 2 s of slack", () => {
+    expect(lengthWarning(timed, 190_000, admin)).toBe(
+      "This recording is 3:10; this workspace takes recordings up to 2:00. Trim it or record a shorter one, or pick another workspace.",
     )
-    expect(sizeWarning(sized(240), "screenshot", 12 * MB, { isAdmin: false, hasOtherWorkspaces: false })).toBe(
-      "This screenshot needs 12 MB, but this workspace has 10 MB left. Ask a workspace admin to delete a report.",
+    expect(lengthWarning(timed, 190_000, { isAdmin: false, hasOtherWorkspaces: false })).toBe(
+      "This recording is 3:10; this workspace takes recordings up to 2:00. Trim it or record a shorter one.",
     )
+    expect(lengthWarning(timed, 122_000, admin)).toBeNull()
+    expect(lengthWarning(full, 190_000, admin)).toBeNull()
+    expect(lengthWarning({ limited: false }, 190_000, admin)).toBeNull()
   })
 
-  test("Create report waits for a capture that doesn't fit, unless it resumes its own upload", () => {
-    expect(sendBlocked(sized(0), "video", null, "w1", 51 * MB)).toBe(true)
-    expect(sendBlocked(sized(0), "video", null, "w1", 10 * MB)).toBe(false)
-  })
-
-  test("a recording stops at 95% of the file limit or of the room left", () => {
-    expect(recordingCap(sized(0))).toBe(Math.floor(50 * MB * 0.95))
-    expect(recordingCap(sized(230))).toBe(Math.floor(20 * MB * 0.95))
-    // Out of room: not capped by it (the popup warns instead).
-    expect(recordingCap(sized(250))).toBe(Math.floor(50 * MB * 0.95))
-    expect(recordingCap(full)).toBeNull()
-    expect(recordingCap({ limited: false })).toBeNull()
-  })
-
-  test("a workspace out of storage warns in the popup like a full one", () => {
-    expect(fullWarning(sized(250), "video", "popup", admin)).toBe(
-      "This workspace has no storage left. Delete a report in the dashboard to make room, or send to another workspace.",
-    )
-    expect(fullWarning(sized(100), "video", "popup", admin)).toBeNull()
+  test("Create report waits for a recording that is too long, unless it resumes its own upload", () => {
+    const resuming = { session: { reportId: "r1" } as UploadSessionState, form: { workspaceId: "w1" } as never }
+    expect(sendBlocked(timed, "video", null, "w1", 180_000)).toBe(true)
+    expect(sendBlocked(timed, "video", null, "w1", 90_000)).toBe(false)
+    expect(sendBlocked(timed, "video", resuming, "w1", 180_000)).toBe(false)
+    expect(sendBlocked(timed, "screenshot", null, "w1", 180_000)).toBe(false)
   })
 })
