@@ -13,7 +13,7 @@ import { limitsFor } from "../../lib/limits"
 import { currentCoordinates, locationForSend, toggleCity } from "../../lib/location"
 import type { ReviewAgainRequest, ReviewAnotherRequest } from "../../lib/messages"
 import { isSignedOut } from "../../lib/popup"
-import { reviewMarkers, type TrimRange, trimPayload } from "../../lib/review-data"
+import { expectedVideoBytes, reviewMarkers, type TrimRange, trimPayload } from "../../lib/review-data"
 import { draftKept, draftWithNotes, draftWithTrim, trimLocked } from "../../lib/review-draft"
 import { createReviewLimits, type LimitNote, NO_LIMIT_NOTE, openDashboardFor } from "../../lib/review-limits"
 import { signInUrl } from "../../lib/session"
@@ -157,8 +157,11 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       createReviewLimits(
         {
           kind: loaded.draft.captureType,
-          // The video, or the screenshot before its marks: close to what is uploaded, and the server checks again.
-          bytes: loaded.draft.captureType === "video" ? (loaded.draft.video?.size ?? 0) : loaded.draft.screenshot.size,
+          // The (trimmed) video, or the screenshot before its marks: close to what is uploaded, and the server checks again.
+          bytes:
+            loaded.draft.captureType === "video"
+              ? expectedVideoBytes(loaded.draft.video?.size ?? 0, loaded.draft.durationMs ?? 0, trim)
+              : loaded.draft.screenshot.size,
           workspaces: loaded.workspaces,
           fetchLimits: async (workspaceId) => {
             const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
@@ -169,7 +172,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
         },
         loaded.workspaceId,
       ),
-    [draftId, loaded],
+    [draftId, loaded, trim],
   )
   const refreshLimits = useCallback(() => void limits?.refresh(), [limits])
   useEffect(refreshLimits, [refreshLimits])
