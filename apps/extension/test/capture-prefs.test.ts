@@ -20,7 +20,15 @@ describe("capturePrefsFrom", () => {
       countdown: true,
       captureKind: "screenshot",
       micDeviceId: null,
+      camera: false,
+      cameraDeviceId: null,
+      cameraShape: "circle",
     })
+  })
+
+  test("camera fields fall back on their own", () => {
+    expect(capturePrefsFrom({ camera: "yes", cameraDeviceId: 3, cameraShape: "square" })).toMatchObject({ camera: false, cameraDeviceId: null, cameraShape: "circle" })
+    expect(capturePrefsFrom({ camera: true, cameraDeviceId: "cam1", cameraShape: "rectangle" })).toMatchObject({ camera: true, cameraDeviceId: "cam1", cameraShape: "rectangle" })
   })
 
   test("old prefs without the new fields get their defaults", () => {
@@ -38,6 +46,9 @@ describe("capturePrefsFrom", () => {
       countdown: true,
       captureKind: "screenshot",
       micDeviceId: null,
+      camera: false,
+      cameraDeviceId: null,
+      cameraShape: "circle",
     })
   })
 })
@@ -61,6 +72,7 @@ describe("recordOptionsFor", () => {
       micDeviceId: null,
       systemAudio: false,
       countdown: true,
+      camera: null,
     })
     expect(recordOptionsFor({ ...DEFAULT_CAPTURE_PREFS, recordSource: "screen", systemAudio: true }, false)).toMatchObject({
       source: "screen",
@@ -75,10 +87,21 @@ describe("recordOptionsFor", () => {
       micDeviceId: null,
       systemAudio: true,
       countdown: true,
+      camera: null,
     })
   })
 
   test("recordOptionsFor carries the microphone id", () => {
     expect(recordOptionsFor({ ...DEFAULT_CAPTURE_PREFS, micDeviceId: "abc" }, true).micDeviceId).toBe("abc")
+  })
+
+  test("the camera only goes with a tab", () => {
+    const prefs = { ...DEFAULT_CAPTURE_PREFS, camera: true, cameraDeviceId: "cam1", cameraShape: "rectangle" as const }
+    expect(recordOptionsFor({ ...prefs, recordSource: "tab" }, true).camera).toEqual({ deviceId: "cam1", shape: "rectangle" })
+    expect(recordOptionsFor({ ...prefs, recordSource: "screen" }, true).camera).toBeNull()
+    expect(recordOptionsFor({ ...prefs, recordSource: "window" }, true).camera).toBeNull()
+    // Firefox: a tab is recorded as a window.
+    expect(recordOptionsFor({ ...prefs, recordSource: "tab" }, false).camera).toBeNull()
+    expect(recordOptionsFor({ ...prefs, camera: false }, true).camera).toBeNull()
   })
 })

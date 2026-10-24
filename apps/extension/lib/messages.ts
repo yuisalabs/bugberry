@@ -1,4 +1,4 @@
-import type { RecordSource, ScreenshotMode } from "./capture-prefs"
+import type { CameraShape, RecordSource, ScreenshotMode } from "./capture-prefs"
 import type { RecordingEndReason } from "./recorder"
 
 export interface ScreenshotRequest {
@@ -16,6 +16,20 @@ export interface RecordOptions {
   micDeviceId?: string | null
   systemAudio: boolean
   countdown: boolean
+  /** The camera bubble on the recorded tab; null or absent is no camera. */
+  camera?: CameraChoice | null
+}
+
+/** Which camera the bubble shows, and its shape. `deviceId` null is the system's default camera. */
+export interface CameraChoice {
+  deviceId: string | null
+  shape: CameraShape
+}
+
+export function isCameraChoice(value: unknown): value is CameraChoice {
+  if (typeof value !== "object" || value === null) return false
+  const choice = value as Record<string, unknown>
+  return (choice.deviceId === null || typeof choice.deviceId === "string") && (choice.shape === "circle" || choice.shape === "rectangle")
 }
 
 export interface RecordStartRequest {
@@ -114,7 +128,8 @@ function isRecordOptions(value: unknown): value is RecordOptions {
     typeof options.mic === "boolean" &&
     (options.micDeviceId === undefined || options.micDeviceId === null || typeof options.micDeviceId === "string") &&
     typeof options.systemAudio === "boolean" &&
-    typeof options.countdown === "boolean"
+    typeof options.countdown === "boolean" &&
+    (options.camera === undefined || options.camera === null || isCameraChoice(options.camera))
   )
 }
 

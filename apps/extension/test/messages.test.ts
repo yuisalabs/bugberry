@@ -24,6 +24,12 @@ describe("messages", () => {
       expect(isRecordStartRequest({ type: "bugberry:record-start", tabId: 7, options: { ...options, micDeviceId } })).toBe(true)
     }
     expect(isRecordStartRequest({ type: "bugberry:record-start", tabId: 7, options: { ...options, micDeviceId: 5 } })).toBe(false)
+    for (const camera of [undefined, null, { deviceId: null, shape: "circle" }, { deviceId: "cam1", shape: "rectangle" }]) {
+      expect(isRecordStartRequest({ type: "bugberry:record-start", tabId: 7, options: { ...options, camera } })).toBe(true)
+    }
+    for (const camera of [{ deviceId: 1, shape: "circle" }, { deviceId: null, shape: "oval" }, "on"]) {
+      expect(isRecordStartRequest({ type: "bugberry:record-start", tabId: 7, options: { ...options, camera } })).toBe(false)
+    }
     expect(isRecordStatusRequest({ type: "bugberry:record-status" })).toBe(true)
     expect(isRecordingEndedNotice({ type: "bugberry:recording-ended", reason: "max-duration" })).toBe(true)
   })
