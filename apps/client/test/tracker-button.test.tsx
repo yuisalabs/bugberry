@@ -28,10 +28,21 @@ describe("TrackerButtonView", () => {
     expect(onSend).toHaveBeenCalledWith("gh")
   })
 
-  test("it looks like Copy link: the arrow in a part of its own, split off by a line", () => {
+  test("built like Copy link: a main part and an arrow of its own, both opening the trackers", () => {
+    const { onSend } = view([github, activecollab])
+    const main = screen.getByRole("button", { name: "Send to tracker" })
+    const arrow = screen.getByRole("button", { name: "Choose a tracker" })
+    expect(main.className).toContain("rounded-r-none")
+    expect(arrow.className).toContain("rounded-l-none")
+    fireEvent.click(arrow)
+    fireEvent.click(screen.getByRole("menuitem", { name: "Send to GitHub · kantor/web" }))
+    expect(onSend).toHaveBeenCalledWith("gh")
+    expect(screen.queryByRole("menu")).toBeNull()
+  })
+
+  test("its icon is the integrations plug", () => {
     view([github])
-    const arrow = screen.getByRole("button", { name: "Send to tracker" }).querySelector("[data-slot=split-arrow]")
-    expect(arrow?.className).toContain("border-l")
+    expect(screen.getByRole("button", { name: "Send to tracker" }).querySelector("[data-icon=plug]")).toBeTruthy()
   })
 
   test("every tracker is a choice inside", () => {
