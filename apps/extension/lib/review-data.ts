@@ -1,4 +1,4 @@
-import { type CaptureEvent, type NetworkEvent, type RecordingPause, summarize } from "@bugberry/capture"
+import { type CaptureEvent, type DebuggerPayload, type NetworkEvent, type RecordingPause, summarize } from "@bugberry/capture"
 import type { TimelineMarker } from "@bugberry/player"
 
 /** A pause in epoch ms; `end` is when the recording resumed (Infinity while it is still paused). */
@@ -35,6 +35,57 @@ export function keptEvents<T extends { t: number }>(events: readonly T[], starte
 /** The dashboard's pause marks: where each pause sits in the video and how long it lasted. */
 export function pauseMarks(startedAt: number, pauses: readonly PauseSpan[]): RecordingPause[] {
   return pauses.map((pause) => ({ atMs: videoTime(pause.start, startedAt, pauses), ms: Math.max(0, pause.end - pause.start) }))
+}
+
+/** The part of a recording the reporter keeps, in video time. */
+export interface TrimRange {
+  startMs: number
+  endMs: number
+}
+
+/** The shortest part a recording can be trimmed to. */
+export const MIN_TRIM_MS = 1000
+
+/** The range in whole ms inside the video, at least MIN_TRIM_MS long (moving the end, or the start at the video's end). */
+export function clampTrim(range: TrimRange, durationMs: number): TrimRange {
+  const endMs = Math.min(durationMs, Math.max(0, Math.round(range.endMs)))
+  const startMs = Math.min(endMs, Math.max(0, Math.round(range.startMs)))
+  if (endMs - startMs >= MIN_TRIM_MS) return { startMs, endMs }
+  if (startMs + MIN_TRIM_MS <= durationMs) return { startMs, endMs: startMs + MIN_TRIM_MS }
+  return { startMs: Math.max(0, durationMs - MIN_TRIM_MS), endMs: durationMs }
+}
+
+/** Whether the range leaves anything out; none, or the whole video, is no trim. */
+export function isTrimmed(range: TrimRange | null | undefined, durationMs: number): range is TrimRange {
+  return range != null && (range.startMs > 0 || range.endMs < durationMs)
+}
+
+const clock = (ms: number) => {
+  const seconds = Math.max(0, Math.floor(ms / 1000))
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`
+}
+
+/** "0:06–0:35", as the Trim button shows it. */
+export function trimLabel(range: TrimRange): string {
+  return `${clock(range.startMs)}–${clock(range.endMs)}`
+}
+
+/**
+ * The payload of only the kept range. Events keep their page time and the recording's start moves forward by
+ * `startMs`, so `t - recordingStartedAt` is still their time in the (shorter) video; notes and pauses move back.
+ */
+export function trimPayload(payload: DebuggerPayload, startedAt: number, range: TrimRange): DebuggerPayload {
+  const inside = (atMs: number) => atMs >= range.startMs && atMs <= range.endMs
+  const shift = <T extends { atMs: number }>(items: readonly T[]) =>
+    items.filter((item) => inside(item.atMs)).map((item) => ({ ...item, atMs: item.atMs - range.startMs }))
+  const { notes, pauses, ...rest } = payload
+  return {
+    ...rest,
+    recordingStartedAt: startedAt + range.startMs,
+    events: payload.events.filter((event) => inside(event.t - startedAt)),
+    ...(notes ? { notes: shift(notes) } : {}),
+    ...(pauses ? { pauses: shift(pauses) } : {}),
+  }
 }
 
 const isFailed = (event: CaptureEvent): event is NetworkEvent =>

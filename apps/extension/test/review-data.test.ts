@@ -1,13 +1,17 @@
 import { describe, expect, test } from "bun:test"
-import type { CaptureEvent } from "@bugberry/capture"
+import type { CaptureEvent, DebuggerPayload } from "@bugberry/capture"
 import {
   applyPauses,
+  clampTrim,
   errorsCaught,
+  isTrimmed,
   liveCounts,
   pauseMarks,
   reviewMarkers,
   reviewStats,
   suggestTitle,
+  trimLabel,
+  trimPayload,
   videoTime,
 } from "../lib/review-data"
 
@@ -113,5 +117,67 @@ describe("review numbers", () => {
       click(1800),
     ]
     expect(liveCounts(live, 1000, [{ start: 1500, end: 1560 }])).toEqual({ errors: 2, failedRequests: 2, actions: 3 })
+  })
+})
+
+describe("trim", () => {
+  const payload: DebuggerPayload = {
+    version: 1,
+    capturedAt: 0,
+    recordingStartedAt: 1000,
+    incomplete: [],
+    events: [
+      { kind: "action", t: 1000 + 5_999, type: "click", target: "a" },
+      { kind: "action", t: 1000 + 6_000, type: "click", target: "b" },
+      { kind: "error", t: 1000 + 35_000, message: "boom" },
+      { kind: "error", t: 1000 + 35_001, message: "late" },
+    ],
+    notes: [
+      { n: 1, atMs: 3_000, text: "x", author: "D" },
+      { n: 2, atMs: 10_000, text: "y", author: "D" },
+    ],
+    pauses: [{ atMs: 20_000, ms: 4_000 }],
+  }
+  const range = { startMs: 6_000, endMs: 35_000 }
+
+  test("keeps the events inside the range, boundaries included, and moves the start", () => {
+    const cut = trimPayload(payload, 1000, range)
+    expect(cut.events.map((event) => event.t)).toEqual([7_000, 36_000])
+    expect(cut.recordingStartedAt).toBe(7_000)
+  })
+
+  test("shifts notes and pauses into the new video time", () => {
+    const cut = trimPayload(payload, 1000, range)
+    expect(cut.notes).toEqual([{ n: 2, atMs: 4_000, text: "y", author: "D" }])
+    expect(cut.pauses).toEqual([{ atMs: 14_000, ms: 4_000 }])
+  })
+
+  test("a payload without notes or pauses stays without them", () => {
+    const { notes: _notes, pauses: _pauses, ...bare } = payload
+    const cut = trimPayload(bare, 1000, range)
+    expect("notes" in cut).toBe(false)
+    expect("pauses" in cut).toBe(false)
+  })
+
+  test("markers and tiles of the cut payload count only the range", () => {
+    const cut = trimPayload(payload, 1000, range)
+    expect(reviewStats(cut.events)).toEqual({ errors: 1, failed: 0, steps: 1 })
+    expect(reviewMarkers(cut.events, cut.recordingStartedAt ?? 0).map((marker) => marker.atMs)).toEqual([29_000])
+  })
+
+  test("clampTrim keeps a range of at least a second inside the video", () => {
+    expect(clampTrim({ startMs: -5, endMs: 50_000 }, 42_000)).toEqual({ startMs: 0, endMs: 42_000 })
+    expect(clampTrim({ startMs: 10_000, endMs: 10_200 }, 42_000)).toEqual({ startMs: 10_000, endMs: 11_000 })
+    expect(clampTrim({ startMs: 41_800, endMs: 42_000 }, 42_000)).toEqual({ startMs: 41_000, endMs: 42_000 })
+  })
+
+  test("isTrimmed is false for no range and for the whole video", () => {
+    expect(isTrimmed(null, 42_000)).toBe(false)
+    expect(isTrimmed({ startMs: 0, endMs: 42_000 }, 42_000)).toBe(false)
+    expect(isTrimmed({ startMs: 0, endMs: 41_000 }, 42_000)).toBe(true)
+  })
+
+  test("trimLabel reads like the button", () => {
+    expect(trimLabel(range)).toBe("0:06–0:35")
   })
 })
