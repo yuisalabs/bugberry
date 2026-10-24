@@ -3,7 +3,7 @@ import { type ReactNode, type RefObject, useRef } from "react"
 import { Button as AriaButton, Radio, RadioGroup } from "react-aria-components"
 import type { CameraAccess, CameraDevice } from "../../lib/camera"
 import type { CameraShape } from "../../lib/capture-prefs"
-import { Row, usePickerDismiss } from "./MicPicker"
+import { Row, usePickerDismiss, usePickerRoom } from "./MicPicker"
 
 const NONE = "none"
 
@@ -26,6 +26,7 @@ export function CameraPicker(props: {
 }) {
   const panel = useRef<HTMLDivElement>(null)
   usePickerDismiss(panel, props.chipRef, props.onClose)
+  const room = usePickerRoom(props.chipRef)
   const granted = props.access === "granted"
 
   return (
@@ -33,16 +34,20 @@ export function CameraPicker(props: {
       ref={panel}
       role="dialog"
       aria-label="Camera"
-      className="absolute bottom-full left-1/2 z-10 mb-2 w-[330px] -translate-x-1/2 rounded-2xl border border-border bg-background p-1.5 text-left shadow-[0_12px_32px_-8px_rgb(28_16_34/0.22)]"
+      style={{ maxHeight: room }}
+      className="absolute bottom-full left-1/2 z-10 mb-2 flex w-[330px] -translate-x-1/2 flex-col rounded-2xl border border-border bg-background p-1.5 text-left shadow-[0_12px_32px_-8px_rgb(28_16_34/0.22)] [&>*]:shrink-0"
     >
       <div className="flex items-center justify-between px-2.5 pt-1.5 pb-2">
         <span className="font-mono text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">Camera</span>
         {granted && <span className="text-xs text-muted-foreground">{`${props.devices.length} found`}</span>}
       </div>
-      <RadioGroup aria-label="Camera" value={props.chosen ?? NONE} onChange={(value) => props.onChoose(value === NONE ? null : value)} className="flex flex-col gap-1">
-        <Row id={NONE} name="No camera" detail="Record without your face" icon={<RiVideoOffLine size={18} aria-hidden />} />
-        {granted && props.devices.map((device) => <Row key={device.id} id={device.id} name={device.name} detail="" icon={<RiVideoOnLine size={18} aria-hidden />} />)}
-      </RadioGroup>
+      {/* Only the cameras scroll: the header, the shape and the note always show. */}
+      <div className="min-h-0 !shrink overflow-y-auto">
+        <RadioGroup aria-label="Camera" value={props.chosen ?? NONE} onChange={(value) => props.onChoose(value === NONE ? null : value)} className="flex flex-col gap-1">
+          <Row id={NONE} name="No camera" detail="Record without your face" icon={<RiVideoOffLine size={18} aria-hidden />} />
+          {granted && props.devices.map((device) => <Row key={device.id} id={device.id} name={device.name} detail="" icon={<RiVideoOnLine size={18} aria-hidden />} />)}
+        </RadioGroup>
+      </div>
       {props.access === "prompt" && (
         <AriaButton
           onPress={props.onAllow}

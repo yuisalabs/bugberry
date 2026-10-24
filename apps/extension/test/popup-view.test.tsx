@@ -521,3 +521,45 @@ describe("camera picker", () => {
     expect(screen.getByRole("dialog", { name: "Camera" })).toBeTruthy()
   })
 })
+
+describe("pickers with many devices", () => {
+  const many = Array.from({ length: 8 }, (_, index) => ({ id: `cam${index}`, name: `ByteCast VirtualCamera${index}` }))
+  const mics = Array.from({ length: 8 }, (_, index) => ({ id: `m${index}`, name: `Mic ${index}`, detail: "", short: `Mic ${index}`, kind: "other" as const }))
+
+  /** The chips sit this far from the popup's top: the picker opens upwards into that room. */
+  function chipsAt(top: number) {
+    const real = HTMLElement.prototype.getBoundingClientRect
+    HTMLElement.prototype.getBoundingClientRect = function () {
+      return { top, bottom: top + 32, left: 0, right: 100, width: 100, height: 32, x: 0, y: top, toJSON: () => ({}) } as DOMRect
+    }
+    return () => {
+      HTMLElement.prototype.getBoundingClientRect = real
+    }
+  }
+
+  test("the camera picker fits above its chip, and its cameras scroll", () => {
+    const restore = chipsAt(300)
+    try {
+      view({ prefs: record("tab"), camera: { access: "granted", devices: many } })
+      fireEvent.click(button(/Camera off/))
+      const dialog = screen.getByRole("dialog", { name: "Camera" })
+      expect(dialog.style.maxHeight).toBe("288px")
+      expect(screen.getByRole("radiogroup", { name: "Camera" }).parentElement?.className).toContain("overflow-y-auto")
+    } finally {
+      restore()
+    }
+  })
+
+  test("the microphone picker too", () => {
+    const restore = chipsAt(300)
+    try {
+      view({ prefs: record("tab"), mic: { access: "granted", devices: mics, defaultId: "m0", level: still(0) } })
+      fireEvent.click(button(/Mic off/))
+      const dialog = screen.getByRole("dialog", { name: "Microphone" })
+      expect(dialog.style.maxHeight).toBe("288px")
+      expect(screen.getByRole("radiogroup", { name: "Microphone" }).parentElement?.className).toContain("overflow-y-auto")
+    } finally {
+      restore()
+    }
+  })
+})
