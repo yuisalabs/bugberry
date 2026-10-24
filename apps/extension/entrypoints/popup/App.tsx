@@ -3,6 +3,7 @@ import { useEffect, useState } from "react"
 import { browser } from "wxt/browser"
 import { createBugberryApi } from "../../lib/api"
 import { BUILD_SERVER_ORIGIN, browserSettingsStorage, capturePrefsStorage, lastSessionStorage, lastWorkspaceStorage } from "../../lib/browser-settings"
+import { type CameraAccess, cameraAccess, type CameraDevice, cameraDevices } from "../../lib/camera"
 import { capturable } from "../../lib/capture-flow"
 import { hasTabRecorder } from "../../lib/browser-support"
 import { type CapturePrefs, DEFAULT_CAPTURE_PREFS, recordOptionsFor } from "../../lib/capture-prefs"
@@ -35,6 +36,8 @@ const tabRecorder = hasTabRecorder(browser)
 const ALL_SITES = { origins: ["<all_urls>"] }
 
 const queryMicAccess = () => micAccess((name) => navigator.permissions.query({ name: name as PermissionName }))
+const queryCameraAccess = () => cameraAccess((name) => navigator.permissions.query({ name: name as PermissionName }))
+const CAMERA_BLOCKED = "Camera is blocked. Allow it for BugBerry in Chrome's site settings."
 
 const SESSION_WAIT_MS = 1500
 
@@ -70,6 +73,7 @@ export function App() {
   const [mic, setMic] = useState<MicList>({ access: "prompt", devices: [], defaultId: null })
   const [live, setLive] = useState<PopupRecordingStatus | undefined>(undefined)
   const [micPicker, setMicPicker] = useState(false)
+  const [camera, setCamera] = useState<{ access: CameraAccess; devices: CameraDevice[] }>({ access: "prompt", devices: [] })
   const level = useMicLevel(meteredMicId(prefs, mic), micMeterOn(prefs, mic, micPicker, live, tabRecorder))
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -83,6 +87,12 @@ export function App() {
     const access: MicAccess = await queryMicAccess()
     const listed = await navigator.mediaDevices?.enumerateDevices().catch(() => []) ?? []
     setMic((current) => ({ ...current, access, ...micDevices(listed) }))
+  }
+  /** Whether the camera may be used, and the cameras Chrome names once it may. The popup never opens one. */
+  const readCamera = async () => {
+    const access = await queryCameraAccess()
+    const listed = (await navigator.mediaDevices?.enumerateDevices().catch(() => [])) ?? []
+    setCamera({ access, devices: cameraDevices(listed) })
   }
   // Firefox lets the reporter take website access away; Chrome grants it with the install.
   const [hostAccess, setHostAccess] = useState(true)
@@ -100,13 +110,17 @@ export function App() {
       setSession(checked)
       if (loaded) void lastSessionStorage.set(loaded.serverUrl, checked).catch(() => {})
     })
-    // A permission revoked since the Mic was turned on shows as "Mic off" instead of recording silence.
-    void Promise.all([capturePrefsStorage.get(), queryMicAccess()]).then(
-      async ([stored, access]) =>
-        setPrefs(stored.mic && !micChoiceAfterCheck(stored.mic, access) ? await capturePrefsStorage.set({ mic: false }) : stored),
-    )
+    // A permission revoked since the Mic (or Camera) was turned on shows as off instead of recording without it.
+    void Promise.all([capturePrefsStorage.get(), queryMicAccess(), queryCameraAccess()]).then(async ([stored, access, cameraAllowed]) => {
+      const patch = {
+        ...(stored.mic && !micChoiceAfterCheck(stored.mic, access) ? { mic: false } : {}),
+        ...(stored.camera && cameraAllowed !== "granted" ? { camera: false } : {}),
+      }
+      setPrefs(Object.keys(patch).length > 0 ? await capturePrefsStorage.set(patch) : stored)
+    })
     browser.tabs.query({ active: true, currentWindow: true }).then(([tab]) => setActiveTab(tab ?? null))
     void readMic()
+    void readCamera()
     readDrafts()
   }, [])
 
@@ -209,6 +223,21 @@ export function App() {
     onMicAllow()
   }
 
+  const onCameraAllow = () => {
+    const ask: PopupPromptRequest = { type: "bugberry:popup-prompt", page: "camera", tabId: activeTab?.id ?? null }
+    void browser.runtime.sendMessage(ask).catch(() => {})
+    window.close()
+  }
+
+  const onCameraChoose = async (id: string | null) => {
+    setError(null)
+    if (id === null) return updatePrefs({ camera: false })
+    const access = await queryCameraAccess()
+    if (access === "granted") return updatePrefs({ camera: true, cameraDeviceId: id })
+    if (access === "denied") return setError(CAMERA_BLOCKED)
+    onCameraAllow()
+  }
+
   const onScreenshot = () => {
     if (activeTab?.id === undefined) return setError("No active tab")
     const request: ScreenshotRequest = { type: "bugberry:screenshot", tabId: activeTab.id, mode: prefs.screenshotMode }
@@ -274,6 +303,9 @@ export function App() {
           setMicPicker(open)
           if (open) void readMic()
         }}
+        camera={camera}
+        onCameraChoose={(id) => void onCameraChoose(id)}
+        onCameraAllow={onCameraAllow}
         onPause={() => void control("pause")}
         onResume={() => void control("resume")}
         onRestart={() => void control("restart")}

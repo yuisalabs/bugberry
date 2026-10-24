@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test"
-import { act, fireEvent, render, screen } from "@testing-library/react"
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { micMeterOn, PopupView, type PopupViewProps } from "../entrypoints/popup/PopupView"
 import { DEFAULT_CAPTURE_PREFS } from "../lib/capture-prefs"
 import type { ReportDraft } from "../lib/types"
@@ -26,6 +26,9 @@ function view(overrides: Partial<PopupViewProps> = {}) {
     onMicChoose: mock(),
     onMicAllow: mock(),
     onMicPicker: mock(),
+    camera: { access: "granted", devices: [{ id: "cam1", name: "FaceTime HD" }] },
+    onCameraChoose: mock(),
+    onCameraAllow: mock(),
     onScreenshot: mock(),
     onRecord: mock(),
     onPause: mock(),
@@ -442,4 +445,72 @@ test("the level bars follow the meter without the popup re-rendering", () => {
     for (const listener of listeners) listener()
   })
   expect(lit()).toBe(4)
+})
+
+describe("camera picker", () => {
+  test("the Camera chip shows only for a tab", () => {
+    view({ prefs: record("tab") })
+    expect(button(/Camera off/)).toBeTruthy()
+    cleanup()
+    view({ prefs: record("screen") })
+    expect(screen.queryByRole("button", { name: /Camera/ })).toBeNull()
+    cleanup()
+    view({ prefs: record("tab"), tabRecorder: false })
+    expect(screen.queryByRole("button", { name: /Camera/ })).toBeNull()
+  })
+
+  test("picking a camera, and No camera", () => {
+    const props = view({ prefs: record("tab") })
+    fireEvent.click(button(/Camera off/))
+    fireEvent.click(radio(/FaceTime HD/))
+    expect(props.onCameraChoose).toHaveBeenCalledWith("cam1")
+    expect(screen.queryByRole("dialog")).toBeNull()
+  })
+
+  test("No camera turns it off", () => {
+    const props = view({ prefs: { ...record("tab"), camera: true, cameraDeviceId: "cam1" } })
+    fireEvent.click(button(/FaceTime HD/))
+    fireEvent.click(radio(/No camera/))
+    expect(props.onCameraChoose).toHaveBeenCalledWith(null)
+  })
+
+  test("the shape is chosen while the camera is on", () => {
+    const props = view({ prefs: { ...record("tab"), camera: true, cameraDeviceId: "cam1" } })
+    fireEvent.click(button(/FaceTime HD/))
+    expect(radio("Circle").checked).toBe(true)
+    fireEvent.click(radio("Rectangle"))
+    expect(props.onPrefs).toHaveBeenCalledWith({ cameraShape: "rectangle" })
+    cleanup()
+    view({ prefs: record("tab") })
+    fireEvent.click(button(/Camera off/))
+    expect(screen.queryByRole("radiogroup", { name: "Shape" })).toBeNull()
+  })
+
+  test("a chosen camera that is gone shows the first one's name", () => {
+    view({ prefs: { ...record("tab"), camera: true, cameraDeviceId: "gone" } })
+    expect(button(/FaceTime HD/)).toBeTruthy()
+  })
+
+  test("before access, the picker offers to allow it", () => {
+    const props = view({ prefs: record("tab"), camera: { access: "prompt", devices: [] } })
+    fireEvent.click(button(/Camera off/))
+    expect(screen.queryByRole("radio", { name: /FaceTime HD/ })).toBeNull()
+    fireEvent.click(button(/Allow camera access/))
+    expect(props.onCameraAllow).toHaveBeenCalledTimes(1)
+  })
+
+  test("access blocked: an instruction instead of Allow", () => {
+    view({ prefs: record("tab"), camera: { access: "denied", devices: [] } })
+    fireEvent.click(button(/Camera off/))
+    expect(screen.getByText("Camera is blocked. Allow it for BugBerry in Chrome's site settings.")).toBeTruthy()
+    expect(screen.queryByRole("button", { name: /Allow camera access/ })).toBeNull()
+  })
+
+  test("opening one picker closes the other", () => {
+    view({ prefs: record("tab") })
+    fireEvent.click(button(/Mic off/))
+    fireEvent.click(button(/Camera off/))
+    expect(screen.getAllByRole("dialog")).toHaveLength(1)
+    expect(screen.getByRole("dialog", { name: "Camera" })).toBeTruthy()
+  })
 })

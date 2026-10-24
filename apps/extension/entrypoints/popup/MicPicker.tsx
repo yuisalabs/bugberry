@@ -32,27 +32,9 @@ export function MicPicker(props: {
   onClose(): void
 }) {
   const panel = useRef<HTMLDivElement>(null)
-  const { onClose, chipRef } = props
-  // Capture phase: React Aria's buttons stop their presses from bubbling, and Esc must work wherever focus is.
-  useEffect(() => {
-    const outside = (event: PointerEvent) => {
-      const target = event.target as Node
-      if (!panel.current?.contains(target) && !chipRef.current?.contains(target)) onClose()
-    }
-    const escape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return
-      event.stopPropagation()
-      onClose()
-    }
-    document.addEventListener("pointerdown", outside, true)
-    document.addEventListener("keydown", escape, true)
-    return () => {
-      document.removeEventListener("pointerdown", outside, true)
-      document.removeEventListener("keydown", escape, true)
-    }
-  }, [onClose, chipRef])
-
+  usePickerDismiss(panel, props.chipRef, props.onClose)
   const granted = props.access === "granted"
+
   return (
     <div
       ref={panel}
@@ -107,7 +89,7 @@ export function MicPicker(props: {
   )
 }
 
-function Row(props: { id: string; name: string; detail: string; icon: ReactNode; level?: LevelSource | null }) {
+export function Row(props: { id: string; name: string; detail: string; icon: ReactNode; level?: LevelSource | null }) {
   return (
     <Radio
       value={props.id}
@@ -135,4 +117,26 @@ function Row(props: { id: string; name: string; detail: string; icon: ReactNode;
       )}
     </Radio>
   )
+}
+
+/** A picker over the chips closes on a press outside it (but not on its chip, which toggles it) and on Esc. */
+export function usePickerDismiss(panel: RefObject<HTMLElement | null>, chipRef: RefObject<HTMLElement | null>, onClose: () => void) {
+  // Capture phase: React Aria's buttons stop their presses from bubbling, and Esc must work wherever focus is.
+  useEffect(() => {
+    const outside = (event: PointerEvent) => {
+      const target = event.target as Node
+      if (!panel.current?.contains(target) && !chipRef.current?.contains(target)) onClose()
+    }
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return
+      event.stopPropagation()
+      onClose()
+    }
+    document.addEventListener("pointerdown", outside, true)
+    document.addEventListener("keydown", escape, true)
+    return () => {
+      document.removeEventListener("pointerdown", outside, true)
+      document.removeEventListener("keydown", escape, true)
+    }
+  }, [panel, onClose, chipRef])
 }

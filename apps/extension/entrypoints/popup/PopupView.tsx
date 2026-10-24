@@ -4,6 +4,7 @@ import { RiArrowRightUpLine, RiFunctionLine, RiMoreLine, RiSettings3Line } from 
 import { type ReactNode, useCallback, useRef, useState } from "react"
 import { Button as AriaButton } from "react-aria-components"
 import type { CapturePrefs } from "../../lib/capture-prefs"
+import type { CameraAccess, CameraDevice } from "../../lib/camera"
 import type { MicAccess, MicDevice } from "../../lib/microphone"
 import { type CaptureChoice, captureCopy, choiceOf } from "../../lib/popup"
 import type { PopupRecordingStatus, RecordingStatus } from "../../lib/recording-flow"
@@ -12,6 +13,7 @@ import type { ReportDraft } from "../../lib/types"
 import { CaptureControls, Tiles } from "./CapturePanel"
 import { DraftList } from "./DraftList"
 import { RecordingPanel } from "./RecordingPanel"
+import { CameraPicker } from "./CameraPicker"
 import { MicPicker } from "./MicPicker"
 import { Footer } from "./parts"
 
@@ -58,6 +60,11 @@ export interface PopupViewProps {
   onMicChoose(id: string | null): void
   onMicAllow(): void
   onMicPicker(open: boolean): void
+  /** The cameras as the popup knows them. */
+  camera: { access: CameraAccess; devices: CameraDevice[] }
+  /** null is "No camera". */
+  onCameraChoose(id: string | null): void
+  onCameraAllow(): void
   onScreenshot(): void
   onRecord(): void
   onPause(): void
@@ -110,6 +117,11 @@ export function micMeterOn(
   return choiceOf(prefs, tabRecorder).kind === "record" && (pickerOpen || prefs.mic)
 }
 
+/** The camera the bubble shows: the chosen one, or the first one when it is unplugged or none was chosen. */
+function cameraInUse(prefs: CapturePrefs, camera: PopupViewProps["camera"]) {
+  return camera.devices.find((device) => device.id === prefs.cameraDeviceId) ?? camera.devices[0]
+}
+
 /** The toolbar popup: tiles to choose what to capture, a dial to do it. No browser APIs here; App wires them. */
 export function PopupView(props: PopupViewProps) {
   const [showDrafts, setShowDrafts] = useState(false)
@@ -124,6 +136,9 @@ export function PopupView(props: PopupViewProps) {
     [onMicPicker],
   )
   const closeMic = useCallback(() => toggleMic(false), [toggleMic])
+  const [cameraOpen, setCameraOpen] = useState(false)
+  const cameraChipRef = useRef<HTMLButtonElement>(null)
+  const closeCamera = useCallback(() => setCameraOpen(false), [])
 
   if (showDrafts) return <DraftList {...props} onBack={() => setShowDrafts(false)} />
 
@@ -134,6 +149,9 @@ export function PopupView(props: PopupViewProps) {
   const choice: CaptureChoice = live ? { kind: "record", source: live.source } : choiceOf(prefs, props.tabRecorder)
   const logsOn = props.logsAvailable && props.hostAccess
   const micShort = micShortName(prefs, props.mic)
+  // The camera's bubble is on the page: only a tab recording shows it.
+  const cameraShown = choice.kind === "record" && choice.source === "tab" && props.tabRecorder
+  const cameraName = prefs.camera ? (cameraInUse(prefs, props.camera)?.name ?? "Camera on") : null
   const warning = choice.kind === "screenshot" ? props.screenshotWarning : props.recordWarning
 
   return (
@@ -222,12 +240,44 @@ export function PopupView(props: PopupViewProps) {
               busy={props.busy}
               level={props.mic.level}
               onPrefs={props.onPrefs}
-              onMicChip={() => toggleMic(!micOpen)}
+              onMicChip={() => {
+                setCameraOpen(false)
+                toggleMic(!micOpen)
+              }}
+              camera={
+                cameraShown
+                  ? {
+                      short: cameraName,
+                      open: cameraOpen,
+                      chipRef: cameraChipRef,
+                      onChip: () => {
+                        if (micOpen) toggleMic(false)
+                        setCameraOpen(!cameraOpen)
+                      },
+                    }
+                  : undefined
+              }
               onScreenshot={props.onScreenshot}
               onRecord={props.onRecord}
               chipRef={chipRef}
               picker={
-                micOpen && (
+                (cameraShown && cameraOpen && (
+                  <CameraPicker
+                    access={props.camera.access}
+                    devices={props.camera.devices}
+                    chosen={prefs.camera ? (cameraInUse(prefs, props.camera)?.id ?? null) : null}
+                    shape={prefs.cameraShape}
+                    chipRef={cameraChipRef}
+                    onChoose={(id) => {
+                      props.onCameraChoose(id)
+                      closeCamera()
+                    }}
+                    onShape={(shape) => props.onPrefs({ cameraShape: shape })}
+                    onAllow={props.onCameraAllow}
+                    onClose={closeCamera}
+                  />
+                )) ||
+                (micOpen && (
                   <MicPicker
                     access={props.mic.access}
                     devices={props.mic.devices}
@@ -242,7 +292,7 @@ export function PopupView(props: PopupViewProps) {
                     onAllow={props.onMicAllow}
                     onClose={closeMic}
                   />
-                )
+                ))
               }
             />
             <Footer text={captureCopy(choice, micShort, logsOn).footer} logsOn={logsOn} />
