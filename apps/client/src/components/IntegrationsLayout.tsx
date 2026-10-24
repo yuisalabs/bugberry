@@ -1,6 +1,7 @@
 import type { IntegrationProvider } from "@bugberry/shared"
 import { RiAddLine } from "@remixicon/react"
 import { Button } from "@bugberry/ui/button"
+import type { ReactNode } from "react"
 import { ProviderMark } from "./IntegrationForm"
 
 /** The pieces the workspace's and a project's Integrations pages share. */
@@ -86,5 +87,44 @@ export function EmptyGroup({
         {action}
       </Button>
     </div>
+  )
+}
+
+/** The card at the end of each group that adds one more; its words are those of an empty group. */
+export interface EmptyCard {
+  title: string
+  text: string
+  action: string
+  marks: readonly IntegrationProvider[]
+}
+
+/**
+ * One group of integrations (trackers, or chat channels) as a grid of cards, like the projects page: a single one no
+ * longer stretches across the page. The card that adds one more always ends the grid.
+ */
+export function IntegrationGroup({
+  title,
+  count,
+  empty,
+  onAdd,
+  children,
+}: {
+  title: string
+  count: number
+  empty: EmptyCard
+  onAdd(): void
+  /** The group's cards. */
+  children?: ReactNode
+}) {
+  return (
+    <section className="flex flex-col gap-3">
+      <GroupTitle title={title} count={count} />
+      <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        {children}
+        <li>
+          <EmptyGroup stacked providers={empty.marks} title={empty.title} text={empty.text} action={empty.action} onPick={onAdd} />
+        </li>
+      </ul>
+    </section>
   )
 }

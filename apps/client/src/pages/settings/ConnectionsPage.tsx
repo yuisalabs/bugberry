@@ -14,7 +14,7 @@ import { Button } from "@bugberry/ui/button"
 import { useConfirm } from "@bugberry/ui/confirm-dialog"
 import { BrandedHeader } from "../../components/BrandedHeader"
 import { ConnectionForm, type ConnectionSubmit } from "../../components/ConnectionForm"
-import { EmptyGroup, GroupTitle, integrationCard, softButton, StatusChip } from "../../components/IntegrationsLayout"
+import { EmptyGroup, GroupTitle, integrationCard, IntegrationGroup, softButton, StatusChip } from "../../components/IntegrationsLayout"
 import { PROVIDER_GROUPS, ProviderMark } from "../../components/IntegrationForm"
 import { SettingsRowsSkeleton } from "../../components/Skeletons"
 import { dangerText, ErrorState } from "../../components/ui"
@@ -147,58 +147,49 @@ export function ConnectionRow({
   const { status } = connection
   const failing = notifier && status.failing > 0
   return (
-    <li className={`flex flex-col gap-3 px-6 py-5 ${card}`}>
-      <div className="flex flex-wrap items-center gap-4">
-        <ProviderMark provider={connection.provider} className="size-12 rounded-xl" />
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="flex flex-wrap items-center gap-2">
-            <span className="font-heading font-semibold text-foreground">{PROVIDER_LABELS[connection.provider]}</span>
-            <StatusChip failing={failing} />
-          </span>
-          <span className="text-sm text-muted-foreground">
-            {connection.name} · {usageText(connection)}
-          </span>
-        </div>
-        <span className="flex flex-wrap gap-2">
-          <Button size="sm" intent="outline" isDisabled={testing} onPress={onTest}>
-            {sendsTest ? <RiSendPlaneLine aria-hidden /> : <RiPulseLine aria-hidden />}
-            {sendsTest ? "Send test message" : "Test connection"}
-          </Button>
-          <Button size="sm" intent="outline" onPress={onEdit} aria-label={`Edit ${connection.name}`}>
-            <RiPencilLine aria-hidden />
-            Edit
-          </Button>
-          <Button
-            size="sm"
-            intent="plain"
-            isDisabled={removing}
-            onPress={onDelete}
-            aria-label={`Delete ${connection.name}`}
-            className={dangerText}
-          >
-            <RiDeleteBinLine aria-hidden />
-            Delete
-          </Button>
-        </span>
+    <li className={`flex flex-col gap-4 p-6 ${card}`}>
+      <div className="flex items-start justify-between gap-3">
+        <ProviderMark provider={connection.provider} className="size-11" />
+        <StatusChip failing={failing} />
       </div>
-      {failing && (
-        <p className="flex items-center gap-1.5 text-sm text-danger-subtle-foreground">
-          <RiCloseCircleLine aria-hidden className="size-4 shrink-0" />
-          Last message failed in {projects(status.failing)}: {status.lastError}
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <h3 className="font-heading font-semibold text-foreground">{PROVIDER_LABELS[connection.provider]}</h3>
+        <p className="break-words text-sm text-muted-foreground">
+          {connection.name} · {usageText(connection)}
         </p>
-      )}
-      {notifier && status.failing === 0 && status.lastDeliveredAt && (
-        <p className="text-sm text-muted-foreground">Last message {formatRelative(status.lastDeliveredAt, now)}</p>
-      )}
-      {testResult && (
-        <p
-          role="status"
-          className={`flex items-center gap-1.5 text-sm ${testResult.ok ? "text-success-subtle-foreground" : "text-danger-subtle-foreground"}`}
-        >
-          {testResult.ok ? <RiCheckboxCircleLine aria-hidden className="size-4" /> : <RiCloseCircleLine aria-hidden className="size-4" />}
-          {testResult.message}
-        </p>
-      )}
+        {failing && (
+          <p className="flex items-center gap-1.5 text-sm text-danger-subtle-foreground">
+            <RiCloseCircleLine aria-hidden className="size-4 shrink-0" />
+            Last message failed in {projects(status.failing)}: {status.lastError}
+          </p>
+        )}
+        {notifier && status.failing === 0 && status.lastDeliveredAt && (
+          <p className="text-sm text-muted-foreground">Last message {formatRelative(status.lastDeliveredAt, now)}</p>
+        )}
+        {testResult && (
+          <p
+            role="status"
+            className={`flex items-center gap-1.5 text-sm ${testResult.ok ? "text-success-subtle-foreground" : "text-danger-subtle-foreground"}`}
+          >
+            {testResult.ok ? <RiCheckboxCircleLine aria-hidden className="size-4" /> : <RiCloseCircleLine aria-hidden className="size-4" />}
+            {testResult.message}
+          </p>
+        )}
+      </div>
+      <span className="flex flex-wrap gap-2">
+        <Button size="sm" intent="outline" isDisabled={testing} onPress={onTest}>
+          {sendsTest ? <RiSendPlaneLine aria-hidden /> : <RiPulseLine aria-hidden />}
+          {sendsTest ? "Send test message" : "Test connection"}
+        </Button>
+        <Button size="sm" intent="outline" onPress={onEdit} aria-label={`Edit ${connection.name}`}>
+          <RiPencilLine aria-hidden />
+          Edit
+        </Button>
+        <Button size="sm" intent="plain" isDisabled={removing} onPress={onDelete} aria-label={`Delete ${connection.name}`} className={dangerText}>
+          <RiDeleteBinLine aria-hidden />
+          Delete
+        </Button>
+      </span>
     </li>
   )
 }
@@ -217,6 +208,53 @@ const EMPTY_GROUPS: Record<string, { title: string; text: string; action: string
     action: "Connect a channel",
     marks: ["slack", "discord", "telegram"],
   },
+}
+
+/**
+ * The workspace's connections, trackers then chat channels, each group a grid of cards ending with the card that
+ * connects one more (its first provider's form).
+ */
+export function ConnectionGroups({
+  connections,
+  testResult,
+  testing,
+  removing,
+  onTest,
+  onEdit,
+  onDelete,
+  onAdd,
+}: {
+  connections: readonly Connection[]
+  /** The last test, for the connection it was run on. */
+  testResult: (TestResult & { id?: string }) | null
+  testing: boolean
+  removing: boolean
+  onTest(id: string): void
+  onEdit(id: string): void
+  onDelete(connection: Connection): void
+  onAdd(provider: IntegrationProvider): void
+}) {
+  return PROVIDER_GROUPS.map((group) => {
+    const rows = connections.filter((item) => (group.items as readonly string[]).includes(item.provider))
+    const empty = EMPTY_GROUPS[group.title]
+    if (!empty) return null
+    return (
+      <IntegrationGroup key={group.title} title={group.title} count={rows.length} empty={empty} onAdd={() => onAdd(group.items[0])}>
+        {rows.map((item) => (
+          <ConnectionRow
+            key={item.id}
+            connection={item}
+            testResult={testResult?.id === item.id ? testResult : null}
+            testing={testing}
+            removing={removing}
+            onTest={() => onTest(item.id)}
+            onEdit={() => onEdit(item.id)}
+            onDelete={() => onDelete(item)}
+          />
+        ))}
+      </IntegrationGroup>
+    )
+  })
 }
 
 export function ConnectionsPage() {
@@ -298,46 +336,23 @@ export function ConnectionsPage() {
         <ErrorState error={connections.error} onRetry={() => void connections.refetch()} />
       ) : (
         <>
-          {PROVIDER_GROUPS.map((group) => {
-            const rows = connections.data.filter((item) => (group.items as readonly string[]).includes(item.provider))
-            const empty = EMPTY_GROUPS[group.title]
-            return (
-              <section key={group.title} className="flex flex-col gap-3">
-                <GroupTitle title={group.title} count={rows.length} />
-                {rows.length === 0 && empty ? (
-                  <EmptyGroup
-                    providers={empty.marks}
-                    title={empty.title}
-                    text={empty.text}
-                    action={empty.action}
-                    onPick={() => start(group.items[0])}
-                  />
-                ) : (
-                  <ul className="flex flex-col gap-3">
-                    {rows.map((item) => (
-                      <ConnectionRow
-                        key={item.id}
-                        connection={item}
-                        testResult={testResult?.id === item.id ? testResult : null}
-                        testing={check.isPending}
-                        removing={remove.isPending}
-                        onTest={() => check.mutate(item.id)}
-                        onEdit={() => dispatch({ type: "edit", id: item.id })}
-                        onDelete={async () => {
-                          const yes = await confirm({
-                            title: `Delete ${item.name}?`,
-                            description: deleteDescription(item),
-                            confirmLabel: "Delete connection",
-                          })
-                          if (yes) remove.mutate(item.id)
-                        }}
-                      />
-                    ))}
-                  </ul>
-                )}
-              </section>
-            )
-          })}
+          <ConnectionGroups
+            connections={connections.data}
+            testResult={testResult}
+            testing={check.isPending}
+            removing={remove.isPending}
+            onTest={(id) => check.mutate(id)}
+            onEdit={(id) => dispatch({ type: "edit", id })}
+            onDelete={async (item) => {
+              const yes = await confirm({
+                title: `Delete ${item.name}?`,
+                description: deleteDescription(item),
+                confirmLabel: "Delete connection",
+              })
+              if (yes) remove.mutate(item.id)
+            }}
+            onAdd={start}
+          />
           <AllIntegrations
             providers={PROVIDER_GROUPS.flatMap((group) => group.items)}
             connected={connections.data.reduce<Partial<Record<IntegrationProvider, number>>>((counts, item) => {

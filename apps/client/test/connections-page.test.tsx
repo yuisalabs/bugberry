@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import { ConnectionForm } from "../src/components/ConnectionForm"
 import { GITHUB_TOKEN_URL, IssuePreview } from "../src/components/IntegrationForm"
 import type { Connection } from "../src/lib/api"
-import { AllIntegrations, catalogueOrder, ConnectionRow, deleteDescription, EmptyGroup, usageText } from "../src/pages/settings/ConnectionsPage"
+import { AllIntegrations, catalogueOrder, ConnectionGroups, ConnectionRow, deleteDescription, EmptyGroup, usageText } from "../src/pages/settings/ConnectionsPage"
 
 const slack: Connection = {
   id: "c1",
@@ -138,5 +138,25 @@ describe("the workspace Integrations page", () => {
   test("deleting asks with the names of the projects that use it", () => {
     expect(deleteDescription(slack)).toBe("Used in 2 projects: Checkout Web, Admin Panel. They will stop sending to Slack #qa.")
     expect(deleteDescription({ ...slack, usedIn: 0, usedBy: [] })).toBe("Not used in any project.")
+  })
+})
+
+describe("the workspace's connections, by group", () => {
+  const props = { testResult: null, testing: false, removing: false, onTest: mock(), onEdit: mock(), onDelete: mock() }
+
+  test("each group is a grid of cards, and the card to connect one more stays at its end", () => {
+    const onAdd = mock()
+    render(<ConnectionGroups connections={[slack]} onAdd={onAdd} {...props} />)
+    const [trackers, channels] = screen.getAllByRole("list")
+    expect(channels?.className).toContain("grid")
+    const items = channels ? Array.from(channels.querySelectorAll(":scope > li")) : []
+    expect(items).toHaveLength(2)
+    expect(items[0]?.textContent).toContain("Slack #qa")
+    expect(items[1]?.textContent).toContain("No chat channels yet")
+    // An empty group is the same grid, with only that card.
+    expect(trackers?.querySelectorAll(":scope > li")).toHaveLength(1)
+    expect(trackers?.textContent).toContain("No issue trackers yet")
+    fireEvent.click(screen.getByRole("button", { name: "Connect a channel" }))
+    expect(onAdd).toHaveBeenCalledWith("slack")
   })
 })

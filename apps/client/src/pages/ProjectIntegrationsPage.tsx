@@ -17,7 +17,7 @@ import { useConfirm } from "@bugberry/ui/confirm-dialog"
 import { Dialog, DialogBody, DialogHeader, DialogTitle } from "@bugberry/ui/dialog"
 import { BrandedHeader } from "../components/BrandedHeader"
 import { ProviderMark, PROVIDER_GROUPS } from "../components/IntegrationForm"
-import { EmptyGroup, GroupTitle, integrationCard, softButton, StatusChip } from "../components/IntegrationsLayout"
+import { GroupTitle, integrationCard, IntegrationGroup, softButton, StatusChip } from "../components/IntegrationsLayout"
 import { SettingsRowsSkeleton } from "../components/Skeletons"
 import { Badge, dangerText, EmptyState, ErrorState } from "../components/ui"
 import { EditIntegrationSteps, type LoadOptions, UseConnectionModal, usedUp } from "../components/UseConnectionDialog"
@@ -104,44 +104,7 @@ export function ReadyToUse({
   )
 }
 
-/** The card at the end of each group that adds one more; its words are those of an empty group. */
-interface EmptyCard {
-  title: string
-  text: string
-  action: string
-  marks: readonly Connection["provider"][]
-}
-
-/**
- * One group of the project's integrations (trackers, or chat channels) as a grid of cards, like the projects page:
- * a single integration no longer stretches across the page. The card that adds one more always ends the grid.
- */
-export function IntegrationGroup({
-  title,
-  count,
-  empty,
-  onAdd,
-  children,
-}: {
-  title: string
-  count: number
-  empty: EmptyCard
-  onAdd(): void
-  /** The group's IntegrationRow cards. */
-  children?: ReactNode
-}) {
-  return (
-    <section className="flex flex-col gap-3">
-      <GroupTitle title={title} count={count} />
-      <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-        {children}
-        <li>
-          <EmptyGroup stacked providers={empty.marks} title={empty.title} text={empty.text} action={empty.action} onPick={onAdd} />
-        </li>
-      </ul>
-    </section>
-  )
-}
+export { IntegrationGroup }
 
 /** What each group's last card says: the words of a project that uses nothing in it yet. */
 const EMPTY_GROUPS: Record<string, { title: string; text: (project: string) => string; action: string; marks: Connection["provider"][] }> = {
