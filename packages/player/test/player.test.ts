@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { clampToRange, displayDuration, formatClock, hotkeyAction, markerLabel, PLAYBACK_RATES, placeMarkers, seekTarget } from "../src"
+import { clampToRange, msUntilRangeEnd, displayDuration, formatClock, hotkeyAction, markerLabel, PLAYBACK_RATES, placeMarkers, seekTarget } from "../src"
 
 describe("markerLabel", () => {
   const marker = (id: string) => ({ id, atMs: 1000, kind: "error" as const, label: "err", detail: "boom" })
@@ -105,5 +105,23 @@ describe("clampToRange", () => {
 
   test("inside the range is left alone", () => {
     expect(clampToRange(10, range)).toEqual({ seconds: 10, atEnd: false })
+  })
+})
+
+describe("msUntilRangeEnd", () => {
+  const range = { startMs: 6_000, endMs: 35_000 }
+
+  test("no range, no stop", () => {
+    expect(msUntilRangeEnd(10, null, 1)).toBeNull()
+  })
+
+  test("the time left to the end, at the playback speed", () => {
+    expect(msUntilRangeEnd(30, range, 1)).toBe(5_000)
+    expect(msUntilRangeEnd(30, range, 2)).toBe(2_500)
+  })
+
+  test("at or past the end there is nothing left", () => {
+    expect(msUntilRangeEnd(35, range, 1)).toBe(0)
+    expect(msUntilRangeEnd(40, range, 1)).toBe(0)
   })
 })

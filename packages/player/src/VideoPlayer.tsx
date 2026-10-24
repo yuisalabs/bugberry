@@ -11,6 +11,7 @@ import {
   type MarkerGroup,
   markerLabel,
   formatClock,
+  msUntilRangeEnd,
   PLAYBACK_RATES,
   placeMarkers,
   SEEK_STEP_SECONDS,
@@ -54,6 +55,8 @@ export function VideoPlayer({
 }: VideoPlayerProps) {
   const host = useRef<HTMLDivElement>(null)
   const playerRef = useRef<Player | null>(null)
+  /** Pauses playback at the range's end; timeupdate alone comes about four times a second and would overshoot. */
+  const stopAt = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [slots, setSlots] = useState<Slots | null>(null)
   const [seconds, setSeconds] = useState(0)
   const [length, setLength] = useState<number | null>(durationMs ? durationMs / 1000 : null)
@@ -102,6 +105,18 @@ export function VideoPlayer({
       if (kept.atEnd && !player.paused()) player.pause()
       if (kept.seconds !== now) player.currentTime(kept.seconds)
     }
+    const scheduleStop = () => {
+      if (stopAt.current) clearTimeout(stopAt.current)
+      stopAt.current = null
+      const left = msUntilRangeEnd(player.currentTime() ?? 0, latest.current.range, player.playbackRate() ?? 1)
+      if (left === null || player.paused()) return
+      stopAt.current = setTimeout(() => {
+        const range = latest.current.range
+        if (!range) return
+        player.pause()
+        player.currentTime(range.endMs / 1000)
+      }, left)
+    }
     const reportTime = () => {
       keepInRange()
       const now = player.currentTime() ?? 0
@@ -121,6 +136,8 @@ export function VideoPlayer({
       const range = latest.current.range
       if (range && clampToRange(player.currentTime() ?? 0, range).atEnd) player.currentTime(range.startMs / 1000)
     })
+    player.on(["playing", "seeked", "ratechange"], scheduleStop)
+    player.on("pause", scheduleStop)
     player.on("error", () => latest.current.onError?.())
     player.on("loadedmetadata", () => {
       fixDuration()
@@ -146,12 +163,22 @@ export function VideoPlayer({
     })
 
     return () => {
+      if (stopAt.current) clearTimeout(stopAt.current)
       setSlots(null)
       playerRef.current = null
       assignRef(latest.current.videoRef, null)
       player.dispose()
     }
   }, [src])
+
+  // A new range applies at once, also to a paused player sitting outside it.
+  useEffect(() => {
+    const player = playerRef.current
+    if (!player || !range) return
+    const now = player.currentTime() ?? 0
+    const kept = clampToRange(now, range)
+    if (kept.seconds !== now) player.currentTime(kept.seconds)
+  }, [range])
 
   const jumpTo = (marker: TimelineMarker) => {
     playerRef.current?.currentTime(Math.max(0, marker.atMs / 1000))

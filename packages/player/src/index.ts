@@ -41,6 +41,12 @@ export function clampToRange(seconds: number, range: PlayRange | null | undefine
   return { seconds, atEnd: false }
 }
 
+/** Milliseconds of playback left before the range's end at this speed; null without a range. */
+export function msUntilRangeEnd(seconds: number, range: PlayRange | null | undefined, rate: number): number | null {
+  if (!range) return null
+  return Math.max(0, (range.endMs - seconds * 1000) / (rate > 0 ? rate : 1))
+}
+
 export const PLAYBACK_RATES = [0.5, 1, 1.5, 2]
 export const SEEK_STEP_SECONDS = 5
 

@@ -89,10 +89,34 @@ test("a trimmed recording sends only the kept part, video and logs", async () =>
   await review.getByRole("button", { name: "Trim" }).click()
   const start = review.getByRole("slider", { name: /Trim start/ })
   for (let i = 0; i < 10; i++) await start.press("ArrowRight")
-  await expect(review.getByText("0:01 – 0:04 · 3 s of 4 s")).toBeVisible()
+  const end = review.getByRole("slider", { name: /Trim end/ })
+  for (let i = 0; i < 10; i++) await end.press("ArrowLeft")
+  await expect(review.getByText("0:01 – 0:03 · 2 s of 4 s")).toBeVisible()
   await review.getByRole("button", { name: "Done" }).click()
-  await expect(review.getByRole("button", { name: "Trim 0:01–0:04" })).toBeVisible()
+  await expect(review.getByRole("button", { name: "Trim 0:01–0:03" })).toBeVisible()
+  // The error at exactly 3 s is on the boundary and stays; the one at 0.5 s goes.
   await expect(review.getByText("1 error", { exact: true })).toBeVisible()
+
+  // The preview stays inside the range: left at the end edge, play starts again from 1 s and stops at 3 s.
+  const player = review.locator("video")
+  expect(await player.evaluate((video: HTMLVideoElement) => video.currentTime)).toBeCloseTo(3, 1)
+  await player.evaluate((video: HTMLVideoElement) => video.play())
+  await expect.poll(() => player.evaluate((video: HTMLVideoElement) => video.currentTime)).toBeLessThan(2)
+  await expect.poll(() => player.evaluate((video: HTMLVideoElement) => video.paused), { timeout: 5_000 }).toBe(true)
+  expect(await player.evaluate((video: HTMLVideoElement) => video.currentTime)).toBeCloseTo(3, 1)
+  // A seek before the start moves back into the range.
+  await player.evaluate((video: HTMLVideoElement) => {
+    video.currentTime = 0.2
+  })
+  await expect.poll(() => player.evaluate((video: HTMLVideoElement) => video.currentTime)).toBeCloseTo(1, 1)
+  // With the strip open the whole video can be looked at; Done brings a position outside the range back in.
+  await review.getByRole("button", { name: "Trim 0:01–0:03" }).click()
+  await player.evaluate(async (video: HTMLVideoElement) => {
+    video.currentTime = 3.8
+    await new Promise((resolve) => video.addEventListener("seeked", resolve, { once: true }))
+  })
+  await review.getByRole("button", { name: "Done" }).click()
+  await expect.poll(() => player.evaluate((video: HTMLVideoElement) => video.currentTime)).toBeCloseTo(3, 1)
   await review.getByLabel("Title").fill("Trimmed recording")
   await review.getByRole("button", { name: "Create report" }).click()
   await expect(review.getByText("Report created")).toBeVisible({ timeout: 60_000 })
@@ -104,13 +128,13 @@ test("a trimmed recording sends only the kept part, video and logs", async () =>
     mediaUrl: string
     debuggerUrl: string
   }
-  expect(Math.abs(report.durationMs - 3000)).toBeLessThanOrEqual(100)
+  expect(Math.abs(report.durationMs - 2000)).toBeLessThanOrEqual(100)
 
   const debuggerBytes = Buffer.from(await (await fetch(new URL(report.debuggerUrl, state.serverUrl), { headers: auth })).arrayBuffer())
   const payload = JSON.parse(gunzipSync(debuggerBytes).toString("utf8")) as { events: Array<{ message?: string }> }
   expect(payload.events.map((event) => event.message)).toEqual(["kept"])
 
-  // The uploaded file itself is about 3 s long and plays.
+  // The uploaded file itself is about 2 s long and plays.
   const media = Buffer.from(await (await fetch(new URL(report.mediaUrl, state.serverUrl), { headers: auth })).arrayBuffer())
   const played = await page.evaluate(async (bytes) => {
     const video = document.createElement("video")
@@ -125,7 +149,7 @@ test("a trimmed recording sends only the kept part, video and logs", async () =>
     await new Promise((resolve) => setTimeout(resolve, 300))
     return { duration, moved: video.currentTime > 0 }
   }, [...media])
-  expect(Math.abs(played.duration - 3)).toBeLessThanOrEqual(0.2)
+  expect(Math.abs(played.duration - 2)).toBeLessThanOrEqual(0.2)
   expect(played.moved).toBe(true)
 
   await context.close()
