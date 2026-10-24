@@ -102,4 +102,14 @@ describe("the camera bubble", () => {
     expect(posted).toContainEqual({ bugberry: "camera-resize", phase: "start" })
     expect(posted).not.toContainEqual({ bugberry: "bar-drag", phase: "start" })
   })
+
+  test("its white edge sits above the picture, round for a circle and rounded for a rectangle", async () => {
+    const circle = await setup({ deviceId: null, shape: "circle" })
+    const ring = circle.view.container.querySelector("[data-slot=camera-edge]") as HTMLElement
+    expect(ring.compareDocumentPosition(circle.view.container.querySelector("video") as Node) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
+    expect(ring.className).toContain("rounded-full")
+    circle.view.unmount()
+    const rectangle = await setup({ deviceId: null, shape: "rectangle" })
+    expect((rectangle.view.container.querySelector("[data-slot=camera-edge]") as HTMLElement).className).toContain("rounded-2xl")
+  })
 })
