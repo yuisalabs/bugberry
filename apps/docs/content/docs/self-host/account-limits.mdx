@@ -10,15 +10,14 @@ ACCOUNT_LIMITS=true
 LIMIT_SCREENSHOTS=5
 LIMIT_RECORDINGS=5
 LIMIT_OWNED_WORKSPACES=1
-LIMIT_STORAGE_MB=250
-LIMIT_FILE_MB=50
+LIMIT_RECORDING_SECONDS=120
 ```
 
-With `ACCOUNT_LIMITS=true`, an account owns at most `LIMIT_OWNED_WORKSPACES` workspaces and can't add members to them. Each workspace keeps at most `LIMIT_SCREENSHOTS` screenshots and `LIMIT_RECORDINGS` recordings, in at most `LIMIT_STORAGE_MB` of storage, and no file of a report may be bigger than `LIMIT_FILE_MB`. Deleting a report frees its slot and its space. Workspaces that are already over a limit keep everything; they just can't add more.
+With `ACCOUNT_LIMITS=true`, an account owns at most `LIMIT_OWNED_WORKSPACES` workspaces and can't add members to them. Each workspace keeps at most `LIMIT_SCREENSHOTS` screenshots and `LIMIT_RECORDINGS` recordings, and takes recordings up to `LIMIT_RECORDING_SECONDS` long. Deleting a report frees its slot. Workspaces that are already over a limit keep everything; they just can't add more.
 
 The limits belong to the workspace, and they follow its owner. Every report in the workspace counts, whoever sent it, and since a limited workspace takes no members, in practice that is one person's allowance. Someone with a limited account who works in an unlimited account's workspace sends there without limits, and those reports don't count toward their own workspace.
 
-Storage counts every file a report uploads: the screenshot or video, the logs and the preview. An upload in progress counts until its upload link expires. The extension shows what's left, stops a recording before it would pass the file limit or the space left, and won't send a report that doesn't fit; the server checks again either way.
+An upload in progress counts until its upload link expires. The extension shows what's left, stops a recording at `LIMIT_RECORDING_SECONDS`, and won't send a longer one (trimmed to fit, it can); the server checks the length the extension declares again either way. Storage isn't limited per account: `MAX_UPLOAD_MB` still bounds every file on the server.
 
 ## Unlimited accounts
 

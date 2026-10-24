@@ -117,11 +117,7 @@ export function reportUploadsModule(deps: AppDeps) {
         const created = await db.transaction(async (tx) => {
           const number = await claimReportNumber(tx, workspaceId)
           // Counted after the claim, which locks the workspace row: uploads at the same time take turns here.
-          await assertCanCreateReport(tx, config, workspaceId, body.captureType, {
-            media: body.mediaSize,
-            debugger: body.debuggerSize,
-            thumbnail: body.thumbnailSize,
-          })
+          await assertCanCreateReport(tx, config, workspaceId, body.captureType, body.durationMs ?? null)
           const [row] = await tx
             .insert(report)
             .values({
@@ -250,8 +246,7 @@ export function reportUploadsModule(deps: AppDeps) {
             config,
             row.workspaceId,
             row.captureType,
-            // A thumbnail that didn't arrive intact is dropped below, so it isn't counted against the room left.
-            { media: row.mediaSize, debugger: row.debuggerSize, thumbnail: keepThumbnail ? row.thumbnailSize : null },
+            row.durationMs,
             row.id,
           )
           const updated = await tx
