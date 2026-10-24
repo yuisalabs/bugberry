@@ -15,6 +15,9 @@ export interface PageUiDeps {
   /** The camera bubble's place, kept apart from the bar's. */
   saveCameraPosition?(position: BarPosition): void
   loadCameraPosition?(): BarPosition | null
+  /** The camera bubble's height, set with its corner handle; one for both shapes. */
+  saveCameraHeight?(height: number): void
+  loadCameraHeight?(): number | null
   /** "closed" in the page, so page scripts can't reach in; tests use "open". */
   shadowMode?: ShadowRootMode
   /** Whether a key event came from the reporter. A page can dispatch its own; tests' events are never trusted. */
@@ -41,12 +44,21 @@ export interface PageUi {
 const BAR_SIZE = { width: 560, height: 96 }
 const BOTTOM_GAP = 24
 const COUNTDOWN_SECONDS = 3
-export const CAMERA_SIZE: Record<CameraShape, { width: number; height: number }> = {
-  circle: { width: 96, height: 96 },
-  rectangle: { width: 144, height: 96 },
-}
+/** The camera bubble's height in CSS pixels: what it starts at, and how far its corner handle can take it. */
+export const CAMERA_HEIGHT = { initial: 160, min: 96, max: 320 }
+/** Width for each pixel of height: a circle stays round, a rectangle 3:2. */
+const CAMERA_ASPECT: Record<CameraShape, number> = { circle: 1, rectangle: 1.5 }
 /** The camera bubble starts bottom-left, away from the bar. */
 const CAMERA_GAP = 24
+
+/** A stored camera height; anything but a finite number is none (the page layer keeps it within range). */
+export function cameraHeightFrom(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null
+}
+
+export function cameraSize(shape: CameraShape, height: number): { width: number; height: number } {
+  return { width: Math.round(height * CAMERA_ASPECT[shape]), height }
+}
 
 /**
  * Whether a page load should ask the background if its tab is being recorded. The recording state sits in
@@ -110,7 +122,16 @@ export function createPageUi(doc: Document, win: Window, deps: PageUiDeps): Page
   let cancelCountdown: (() => void) | null = null
   /** Where the bar was when the drag under way started; the bar's frame reports how far it has moved since. */
   let dragFrom: BarPosition | null = null
-  let camera: { token: string; shape: CameraShape; box: HTMLElement; frame: HTMLIFrameElement; dragFrom: BarPosition | null } | null = null
+  let camera: {
+    token: string
+    shape: CameraShape
+    height: number
+    box: HTMLElement
+    frame: HTMLIFrameElement
+    dragFrom: BarPosition | null
+    /** The height and bottom-left corner when the resize under way started. */
+    resizeFrom: { height: number; left: number; bottom: number } | null
+  } | null = null
 
   const viewport = () => ({ width: win.innerWidth, height: win.innerHeight })
   const outerSize = () => barSize
@@ -168,6 +189,9 @@ export function createPageUi(doc: Document, win: Window, deps: PageUiDeps): Page
     else if (data.bugberry === "bar-drag" && camera && event.source !== null && event.source === camera.frame.contentWindow) {
       onCameraDrag(camera, data)
     }
+    else if (data.bugberry === "camera-resize" && camera && event.source !== null && event.source === camera.frame.contentWindow) {
+      onCameraResize(camera, data)
+    }
     else if (data.bugberry === "camera-failed" && camera && event.source !== null && event.source === camera.frame.contentWindow) {
       ui.hideCamera()
     }
@@ -204,15 +228,53 @@ export function createPageUi(doc: Document, win: Window, deps: PageUiDeps): Page
       return
     }
     if (!bubble.dragFrom || typeof data.dx !== "number" || typeof data.dy !== "number") return
-    const at = place(bubble.box, { x: bubble.dragFrom.x + data.dx, y: bubble.dragFrom.y + data.dy }, CAMERA_SIZE[bubble.shape])
+    const at = place(bubble.box, { x: bubble.dragFrom.x + data.dx, y: bubble.dragFrom.y + data.dy }, cameraSize(bubble.shape, bubble.height))
     if (data.phase === "end") {
       bubble.dragFrom = null
       deps.saveCameraPosition?.(at)
     }
   }
+  /** As high as the window allows, past the gap on either side, and within the handle's range. */
+  const cameraHeight = (shape: CameraShape, height: number) => {
+    const { width, height: tall } = viewport()
+    const fits = Math.min(CAMERA_HEIGHT.max, tall - 2 * CAMERA_GAP, (width - 2 * CAMERA_GAP) / CAMERA_ASPECT[shape])
+    return Math.round(Math.max(CAMERA_HEIGHT.min, Math.min(fits, height)))
+  }
+  const sizeCamera = (bubble: NonNullable<typeof camera>, height: number) => {
+    bubble.height = height
+    const { width } = cameraSize(bubble.shape, height)
+    for (const element of [bubble.box, bubble.frame]) {
+      element.style.width = `${width}px`
+      element.style.height = `${height}px`
+    }
+  }
+  /**
+   * The handle at the top-right corner: up and to the right grows the bubble, by the average of the two
+   * moves (in height), while its bottom-left corner stays where it is.
+   */
+  const onCameraResize = (bubble: NonNullable<typeof camera>, data: Record<string, unknown>) => {
+    if (data.phase === "start") {
+      const at = positionOf(bubble.box)
+      bubble.resizeFrom = { height: bubble.height, left: at.x, bottom: at.y + bubble.height }
+      return
+    }
+    const from = bubble.resizeFrom
+    if (!from || typeof data.dx !== "number" || typeof data.dy !== "number") return
+    const height = cameraHeight(bubble.shape, from.height + (data.dx / CAMERA_ASPECT[bubble.shape] - data.dy) / 2)
+    sizeCamera(bubble, height)
+    const at = place(bubble.box, { x: from.left, y: from.bottom - height }, cameraSize(bubble.shape, height))
+    if (data.phase === "end") {
+      bubble.resizeFrom = null
+      deps.saveCameraHeight?.(height)
+      deps.saveCameraPosition?.(at)
+    }
+  }
   const onResize = () => {
     if (recording) place(recording.bar, positionOf(recording.bar))
-    if (camera) place(camera.box, positionOf(camera.box), CAMERA_SIZE[camera.shape])
+    if (camera) {
+      sizeCamera(camera, cameraHeight(camera.shape, camera.height))
+      place(camera.box, positionOf(camera.box), cameraSize(camera.shape, camera.height))
+    }
   }
   win.addEventListener("message", onMessage)
   win.addEventListener("resize", onResize)
@@ -337,7 +399,7 @@ export function createPageUi(doc: Document, win: Window, deps: PageUiDeps): Page
     showCamera(token, shape) {
       if (camera?.token === token && camera.box.isConnected) return
       ui.hideCamera()
-      const size = CAMERA_SIZE[shape]
+      const size = cameraSize(shape, cameraHeight(shape, deps.loadCameraHeight?.() ?? CAMERA_HEIGHT.initial))
       const box = doc.createElement("div")
       box.setAttribute("data-camera", "")
       box.style.cssText = `position:fixed;overflow:hidden;width:${size.width}px;height:${size.height}px;border-radius:${shape === "circle" ? "50%" : "16px"};box-shadow:0 6px 20px rgba(28,16,34,0.35)`
@@ -349,7 +411,7 @@ export function createPageUi(doc: Document, win: Window, deps: PageUiDeps): Page
       if (recording?.bar.parentNode === shadow) recording.bar.before(box)
       else shadow.append(box)
       place(box, deps.loadCameraPosition?.() ?? { x: CAMERA_GAP, y: viewport().height - size.height - CAMERA_GAP }, size)
-      camera = { token, shape, box, frame: cameraFrame, dragFrom: null }
+      camera = { token, shape, height: size.height, box, frame: cameraFrame, dragFrom: null, resizeFrom: null }
     },
 
     hideCamera() {

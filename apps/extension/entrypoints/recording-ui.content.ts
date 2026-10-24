@@ -1,9 +1,10 @@
 import { browser } from "wxt/browser"
 import { isPageUiMessage, type UiStateRequest } from "../lib/messages"
-import { type BarPosition, cameraFromUiState, createPageUi, uiStateNeeded } from "../lib/page-ui"
+import { type BarPosition, cameraFromUiState, cameraHeightFrom, createPageUi, uiStateNeeded } from "../lib/page-ui"
 
 const POSITION_KEY = "barPosition"
 const CAMERA_POSITION_KEY = "cameraPosition"
+const CAMERA_HEIGHT_KEY = "cameraHeight"
 
 function positionFrom(value: unknown): BarPosition | null {
   const position = value as Partial<BarPosition> | undefined
@@ -21,9 +22,10 @@ export default defineContentScript({
   allFrames: false,
   async main() {
     const extensionRoot = browser.runtime.getURL("/")
-    const stored = (await browser.storage.local.get([POSITION_KEY, CAMERA_POSITION_KEY]).catch(() => ({}))) as Record<string, unknown>
+    const stored = (await browser.storage.local.get([POSITION_KEY, CAMERA_POSITION_KEY, CAMERA_HEIGHT_KEY]).catch(() => ({}))) as Record<string, unknown>
     let position = positionFrom(stored[POSITION_KEY])
     let cameraPosition = positionFrom(stored[CAMERA_POSITION_KEY])
+    let cameraHeight = cameraHeightFrom(stored[CAMERA_HEIGHT_KEY])
     const ui = createPageUi(document, window, {
       extensionUrl: (path) => `${extensionRoot}${path}`,
       extensionOrigin: new URL(extensionRoot).origin,
@@ -37,6 +39,11 @@ export default defineContentScript({
         void browser.storage.local.set({ [CAMERA_POSITION_KEY]: next }).catch(() => {})
       },
       loadCameraPosition: () => cameraPosition,
+      saveCameraHeight: (next) => {
+        cameraHeight = next
+        void browser.storage.local.set({ [CAMERA_HEIGHT_KEY]: next }).catch(() => {})
+      },
+      loadCameraHeight: () => cameraHeight,
     })
 
     browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {

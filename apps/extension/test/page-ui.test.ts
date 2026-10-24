@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, mock, test } from "bun:test"
-import { type BarPosition, cameraFromUiState, clampPosition, createPageUi, uiStateNeeded } from "../lib/page-ui"
+import { type BarPosition, cameraFromUiState, cameraHeightFrom, clampPosition, createPageUi, uiStateNeeded } from "../lib/page-ui"
 
 const ORIGIN = "chrome-extension://abcdefghijklmnopabcdefghijklmnop"
 
-function setup(saved: BarPosition | null = null, savedCamera: BarPosition | null = null) {
+function setup(saved: BarPosition | null = null, savedCamera: BarPosition | null = null, savedHeight: number | null = null) {
   const savePosition = mock((_position: BarPosition) => {})
   const saveCameraPosition = mock((_position: BarPosition) => {})
+  const saveCameraHeight = mock((_height: number) => {})
   const ui = createPageUi(document, window, {
     extensionUrl: (path) => `${ORIGIN}/${path}`,
     extensionOrigin: ORIGIN,
@@ -13,12 +14,14 @@ function setup(saved: BarPosition | null = null, savedCamera: BarPosition | null
     loadPosition: () => saved,
     saveCameraPosition,
     loadCameraPosition: () => savedCamera,
+    saveCameraHeight,
+    loadCameraHeight: () => savedHeight,
     shadowMode: "open",
     // happy-dom's events are never trusted; the real page layer only takes the reporter's own keys.
     trusted: () => true,
   })
   const root = () => document.querySelector("[data-bugberry-ui]")?.shadowRoot ?? null
-  return { ui, savePosition, saveCameraPosition, root }
+  return { ui, savePosition, saveCameraPosition, saveCameraHeight, root }
 }
 
 const post = (data: unknown, origin = ORIGIN) => window.dispatchEvent(new MessageEvent("message", { data, origin }))
@@ -132,7 +135,7 @@ describe("the camera bubble", () => {
     const frame = cameraFrame(root())
     expect(frame?.src).toBe(`${ORIGIN}/camera-bubble.html?camera=t1`)
     expect(frame?.getAttribute("allow")).toBe("camera")
-    expect([frame?.style.width, frame?.style.height]).toEqual(["96px", "96px"])
+    expect([frame?.style.width, frame?.style.height]).toEqual(["160px", "160px"])
     expect(boxOf(root())?.style.borderRadius).toBe("50%")
     ui.hideCamera()
     expect(root()).toBeNull()
@@ -142,14 +145,14 @@ describe("the camera bubble", () => {
     const { ui, root } = setup()
     ui.showCamera("t1", "rectangle")
     const frame = cameraFrame(root())
-    expect([frame?.style.width, frame?.style.height]).toEqual(["144px", "96px"])
+    expect([frame?.style.width, frame?.style.height]).toEqual(["240px", "160px"])
     expect(boxOf(root())?.style.borderRadius).toBe("16px")
   })
 
   test("it starts bottom-left, or where it was left", () => {
     const first = setup()
     first.ui.showCamera("t1", "circle")
-    expect([boxOf(first.root())?.style.left, boxOf(first.root())?.style.top]).toEqual(["24px", `${window.innerHeight - 96 - 24}px`])
+    expect([boxOf(first.root())?.style.left, boxOf(first.root())?.style.top]).toEqual(["24px", `${window.innerHeight - 160 - 24}px`])
     first.ui.hideCamera()
     const again = setup(null, { x: 300, y: 200 })
     again.ui.showCamera("t1", "circle")
@@ -181,6 +184,54 @@ describe("the camera bubble", () => {
     reloaded.ui.showRecording("s1")
     reloaded.ui.showCamera("t1", "circle")
     expect(order(reloaded.root())).toEqual(["draw", "camera", "bar"])
+  })
+
+  test("the size it was left at comes back, kept within 96 to 320 px", () => {
+    const sized = (height: number | null, shape: "circle" | "rectangle" = "circle") => {
+      const { ui, root } = setup(null, null, height)
+      ui.showCamera("t1", shape)
+      const frame = cameraFrame(root())
+      const size = [frame?.style.width, frame?.style.height]
+      ui.hideCamera()
+      return size
+    }
+    expect(sized(200)).toEqual(["200px", "200px"])
+    expect(sized(200, "rectangle")).toEqual(["300px", "200px"])
+    expect(sized(1000)).toEqual(["320px", "320px"])
+    expect(sized(10)).toEqual(["96px", "96px"])
+  })
+
+  test("the corner handle resizes it, its bottom-left corner staying put, and the size is saved", () => {
+    const { ui, root, saveCameraHeight, saveCameraPosition } = setup(null, { x: 100, y: 400 })
+    ui.showCamera("t1", "circle")
+    const frame = cameraFrame(root())
+    if (frame) Object.defineProperty(frame, "contentWindow", { value: window, configurable: true })
+    const fromCamera = (data: unknown) => window.dispatchEvent(new MessageEvent("message", { data, origin: ORIGIN, source: window }))
+    fromCamera({ bugberry: "camera-resize", phase: "start" })
+    // Up and to the right grows it: by the average of the two, in height.
+    fromCamera({ bugberry: "camera-resize", phase: "move", dx: 30, dy: -30 })
+    expect([frame?.style.width, frame?.style.height]).toEqual(["190px", "190px"])
+    expect([boxOf(root())?.style.left, boxOf(root())?.style.top]).toEqual(["100px", "370px"])
+    expect(saveCameraHeight).not.toHaveBeenCalled()
+    fromCamera({ bugberry: "camera-resize", phase: "end", dx: 40, dy: -40 })
+    expect(saveCameraHeight).toHaveBeenCalledWith(200)
+    expect(saveCameraPosition).toHaveBeenCalledWith({ x: 100, y: 360 })
+  })
+
+  test("a resize can't go past 96 or 320 px, and only the camera's frame can resize it", () => {
+    const { ui, root } = setup(null, { x: 100, y: 300 })
+    ui.showCamera("t1", "rectangle")
+    const frame = cameraFrame(root())
+    post({ bugberry: "camera-resize", phase: "start" })
+    post({ bugberry: "camera-resize", phase: "move", dx: 0, dy: -100 })
+    expect(frame?.style.height).toBe("160px")
+    if (frame) Object.defineProperty(frame, "contentWindow", { value: window, configurable: true })
+    const fromCamera = (data: unknown) => window.dispatchEvent(new MessageEvent("message", { data, origin: ORIGIN, source: window }))
+    fromCamera({ bugberry: "camera-resize", phase: "start" })
+    fromCamera({ bugberry: "camera-resize", phase: "move", dx: 0, dy: -1000 })
+    expect([frame?.style.width, frame?.style.height]).toEqual(["480px", "320px"])
+    fromCamera({ bugberry: "camera-resize", phase: "move", dx: 0, dy: 1000 })
+    expect([frame?.style.width, frame?.style.height]).toEqual(["144px", "96px"])
   })
 
   test("hiding the recording keeps the camera", () => {
@@ -229,6 +280,13 @@ describe("countdown", () => {
     expect(await result).toBe("cancel")
     expect(root()?.textContent ?? "").not.toContain("Recording starts")
   })
+})
+
+test("a stored camera height is used only when it is a real number", () => {
+  expect(cameraHeightFrom(200)).toBe(200)
+  expect(cameraHeightFrom("200")).toBeNull()
+  expect(cameraHeightFrom(Number.NaN)).toBeNull()
+  expect(cameraHeightFrom(undefined)).toBeNull()
 })
 
 test("after a reload, the camera comes back only from a well-formed ui-state answer", () => {

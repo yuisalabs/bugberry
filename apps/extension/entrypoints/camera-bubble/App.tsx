@@ -1,5 +1,6 @@
+import { RiExpandDiagonalLine } from "@remixicon/react"
 import { useEffect, useRef, useState } from "react"
-import { startBarDrag } from "../../lib/bar-drag"
+import { startBarDrag, startCameraResize } from "../../lib/bar-drag"
 import type { CameraTicketRequest } from "../../lib/messages"
 
 /**
@@ -16,6 +17,8 @@ export function CameraBubble(props: {
 }) {
   const video = useRef<HTMLVideoElement>(null)
   const [stream, setStream] = useState<MediaStream | null>(null)
+  const [round, setRound] = useState(true)
+  const surface = useRef<HTMLDivElement>(null)
   const { token, ask, getUserMedia, postToPage } = props
 
   useEffect(() => {
@@ -25,8 +28,9 @@ export function CameraBubble(props: {
       if (!gone) postToPage({ bugberry: "camera-failed" })
     }
     void (async () => {
-      const choice = (await ask({ type: "bugberry:camera-ticket", token, action: "read" }).catch(() => null)) as { deviceId?: unknown } | null
+      const choice = (await ask({ type: "bugberry:camera-ticket", token, action: "read" }).catch(() => null)) as { deviceId?: unknown; shape?: unknown } | null
       if (!choice || gone) return fail()
+      setRound(choice.shape !== "rectangle")
       // `ideal`: a camera unplugged since it was chosen falls back to another one.
       const constraints = { video: typeof choice.deviceId === "string" ? { deviceId: { ideal: choice.deviceId } } : true, audio: false }
       try {
@@ -63,8 +67,9 @@ export function CameraBubble(props: {
 
   return (
     <div
+      ref={surface}
       data-camera-surface
-      className="h-screen w-screen cursor-grab overflow-hidden bg-[#1c1022] active:cursor-grabbing"
+      className="group relative h-screen w-screen cursor-grab overflow-hidden bg-[#1c1022] active:cursor-grabbing"
       // A white edge, drawn inside so the frame's own size stays the bubble's.
       style={{ boxShadow: "inset 0 0 0 3px #fff" }}
       onPointerDown={(event) => startBarDrag(event.nativeEvent, event.currentTarget, { post: postToPage })}
@@ -79,6 +84,19 @@ export function CameraBubble(props: {
         className="pointer-events-none size-full object-cover"
         onPlaying={() => void ask({ type: "bugberry:camera-ticket", token, action: "ready" }).catch(() => {})}
       />
+      {/* Top-right, on the circle's edge for a circle: shown while the pointer is over the bubble. */}
+      <button
+        type="button"
+        aria-label="Resize camera"
+        className={`absolute grid size-6 cursor-nesw-resize place-items-center rounded-full bg-white text-[#1c1022] opacity-0 shadow-[0_1px_4px_rgba(0,0,0,0.35)] transition-opacity group-hover:opacity-100 focus-visible:opacity-100 ${
+          round ? "top-[14.6%] right-[14.6%] translate-x-1/2 -translate-y-1/2" : "top-2 right-2"
+        }`}
+        onPointerDown={(event) => {
+          if (surface.current) startCameraResize(event.nativeEvent, surface.current, { post: postToPage })
+        }}
+      >
+        <RiExpandDiagonalLine size={14} aria-hidden />
+      </button>
     </div>
   )
 }

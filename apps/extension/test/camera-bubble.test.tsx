@@ -94,4 +94,12 @@ describe("the camera bubble", () => {
     fireEvent.keyDown(window, { key: "Escape" })
     expect(posted).toContainEqual({ bugberry: "escape" })
   })
+
+  test("its corner handle resizes, and doesn't drag", async () => {
+    const { posted, view } = await setup({ deviceId: null, shape: "circle" })
+    const handle = view.getByRole("button", { name: "Resize camera" })
+    fireEvent.pointerDown(handle, { button: 0, screenX: 10, screenY: 10 })
+    expect(posted).toContainEqual({ bugberry: "camera-resize", phase: "start" })
+    expect(posted).not.toContainEqual({ bugberry: "bar-drag", phase: "start" })
+  })
 })
