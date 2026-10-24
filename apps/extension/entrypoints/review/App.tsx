@@ -9,7 +9,7 @@ import { BUILD_SERVER_ORIGIN, browserSettingsStorage, includeCityStorage, lastWo
 import { createIndexedDbDraftStore, saveAnnotations } from "../../lib/draft-store"
 import { createDraftWriter } from "../../lib/draft-writer"
 import { createSeeker } from "../../lib/seeker"
-import { type EditorDeps, loadEditor, loadProjects } from "../../lib/editor-load"
+import { type EditorDeps, loadDestination, loadEditor, loadProjects } from "../../lib/editor-load"
 import { limitsFor } from "../../lib/limits"
 import { currentCoordinates, locationForSend, toggleCity } from "../../lib/location"
 import type { ReviewAgainRequest, ReviewAnotherRequest } from "../../lib/messages"
@@ -68,6 +68,7 @@ type Loaded = {
   email: string | null
   name: string | null
   projects: Project[]
+  signedOut: boolean
 }
 
 /** The review: over the recorded page (embedded in the page layer's iframe) or in a tab of its own. */
@@ -85,6 +86,8 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
   // The selected workspace under ACCOUNT_LIMITS: its usage for this kind, and whether "Create report" waits.
   const [limitNote, setLimitNote] = useState<LimitNote>(NO_LIMIT_NOTE)
   const [members, setMembers] = useState<Assignable[]>([])
+  /** Signed out: where to sign in before sending. The draft is kept meanwhile. */
+  const [signInAt, setSignInAt] = useState<string | null>(null)
   // After sending: the report as the server has it, and the trackers it can go to.
   const [sentDetails, setSentDetails] = useState<SentDetails | null>(null)
   const [trackers, setTrackers] = useState<TrackerChoice[] | null>(null)
@@ -131,6 +134,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
         setLocked(trimLocked(state.draft))
         setProjects(state.projects)
         void loadMembers(state.workspaceId)
+        if (state.signedOut) void editorDeps.loadSettings().then((settings) => settings && !cancelled && setSignInAt(signInUrl(settings.serverUrl)))
         if (state.draft.status === "failed") setStatus({ failed: state.draft.error ?? "Upload failed" })
       })
       .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : String(cause)))
@@ -156,25 +160,49 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
     [draftId, busy],
   )
 
+  // Signed in from another tab: back here, the workspaces and Create report appear without reopening the draft.
+  useEffect(() => {
+    if (!loaded?.signedOut) return
+    let cancelled = false
+    const recheck = async () => {
+      const settings = await editorDeps.loadSettings()
+      const draft = await store.get(draftId)
+      if (!settings || !draft || cancelled) return
+      const destination = await loadDestination(settings, draft, editorDeps)
+      if (destination.signedOut || cancelled) return
+      setLoaded((current) => current && { ...current, ...destination })
+      setProjects(destination.projects)
+      setSignInAt(null)
+      void loadMembers(destination.workspaceId)
+    }
+    const onFocus = () => void recheck()
+    window.addEventListener("focus", onFocus)
+    return () => {
+      cancelled = true
+      window.removeEventListener("focus", onFocus)
+    }
+  }, [loaded?.signedOut, draftId, loadMembers])
+
   const limits = useMemo(
     () =>
-      loaded &&
-      createReviewLimits(
-        {
-          kind: loaded.draft.captureType,
-          // The part of the recording that is sent; the server checks the length again.
-          durationMs:
-            loaded.draft.captureType !== "video" ? 0 : trim ? trim.endMs - trim.startMs : (loaded.draft.durationMs ?? 0),
-          workspaces: loaded.workspaces,
-          fetchLimits: async (workspaceId) => {
-            const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
-            return settings ? limitsFor(apiOf(settings), workspaceId) : null
-          },
-          currentDraft: () => store.get(draftId),
-          onChange: setLimitNote,
-        },
-        loaded.workspaceId,
-      ),
+      loaded && !loaded.signedOut
+        ? createReviewLimits(
+            {
+              kind: loaded.draft.captureType,
+              // The part of the recording that is sent; the server checks the length again.
+              durationMs:
+                loaded.draft.captureType !== "video" ? 0 : trim ? trim.endMs - trim.startMs : (loaded.draft.durationMs ?? 0),
+              workspaces: loaded.workspaces,
+              fetchLimits: async (workspaceId) => {
+                const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
+                return settings ? limitsFor(apiOf(settings), workspaceId) : null
+              },
+              currentDraft: () => store.get(draftId),
+              onChange: setLimitNote,
+            },
+            loaded.workspaceId,
+          )
+        : null,
     [draftId, loaded, trim],
   )
   const refreshLimits = useCallback(() => void limits?.refresh(), [limits])
@@ -435,6 +463,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       }
       workspaces={loaded.workspaces}
       workspaceId={loaded.workspaceId}
+      signInUrl={signInAt}
       projects={projects}
       members={members}
       mediaSize={draft.captureType === "screenshot" && loaded.image ? { width: loaded.image.width, height: loaded.image.height } : null}

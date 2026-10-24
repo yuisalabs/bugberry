@@ -86,6 +86,8 @@ export interface ReviewViewProps {
   mediaSize?: { width: number; height: number } | null
   workspaces: Workspace[]
   workspaceId: string | null
+  /** Set when not signed in: the capture is kept as a draft, and this sign-in page comes before sending. */
+  signInUrl?: string | null
   projects: Project[]
   /** The selected workspace's members, for Assignee. */
   members?: Assignable[]
@@ -305,29 +307,31 @@ export function ReviewView(props: ReviewViewProps) {
           ) : (
             <>
               <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-5 sm:p-7">
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex items-center gap-3">
-                    <span id="save-to" className="shrink-0 text-sm text-muted-foreground">
-                      Save to
-                    </span>
-                    <Select
-                      aria-labelledby="save-to"
-                      selectedKey={form.workspaceId ?? props.workspaceId ?? null}
-                      isDisabled={props.workspaces.length < 2}
-                      onSelectionChange={(key) => {
-                        if (key === null) return
-                        // Projects and people belong to a workspace, so a new workspace starts with neither chosen.
-                        update({ workspaceId: String(key), projectId: "", assigneeId: "" })
-                        props.onWorkspaceChange(String(key))
-                      }}
-                      className="w-auto min-w-0"
-                    >
-                      <SelectTrigger className="font-semibold" />
-                      <SelectContent items={props.workspaces}>{(entry) => <SelectItem id={entry.id}>{entry.name}</SelectItem>}</SelectContent>
-                    </Select>
+                {!props.signInUrl && (
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center gap-3">
+                      <span id="save-to" className="shrink-0 text-sm text-muted-foreground">
+                        Save to
+                      </span>
+                      <Select
+                        aria-labelledby="save-to"
+                        selectedKey={form.workspaceId ?? props.workspaceId ?? null}
+                        isDisabled={props.workspaces.length < 2}
+                        onSelectionChange={(key) => {
+                          if (key === null) return
+                          // Projects and people belong to a workspace, so a new workspace starts with neither chosen.
+                          update({ workspaceId: String(key), projectId: "", assigneeId: "" })
+                          props.onWorkspaceChange(String(key))
+                        }}
+                        className="w-auto min-w-0"
+                      >
+                        <SelectTrigger className="font-semibold" />
+                        <SelectContent items={props.workspaces}>{(entry) => <SelectItem id={entry.id}>{entry.name}</SelectItem>}</SelectContent>
+                      </Select>
+                    </div>
+                    {props.usage && <p className="text-xs text-muted-foreground">{props.usage}</p>}
                   </div>
-                  {props.usage && <p className="text-xs text-muted-foreground">{props.usage}</p>}
-                </div>
+                )}
 
                 <TextField
                   aria-label="Title"
@@ -357,16 +361,18 @@ export function ReviewView(props: ReviewViewProps) {
                 </TextField>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <Select
-                    selectedKey={form.projectId || NO_PROJECT}
-                    onSelectionChange={(key) => key !== null && update({ projectId: key === NO_PROJECT ? "" : String(key) })}
-                  >
-                    <Label>Project</Label>
-                    <SelectTrigger prefix={<RiFolderLine size={16} aria-hidden />} />
-                    <SelectContent items={[{ id: NO_PROJECT, name: "No project" }, ...props.projects]}>
-                      {(project) => <SelectItem id={project.id}>{project.name}</SelectItem>}
-                    </SelectContent>
-                  </Select>
+                  {!props.signInUrl && (
+                    <Select
+                      selectedKey={form.projectId || NO_PROJECT}
+                      onSelectionChange={(key) => key !== null && update({ projectId: key === NO_PROJECT ? "" : String(key) })}
+                    >
+                      <Label>Project</Label>
+                      <SelectTrigger prefix={<RiFolderLine size={16} aria-hidden />} />
+                      <SelectContent items={[{ id: NO_PROJECT, name: "No project" }, ...props.projects]}>
+                        {(project) => <SelectItem id={project.id}>{project.name}</SelectItem>}
+                      </SelectContent>
+                    </Select>
+                  )}
                   <Select selectedKey={form.priority} onSelectionChange={(key) => key !== null && update({ priority: key as Priority })}>
                     <Label>Priority</Label>
                     <SelectTrigger prefix={<RiFlagLine size={16} aria-hidden />} />
@@ -375,13 +381,15 @@ export function ReviewView(props: ReviewViewProps) {
                     </SelectContent>
                   </Select>
                 </div>
-                <Select selectedKey={form.assigneeId || NOBODY} onSelectionChange={(key) => key !== null && update({ assigneeId: key === NOBODY ? "" : String(key) })}>
-                  <Label>Assignee</Label>
-                  <SelectTrigger prefix={<RiUserLine size={16} aria-hidden />} />
-                  <SelectContent items={[{ id: NOBODY, name: "Unassigned" }, ...(props.members ?? [])]}>
-                    {(member) => <SelectItem id={member.id}>{member.name || ("email" in member ? member.email : "")}</SelectItem>}
-                  </SelectContent>
-                </Select>
+                {!props.signInUrl && (
+                  <Select selectedKey={form.assigneeId || NOBODY} onSelectionChange={(key) => key !== null && update({ assigneeId: key === NOBODY ? "" : String(key) })}>
+                    <Label>Assignee</Label>
+                    <SelectTrigger prefix={<RiUserLine size={16} aria-hidden />} />
+                    <SelectContent items={[{ id: NOBODY, name: "Unassigned" }, ...(props.members ?? [])]}>
+                      {(member) => <SelectItem id={member.id}>{member.name || ("email" in member ? member.email : "")}</SelectItem>}
+                    </SelectContent>
+                  </Select>
+                )}
 
                 {notes.length > 0 && (
                   <div className="flex flex-col gap-2">
@@ -487,9 +495,13 @@ export function ReviewView(props: ReviewViewProps) {
                   <Button intent="outline" onPress={() => setConfirm("again")}>
                     {isVideo ? "Record again" : "Retake"}
                   </Button>
-                  <Button isDisabled={sending || props.sendBlocked} onPress={() => send()}>
-                    {sending ? "Creating…" : "Create report"}
-                  </Button>
+                  {props.signInUrl ? (
+                    <Button onPress={() => window.open(props.signInUrl ?? "", "_blank", "noreferrer")}>Sign in to send</Button>
+                  ) : (
+                    <Button isDisabled={sending || props.sendBlocked} onPress={() => send()}>
+                      {sending ? "Creating…" : "Create report"}
+                    </Button>
+                  )}
                 </span>
               </footer>
             </>

@@ -1,4 +1,5 @@
 import type { Project, Workspace } from "./api"
+import { isSignedOut } from "./popup"
 import { pickEditorWorkspace } from "./report-form"
 import type { Settings } from "./settings"
 import type { ReportDraft } from "./types"
@@ -35,6 +36,8 @@ export type EditorState =
       projectsError: string | null
       /** An editor was closed while this draft was uploading; sending again resumes the upload. */
       interrupted: boolean
+      /** Not signed in: the draft is kept and can be sent after signing in. */
+      signedOut: boolean
     }
 
 function messageOf(error: unknown): string {
@@ -84,11 +87,33 @@ export async function loadEditor(draftId: string, deps: EditorDeps, isCancelled:
     if (isCancelled()) return null
   }
 
+  return {
+    kind: "loaded",
+    draft,
+    videoUrl,
+    image,
+    ...(await loadDestination(settings, draft, deps)),
+    interrupted: draft.status === "uploading",
+  }
+}
+
+/** Where the draft goes and who is sending it. Loaded again after signing in, without reopening the draft. */
+export type Destination = Pick<
+  Extract<EditorState, { kind: "loaded" }>,
+  "workspaces" | "workspaceId" | "email" | "name" | "projects" | "projectsError" | "signedOut"
+>
+
+export async function loadDestination(
+  settings: Settings,
+  draft: Pick<ReportDraft, "form">,
+  deps: Pick<EditorDeps, "listWorkspaces" | "me" | "lastWorkspaceId" | "listProjects">,
+): Promise<Destination> {
   let workspaces: Workspace[] = []
   let email: string | null = null
   let name: string | null = null
   let dashboardWorkspaceId: string | null = null
   let workspacesError: string | null = null
+  let signedOut = false
   try {
     let me: { email: string; name?: string; lastWorkspaceId?: string | null }
     ;[workspaces, me] = await Promise.all([deps.listWorkspaces(settings), deps.me(settings)])
@@ -96,7 +121,8 @@ export async function loadEditor(draftId: string, deps: EditorDeps, isCancelled:
     name = me.name ?? null
     dashboardWorkspaceId = me.lastWorkspaceId ?? null
   } catch (error) {
-    workspacesError = messageOf(error)
+    if (isSignedOut(error)) signedOut = true
+    else workspacesError = messageOf(error)
   }
   // A draft opened again keeps the workspace it was being sent to. A new one goes where the dashboard is open, so
   // someone who moved to another workspace there isn't sent back to their own (and maybe full) one; then to
@@ -106,18 +132,7 @@ export async function loadEditor(draftId: string, deps: EditorDeps, isCancelled:
   // Without the list, keep the remembered workspace rather than letting the server pick another one.
   const workspaceId =
     pickEditorWorkspace(workspaces, draft.form?.workspaceId, dashboardWorkspaceId, lastSent) ?? (workspacesError ? preferred : null)
-  const { projects, error } = workspacesError ? { projects: [], error: workspacesError } : await loadProjects(deps, settings, workspaceId)
-  return {
-    kind: "loaded",
-    draft,
-    videoUrl,
-    image,
-    workspaces,
-    workspaceId,
-    email,
-    name,
-    projects,
-    projectsError: error,
-    interrupted: draft.status === "uploading",
-  }
+  const { projects, error } =
+    workspacesError || signedOut ? { projects: [], error: workspacesError } : await loadProjects(deps, settings, workspaceId)
+  return { workspaces, workspaceId, email, name, projects, projectsError: error, signedOut }
 }
