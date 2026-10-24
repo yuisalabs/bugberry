@@ -7,7 +7,7 @@ import { CAMERA_READY_MS, type CameraGrant, cameraTicketReply, createCameraGrant
 import { handleApiFetch, isApiFetchRequest } from "../lib/api-relay"
 import { hasTabRecorder } from "../lib/browser-support"
 import { recordOptionsFor, type ScreenshotMode } from "../lib/capture-prefs"
-import { BUILD_SERVER_ORIGIN, browserSettingsStorage, capturePrefsStorage, lastWorkspaceStorage } from "../lib/browser-settings"
+import { BUILD_SERVER_ORIGIN, browserSettingsStorage, capturePrefsStorage, lastSessionStorage, lastWorkspaceStorage } from "../lib/browser-settings"
 import { type ActiveTab, type CaptureFlowDeps, type CaptureResult, startScreenshotReport } from "../lib/capture-flow"
 import { createIndexedDbDraftStore } from "../lib/draft-store"
 import {
@@ -45,7 +45,16 @@ import { createTakeAgain } from "../lib/take-again"
 import { isBugBerryServer } from "../lib/session"
 import { cropBox, pickArea } from "../lib/select-area"
 import { loadSettings } from "../lib/settings"
-import { clientConfigInTime, DEFAULT_MAX_UPLOAD_MB, recordingByteBudget, recordingLengthMs, uploadLimitMb, workspaceLimitsInTime } from "../lib/upload-limit"
+import {
+  clientConfigInTime,
+  DEFAULT_MAX_UPLOAD_MB,
+  expectedRecordingSeconds,
+  recordingByteBudget,
+  recordingLengthMs,
+  signedOutForLength,
+  uploadLimitMb,
+  workspaceLimitsInTime,
+} from "../lib/upload-limit"
 import { limitsFor } from "../lib/limits"
 import { isSignedOut } from "../lib/popup"
 import type { RecordingEndReason } from "../lib/recorder"
@@ -326,20 +335,20 @@ export default defineBackground(() => {
 
   /**
    * Where a recording stops by itself: before the server's upload limit, and at the longest recording the
-   * workspace the review will pick takes. Signed out (401), the server's account length from `/client-config`
-   * applies instead.
+   * workspace the review will pick takes. Signed out (a 401, or the popup's last check when the server didn't answer
+   * in time), the server's account length from `/client-config` applies instead, or BugBerry cloud's 2 minutes.
    */
   const recordingCaps = async (): Promise<{ maxBytes: number; maxMs: number }> => {
     const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
     if (!settings) return { maxBytes: recordingByteBudget(DEFAULT_MAX_UPLOAD_MB), maxMs: recordingLengthMs(null, null) }
     const api = createBugberryApi(settings)
-    let signedOut = false
+    let saw401 = false
     const [clientConfig, limits] = await Promise.all([
       clientConfigInTime(() => api.clientConfig()),
       workspaceLimitsInTime(async () => {
         const [workspaces, me, lastUsed] = await Promise.all([api.listWorkspaces(), api.me(), lastWorkspaceStorage.get()]).catch(
           (error: unknown) => {
-            signedOut = isSignedOut(error)
+            saw401 = isSignedOut(error)
             throw error
           },
         )
@@ -347,7 +356,10 @@ export default defineBackground(() => {
         return workspaceId ? limitsFor(api, workspaceId) : null
       }),
     ])
-    return { maxBytes: recordingByteBudget(uploadLimitMb(clientConfig)), maxMs: recordingLengthMs(limits, clientConfig, signedOut) }
+    const lastSession = limits === null ? await lastSessionStorage.get(settings.serverUrl).catch(() => null) : null
+    const signedOut = signedOutForLength(saw401, limits, lastSession)
+    const maxMs = recordingLengthMs(limits, clientConfig, signedOut, expectedRecordingSeconds(settings.serverUrl))
+    return { maxBytes: recordingByteBudget(uploadLimitMb(clientConfig)), maxMs }
   }
 
   /** Without options (the shortcut) the popup's stored choices apply. */
