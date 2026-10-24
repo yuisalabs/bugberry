@@ -5,6 +5,12 @@ description: What changed in BugBerry, newest first.
 
 Each entry is named after the browser extension's version. Changes to the dashboard and the server ship with it.
 
+## 0.8.0 · 24 October 2026
+
+- **Try it before signing in.** Right after installing the extension you can take screenshots and record. The review opens as usual; in place of **Create report** it says **Sign in to send**, and the capture waits in the popup's drafts. Sign in, and it is sent from there. See [Review and send](/guide/review-and-send#before-you-sign-in).
+- **BugBerry cloud limits recordings by length, not size.** A workspace still keeps 5 screenshots and 5 recordings, and a recording can be up to 2 minutes long. It stops by itself at 2 minutes; a longer one can be trimmed to fit. Storage and file sizes are no longer limited per account.
+- **Self-hosting:** `LIMIT_RECORDING_SECONDS` (default `120`) replaces `LIMIT_STORAGE_MB` and `LIMIT_FILE_MB`, which are no longer read. It only matters with `ACCOUNT_LIMITS=true`. See [Account limits](/self-host/account-limits).
+
 ## 0.7.0 · 24 October 2026
 
 - **Your camera in the recording.** When you record a tab, the new **Camera** chip in the popup puts your face in a bubble on the page, so it's in the video. Pick a camera and a shape, **Circle** or **Rectangle**. The bubble shows up as the countdown starts; drag it where you like, and drag its corner to make it bigger or smaller (96 to 320 px high). Its place and size are kept for next time. The camera turns off as soon as the recording ends. See [Recordings](/guide/recordings#your-camera).
