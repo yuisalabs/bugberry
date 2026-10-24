@@ -60,7 +60,7 @@ describe("manifest pages and permissions", () => {
 
 describe("manifestFor", () => {
   const chrome = {
-    name: "BugBerry",
+    name: "BugBerry: Stop describing bugs. Show them.",
     description: "Report bugs with a screenshot or recording, plus console, network and the steps that led there.",
     permissions: MANIFEST_PERMISSIONS,
     host_permissions: ["<all_urls>"],
