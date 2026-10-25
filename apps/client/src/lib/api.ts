@@ -5,6 +5,7 @@ import type {
   ConnectionSettings,
   DemoRequestInput,
   IntegrationProvider,
+  OnboardingEvent,
   Priority,
   ReportStatus,
   UseTarget,
@@ -145,6 +146,9 @@ export function createApi(origin: string = window.location.origin, fetcher: type
   return {
     me: () => unwrap(api.me.get()),
     myLimits: () => unwrap(api.me.limits.get()),
+    /** The Getting started checklist in this workspace; null when there is none to show. */
+    onboarding: async (workspaceId: string) => (await unwrap(api.me.onboarding.get({ query: { workspaceId } }))).progress,
+    recordOnboarding: (change: { event: OnboardingEvent } | { collapsed: boolean }) => unwrap(api.me.onboarding.post(change)),
     switchWorkspace: (workspaceId: string) => unwrap(api.me.workspace.put({ workspaceId })),
     workspaces: () => unwrap(api.workspaces.get()),
     createWorkspace: (name: string, slug?: string) => unwrap(api.workspaces.post(slug === undefined ? { name } : { name, slug })),
@@ -272,6 +276,7 @@ export type JoinPreview = Awaited<ReturnType<Api["joinPreview"]>>
 export type WorkspaceAccess = Awaited<ReturnType<Api["workspaceAccess"]>>
 export type WorkspaceLimits = Awaited<ReturnType<Api["workspaceLimits"]>>
 export type MyLimits = Awaited<ReturnType<Api["myLimits"]>>
+export type OnboardingProgress = NonNullable<Awaited<ReturnType<Api["onboarding"]>>>
 export type JoinRequest = Awaited<ReturnType<Api["joinRequests"]>>[number]
 export type InviteResult = Awaited<ReturnType<Api["invite"]>>[number]
 export type InvitationInfo = Awaited<ReturnType<Api["invitation"]>>
