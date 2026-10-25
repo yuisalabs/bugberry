@@ -71,9 +71,20 @@ export function aiFailure(status: number, error: AiWriteError, model: string): A
 export function aiModule(deps: AppDeps) {
   const { db } = deps
   const box = createSecretBox(deps.config.encryptionKey)
-  const guard = createHostGuard({ allowPrivate: deps.config.allowPrivateIntegrationHosts })
+  const guard = createHostGuard({ allowPrivate: deps.config.allowPrivateIntegrationHosts, lookup: deps.aiLookup })
+  /** Checked on every call, not only when the key is saved: a name can come to point inside later. */
+  const checkHost = async (baseUrl: string) => {
+    try {
+      await guard(baseUrl)
+    } catch (error) {
+      if (error instanceof HostGuardError) throw unprocessable("ai_host_refused", error.message)
+      throw error
+    }
+  }
   const aiFetch = deps.aiFetch ?? fetch
   const writes = createRateLimiter({ limit: WRITES_PER_MINUTE, windowMs: 60_000 })
+  // Saving sends a test request: limited too, so it can't be used to probe addresses.
+  const saves = createRateLimiter({ limit: 10, windowMs: 60_000 })
 
   const storedKey = async (workspaceId: string) =>
     (await db.select().from(workspaceAiProvider).where(eq(workspaceAiProvider.workspaceId, workspaceId)).limit(1))[0] ?? null
@@ -149,6 +160,7 @@ export function aiModule(deps: AppDeps) {
       "/workspaces/:id/ai/provider",
       async ({ user, params, body }) => {
         await requireMember(db, user.id, params.id, "admin")
+        if (!saves.consume(user.id)) throw tooManyRequests()
         const stored = await storedKey(params.id)
         const typed = body.apiKey?.trim() ?? ""
         if (!typed && !stored) throw unprocessable("ai_key_required", "Enter the API key")
@@ -160,12 +172,11 @@ export function aiModule(deps: AppDeps) {
           } catch (error) {
             throw unprocessable("ai_base_url_invalid", error instanceof Error ? error.message : "That address isn't valid")
           }
-          try {
-            await guard(baseUrl)
-          } catch (error) {
-            if (error instanceof HostGuardError) throw unprocessable("ai_host_refused", error.message)
-            throw error
-          }
+          await checkHost(baseUrl)
+        }
+        // The saved key only goes back to the address it was saved for: another admin can't send it elsewhere.
+        if (!typed && stored && (stored.preset !== body.preset || stored.baseUrl !== baseUrl)) {
+          throw unprocessable("ai_key_required", "Enter the API key again for a new provider address")
         }
         const apiKey = typed || openKey(stored!.keyEncrypted)
         const model = body.model.trim()
@@ -283,6 +294,7 @@ export function aiModule(deps: AppDeps) {
           .limit(1)
         // The extension already applies these rules; the server doesn't take its word for it.
         const material = restrictMaterial(body.material, { includeResponseBodies: settings?.sendResponseBodies ?? false })
+        if (key.preset === "custom") await checkHost(key.baseUrl)
         const provider: ProviderConfig = { preset: key.preset, baseUrl: key.baseUrl, model: key.model, apiKey: openKey(key.keyEncrypted) }
         try {
           return await writeUp(provider, { material, template, hint: body.hint }, aiFetch)

@@ -52,6 +52,8 @@ export interface AppDeps {
   background?: (task: Promise<unknown>) => void
   /** Calls AI providers for Write with AI; tests pass a fake. */
   aiFetch?: typeof fetch
+  /** Resolves AI provider hosts for the host guard; tests pass a fake. */
+  aiLookup?: (host: string) => Promise<string[]>
 }
 
 /**

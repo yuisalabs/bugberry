@@ -120,6 +120,7 @@ export async function setupTestApp(
     background?: (task: Promise<unknown>) => void
     email?: EmailSender
     aiFetch?: typeof fetch
+    aiLookup?: (host: string) => Promise<string[]>
   } = {},
 ) {
   const db = await getTestDb()
@@ -138,6 +139,7 @@ export async function setupTestApp(
     background: extra.background,
     email: extra.email,
     aiFetch: extra.aiFetch,
+    aiLookup: extra.aiLookup,
   })
   const testWorkspace = await createWorkspaceRow(db, "Test")
   defaultWorkspaceId = testWorkspace.id

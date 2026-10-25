@@ -9,9 +9,9 @@ let ai: ReturnType<typeof fakeAi>
 let admin: Awaited<ReturnType<typeof createUserWithToken>>
 let member: Awaited<ReturnType<typeof createUserWithToken>>
 
-async function start(overrides: Parameters<typeof setupTestApp>[0] = {}) {
+async function start(overrides: Parameters<typeof setupTestApp>[0] = {}, aiLookup?: (host: string) => Promise<string[]>) {
   ai = fakeAi()
-  ctx = await setupTestApp(overrides, { aiFetch: ai.fetcher })
+  ctx = await setupTestApp(overrides, { aiFetch: ai.fetcher, aiLookup })
   admin = await createUserWithToken(ctx.db, { role: "admin" })
   member = await createUserWithToken(ctx.db)
 }
@@ -49,6 +49,19 @@ describe("the team key", () => {
     expect(ai.last()?.headers.get("authorization")).toBe("Bearer sk-live-1234a1b2")
   })
 
+  test("the saved key is only reused for the same provider address", async () => {
+    await base().provider.put(OPENAI, { headers: admin.headers })
+    const moved = await base().provider.put({ preset: "custom", baseUrl: "https://evil.test/v1", model: "x" }, { headers: admin.headers })
+    expect(moved.status).toBe(422)
+    expect(moved.error?.value).toMatchObject({ code: "ai_key_required" })
+    expect(ai.requests.map((request) => request.url)).not.toContain("https://evil.test/v1/chat/completions")
+  })
+
+  test("saving is rate-limited, so the test call can't be used to probe", async () => {
+    for (let i = 0; i < 10; i++) await base().provider.put({ ...OPENAI, model: `m${i}` }, { headers: admin.headers })
+    expect((await base().provider.put(OPENAI, { headers: admin.headers })).status).toBe(429)
+  })
+
   test("a first save without a key is refused", async () => {
     const res = await base().provider.put({ preset: "openai", model: "gpt-4.1" }, { headers: admin.headers })
     expect(res.status).toBe(422)
@@ -71,6 +84,18 @@ describe("the team key", () => {
     expect(res.status).toBe(422)
     expect(res.error?.value).toMatchObject({ code: "ai_host_refused", message: PRIVATE_HOST_MESSAGE })
     expect(ai.requests).toHaveLength(0)
+  })
+
+  test("every call is checked again: a name that later points inside is refused when writing", async () => {
+    const lookups: string[][] = [["93.184.216.34"], ["127.0.0.1"]]
+    await start({ allowPrivateIntegrationHosts: false }, async () => lookups.shift() ?? ["127.0.0.1"])
+    expect((await base().provider.put({ preset: "custom", baseUrl: "https://rebind.test/v1", model: "q", apiKey: "k-12345678" }, { headers: admin.headers })).status).toBe(200)
+    const templateId = (await setup()).templates[0]!.id
+    const material = { page: { url: "https://a.test/", title: null }, device: { browser: "Chrome", os: "Linux" }, lines: [], omitted: 0 }
+    const res = await base().write.post({ templateId, material, hint: { title: "", description: "" } }, { headers: admin.headers })
+    expect(res.status).toBe(422)
+    expect(res.error?.value).toMatchObject({ code: "ai_host_refused" })
+    expect(ai.requests).toHaveLength(1)
   })
 
   test("removing the key", async () => {
