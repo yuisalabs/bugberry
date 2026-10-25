@@ -3,6 +3,7 @@ import { Elysia, t } from "elysia"
 import type { AppDeps } from "../../app"
 import { authPlugin } from "../../auth/plugin"
 import { user } from "../../db/schema"
+import { onboardingProgress } from "../../onboarding/progress"
 import { requireMember } from "../../workspaces/access"
 import { canCreateWorkspace, isAccountLimited } from "../../workspaces/limits"
 
@@ -19,6 +20,15 @@ export function meModule(deps: AppDeps) {
         canAddMembers: !(await isAccountLimited(db, deps.config.accountLimits, current.id)),
       }),
       { auth: true },
+    )
+    // The Getting started checklist in this workspace; `progress` is null when there is none to show.
+    .get(
+      "/me/onboarding",
+      async ({ user: current, query }) => {
+        await requireMember(db, current.id, query.workspaceId)
+        return { progress: await onboardingProgress(db, current.id, query.workspaceId) }
+      },
+      { auth: true, query: t.Object({ workspaceId: t.String({ minLength: 1 }) }) },
     )
     .put(
       "/me/workspace",
