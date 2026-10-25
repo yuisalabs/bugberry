@@ -364,160 +364,167 @@ export function ReviewView(props: ReviewViewProps) {
             />
           ) : (
             <>
+              {/* Three parts: the top and bottom keep their size, the middle (title and description) gives way and the
+                  description scrolls inside it. The whole panel scrolls only when even that doesn't fit. */}
               <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-5 sm:p-7">
-                {!props.signInUrl && (
-                  <div className="flex flex-col gap-1.5">
-                    <div className="flex items-center gap-3">
-                      <span id="save-to" className="shrink-0 text-sm text-muted-foreground">
-                        Save to
-                      </span>
-                      <Select
-                        aria-labelledby="save-to"
-                        selectedKey={form.workspaceId ?? props.workspaceId ?? null}
-                        isDisabled={props.workspaces.length < 2}
-                        onSelectionChange={(key) => {
-                          if (key === null) return
-                          // Projects and people belong to a workspace, so a new workspace starts with neither chosen.
-                          update({ workspaceId: String(key), projectId: "", assigneeId: "" })
-                          props.onWorkspaceChange(String(key))
-                        }}
-                        className="w-auto min-w-0"
-                      >
-                        <SelectTrigger className="font-semibold" />
-                        <SelectContent items={props.workspaces}>{(entry) => <SelectItem id={entry.id}>{entry.name}</SelectItem>}</SelectContent>
-                      </Select>
+                <div data-review-part="top" className="flex shrink-0 flex-col gap-5">
+                  {!props.signInUrl && (
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center gap-3">
+                        <span id="save-to" className="shrink-0 text-sm text-muted-foreground">
+                          Save to
+                        </span>
+                        <Select
+                          aria-labelledby="save-to"
+                          selectedKey={form.workspaceId ?? props.workspaceId ?? null}
+                          isDisabled={props.workspaces.length < 2}
+                          onSelectionChange={(key) => {
+                            if (key === null) return
+                            // Projects and people belong to a workspace, so a new workspace starts with neither chosen.
+                            update({ workspaceId: String(key), projectId: "", assigneeId: "" })
+                            props.onWorkspaceChange(String(key))
+                          }}
+                          className="w-auto min-w-0"
+                        >
+                          <SelectTrigger className="font-semibold" />
+                          <SelectContent items={props.workspaces}>{(entry) => <SelectItem id={entry.id}>{entry.name}</SelectItem>}</SelectContent>
+                        </Select>
+                      </div>
+                      {props.usage && <p className="text-xs text-muted-foreground">{props.usage}</p>}
                     </div>
-                    {props.usage && <p className="text-xs text-muted-foreground">{props.usage}</p>}
-                  </div>
-                )}
+                  )}
 
-                {isVideo && ai && !props.signInUrl && (
-                  <div ref={setAiRowElement} className="flex flex-col gap-2">
-                    {ai.path ? (
-                      ai.templates.length > 0 ? (
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Select
-                            aria-label="Template"
-                            selectedKey={aiTemplate}
-                            onSelectionChange={(key) => key !== null && setPickedTemplate(String(key))}
-                            className="w-auto min-w-0 flex-1"
-                          >
-                            <SelectTrigger prefix={<RiFileTextLine size={16} aria-hidden />} />
-                            <SelectContent items={ai.templates}>{(template) => <SelectItem id={template.id}>{template.name}</SelectItem>}</SelectContent>
-                          </Select>
-                          <Button intent="outline" isPending={writing} isDisabled={!aiSeen} onPress={() => void writeWithAi()}>
-                            <RiSparkling2Line aria-hidden />
-                            Write with AI
-                          </Button>
-                          {undo && (
-                            <AriaButton
-                              className="rounded-sm text-sm font-semibold text-primary underline outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
-                              onPress={() => {
-                                update(undo)
-                                setUndo(null)
-                              }}
+                  {isVideo && ai && !props.signInUrl && (
+                    <div ref={setAiRowElement} className="flex flex-col gap-2">
+                      {ai.path ? (
+                        ai.templates.length > 0 ? (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Select
+                              aria-label="Template"
+                              selectedKey={aiTemplate}
+                              onSelectionChange={(key) => key !== null && setPickedTemplate(String(key))}
+                              className="w-auto min-w-0 flex-1"
                             >
-                              Undo
+                              <SelectTrigger prefix={<RiFileTextLine size={16} aria-hidden />} />
+                              <SelectContent items={ai.templates}>{(template) => <SelectItem id={template.id}>{template.name}</SelectItem>}</SelectContent>
+                            </Select>
+                            <Button intent="outline" isPending={writing} isDisabled={!aiSeen} onPress={() => void writeWithAi()}>
+                              <RiSparkling2Line aria-hidden />
+                              Write with AI
+                            </Button>
+                            {undo && (
+                              <AriaButton
+                                className="rounded-sm text-sm font-semibold text-primary underline outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                                onPress={() => {
+                                  update(undo)
+                                  setUndo(null)
+                                }}
+                              >
+                                Undo
+                              </AriaButton>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">Add a template in Settings → AI to write with AI</p>
+                        )
+                      ) : ai.error ? (
+                        <p role="alert" className="flex flex-wrap items-center gap-2 text-sm text-danger-subtle-foreground">
+                          {ai.error}
+                          {props.onAiRetry && (
+                            <AriaButton
+                              className="rounded-sm font-semibold underline outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                              onPress={props.onAiRetry}
+                            >
+                              Try again
                             </AriaButton>
                           )}
-                        </div>
+                        </p>
+                      ) : ai.isAdmin ? (
+                        <Link href={ai.settingsUrl} target="_blank" rel="noreferrer" className="self-start text-sm font-semibold text-primary">
+                          Set up AI
+                        </Link>
                       ) : (
-                        <p className="text-sm text-muted-foreground">Add a template in Settings → AI to write with AI</p>
-                      )
-                    ) : ai.error ? (
-                      <p role="alert" className="flex flex-wrap items-center gap-2 text-sm text-danger-subtle-foreground">
-                        {ai.error}
-                        {props.onAiRetry && (
-                          <AriaButton
-                            className="rounded-sm font-semibold underline outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
-                            onPress={props.onAiRetry}
-                          >
-                            Try again
-                          </AriaButton>
-                        )}
-                      </p>
-                    ) : ai.isAdmin ? (
-                      <Link href={ai.settingsUrl} target="_blank" rel="noreferrer" className="self-start text-sm font-semibold text-primary">
-                        Set up AI
-                      </Link>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">Ask your admin to set up AI in Settings → AI</p>
-                    )}
-                    {aiError && (
-                      <p role="alert" className="text-sm text-danger-subtle-foreground">
-                        {aiError}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                <TextField
-                  aria-label="Title"
-                  isReadOnly={writing}
-                  maxLength={200}
-                  value={form.title}
-                  onChange={(title) => {
-                    setTitleEdited(true)
-                    setUndo(null)
-                    // A title is one paragraph: pasted line breaks become spaces.
-                    update({ title: title.replace(/\s*\n\s*/g, " ") })
-                  }}
-                >
-                  <AriaTextArea
-                    ref={titleField}
-                    rows={1}
-                    placeholder={defaultReportTitle(draft.captureType, props.name ?? "you")}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") event.preventDefault()
-                    }}
-                    className="w-full resize-none overflow-hidden bg-transparent font-heading text-lg/tight font-bold text-foreground outline-hidden placeholder:text-muted-foreground/70"
-                  />
-                  {!titleEdited && suggestion && (
-                    <Description className="text-xs text-primary">
-                      {suggestion.from === "request" ? "Suggested from the failed request" : "Suggested from a console error"}
-                    </Description>
+                        <p className="text-sm text-muted-foreground">Ask your admin to set up AI in Settings → AI</p>
+                      )}
+                      {aiError && (
+                        <p role="alert" className="text-sm text-danger-subtle-foreground">
+                          {aiError}
+                        </p>
+                      )}
+                    </div>
                   )}
-                </TextField>
-                <TextField
-                  aria-label="What went wrong?"
-                  isReadOnly={writing}
-                  maxLength={5000}
-                  value={form.description}
-                  onChange={(description) => {
-                    setUndo(null)
-                    update({ description })
-                  }}
-                  // Fills the space down to Project, Priority and Assignee, which stay in view; a long description
-                  // scrolls inside it.
-                  className="flex min-h-32 flex-1 flex-col"
-                >
-                  <AriaTextArea
-                    rows={4}
-                    placeholder="What went wrong? Describe what you expected to happen."
-                    className="min-h-24 w-full flex-1 resize-none overflow-y-auto bg-transparent text-base text-foreground outline-hidden placeholder:text-muted-foreground/70"
-                  />
-                </TextField>
+                </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  {!props.signInUrl && (
-                    <Select
-                      selectedKey={form.projectId || NO_PROJECT}
-                      onSelectionChange={(key) => key !== null && update({ projectId: key === NO_PROJECT ? "" : String(key) })}
-                    >
-                      <Label>Project</Label>
-                      <SelectTrigger prefix={<RiFolderLine size={16} aria-hidden />} />
-                      <SelectContent items={[{ id: NO_PROJECT, name: "No project" }, ...props.projects]}>
-                        {(project) => <SelectItem id={project.id}>{project.name}</SelectItem>}
+                <div data-review-part="middle" className="flex min-h-40 flex-1 flex-col gap-5">
+                  <TextField
+                    aria-label="Title"
+                    isReadOnly={writing}
+                    maxLength={200}
+                    value={form.title}
+                    onChange={(title) => {
+                      setTitleEdited(true)
+                      setUndo(null)
+                      // A title is one paragraph: pasted line breaks become spaces.
+                      update({ title: title.replace(/\s*\n\s*/g, " ") })
+                    }}
+                  >
+                    <AriaTextArea
+                      ref={titleField}
+                      rows={1}
+                      placeholder={defaultReportTitle(draft.captureType, props.name ?? "you")}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") event.preventDefault()
+                      }}
+                      className="w-full resize-none overflow-hidden bg-transparent font-heading text-lg/tight font-bold text-foreground outline-hidden placeholder:text-muted-foreground/70"
+                    />
+                    {!titleEdited && suggestion && (
+                      <Description className="text-xs text-primary">
+                        {suggestion.from === "request" ? "Suggested from the failed request" : "Suggested from a console error"}
+                      </Description>
+                    )}
+                  </TextField>
+                  <TextField
+                    aria-label="What went wrong?"
+                    isReadOnly={writing}
+                    maxLength={5000}
+                    value={form.description}
+                    onChange={(description) => {
+                      setUndo(null)
+                      update({ description })
+                    }}
+                    // Fills the space down to Project, Priority and Assignee, which stay in view; a long description
+                    // scrolls inside it.
+                    className="flex min-h-32 flex-1 flex-col"
+                  >
+                    <AriaTextArea
+                      rows={4}
+                      placeholder="What went wrong? Describe what you expected to happen."
+                      className="min-h-24 w-full flex-1 resize-none overflow-y-auto bg-transparent text-base text-foreground outline-hidden placeholder:text-muted-foreground/70"
+                    />
+                  </TextField>
+                </div>
+
+                <div data-review-part="bottom" className="flex shrink-0 flex-col gap-5">
+                  <div className="grid grid-cols-2 gap-3">
+                    {!props.signInUrl && (
+                      <Select
+                        selectedKey={form.projectId || NO_PROJECT}
+                        onSelectionChange={(key) => key !== null && update({ projectId: key === NO_PROJECT ? "" : String(key) })}
+                      >
+                        <Label>Project</Label>
+                        <SelectTrigger prefix={<RiFolderLine size={16} aria-hidden />} />
+                        <SelectContent items={[{ id: NO_PROJECT, name: "No project" }, ...props.projects]}>
+                          {(project) => <SelectItem id={project.id}>{project.name}</SelectItem>}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    <Select selectedKey={form.priority} onSelectionChange={(key) => key !== null && update({ priority: key as Priority })}>
+                      <Label>Priority</Label>
+                      <SelectTrigger prefix={<RiFlagLine size={16} aria-hidden />} />
+                      <SelectContent items={PRIORITIES.map((priority) => ({ id: priority, name: PRIORITY_LABELS[priority] }))}>
+                        {(priority) => <SelectItem id={priority.id}>{priority.name}</SelectItem>}
                       </SelectContent>
                     </Select>
-                  )}
-                  <Select selectedKey={form.priority} onSelectionChange={(key) => key !== null && update({ priority: key as Priority })}>
-                    <Label>Priority</Label>
-                    <SelectTrigger prefix={<RiFlagLine size={16} aria-hidden />} />
-                    <SelectContent items={PRIORITIES.map((priority) => ({ id: priority, name: PRIORITY_LABELS[priority] }))}>
-                      {(priority) => <SelectItem id={priority.id}>{priority.name}</SelectItem>}
-                    </SelectContent>
-                  </Select>
                 </div>
                 {!props.signInUrl && (
                   <Select selectedKey={form.assigneeId || NOBODY} onSelectionChange={(key) => key !== null && update({ assigneeId: key === NOBODY ? "" : String(key) })}>
@@ -532,30 +539,33 @@ export function ReviewView(props: ReviewViewProps) {
                 {notes.length > 0 && (
                   <div className="flex flex-col gap-2">
                     <span className="text-sm/6 font-medium text-foreground">Notes</span>
-                    {notes.map((note, index) => (
-                      <div key={note.n} className="flex items-center gap-2">
-                        <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-                          {note.n}
-                        </span>
-                        <span className="shrink-0 font-mono text-xs text-muted-foreground">{clock(note.atMs)}</span>
-                        <Input
-                          aria-label={`Note ${note.n}`}
-                          maxLength={500}
-                          value={note.text}
-                          onChange={(event) =>
-                            setNotes((current) => current.map((entry, at) => (at === index ? { ...entry, text: event.target.value } : entry)))
-                          }
-                        />
-                        <Button
-                          intent="plain"
-                          size="sq-xs"
-                          aria-label={`Remove note ${note.n}`}
-                          onPress={() => setNotes((current) => current.filter((_, at) => at !== index))}
-                        >
-                          <RiCloseLine aria-hidden />
-                        </Button>
-                      </div>
-                    ))}
+                    {/* Many notes scroll here, so the bottom part doesn't push the description away. */}
+                    <div className="-m-1 flex max-h-40 flex-col gap-2 overflow-y-auto p-1">
+                      {notes.map((note, index) => (
+                        <div key={note.n} className="flex items-center gap-2">
+                          <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                            {note.n}
+                          </span>
+                          <span className="shrink-0 font-mono text-xs text-muted-foreground">{clock(note.atMs)}</span>
+                          <Input
+                            aria-label={`Note ${note.n}`}
+                            maxLength={500}
+                            value={note.text}
+                            onChange={(event) =>
+                              setNotes((current) => current.map((entry, at) => (at === index ? { ...entry, text: event.target.value } : entry)))
+                            }
+                          />
+                          <Button
+                            intent="plain"
+                            size="sq-xs"
+                            aria-label={`Remove note ${note.n}`}
+                            onPress={() => setNotes((current) => current.filter((_, at) => at !== index))}
+                          >
+                            <RiCloseLine aria-hidden />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 
@@ -627,6 +637,7 @@ export function ReviewView(props: ReviewViewProps) {
                     {problem}
                   </p>
                 )}
+                </div>
               </div>
 
               {sending && props.preparing != null ? (

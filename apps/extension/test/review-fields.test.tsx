@@ -75,3 +75,17 @@ describe("the title and description fields", () => {
     expect(field.className).toContain("flex-1")
   })
 })
+
+test("Save to and the AI row stay at the top, Project to the alerts at the bottom; only the middle gives way", () => {
+  view()
+  const pinned = (element: Element) => element.closest("[data-review-part]")?.getAttribute("data-review-part")
+  expect(pinned(screen.getByText("Save to"))).toBe("top")
+  expect(pinned(screen.getByText("Assignee"))).toBe("bottom")
+  expect(pinned(screen.getByText("Passwords and card numbers were masked in the logs"))).toBe("bottom")
+  expect(pinned(description())).toBe("middle")
+  const middle = description().closest("[data-review-part]") as HTMLElement
+  expect(middle.className).toContain("flex-1")
+  for (const part of ["top", "bottom"]) {
+    expect((document.querySelector(`[data-review-part="${part}"]`) as HTMLElement).className).toContain("shrink-0")
+  }
+})
