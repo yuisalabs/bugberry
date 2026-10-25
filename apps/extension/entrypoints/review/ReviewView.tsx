@@ -16,6 +16,7 @@ import {
   RiCloseLine,
   RiCursorLine,
   RiDeleteBinLine,
+  RiFileTextLine,
   RiFlagLine,
   RiFolderLine,
   RiGithubFill,
@@ -25,6 +26,7 @@ import {
   RiLink,
   RiRecordCircleLine,
   RiShieldCheckLine,
+  RiSparkling2Line,
   RiTerminalBoxLine,
   RiUserLine,
   RiVideoOnLine,
@@ -32,6 +34,8 @@ import {
 } from "@remixicon/react"
 import { type ReactNode, useEffect, useRef, useState } from "react"
 import { Button as AriaButton, Input as AriaInput, ProgressBar, TextArea as AriaTextArea } from "react-aria-components"
+import type { TemplateText } from "@bugberry/ai-write"
+import type { AiPath } from "../../lib/ai-assist"
 import type { Project, Workspace } from "../../lib/api"
 import { formProblem } from "../../lib/report-form"
 import { isTrimmed, reviewStats, suggestTitle, type TrimRange, trimPayload } from "../../lib/review-data"
@@ -126,6 +130,17 @@ export interface ReviewViewProps {
   /** After sending, when no tracker can be offered: why. */
   trackerNote?: string | null
   onVisibilityChange?(visibility: Visibility): void
+  /** Write with AI (video drafts only): which key writes, the workspace's templates and each project's default. */
+  ai?: {
+    path: AiPath
+    templates: Array<{ id: string; name: string } & TemplateText>
+    templateFor(projectId: string | null): string | null
+    isAdmin: boolean
+    /** The dashboard's Settings → AI, for an admin without a key. */
+    settingsUrl: string
+  } | null
+  /** Drafts a title and description; rejects with the text to show. */
+  onAiWrite?(input: { templateId: string; hint: { title: string; description: string } }): Promise<{ title: string; description: string }>
   onSendToTracker?(integrationId: string): void
   /** After sending: a new capture of the same kind on the same page. */
   onAnother?(): void
@@ -192,6 +207,34 @@ export function ReviewView(props: ReviewViewProps) {
   const asked = confirm ?? lastAsked.current
   const [problem, setProblem] = useState<string | null>(null)
   const update = (changes: Partial<ReportForm>) => setForm((current) => ({ ...current, ...changes }))
+  // Write with AI: the template follows the project's default until the reporter picks one; Undo brings back what
+  // was typed before, until either field is edited again.
+  const [pickedTemplate, setPickedTemplate] = useState<string | null>(null)
+  const ai = props.ai ?? null
+  const aiTemplate =
+    pickedTemplate && ai?.templates.some((template) => template.id === pickedTemplate) ? pickedTemplate : (ai?.templateFor(form.projectId || null) ?? null)
+  const [writing, setWriting] = useState(false)
+  const writingNow = useRef(false)
+  const [aiError, setAiError] = useState<string | null>(null)
+  const [undo, setUndo] = useState<{ title: string; description: string } | null>(null)
+  const writeWithAi = async () => {
+    if (writingNow.current || !props.onAiWrite || !aiTemplate) return
+    writingNow.current = true
+    setWriting(true)
+    setAiError(null)
+    const before = { title: form.title, description: form.description }
+    try {
+      const written = await props.onAiWrite({ templateId: aiTemplate, hint: before })
+      setTitleEdited(true)
+      update({ title: written.title, description: written.description })
+      setUndo(before)
+    } catch (cause) {
+      setAiError(cause instanceof Error ? cause.message : String(cause))
+    } finally {
+      writingNow.current = false
+      setWriting(false)
+    }
+  }
   // Edits go up as they happen (not on the first render), so a closed tab or page doesn't lose them.
   const edited = useRef(false)
   const { onChange } = props
@@ -335,12 +378,61 @@ export function ReviewView(props: ReviewViewProps) {
                   </div>
                 )}
 
+                {isVideo && ai && !props.signInUrl && (
+                  <div className="flex flex-col gap-2">
+                    {ai.path ? (
+                      ai.templates.length > 0 ? (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Select
+                            aria-label="Template"
+                            selectedKey={aiTemplate}
+                            onSelectionChange={(key) => key !== null && setPickedTemplate(String(key))}
+                            className="w-auto min-w-0 flex-1"
+                          >
+                            <SelectTrigger prefix={<RiFileTextLine size={16} aria-hidden />} />
+                            <SelectContent items={ai.templates}>{(template) => <SelectItem id={template.id}>{template.name}</SelectItem>}</SelectContent>
+                          </Select>
+                          <Button intent="outline" isPending={writing} onPress={() => void writeWithAi()}>
+                            <RiSparkling2Line aria-hidden />
+                            Write with AI
+                          </Button>
+                          {undo && (
+                            <AriaButton
+                              className="rounded-sm text-sm font-semibold text-primary underline outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                              onPress={() => {
+                                update(undo)
+                                setUndo(null)
+                              }}
+                            >
+                              Undo
+                            </AriaButton>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">Add a template in Settings → AI to write with AI</p>
+                      )
+                    ) : ai.isAdmin ? (
+                      <Link href={ai.settingsUrl} target="_blank" rel="noreferrer" className="self-start text-sm font-semibold text-primary">
+                        Set up AI
+                      </Link>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Ask your admin to set up AI in Settings → AI</p>
+                    )}
+                    {aiError && (
+                      <p role="alert" className="text-sm text-danger-subtle-foreground">
+                        {aiError}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <TextField
                   aria-label="Title"
                   maxLength={200}
                   value={form.title}
                   onChange={(title) => {
                     setTitleEdited(true)
+                    setUndo(null)
                     update({ title })
                   }}
                 >
@@ -354,7 +446,16 @@ export function ReviewView(props: ReviewViewProps) {
                     </Description>
                   )}
                 </TextField>
-                <TextField aria-label="What went wrong?" maxLength={5000} value={form.description} onChange={(description) => update({ description })} className="flex-1">
+                <TextField
+                  aria-label="What went wrong?"
+                  maxLength={5000}
+                  value={form.description}
+                  onChange={(description) => {
+                    setUndo(null)
+                    update({ description })
+                  }}
+                  className="flex-1"
+                >
                   <AriaTextArea
                     rows={4}
                     placeholder="What went wrong? Describe what you expected to happen."

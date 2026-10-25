@@ -1,9 +1,12 @@
 import type { RecordingNote } from "@bugberry/capture"
 import type { Visibility } from "@bugberry/shared"
 import { VideoPlayer } from "@bugberry/player/video-player"
+import { BUILT_IN_TEMPLATES, buildMaterial, templateFor } from "@bugberry/ai-write"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { browser } from "wxt/browser"
-import { createBugberryApi, type Project, type Workspace } from "../../lib/api"
+import { aiPath, writeWithAi } from "../../lib/ai-assist"
+import { type AiSetup, createBugberryApi, type Project, type Workspace } from "../../lib/api"
+import { browserAiKeyStorage } from "../../lib/browser-ai-key"
 import { relayFetcher } from "../../lib/api-relay"
 import { BUILD_SERVER_ORIGIN, browserSettingsStorage, includeCityStorage, lastWorkspaceStorage } from "../../lib/browser-settings"
 import { createIndexedDbDraftStore, saveAnnotations } from "../../lib/draft-store"
@@ -104,6 +107,10 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
   const [preparing, setPreparing] = useState<number | null>(null)
   const [locked, setLocked] = useState(false)
   const video = useRef<HTMLVideoElement>(null)
+  // Write with AI: the selected workspace's setup (null on older servers), and whether this browser has its own key.
+  const [aiSetup, setAiSetup] = useState<{ workspaceId: string; setup: AiSetup | null } | null>(null)
+  const [personalKey, setPersonalKey] = useState(false)
+  const [serverUrl, setServerUrl] = useState<string | null>(null)
 
   /** The people of a workspace, for Assignee; none when the server can't say. */
   const loadMembers = useCallback(async (workspaceId: string | null) => {
@@ -113,6 +120,20 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       .listMembers(workspaceId)
       .catch(() => [])
     setMembers(listed.map((member) => ({ id: member.id, name: member.name ?? "", email: member.email })))
+  }, [])
+
+  const loadAi = useCallback(async (workspaceId: string | null) => {
+    const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
+    setServerUrl(settings?.serverUrl ?? null)
+    if (!settings || !workspaceId) return setAiSetup(null)
+    const setup = await apiOf(settings)
+      .aiSetup(workspaceId)
+      .catch(() => null)
+    setAiSetup({ workspaceId, setup })
+  }, [])
+
+  useEffect(() => {
+    void browserAiKeyStorage.get().then((key) => setPersonalKey(key !== null))
   }, [])
 
   useEffect(() => {
@@ -134,6 +155,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
         setLocked(trimLocked(state.draft))
         setProjects(state.projects)
         void loadMembers(state.workspaceId)
+        void loadAi(state.workspaceId)
         // Signed out, an earlier failure isn't shown: sending waits for signing in.
         if (state.draft.status === "failed" && !state.signedOut) setStatus({ failed: state.draft.error ?? "Upload failed" })
       })
@@ -143,7 +165,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       cancelled = true
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
-  }, [draftId, loadMembers])
+  }, [draftId, loadMembers, loadAi])
 
   // Edits are kept in the draft as they happen (debounced), so closing the tab or the page loses nothing.
   // Not while sending: the upload writes the draft then.
@@ -173,6 +195,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       setLoaded((current) => current && { ...current, ...destination })
       setProjects(destination.projects)
       void loadMembers(destination.workspaceId)
+      void loadAi(destination.workspaceId)
     }
     const stop = whenBack(window, document, () => void recheck())
     return () => {
@@ -241,6 +264,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
     const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
     if (settings) setProjects((await loadProjects(editorDeps, settings, id)).projects)
     void loadMembers(id)
+    void loadAi(id)
   }
 
   /** What the created report looks like on the server, and where else it can go; the review works without either. */
@@ -437,6 +461,36 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
   // Markers stay where they are in the uncut video; those in the parts cut off go.
   const payload = draft.debuggerPayload
   const markerEvents = payload && trim ? trimPayload(payload, startedAt, trim).events : (payload?.events ?? [])
+  // Without the server's templates (an older server), a personal key still writes with the built-in ones.
+  const setup = aiSetup?.setup ?? null
+  const aiTemplates = setup?.templates ?? BUILT_IN_TEMPLATES.map((template, index) => ({ id: `built-in-${index}`, ...template }))
+  const path = aiPath(personalKey, setup)
+  const ai = aiSetup
+    ? {
+        path,
+        templates: aiTemplates,
+        templateFor: (projectId: string | null) =>
+          setup ? templateFor(setup, projectId) : (aiTemplates[0]?.id ?? null),
+        isAdmin: setup?.role === "admin",
+        settingsUrl: `${serverUrl ?? ""}/app/settings/ai`,
+      }
+    : null
+  const onAiWrite = async ({ templateId, hint }: { templateId: string; hint: { title: string; description: string } }) => {
+    const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
+    const template = aiTemplates.find((entry) => entry.id === templateId)
+    if (!settings || !aiSetup || !path || !template || !payload) throw new Error("Write with AI isn't available for this report.")
+    const includeResponseBodies = setup?.sendResponseBodies ?? false
+    const material = buildMaterial({
+      payload: trim ? trimPayload(payload, startedAt, trim) : payload,
+      page: draft.page,
+      device: draft.device,
+      includeResponseBodies,
+    })
+    return writeWithAi(
+      { path, api: apiOf(settings), sendMessage: (request) => browser.runtime.sendMessage(request), workspaceId: aiSetup.workspaceId },
+      { material, template, hint, includeResponseBodies },
+    )
+  }
 
   return (
     <ReviewView
@@ -462,6 +516,8 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       }
       workspaces={loaded.workspaces}
       workspaceId={loaded.workspaceId}
+      ai={ai}
+      onAiWrite={onAiWrite}
       signInUrl={loaded.signInUrl}
       projects={projects}
       members={members}

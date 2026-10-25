@@ -4,6 +4,20 @@ export interface TemplateText {
   instructions: string
 }
 
+/** The workspace's template defaults, as `GET /workspaces/:id/ai` gives them. */
+export interface TemplateDefaults {
+  defaultTemplateId: string | null
+  projectDefaults: ReadonlyArray<{ projectId: string; templateId: string | null }>
+  templates: ReadonlyArray<{ id: string }>
+}
+
+/** The template a report in this project starts with: the project's own, else the workspace's, else the first. */
+export function templateFor(setup: TemplateDefaults, projectId: string | null): string | null {
+  const known = (id: string | null | undefined) => (id && setup.templates.some((template) => template.id === id) ? id : null)
+  const own = projectId ? setup.projectDefaults.find((entry) => entry.projectId === projectId)?.templateId : null
+  return known(own) ?? known(setup.defaultTemplateId) ?? setup.templates[0]?.id ?? null
+}
+
 /** Every workspace starts with these; they can be edited or deleted like any other. */
 export const BUILT_IN_TEMPLATES: ReadonlyArray<{ name: string } & TemplateText> = [
   {

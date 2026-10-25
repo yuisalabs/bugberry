@@ -50,9 +50,4 @@ export async function listTemplates(db: Db, workspaceId: string): Promise<Templa
     .orderBy(asc(reportTemplate.createdAt), asc(reportTemplate.id))
 }
 
-/** The template a report in this project starts with: the project's own, else the workspace's, else the first. */
-export function templateFor(setup: AiSetup, projectId: string | null): string | null {
-  const known = (id: string | null | undefined) => (id && setup.templates.some((template) => template.id === id) ? id : null)
-  const own = projectId ? setup.projectDefaults.find((entry) => entry.projectId === projectId)?.templateId : null
-  return known(own) ?? known(setup.defaultTemplateId) ?? setup.templates[0]?.id ?? null
-}
+export { templateFor } from "@bugberry/ai-write"

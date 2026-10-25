@@ -66,6 +66,7 @@ export function createBugberryApi(settings: Settings, fetcher: typeof fetch = fe
   const client = treaty<App>(settings.serverUrl, { fetch: { credentials: "include" }, fetcher })
   type UploadBody = Parameters<typeof client.api.reports.uploads.post>[0]
   type UpdateBody = Parameters<ReturnType<typeof client.api.reports>["patch"]>[0]
+  type AiWriteBody = Parameters<ReturnType<typeof client.api.workspaces>["ai"]["write"]["post"]>[0]
 
   return {
     me: () => call(() => client.api.me.get()),
@@ -92,6 +93,10 @@ export function createBugberryApi(settings: Settings, fetcher: typeof fetch = fe
     reportTrackers: (reportId: string) => call(() => client.api.reports({ id: reportId }).trackers.get()),
     sendToTracker: (reportId: string, integrationId: string) =>
       call(() => client.api.reports({ id: reportId }).trackers({ integrationId }).send.post()),
+    /** Write with AI: whether the workspace has a team key, its templates and defaults. Older servers answer 404. */
+    aiSetup: (workspaceId: string) => call(() => client.api.workspaces({ id: workspaceId }).ai.get()),
+    /** A title and description drafted with the workspace's team key. */
+    aiWrite: (workspaceId: string, body: AiWriteBody) => call(() => client.api.workspaces({ id: workspaceId }).ai.write.post(body)),
   }
 }
 
@@ -100,5 +105,6 @@ export type Project = Awaited<ReturnType<BugberryApi["listProjects"]>>[number]
 export type Workspace = Awaited<ReturnType<BugberryApi["listWorkspaces"]>>[number]
 export type Member = Awaited<ReturnType<BugberryApi["listMembers"]>>[number]
 export type ReportTrackers = Awaited<ReturnType<BugberryApi["reportTrackers"]>>
+export type AiSetup = Awaited<ReturnType<BugberryApi["aiSetup"]>>
 export type CreateUploadBody = Parameters<BugberryApi["createUpload"]>[0]
 export type UploadSession = Awaited<ReturnType<BugberryApi["createUpload"]>>
