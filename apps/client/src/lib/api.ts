@@ -149,6 +149,13 @@ export interface AiProviderInput {
   apiKey?: string
 }
 
+export interface AiTemplateInput {
+  name: string
+  /** The description's sections, as Markdown headings. */
+  skeleton: string
+  instructions: string
+}
+
 export interface AiSettingsPatch {
   sendResponseBodies?: boolean
   defaultTemplateId?: string | null
@@ -272,6 +279,10 @@ export function createApi(origin: string = window.location.origin, fetcher: type
     saveAiProvider: (workspaceId: string, body: AiProviderInput) => unwrap(api.workspaces({ id: workspaceId }).ai.provider.put(body)),
     removeAiProvider: (workspaceId: string) => unwrap(api.workspaces({ id: workspaceId }).ai.provider.delete()),
     updateAiSettings: (workspaceId: string, patch: AiSettingsPatch) => unwrap(api.workspaces({ id: workspaceId }).ai.settings.patch(patch)),
+    createAiTemplate: (workspaceId: string, body: AiTemplateInput) => unwrap(api.workspaces({ id: workspaceId }).ai.templates.post(body)),
+    updateAiTemplate: (workspaceId: string, id: string, body: Partial<AiTemplateInput>) =>
+      unwrap(api.workspaces({ id: workspaceId }).ai.templates({ templateId: id }).patch(body)),
+    deleteAiTemplate: (workspaceId: string, id: string) => unwrap(api.workspaces({ id: workspaceId }).ai.templates({ templateId: id }).delete()),
     integrations: (projectId: string) => unwrap(api.projects({ id: projectId }).integrations.get()),
     addIntegration: (projectId: string, body: IntegrationInput) =>
       unwrap(api.projects({ id: projectId }).integrations.post(body as never)),

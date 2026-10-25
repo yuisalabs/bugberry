@@ -13,6 +13,7 @@ import { queries } from "../../lib/queries"
 import { useCurrentWorkspace } from "../../lib/workspace"
 import { SettingsRowsSkeleton } from "../Skeletons"
 import { ErrorState } from "../ui"
+import { TemplatesList } from "./TemplatesList"
 
 const card = "flex flex-col gap-5 rounded-2xl border border-border bg-background p-6 shadow-xs sm:p-8"
 const cardTitle = "font-heading text-lg font-semibold text-foreground"
@@ -237,6 +238,8 @@ export function AiWritingSettings() {
       onChangeSettings={async (patch) => {
         await settings.mutateAsync(patch)
       }}
-    />
+    >
+      <TemplatesList workspaceId={workspaceId} setup={setup.data} />
+    </AiWritingSettingsView>
   )
 }
