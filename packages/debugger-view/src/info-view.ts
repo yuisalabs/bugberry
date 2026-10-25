@@ -1,13 +1,19 @@
 import { isMaskedValue } from "./action-view"
 import type { DeviceInfo } from "@bugberry/shared"
-import type { DebuggerView, ViewAction } from "./debugger-events"
+import { consoleEntries, type DebuggerView, isFailedRequest, type ViewAction, type ViewEvent } from "./debugger-events"
 
 export interface VisitedUrl {
   /** Time since the recording started (or since the first page, for a screenshot). */
   atMs: number
   url: string
-  /** The page the report was made on. */
-  bugHere: boolean
+  /** The page the report was made on (where a video started). */
+  reported: boolean
+  /** Console errors and uncaught errors while this page was open. */
+  errors: number
+  failedRequests: number
+  /** The event times this page covers: from its navigation (null: the start) until the next page's (null: the end). */
+  from: number | null
+  to: number | null
 }
 
 function navigations(view: DebuggerView | null): ViewAction[] {
@@ -17,21 +23,41 @@ function navigations(view: DebuggerView | null): ViewAction[] {
     .sort((a, b) => a.t - b.t)
 }
 
-/** The pages the person went through, in order; repeated loads of the same page count once. */
+/** Whether an event happened while this page was open. */
+export function onPage(page: Pick<VisitedUrl, "from" | "to">, t: number): boolean {
+  return (page.from === null || t >= page.from) && (page.to === null || t < page.to)
+}
+
+function withCounts(page: Omit<VisitedUrl, "errors" | "failedRequests">, events: readonly ViewEvent[]): VisitedUrl {
+  const on = events.filter((event) => onPage(page, event.t))
+  return {
+    ...page,
+    errors: consoleEntries(on).filter((entry) => entry.level === "error").length,
+    failedRequests: on.filter((event) => event.kind === "network" && isFailedRequest(event)).length,
+  }
+}
+
+/**
+ * The pages the person went through, in order; repeated loads of the same page count once. Each counts the errors
+ * and failed requests from its navigation until the next page's; the first page also takes what came before it.
+ */
 export function visitedUrls(view: DebuggerView | null, pageUrl: string): VisitedUrl[] {
+  const events = view?.events ?? []
   const steps = navigations(view)
   const first = steps[0]
-  if (!first) return [{ atMs: 0, url: pageUrl, bugHere: true }]
+  if (!first) return [withCounts({ atMs: 0, url: pageUrl, reported: true, from: null, to: null }, events)]
   const origin = view?.recordingStartedAt ?? first.t
-  const visited: VisitedUrl[] = []
+  const visited: Array<Omit<VisitedUrl, "errors" | "failedRequests">> = []
   for (const step of steps) {
     const url = step.url ?? step.target ?? ""
     if (visited.at(-1)?.url === url) continue
-    visited.push({ atMs: visited.length === 0 ? 0 : Math.max(0, step.t - origin), url, bugHere: false })
+    const previous = visited.at(-1)
+    if (previous) previous.to = step.t
+    visited.push({ atMs: visited.length === 0 ? 0 : Math.max(0, step.t - origin), url, reported: false, from: previous ? step.t : null, to: null })
   }
   const last = visited.findLastIndex((entry) => entry.url === pageUrl)
-  if (last >= 0) visited[last] = { ...visited[last], bugHere: true } as VisitedUrl
-  return visited
+  if (last >= 0) visited[last] = { ...visited[last], reported: true } as VisitedUrl
+  return visited.map((page) => withCounts(page, events))
 }
 
 /** How many typed values were hidden before upload. */

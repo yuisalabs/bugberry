@@ -1,7 +1,7 @@
 import type { ReactNode } from "react"
 import { Button as AriaButton } from "react-aria-components"
 import type { ReportDetail } from "../../lib/api"
-import type { DebuggerView } from "@bugberry/debugger-view"
+import type { DebuggerView, VisitedUrl } from "@bugberry/debugger-view"
 import { formatOffset, formatTimestamp } from "../../lib/format"
 import { environmentRows, maskedCount, visitedUrls } from "@bugberry/debugger-view"
 import type { Playback } from "../../lib/timeline"
@@ -47,10 +47,13 @@ export function InfoTab({
   report,
   view,
   playback = null,
+  onShowPage,
 }: {
   report: ReportDetail
   view: DebuggerView | null
   playback?: Playback | null
+  /** A page's error or failed-request count was pressed: show that page's events in the tab. */
+  onShowPage?(tab: "console" | "network", page: VisitedUrl): void
 }) {
   const missing = [...new Set([...report.debuggerSummary.incomplete, ...(view?.incomplete ?? [])])]
   const visited = visitedUrls(view, report.pageUrl)
@@ -96,7 +99,7 @@ export function InfoTab({
           </ol>
         </Section>
       )}
-      <VisitedUrls entries={visited} playback={playback} />
+      <VisitedUrls entries={visited} playback={playback} onShow={view ? onShowPage : undefined} />
       <Section title="Session">
         <Facts rows={session} />
       </Section>

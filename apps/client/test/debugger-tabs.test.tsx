@@ -213,6 +213,35 @@ describe("DebuggerTabs", () => {
     expect(screen.getByText("boom")).toBeTruthy()
   })
 
+  test("a page's error count in Overview shows only that page's events, until Show all", () => {
+    const view = normalizePayload({
+      recordingStartedAt: 1000,
+      events: [
+        { kind: "action", t: 1000, type: "navigate", url: "https://app.kantor.test/cart" },
+        { kind: "console", t: 1500, level: "error", args: ["cart broke"] },
+        { kind: "action", t: 5000, type: "navigate", url: "https://app.kantor.test/checkout" },
+        { kind: "console", t: 5500, level: "error", args: ["pay broke"] },
+        { kind: "network", t: 5600, method: "POST", url: "https://app.kantor.test/api/pay", status: 500 },
+        { kind: "network", t: 1600, method: "GET", url: "https://app.kantor.test/api/cart", status: 200 },
+      ],
+    })
+    render(<DebuggerTabs report={reportFixture({ pageUrl: "https://app.kantor.test/cart" })} state={{ status: "ready", view }} onRetry={() => {}} />)
+    fireEvent.click(screen.getByRole("button", { name: /Visited URLs/ }))
+    const checkout = screen.getAllByRole("listitem").find((item) => item.textContent?.includes("/checkout"))
+    fireEvent.click(within(checkout as HTMLElement).getByRole("button", { name: "1 error" }))
+    expect(screen.getByRole("tab", { name: /Console/ }).getAttribute("aria-selected")).toBe("true")
+    expect(screen.getByText("Only what happened on https://app.kantor.test/checkout")).toBeTruthy()
+    expect(screen.getByText("pay broke")).toBeTruthy()
+    expect(screen.queryByText("cart broke")).toBeNull()
+    // Still that page in Network, until Show all.
+    fireEvent.click(screen.getByRole("tab", { name: /Network/ }))
+    expect(screen.getByRole("button", { name: /^pay/ })).toBeTruthy()
+    expect(screen.queryByRole("button", { name: /^cart/ })).toBeNull()
+    fireEvent.click(screen.getByRole("button", { name: "Show all" }))
+    expect(screen.getByRole("button", { name: /^cart/ })).toBeTruthy()
+    expect(screen.queryByText(/Only what happened on/)).toBeNull()
+  })
+
   test("below 1280 px a tab previews a few rows; View all opens the rest", () => {
     const summary = { logs: 4, errors: 0, requests: 25, failedRequests: 0, actions: 3, incomplete: [] }
     const view = normalizePayload({ capturedAt: 2000, events: [{ kind: "console", t: 1500, level: "log", args: ["hi"] }] })
@@ -354,7 +383,7 @@ describe("InfoTab", () => {
   test("members see the reporter's email, the pages visited and what was masked", () => {
     render(<InfoTab report={reportFixture({ pageUrl: "https://app.kantor.test/checkout" })} view={view} />)
     expect(screen.getByText("Ana, ana@kantor.test")).toBeTruthy()
-    expect(screen.getByText("Bug here")).toBeTruthy()
+    expect(screen.getByRole("link", { name: "https://app.kantor.test/checkout" })).toBeTruthy()
     expect(screen.getByText("1 field masked before upload")).toBeTruthy()
     expect(screen.getByText("1440 × 900")).toBeTruthy()
   })

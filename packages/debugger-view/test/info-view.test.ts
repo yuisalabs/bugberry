@@ -3,7 +3,7 @@ import { normalizePayload } from "../src/debugger-events"
 import { environmentRows, maskedCount, visitedUrls } from "../src/info-view"
 
 describe("visitedUrls", () => {
-  test("lists the pages in time order from 0, marking where the bug was reported", () => {
+  test("lists the pages in time order from 0, each with the stretch of events it covers", () => {
     const view = normalizePayload({
       recordingStartedAt: 1000,
       events: [
@@ -15,18 +15,42 @@ describe("visitedUrls", () => {
       ],
     })
     expect(visitedUrls(view, "https://shop.test/checkout")).toEqual([
-      { atMs: 0, url: "https://shop.test/cart", bugHere: false },
-      { atMs: 7000, url: "https://shop.test/checkout", bugHere: false },
-      { atMs: 59_000, url: "https://shop.test/thanks", bugHere: false },
-      { atMs: 69_000, url: "https://shop.test/checkout", bugHere: true },
+      { atMs: 0, url: "https://shop.test/cart", reported: false, errors: 0, failedRequests: 0, from: null, to: 8000 },
+      { atMs: 7000, url: "https://shop.test/checkout", reported: false, errors: 0, failedRequests: 0, from: 8000, to: 60_000 },
+      { atMs: 59_000, url: "https://shop.test/thanks", reported: false, errors: 0, failedRequests: 0, from: 60_000, to: 70_000 },
+      { atMs: 69_000, url: "https://shop.test/checkout", reported: true, errors: 0, failedRequests: 0, from: 70_000, to: null },
     ])
   })
 
-  test("without navigations the report's page is the only one", () => {
-    expect(visitedUrls(normalizePayload({ events: [] }), "https://shop.test/cart")).toEqual([
-      { atMs: 0, url: "https://shop.test/cart", bugHere: true },
+  test("each page counts the errors and failed requests that happened while it was open", () => {
+    const view = normalizePayload({
+      recordingStartedAt: 1000,
+      events: [
+        { kind: "console", t: 1100, level: "error", text: "before the first page" },
+        { kind: "action", t: 1200, type: "navigate", url: "https://shop.test/cart" },
+        { kind: "console", t: 2000, level: "warn", text: "not an error" },
+        { kind: "action", t: 8000, type: "navigate", url: "https://shop.test/checkout" },
+        { kind: "error", t: 8500, message: "Cannot read properties of undefined" },
+        { kind: "console", t: 8600, level: "error", text: "Payment failed" },
+        { kind: "network", t: 8700, method: "POST", url: "https://shop.test/api/pay", status: 500 },
+        { kind: "network", t: 8800, method: "GET", url: "https://shop.test/api/cart", status: 200 },
+        { kind: "network", t: 8900, method: "GET", url: "https://shop.test/api/ping", status: null, failed: "net::ERR_FAILED" },
+      ],
+    })
+    expect(visitedUrls(view, "https://shop.test/cart").map(({ errors, failedRequests }) => ({ errors, failedRequests }))).toEqual([
+      { errors: 1, failedRequests: 0 },
+      { errors: 2, failedRequests: 2 },
     ])
-    expect(visitedUrls(null, "https://shop.test/cart")).toEqual([{ atMs: 0, url: "https://shop.test/cart", bugHere: true }])
+  })
+
+  test("without navigations the report's page is the only one, with every event", () => {
+    const view = normalizePayload({ events: [{ kind: "console", t: 5, level: "error", text: "Boom" }] })
+    expect(visitedUrls(view, "https://shop.test/cart")).toEqual([
+      { atMs: 0, url: "https://shop.test/cart", reported: true, errors: 1, failedRequests: 0, from: null, to: null },
+    ])
+    expect(visitedUrls(null, "https://shop.test/cart")).toEqual([
+      { atMs: 0, url: "https://shop.test/cart", reported: true, errors: 0, failedRequests: 0, from: null, to: null },
+    ])
   })
 
   test("a screenshot counts from its first navigation", () => {

@@ -6,11 +6,11 @@ import {
   RiTerminalBoxLine,
   type RemixiconComponentType,
 } from "@remixicon/react"
-import { type ReactNode, useEffect, useRef, useState } from "react"
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@bugberry/ui/button"
 import { Tab, TabList, TabPanel, Tabs } from "@bugberry/ui/tabs"
 import type { ReportDetail } from "../../lib/api"
-import { type DebuggerView, eventBase } from "@bugberry/debugger-view"
+import { type DebuggerView, eventBase, onPage, type VisitedUrl } from "@bugberry/debugger-view"
 import type { Playback } from "../../lib/timeline"
 import { isUndone } from "../../lib/onboarding"
 import { useOnboarding } from "../onboarding/OnboardingProvider"
@@ -63,6 +63,8 @@ export function DebuggerTabs({
   const guide = onboarding?.next === "devtools"
   // Always opens on Overview; a flagged issue (focus) still jumps straight to its tab.
   const [tab, setTab] = useState<TabId>("info")
+  // A page picked in Overview's Visited URLs: Console and Network show only its events until "Show all".
+  const [page, setPage] = useState<VisitedUrl | null>(null)
   // Below 1280 px the panel sits in the page: a short preview until "View all" (wider, it fills its column).
   const [expanded, setExpanded] = useState(false)
   const panel = useRef<HTMLDivElement>(null)
@@ -137,7 +139,15 @@ export function DebuggerTabs({
             className={`${expanded ? "max-h-[70vh]" : id === "network" ? "max-h-96" : "max-h-80"} xl:max-h-none xl:min-h-0 xl:flex-1 ${id === "network" ? "flex flex-col overflow-hidden" : "overflow-y-auto"}`}
           >
             {id === "info" ? (
-              <InfoTab report={report} view={state.status === "ready" ? state.view : null} playback={playback} />
+              <InfoTab
+                report={report}
+                view={state.status === "ready" ? state.view : null}
+                playback={playback}
+                onShowPage={(next, picked) => {
+                  setPage(picked)
+                  setTab(next)
+                }}
+              />
             ) : (
               <EventsPanel
                 tab={id}
@@ -145,6 +155,8 @@ export function DebuggerTabs({
                 onRetry={onRetry}
                 playback={playback}
                 durationMs={report.durationMs}
+                page={page}
+                onShowAll={() => setPage(null)}
                 openRequest={
                   focus?.tab === "network" && focus.rowKey && openedNonce.current !== focus.nonce
                     ? { key: focus.rowKey, nonce: focus.nonce }
@@ -179,6 +191,8 @@ function EventsPanel({
   onRetry,
   playback,
   durationMs,
+  page,
+  onShowAll,
   openRequest,
   onOpenedRequest,
 }: {
@@ -187,9 +201,14 @@ function EventsPanel({
   onRetry: () => void
   playback: Playback | null
   durationMs: number | null
+  page: VisitedUrl | null
+  onShowAll(): void
   openRequest: { key: string; nonce: number } | null
   onOpenedRequest(nonce: number): void
 }) {
+  const all = state.status === "ready" ? state.view.events : null
+  // Filtered once per page or payload, not on every video frame.
+  const events = useMemo(() => (all && page ? all.filter((event) => onPage(page, event.t)) : all), [all, page])
   if (state.status === "none") {
     return <p className="p-4 text-sm text-muted-foreground">This report has no console, network or action data.</p>
   }
@@ -205,11 +224,26 @@ function EventsPanel({
     )
   }
   const base = eventBase(state.view)
-  if (tab === "actions") return <ActionsTab events={state.view.events} base={base} playback={playback} />
-  if (tab === "console") {
+  const shown = events ?? state.view.events
+  const banner = page && (
+    <div className="flex shrink-0 items-center gap-2 border-b border-border bg-primary-subtle px-3 py-1.5 text-xs text-primary-subtle-foreground">
+      <span className="min-w-0 flex-1 truncate" title={page.url}>{`Only what happened on ${page.url}`}</span>
+      <Button intent="plain" size="xs" onPress={onShowAll} className="shrink-0">
+        Show all
+      </Button>
+    </div>
+  )
+  let body: ReactNode
+  if (tab === "actions") body = <ActionsTab events={shown} base={base} playback={playback} />
+  else if (tab === "console") {
     const startedAt = state.view.recordingStartedAt
     const recording = startedAt === null ? undefined : { startedAt, durationMs }
-    return <ConsoleTab events={state.view.events} base={base} playback={playback} recording={recording} />
-  }
-  return <NetworkTab events={state.view.events} base={base} playback={playback} openKey={openRequest} onOpened={onOpenedRequest} />
+    body = <ConsoleTab events={shown} base={base} playback={playback} recording={recording} />
+  } else body = <NetworkTab events={shown} base={base} playback={playback} openKey={openRequest} onOpened={onOpenedRequest} />
+  return (
+    <>
+      {banner}
+      {body}
+    </>
+  )
 }

@@ -8,17 +8,40 @@ import type { VisitedUrl } from "@bugberry/debugger-view"
 import { activeIndex, type Playback } from "../../lib/timeline"
 import { safeHttpUrl } from "../../lib/urls"
 
+const plural = (count: number, noun: string) => `${count} ${noun}${count === 1 ? "" : "s"}`
+
+/** A page's count, opening its events in Console or Network when there is somewhere to show them. */
+function Count({ label, onPress }: { label: string; onPress?: () => void }) {
+  const style = "shrink-0 rounded-full bg-danger-subtle px-1.5 text-[11px] font-medium text-danger-subtle-foreground"
+  if (!onPress) return <span className={style}>{label}</span>
+  return (
+    <AriaButton onPress={onPress} className={`${style} hover:underline`}>
+      {label}
+    </AriaButton>
+  )
+}
+
 /**
- * The Overview tab's pages, as in Jam: closed it shows one page (where the player is, or where the bug was
- * reported before it plays), open it lists them all with that page marked. A time moves the player there.
+ * The Overview tab's pages, as in Jam: closed it shows one page (where the player is; before it plays, the first
+ * page where something went wrong, else the one the report was made on), open it lists them all. Each page counts
+ * its errors and failed requests, which open that page's events; a time moves the player there.
  */
-export function VisitedUrls({ entries, playback = null }: { entries: VisitedUrl[]; playback?: Playback | null }) {
+export function VisitedUrls({
+  entries,
+  playback = null,
+  onShow,
+}: {
+  entries: VisitedUrl[]
+  playback?: Playback | null
+  onShow?(tab: "console" | "network", page: VisitedUrl): void
+}) {
   const [open, setOpen] = useState(false)
   const playing = activeIndex(
     entries.map((entry) => entry.atMs),
     playback?.currentMs ?? null,
   )
-  const current = playing >= 0 ? playing : Math.max(0, entries.findIndex((entry) => entry.bugHere))
+  const troubled = entries.findIndex((entry) => entry.errors > 0 || entry.failedRequests > 0)
+  const current = playing >= 0 ? playing : troubled >= 0 ? troubled : Math.max(0, entries.findIndex((entry) => entry.reported))
   const canOpen = entries.length > 1
 
   const title = (
@@ -34,6 +57,7 @@ export function VisitedUrls({ entries, playback = null }: { entries: VisitedUrl[
         if (!entry) return null
         const href = safeHttpUrl(entry.url)
         const isCurrent = index === current
+        const troubles = entry.errors > 0 || entry.failedRequests > 0
         return (
           <li
             key={`${entry.atMs}-${index}`}
@@ -43,7 +67,7 @@ export function VisitedUrls({ entries, playback = null }: { entries: VisitedUrl[
             <span className="flex items-center gap-2 font-mono text-muted-foreground">
               <span
                 aria-hidden
-                className={`size-2 shrink-0 rounded-full ${entry.bugHere ? "bg-danger" : isCurrent ? "bg-success" : "bg-muted-foreground/40"}`}
+                className={`size-2 shrink-0 rounded-full ${troubles ? "bg-danger" : isCurrent ? "bg-success" : "bg-muted-foreground/40"}`}
               />
               {playback ? (
                 <AriaButton onPress={() => playback.seek(entry.atMs)} className="hover:text-primary hover:underline">
@@ -66,10 +90,9 @@ export function VisitedUrls({ entries, playback = null }: { entries: VisitedUrl[
               ) : (
                 <span className={`min-w-0 ${open ? "break-all" : "truncate"}`}>{entry.url}</span>
               )}
-              {entry.bugHere && (
-                <span className="shrink-0 rounded-full bg-danger-subtle px-1.5 text-[11px] font-medium text-danger-subtle-foreground">
-                  Bug here
-                </span>
+              {entry.errors > 0 && <Count label={plural(entry.errors, "error")} onPress={onShow && (() => onShow("console", entry))} />}
+              {entry.failedRequests > 0 && (
+                <Count label={plural(entry.failedRequests, "failed request")} onPress={onShow && (() => onShow("network", entry))} />
               )}
             </span>
           </li>
