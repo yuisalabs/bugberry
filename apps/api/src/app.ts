@@ -9,6 +9,7 @@ import { mcpModule } from "./mcp/route"
 import { wellKnownModule } from "./well-known"
 import type { TrackerFactory } from "./lib/trackers/providers"
 import { activityModule } from "./modules/activity"
+import { aiModule } from "./modules/ai"
 import { commentsModule } from "./modules/comments"
 import { demoRequestsModule } from "./modules/demo-requests"
 import { integrationsModule } from "./modules/integrations"
@@ -49,6 +50,8 @@ export interface AppDeps {
   email?: EmailSender | null
   /** Receives work started in the background (auto-send after finalize); tests use it to wait for it. */
   background?: (task: Promise<unknown>) => void
+  /** Calls AI providers for Write with AI; tests pass a fake. */
+  aiFetch?: typeof fetch
 }
 
 /**
@@ -146,6 +149,7 @@ export function createApp(deps: AppDeps) {
     .use(notificationsModule(deps))
     .use(integrationsModule(deps))
     .use(connectionsModule(deps))
+    .use(aiModule(deps))
     .use(trackersModule(deps))
     .use(mcpModule(deps))
     .use(demoRequestsModule(deps))

@@ -15,6 +15,7 @@
       "dependencies": {
         "@better-auth/mcp": "1.7.10",
         "@better-auth/oauth-provider": "1.7.10",
+        "@bugberry/ai-write": "workspace:*",
         "@bugberry/debugger-view": "workspace:*",
         "@bugberry/shared": "workspace:*",
         "@elysiajs/cors": "1.4.2",

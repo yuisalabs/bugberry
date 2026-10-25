@@ -150,6 +150,12 @@ export const workspace = pgTable(
     nextReportNumber: integer("next_report_number").notNull().default(1),
     /** Who created it: an admin who can't be demoted or removed. Their member row stays "admin". */
     ownerId: text("owner_id").references((): AnyPgColumn => user.id, { onDelete: "set null" }),
+    /** Whether failed requests' response bodies go to the AI; only admins turn it on. */
+    aiSendResponseBodies: boolean("ai_send_response_bodies").notNull().default(false),
+    /** The template a project without its own uses for Write with AI. */
+    aiDefaultTemplateId: text("ai_default_template_id").references((): AnyPgColumn => reportTemplate.id, { onDelete: "set null" }),
+    /** When the built-in templates were copied in; set once, so deleting them all doesn't bring them back. */
+    aiTemplatesSeededAt: timestamp("ai_templates_seeded_at", { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -231,6 +237,8 @@ export const project = pgTable(
       .default(sql`'{}'::text[]`),
     /** The uploaded logo's public link; null shows the name's first letter instead. */
     logoUrl: text("logo_url"),
+    /** Its default template for Write with AI; null uses the workspace's. */
+    aiTemplateId: text("ai_template_id").references((): AnyPgColumn => reportTemplate.id, { onDelete: "set null" }),
     createdAt: createdAt(),
   },
   (table) => [uniqueIndex("project_workspace_slug_idx").on(table.workspaceId, table.slug)],
@@ -378,6 +386,40 @@ export const connection = pgTable(
     updatedAt: updatedAt(),
   },
   (table) => [index("connection_workspace_idx").on(table.workspaceId)],
+)
+
+/** The workspace's own AI key (BYOK) for Write with AI; the server calls the provider, members never see the key. */
+export const workspaceAiProvider = pgTable("workspace_ai_provider", {
+  workspaceId: text("workspace_id")
+    .primaryKey()
+    .references(() => workspace.id, { onDelete: "cascade" }),
+  preset: text("preset").$type<"openai" | "custom">().notNull(),
+  baseUrl: text("base_url").notNull(),
+  model: text("model").notNull(),
+  /** AES-256-GCM ciphertext from SecretBox; never returned by the API. */
+  keyEncrypted: text("key_encrypted").notNull(),
+  /** "sk-…a1b2": enough for admins to tell keys apart. */
+  keyHint: text("key_hint").notNull(),
+  updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
+  updatedAt: updatedAt(),
+})
+
+/** A shared Write with AI template: the description's sections and extra instructions. Any member edits them. */
+export const reportTemplate = pgTable(
+  "report_template",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    skeleton: text("skeleton").notNull().default(""),
+    instructions: text("instructions").notNull().default(""),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [index("report_template_workspace_idx").on(table.workspaceId)],
 )
 
 /** A project's use of a connection: where it sends (`config` holds only the target) and how. */

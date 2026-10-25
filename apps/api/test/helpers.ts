@@ -37,6 +37,8 @@ export const TEST_DATABASE_URL =
 
 /** Every table in the public schema. Add new tables here when later plans create them. */
 const TABLES = [
+  "report_template",
+  "workspace_ai_provider",
   "demo_request",
   "oauth_client_assertion",
   "oauth_consent",
@@ -117,6 +119,7 @@ export async function setupTestApp(
     accounts?: AccountFactory
     background?: (task: Promise<unknown>) => void
     email?: EmailSender
+    aiFetch?: typeof fetch
   } = {},
 ) {
   const db = await getTestDb()
@@ -134,6 +137,7 @@ export async function setupTestApp(
     accounts: extra.accounts,
     background: extra.background,
     email: extra.email,
+    aiFetch: extra.aiFetch,
   })
   const testWorkspace = await createWorkspaceRow(db, "Test")
   defaultWorkspaceId = testWorkspace.id
