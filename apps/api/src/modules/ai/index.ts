@@ -1,13 +1,23 @@
-import { AiWriteError, aiErrorText, normalizeBaseUrl, OPENAI_BASE_URL, type ProviderConfig, testProvider } from "@bugberry/ai-write"
+import {
+  AiWriteError,
+  aiErrorText,
+  normalizeBaseUrl,
+  OPENAI_BASE_URL,
+  type ProviderConfig,
+  restrictMaterial,
+  testProvider,
+  writeUp,
+} from "@bugberry/ai-write"
 import { and, asc, eq, inArray } from "drizzle-orm"
 import { Elysia, t } from "elysia"
 import type { AppDeps } from "../../app"
 import { ensureTemplates, listTemplates } from "../../ai/setup"
 import { authPlugin } from "../../auth/plugin"
 import { project, reportTemplate, workspace, workspaceAiProvider } from "../../db/schema"
-import { AppError, conflict, notFound, unprocessable } from "../../lib/errors"
+import { AppError, conflict, notFound, tooManyRequests, unprocessable } from "../../lib/errors"
 import { newId } from "../../lib/ids"
 import { createHostGuard, HostGuardError } from "../../lib/net/host-guard"
+import { createRateLimiter } from "../../lib/rate-limit"
 import { createSecretBox, SECRET_UNREADABLE, SecretError } from "../../lib/secret-box"
 import { requireMember } from "../../workspaces/access"
 
@@ -23,6 +33,26 @@ const settingsBody = t.Object({
   defaultTemplateId: t.Optional(t.Nullable(t.String())),
   projectDefaults: t.Optional(t.Array(t.Object({ projectId: t.String(), templateId: t.Nullable(t.String()) }), { maxItems: 500 })),
 })
+const line = t.Object({
+  atMs: t.Number(),
+  kind: t.Union([t.Literal("action"), t.Literal("navigate"), t.Literal("error"), t.Literal("request"), t.Literal("note")]),
+  text: t.String({ maxLength: 5000 }),
+  body: t.Optional(t.String({ maxLength: 20_000 })),
+})
+const writeBody = t.Object({
+  templateId: t.String(),
+  material: t.Object({
+    page: t.Object({ url: t.String({ maxLength: 4000 }), title: t.Nullable(t.String({ maxLength: 1000 })) }),
+    device: t.Object({ browser: t.String({ maxLength: 200 }), os: t.String({ maxLength: 200 }) }),
+    lines: t.Array(line, { maxItems: 400 }),
+    omitted: t.Integer({ minimum: 0 }),
+  }),
+  hint: t.Object({ title: t.String({ maxLength: 200 }), description: t.String({ maxLength: 5000 }) }),
+})
+
+/** Each write-up costs the workspace money at its provider. */
+const WRITES_PER_MINUTE = 20
+
 const templateFields = {
   name: t.String({ minLength: 1, maxLength: 80 }),
   skeleton: t.String({ maxLength: 4000 }),
@@ -43,6 +73,7 @@ export function aiModule(deps: AppDeps) {
   const box = createSecretBox(deps.config.encryptionKey)
   const guard = createHostGuard({ allowPrivate: deps.config.allowPrivateIntegrationHosts })
   const aiFetch = deps.aiFetch ?? fetch
+  const writes = createRateLimiter({ limit: WRITES_PER_MINUTE, windowMs: 60_000 })
 
   const storedKey = async (workspaceId: string) =>
     (await db.select().from(workspaceAiProvider).where(eq(workspaceAiProvider.workspaceId, workspaceId)).limit(1))[0] ?? null
@@ -236,6 +267,31 @@ export function aiModule(deps: AppDeps) {
         return templateView(updated)
       },
       { auth: true, body: t.Partial(t.Object(templateFields)) },
+    )
+    .post(
+      "/workspaces/:id/ai/write",
+      async ({ user, params, body }) => {
+        await requireMember(db, user.id, params.id)
+        if (!writes.consume(user.id)) throw tooManyRequests()
+        const key = await storedKey(params.id)
+        if (!key) throw conflict("ai_not_configured", "AI writing isn't set up for this workspace.")
+        const template = await findTemplate(params.id, body.templateId)
+        const [settings] = await db
+          .select({ sendResponseBodies: workspace.aiSendResponseBodies })
+          .from(workspace)
+          .where(eq(workspace.id, params.id))
+          .limit(1)
+        // The extension already applies these rules; the server doesn't take its word for it.
+        const material = restrictMaterial(body.material, { includeResponseBodies: settings?.sendResponseBodies ?? false })
+        const provider: ProviderConfig = { preset: key.preset, baseUrl: key.baseUrl, model: key.model, apiKey: openKey(key.keyEncrypted) }
+        try {
+          return await writeUp(provider, { material, template, hint: body.hint }, aiFetch)
+        } catch (error) {
+          if (error instanceof AiWriteError) throw aiFailure(502, error, key.model)
+          throw error
+        }
+      },
+      { auth: true, body: writeBody },
     )
     .delete(
       "/workspaces/:id/ai/templates/:templateId",
