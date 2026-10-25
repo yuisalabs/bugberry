@@ -4,13 +4,16 @@ import { Input } from "@bugberry/ui/input"
 import { TextField } from "@bugberry/ui/text-field"
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react"
 import { browser } from "wxt/browser"
+import type { AiTestReply } from "../../lib/ai-relay"
 import { createBugberryApi } from "../../lib/api"
+import { browserAiKeyStorage } from "../../lib/browser-ai-key"
 import { BUILD_SERVER_ORIGIN, browserSettingsStorage } from "../../lib/browser-settings"
 import { switchServer } from "../../lib/bridge"
 import { createIndexedDbDraftStore } from "../../lib/draft-store"
 import { closePrompt, CoveredNote, PromptShell, usePromptTicket, useUnobscured } from "../../lib/prompt-page"
 import { checkSession, isBugBerryServer, type SessionState, serverLabel, signInUrl } from "../../lib/session"
 import { loadSettings, normalizeServerUrl, type Settings } from "../../lib/settings"
+import { AiKeySection } from "./AiKeySection"
 
 const store = createIndexedDbDraftStore()
 const card = "flex flex-col gap-3 rounded-xl border border-border bg-overlay p-4"
@@ -148,6 +151,11 @@ function SettingsBody({ embedded, token }: { embedded: boolean; token: string })
           </p>
         )}
       </form>
+      <AiKeySection
+        storage={browserAiKeyStorage}
+        test={(provider) => browser.runtime.sendMessage({ type: "bugberry:ai-test", provider }) as Promise<AiTestReply>}
+        disabled={!seen}
+      />
     </div>
   )
 }

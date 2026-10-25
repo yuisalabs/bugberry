@@ -4,7 +4,9 @@ import { bridgeSenderOrigin, createBridge } from "../lib/bridge"
 import { browserRecordingState } from "../lib/browser-recording-state"
 import { createBugberryApi } from "../lib/api"
 import { CAMERA_READY_MS, type CameraGrant, cameraTicketReply, createCameraGrants, uiStateReply } from "../lib/camera-grant"
+import { handleAiTest, handleAiWrite, isAiTestRequest, isAiWriteRequest } from "../lib/ai-relay"
 import { handleApiFetch, isApiFetchRequest } from "../lib/api-relay"
+import { browserAiKeyStorage } from "../lib/browser-ai-key"
 import { hasTabRecorder } from "../lib/browser-support"
 import { recordOptionsFor, type ScreenshotMode } from "../lib/capture-prefs"
 import { BUILD_SERVER_ORIGIN, browserSettingsStorage, capturePrefsStorage, lastSessionStorage, lastWorkspaceStorage } from "../lib/browser-settings"
@@ -516,6 +518,11 @@ export default defineBackground(() => {
       return reply(
         loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN).then((settings) => handleApiFetch(message, settings?.serverUrl ?? null, fetch)),
       )
+    }
+    // Write with AI on the reporter's own key: only the extension's pages may use it, never a web page.
+    if (isAiWriteRequest(message) || isAiTestRequest(message)) {
+      if (!fromExtensionPage(sender, browser.runtime.id, extensionOrigin)) return undefined
+      return reply(isAiWriteRequest(message) ? handleAiWrite(message, browserAiKeyStorage, fetch) : handleAiTest(message, fetch))
     }
     if (isRecorderReadyNotice(message)) {
       if (fromExtensionPage(sender, browser.runtime.id, extensionOrigin)) windowHost?.ready()

@@ -81,6 +81,7 @@
       "name": "@bugberry/extension",
       "version": "0.8.0",
       "dependencies": {
+        "@bugberry/ai-write": "workspace:*",
         "@bugberry/capture": "workspace:*",
         "@bugberry/player": "workspace:*",
         "@bugberry/shared": "workspace:*",

@@ -24,6 +24,7 @@
     "sign:firefox": "bun scripts/sign-firefox.ts"
   },
   "dependencies": {
+    "@bugberry/ai-write": "workspace:*",
     "@bugberry/capture": "workspace:*",
     "@bugberry/player": "workspace:*",
     "@bugberry/shared": "workspace:*",
