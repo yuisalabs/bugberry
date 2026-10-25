@@ -33,10 +33,13 @@ interface ProviderErrorBody {
   error?: { code?: unknown; type?: unknown; message?: unknown }
 }
 
-function failure(status: number, body: ProviderErrorBody | null): AiWriteError {
+/** A local server (Ollama, say) takes no key; when it refuses, its origin setting is the likely cause, not a key. */
+const KEYLESS_REFUSED = "The server refused the request. If it is Ollama, allow the extension in OLLAMA_ORIGINS."
+
+function failure(status: number, body: ProviderErrorBody | null, hasKey: boolean): AiWriteError {
   const code = typeof body?.error?.code === "string" ? body.error.code : typeof body?.error?.type === "string" ? body.error.type : ""
   const message = typeof body?.error?.message === "string" ? body.error.message : ""
-  if (status === 401 || status === 403) return new AiWriteError("key_rejected")
+  if (status === 401 || status === 403) return hasKey ? new AiWriteError("key_rejected") : new AiWriteError("provider_error", KEYLESS_REFUSED)
   if (status === 402 || code === "insufficient_quota") return new AiWriteError("quota")
   if (code === "model_not_found" || (status === 404 && /model/i.test(message))) return new AiWriteError("model_not_found")
   if (status === 429 || status === 503) return new AiWriteError("busy")
@@ -81,7 +84,7 @@ export async function complete(
   try {
     response = await fetcher(`${provider.baseUrl}/chat/completions`, {
       method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${provider.apiKey}` },
+      headers: { "content-type": "application/json", ...(provider.apiKey ? { authorization: `Bearer ${provider.apiKey}` } : {}) },
       body: JSON.stringify({
         model: provider.model,
         messages,
@@ -108,7 +111,7 @@ export async function complete(
   try {
     body = raw === null ? null : JSON.parse(raw)
   } catch {}
-  if (!response.ok) throw failure(response.status, body)
+  if (!response.ok) throw failure(response.status, body, Boolean(provider.apiKey))
   const content = body?.choices?.[0]?.message?.content
   if (typeof content !== "string") throw new AiWriteError("unusable_answer")
   return content

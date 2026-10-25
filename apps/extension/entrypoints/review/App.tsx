@@ -5,7 +5,7 @@ import { BUILT_IN_TEMPLATES, buildMaterial, templateFor } from "@bugberry/ai-wri
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { browser } from "wxt/browser"
 import { aiPath, writeWithAi } from "../../lib/ai-assist"
-import { type AiSetup, createBugberryApi, type Project, type Workspace } from "../../lib/api"
+import { type AiSetup, ApiError, createBugberryApi, type Project, type Workspace } from "../../lib/api"
 import { browserAiKeyStorage } from "../../lib/browser-ai-key"
 import { latestOnly } from "../../lib/latest"
 import { relayFetcher } from "../../lib/api-relay"
@@ -64,6 +64,9 @@ const editorDeps: Omit<EditorDeps, "createObjectURL"> = {
   createImageBitmap: (blob) => createImageBitmap(blob),
 }
 
+/** The selected workspace's AI settings; `setup` is null on an older server or when loading failed (`error`). */
+type AiLoad = { workspaceId: string; setup: AiSetup | null; error: string | null }
+
 type Loaded = {
   draft: ReportDraft
   videoUrl: string | null
@@ -109,7 +112,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
   const [locked, setLocked] = useState(false)
   const video = useRef<HTMLVideoElement>(null)
   // Write with AI: the selected workspace's setup (null on older servers), and whether this browser has its own key.
-  const [aiSetup, setAiSetup] = useState<{ workspaceId: string; setup: AiSetup | null } | null>(null)
+  const [aiSetup, setAiSetup] = useState<AiLoad | null>(null)
   const [personalKey, setPersonalKey] = useState(false)
   const [serverUrl, setServerUrl] = useState<string | null>(null)
 
@@ -124,7 +127,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
   }, [])
 
   // A slow answer for a workspace the reporter has since left must not land: its key and templates would be used.
-  const takeAiSetup = useMemo(() => latestOnly<{ workspaceId: string; setup: AiSetup | null } | null>(setAiSetup), [])
+  const takeAiSetup = useMemo(() => latestOnly<AiLoad | null>(setAiSetup), [])
   const loadAi = useCallback(
     (workspaceId: string | null) =>
       takeAiSetup(
@@ -132,10 +135,13 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
           const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
           setServerUrl(settings?.serverUrl ?? null)
           if (!settings || !workspaceId) return null
-          const setup = await apiOf(settings)
-            .aiSetup(workspaceId)
-            .catch(() => null)
-          return { workspaceId, setup }
+          try {
+            return { workspaceId, setup: await apiOf(settings).aiSetup(workspaceId), error: null }
+          } catch (cause) {
+            // An older server has no AI routes (404): only a personal key works then. Anything else is an error.
+            if (cause instanceof ApiError && cause.status === 404) return { workspaceId, setup: null, error: null }
+            return { workspaceId, setup: null, error: "Couldn't load the AI settings." }
+          }
         })(),
       ),
     [takeAiSetup],
@@ -482,6 +488,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
           setup ? templateFor(setup, projectId) : (aiTemplates[0]?.id ?? null),
         isAdmin: setup?.role === "admin",
         settingsUrl: `${serverUrl ?? ""}/app/settings/ai#write`,
+        error: aiSetup.error,
       }
     : null
   const onAiWrite = async ({ templateId, hint }: { templateId: string; hint: { title: string; description: string } }) => {
@@ -527,6 +534,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       workspaceId={loaded.workspaceId}
       ai={ai}
       onAiWrite={onAiWrite}
+      onAiRetry={() => void loadAi(aiSetup?.workspaceId ?? loaded.workspaceId)}
       signInUrl={loaded.signInUrl}
       projects={projects}
       members={members}

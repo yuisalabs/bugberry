@@ -71,6 +71,17 @@ describe("the personal AI key", () => {
     expect(screen.getByRole("alert").textContent).toBe("Enter the API key again for a new provider address")
   })
 
+  test("a local server without keys can be saved without an API key", async () => {
+    const store = storage(null)
+    const check = await show(store)
+    fireEvent.click(screen.getByRole("radio", { name: "OpenAI-compatible" }))
+    type("Base URL", "http://localhost:11434/v1")
+    type("Model", "qwen3")
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Test and save" })))
+    expect(check).toHaveBeenCalledWith({ preset: "custom", baseUrl: "http://localhost:11434/v1", model: "qwen3", apiKey: "" })
+    expect(store.set).toHaveBeenCalled()
+  })
+
   test("says where the key goes", async () => {
     await show(storage(null))
     expect(screen.getByText(/stays in this browser and goes only to your AI provider/)).toBeTruthy()

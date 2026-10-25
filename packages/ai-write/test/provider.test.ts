@@ -121,6 +121,17 @@ test("testProvider sends a tiny request and resolves on a reply with a choice", 
   await expect(testProvider(provider, fakeFetch([], 401, {}))).rejects.toMatchObject({ code: "key_rejected" })
 })
 
+test("without an API key no Authorization header is sent, and a refusal points at the server's settings", async () => {
+  const seen: Request[] = []
+  const keyless = { ...provider, apiKey: "" }
+  await complete(keyless, messages, fakeFetch(seen, 200, { choices: [{ message: { content: "ok" } }] }))
+  expect(seen[0]?.headers.has("authorization")).toBe(false)
+  await expect(complete(keyless, messages, fakeFetch([], 403, {}))).rejects.toMatchObject({ code: "provider_error" })
+  await expect(complete(keyless, messages, fakeFetch([], 403, {}))).rejects.toMatchObject({
+    detail: "The server refused the request. If it is Ollama, allow the extension in OLLAMA_ORIGINS.",
+  })
+})
+
 test("normalizeBaseUrl accepts a pasted endpoint and refuses non-http", () => {
   expect(normalizeBaseUrl(" https://x.test/v1/chat/completions/ ")).toBe("https://x.test/v1")
   expect(normalizeBaseUrl("http://localhost:11434/v1/")).toBe("http://localhost:11434/v1")

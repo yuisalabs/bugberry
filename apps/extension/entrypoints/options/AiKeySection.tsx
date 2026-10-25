@@ -49,7 +49,8 @@ export function AiKeySection({
     const sameAddress = saved?.preset === preset && (preset === "openai" || saved.baseUrl === baseUrl.trim().replace(/\/+$/, ""))
     if (!apiKey.trim() && saved && !sameAddress) return setError("Enter the API key again for a new provider address")
     const key = apiKey.trim() || saved?.apiKey || ""
-    if (!key) return setError("Enter the API key")
+    // A local server (Ollama, say) takes no key; OpenAI always does.
+    if (!key && preset === "openai") return setError("Enter the API key")
     setError(null)
     setBusy(true)
     try {
@@ -96,9 +97,13 @@ export function AiKeySection({
       </TextField>
       <TextField type="password" value={apiKey} onChange={setApiKey}>
         <Label>API key</Label>
-        <Input placeholder={saved ? "Leave empty to keep the saved key" : "sk-…"} className="font-mono" autoComplete="off" />
+        <Input
+          placeholder={saved?.apiKey ? "Leave empty to keep the saved key" : preset === "custom" ? "Optional for a local server" : "sk-…"}
+          className="font-mono"
+          autoComplete="off"
+        />
       </TextField>
-      {saved && (
+      {saved?.apiKey && (
         <p className="text-sm">
           Saved key: <span className="font-mono">{keyHint(saved.apiKey)}</span>
         </p>

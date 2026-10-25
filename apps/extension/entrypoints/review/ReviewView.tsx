@@ -37,6 +37,7 @@ import { Button as AriaButton, Input as AriaInput, ProgressBar, TextArea as Aria
 import type { TemplateText } from "@bugberry/ai-write"
 import type { AiPath } from "../../lib/ai-assist"
 import type { Project, Workspace } from "../../lib/api"
+import { useUnobscured } from "../../lib/prompt-page"
 import { formProblem } from "../../lib/report-form"
 import { isTrimmed, reviewStats, suggestTitle, type TrimRange, trimPayload } from "../../lib/review-data"
 import type { ReportDraft } from "../../lib/types"
@@ -138,7 +139,11 @@ export interface ReviewViewProps {
     isAdmin: boolean
     /** The dashboard's Settings → AI, for an admin without a key. */
     settingsUrl: string
+    /** Why the workspace's AI settings couldn't load (not an older server, which has none). */
+    error?: string | null
   } | null
+  /** Loads the AI settings again after they failed to load. */
+  onAiRetry?(): void
   /** Drafts a title and description; rejects with the text to show. */
   onAiWrite?(input: { templateId: string; hint: { title: string; description: string } }): Promise<{ title: string; description: string }>
   onSendToTracker?(integrationId: string): void
@@ -217,8 +222,11 @@ export function ReviewView(props: ReviewViewProps) {
   const writingNow = useRef(false)
   const [aiError, setAiError] = useState<string | null>(null)
   const [undo, setUndo] = useState<{ title: string; description: string } | null>(null)
+  // Over a page, a click on Write with AI counts only while nothing of the page covers the review.
+  const aiRow = useRef<HTMLDivElement>(null)
+  const aiSeen = useUnobscured(aiRow, props.embedded)
   const writeWithAi = async () => {
-    if (writingNow.current || !props.onAiWrite || !aiTemplate) return
+    if (writingNow.current || !aiSeen || !props.onAiWrite || !aiTemplate) return
     writingNow.current = true
     setWriting(true)
     setAiError(null)
@@ -379,7 +387,7 @@ export function ReviewView(props: ReviewViewProps) {
                 )}
 
                 {isVideo && ai && !props.signInUrl && (
-                  <div className="flex flex-col gap-2">
+                  <div ref={aiRow} className="flex flex-col gap-2">
                     {ai.path ? (
                       ai.templates.length > 0 ? (
                         <div className="flex flex-wrap items-center gap-2">
@@ -392,7 +400,7 @@ export function ReviewView(props: ReviewViewProps) {
                             <SelectTrigger prefix={<RiFileTextLine size={16} aria-hidden />} />
                             <SelectContent items={ai.templates}>{(template) => <SelectItem id={template.id}>{template.name}</SelectItem>}</SelectContent>
                           </Select>
-                          <Button intent="outline" isPending={writing} onPress={() => void writeWithAi()}>
+                          <Button intent="outline" isPending={writing} isDisabled={!aiSeen} onPress={() => void writeWithAi()}>
                             <RiSparkling2Line aria-hidden />
                             Write with AI
                           </Button>
@@ -411,6 +419,18 @@ export function ReviewView(props: ReviewViewProps) {
                       ) : (
                         <p className="text-sm text-muted-foreground">Add a template in Settings → AI to write with AI</p>
                       )
+                    ) : ai.error ? (
+                      <p role="alert" className="flex flex-wrap items-center gap-2 text-sm text-danger-subtle-foreground">
+                        {ai.error}
+                        {props.onAiRetry && (
+                          <AriaButton
+                            className="rounded-sm font-semibold underline outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                            onPress={props.onAiRetry}
+                          >
+                            Try again
+                          </AriaButton>
+                        )}
+                      </p>
                     ) : ai.isAdmin ? (
                       <Link href={ai.settingsUrl} target="_blank" rel="noreferrer" className="self-start text-sm font-semibold text-primary">
                         Set up AI
@@ -428,6 +448,7 @@ export function ReviewView(props: ReviewViewProps) {
 
                 <TextField
                   aria-label="Title"
+                  isReadOnly={writing}
                   maxLength={200}
                   value={form.title}
                   onChange={(title) => {
@@ -448,6 +469,7 @@ export function ReviewView(props: ReviewViewProps) {
                 </TextField>
                 <TextField
                   aria-label="What went wrong?"
+                  isReadOnly={writing}
                   maxLength={5000}
                   value={form.description}
                   onChange={(description) => {

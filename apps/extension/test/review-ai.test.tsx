@@ -137,6 +137,43 @@ describe("Write with AI in the review", () => {
     expect(screen.getByText("Ask your admin to set up AI in Settings → AI")).toBeTruthy()
   })
 
+  test("when the AI settings couldn't load, it says so and offers to try again", async () => {
+    const onAiRetry = mock()
+    view({ ai: ai({ path: null, error: "Couldn't load the AI settings." }), onAiRetry })
+    expect(screen.queryByText("Ask your admin to set up AI in Settings → AI")).toBeNull()
+    expect(screen.getByText("Couldn't load the AI settings.")).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }))
+    expect(onAiRetry).toHaveBeenCalled()
+  })
+
+  test("while the AI writes, the title and description can't be typed into", async () => {
+    let finish: (value: { title: string; description: string }) => void = () => {}
+    view({ onAiWrite: mock(() => new Promise<{ title: string; description: string }>((resolve) => (finish = resolve))) })
+    await act(async () => fireEvent.click(write()))
+    expect(titleInput().readOnly).toBe(true)
+    expect(descriptionInput().readOnly).toBe(true)
+    await act(async () => finish({ title: "T", description: "D" }))
+    expect(titleInput().readOnly).toBe(false)
+  })
+
+  test("over a page, Write with AI is off while something covers the review", async () => {
+    const original = globalThis.IntersectionObserver
+    globalThis.IntersectionObserver = class {
+      constructor(private readonly callback: (entries: Array<{ isVisible: boolean }>) => void) {}
+      observe() {
+        this.callback([{ isVisible: false }])
+      }
+      disconnect() {}
+    } as unknown as typeof IntersectionObserver
+    try {
+      const props = view({ embedded: true })
+      await act(async () => fireEvent.click(write()))
+      expect(props.onAiWrite).not.toHaveBeenCalled()
+    } finally {
+      globalThis.IntersectionObserver = original
+    }
+  })
+
   test("an admin without a key gets a link to set it up", () => {
     view({ ai: ai({ path: null, isAdmin: true }) })
     expect(screen.getByRole("link", { name: "Set up AI" }).getAttribute("href")).toBe("https://bugberry.test/app/settings/ai")
