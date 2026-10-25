@@ -37,6 +37,8 @@ import { InviteDialog } from "./InviteDialog"
 import { JoinWorkspaceDialog } from "./JoinWorkspaceDialog"
 import { NewReportButton } from "./NewReportButton"
 import { NotificationBell } from "./NotificationBell"
+import { OnboardingWidget } from "./onboarding/OnboardingChecklist"
+import { OnboardingProvider } from "./onboarding/OnboardingProvider"
 import { ProjectsMenu } from "./ProjectsMenu"
 import { ProjectTile } from "./ProjectTile"
 import { ReportDetailSkeleton, ReportsPageSkeleton } from "./Skeletons"
@@ -111,7 +113,16 @@ export function AppShell() {
   const content = isPending ? (
     fullWidth ? <ReportDetailSkeleton /> : <ReportsPageSkeleton />
   ) : workspace ? <Outlet /> : <WorkspaceHome onCreateWorkspace={() => setCreating(true)} />
-  if (fullWidth) return <div className="min-h-screen bg-background">{content}</div>
+  if (fullWidth) {
+    return (
+      <OnboardingProvider>
+        <div className="min-h-screen bg-background">{content}</div>
+        <OnboardingWidget startAsPill />
+      </OnboardingProvider>
+    )
+  }
+  // All reports has the checklist as a card at the top; every other page has it in a corner.
+  const onAllReports = Boolean(matchRoute({ to: "/app" }))
   const isAdmin = workspace?.role === "admin"
   const canInvite = isAdmin && invitesAllowed(limits.data)
   const openProject = matchRoute({ to: "/app/p/$projectSlug", fuzzy: true })
@@ -214,124 +225,127 @@ export function AppShell() {
   )
 
   return (
-    // From tablet width up the window itself never scrolls: the top bar stays put and only the main panel moves.
-    <div className="flex min-h-screen flex-col bg-background md:h-screen md:overflow-hidden">
-      <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-2 border-b border-sidebar-border bg-background px-3 md:h-[76px] md:border-b-0 md:px-6">
-        {/* The two sides share the leftover width equally, so the links sit in the middle of the screen however wide
-            each side is. */}
-        <div className="flex min-w-0 flex-1 basis-0 items-center gap-2">
-          <Button intent="plain" size="sq-sm" aria-label="Open menu" onPress={() => setDrawer(true)} className="hover:bg-sidebar-accent xl:hidden">
-            <RiMenuLine aria-hidden />
-          </Button>
-          {me.data && (
-            <WorkspaceMenu
-              workspaces={workspaces}
-              currentId={workspace?.id ?? ""}
-              onSwitch={(id) => void switchWorkspace(id)}
-              onCreate={myLimits.data?.canCreateWorkspace === false ? undefined : () => setCreating(true)}
-              onJoin={() => setJoining(true)}
-              onSettings={isAdmin ? () => void navigate({ to: "/app/settings/workspace" }) : undefined}
-              onInvite={canInvite ? () => setInviting(true) : undefined}
-            />
-          )}
-        </div>
-        <div className="flex shrink-0 justify-center">
-          {workspace && (
-            <nav aria-label="Main" className="hidden items-center gap-1 xl:flex">
-              <Link to="/app" {...topLink} activeOptions={{ exact: true, includeSearch: false }}>
-                {({ isActive }) => (
-                  <>
-                    <ActiveIcon active={isActive} line={RiLayoutGridLine} fill={RiLayoutGridFill} className={pillIcon} />
-                    All reports
-                  </>
-                )}
-              </Link>
-              <Link to="/app/settings/ai" {...topLink}>
-                {({ isActive }) => (
-                  <>
-                    <ActiveIcon active={isActive} line={RiRobot2Line} fill={RiRobot2Fill} className={pillIcon} />
-                    AI Agents
-                  </>
-                )}
-              </Link>
-              <ProjectsMenu
-                projects={projects.data}
-                currentSlug={openProject ? openProject.projectSlug : undefined}
-                active={projectsActive}
-                className={`${pill} ${projectsActive ? pillOn : pillOff}`}
-                onOpen={(projectSlug) => void navigate({ to: "/app/p/$projectSlug", params: { projectSlug } })}
-                onManage={isAdmin ? () => void navigate({ to: "/app/settings/projects" }) : undefined}
+    <OnboardingProvider>
+      {/* From tablet width up the window itself never scrolls: the top bar stays put and only the main panel moves. */}
+      <div className="flex min-h-screen flex-col bg-background md:h-screen md:overflow-hidden">
+        <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-2 border-b border-sidebar-border bg-background px-3 md:h-[76px] md:border-b-0 md:px-6">
+          {/* The two sides share the leftover width equally, so the links sit in the middle of the screen however wide
+              each side is. */}
+          <div className="flex min-w-0 flex-1 basis-0 items-center gap-2">
+            <Button intent="plain" size="sq-sm" aria-label="Open menu" onPress={() => setDrawer(true)} className="hover:bg-sidebar-accent xl:hidden">
+              <RiMenuLine aria-hidden />
+            </Button>
+            {me.data && (
+              <WorkspaceMenu
+                workspaces={workspaces}
+                currentId={workspace?.id ?? ""}
+                onSwitch={(id) => void switchWorkspace(id)}
+                onCreate={myLimits.data?.canCreateWorkspace === false ? undefined : () => setCreating(true)}
+                onJoin={() => setJoining(true)}
+                onSettings={isAdmin ? () => void navigate({ to: "/app/settings/workspace" }) : undefined}
+                onInvite={canInvite ? () => setInviting(true) : undefined}
               />
-              <Link to="/app/settings/members" {...topLink}>
-                {({ isActive }) => (
-                  <>
-                    <ActiveIcon active={isActive} line={RiGroupLine} fill={RiGroupFill} className={pillIcon} />
-                    Members
-                    <WaitingBadge count={waitingCount} />
-                  </>
-                )}
-              </Link>
-              {isAdmin && (
-                <Link to="/app/settings/integrations" {...topLink}>
+            )}
+          </div>
+          <div className="flex shrink-0 justify-center">
+            {workspace && (
+              <nav aria-label="Main" className="hidden items-center gap-1 xl:flex">
+                <Link to="/app" {...topLink} activeOptions={{ exact: true, includeSearch: false }}>
                   {({ isActive }) => (
                     <>
-                      <ActiveIcon active={isActive} line={RiPlugLine} fill={RiPlugFill} className={pillIcon} />
-                      Integrations
+                      <ActiveIcon active={isActive} line={RiLayoutGridLine} fill={RiLayoutGridFill} className={pillIcon} />
+                      All reports
                     </>
                   )}
                 </Link>
-              )}
-            </nav>
-          )}
-        </div>
-        <div className="flex min-w-0 flex-1 basis-0 items-center justify-end gap-2 md:gap-3">
-          <NotificationBell />
-          <span aria-hidden className="hidden h-6 w-px bg-border sm:block" />
-          {canInvite && (
-            // Just the icon until the widest screens, so the centred links keep some room beside it.
-            <Button
-              intent="outline"
-              size="md"
-              aria-label="Invite"
-              onPress={() => setInviting(true)}
-              className="hidden rounded-full bg-background px-3 md:inline-flex 2xl:px-4"
-            >
-              <RiUserAddLine aria-hidden />
-              <span className="hidden 2xl:inline">Invite</span>
-            </Button>
-          )}
-          {workspace && (
-            <span className="hidden sm:inline-flex">
-              <NewReportButton installUrl={installUrl} prominent className="rounded-full px-5 shadow-lg shadow-primary/25" />
-            </span>
-          )}
-          {me.data && (
-            <AccountMenu
-              me={me.data}
-              extension={extension}
-              onAccount={() => void navigate({ to: "/app/settings/account" })}
-              onExtension={onExtension}
-              onLogout={() => void logout()}
-            />
-          )}
-        </div>
-      </header>
+                <Link to="/app/settings/ai" {...topLink}>
+                  {({ isActive }) => (
+                    <>
+                      <ActiveIcon active={isActive} line={RiRobot2Line} fill={RiRobot2Fill} className={pillIcon} />
+                      AI Agents
+                    </>
+                  )}
+                </Link>
+                <ProjectsMenu
+                  projects={projects.data}
+                  currentSlug={openProject ? openProject.projectSlug : undefined}
+                  active={projectsActive}
+                  className={`${pill} ${projectsActive ? pillOn : pillOff}`}
+                  onOpen={(projectSlug) => void navigate({ to: "/app/p/$projectSlug", params: { projectSlug } })}
+                  onManage={isAdmin ? () => void navigate({ to: "/app/settings/projects" }) : undefined}
+                />
+                <Link to="/app/settings/members" {...topLink}>
+                  {({ isActive }) => (
+                    <>
+                      <ActiveIcon active={isActive} line={RiGroupLine} fill={RiGroupFill} className={pillIcon} />
+                      Members
+                      <WaitingBadge count={waitingCount} />
+                    </>
+                  )}
+                </Link>
+                {isAdmin && (
+                  <Link to="/app/settings/integrations" {...topLink}>
+                    {({ isActive }) => (
+                      <>
+                        <ActiveIcon active={isActive} line={RiPlugLine} fill={RiPlugFill} className={pillIcon} />
+                        Integrations
+                      </>
+                    )}
+                  </Link>
+                )}
+              </nav>
+            )}
+          </div>
+          <div className="flex min-w-0 flex-1 basis-0 items-center justify-end gap-2 md:gap-3">
+            <NotificationBell />
+            <span aria-hidden className="hidden h-6 w-px bg-border sm:block" />
+            {canInvite && (
+              // Just the icon until the widest screens, so the centred links keep some room beside it.
+              <Button
+                intent="outline"
+                size="md"
+                aria-label="Invite"
+                onPress={() => setInviting(true)}
+                className="hidden rounded-full bg-background px-3 md:inline-flex 2xl:px-4"
+              >
+                <RiUserAddLine aria-hidden />
+                <span className="hidden 2xl:inline">Invite</span>
+              </Button>
+            )}
+            {workspace && (
+              <span className="hidden sm:inline-flex">
+                <NewReportButton installUrl={installUrl} prominent className="rounded-full px-5 shadow-lg shadow-primary/25" />
+              </span>
+            )}
+            {me.data && (
+              <AccountMenu
+                me={me.data}
+                extension={extension}
+                onAccount={() => void navigate({ to: "/app/settings/account" })}
+                onExtension={onExtension}
+                onLogout={() => void logout()}
+              />
+            )}
+          </div>
+        </header>
 
-      {/* Phones and small tablets: the pages slide in as an Intent Sheet. */}
-      <Sheet isOpen={drawer} onOpenChange={setDrawer} position="left" className="w-64 border-sidebar-border bg-sidebar xl:hidden">
-        {drawerNav}
-      </Sheet>
-      <main
-        id={APP_MAIN_ID}
-        data-scroll-restoration-id={APP_MAIN_ID}
-        className="min-w-0 flex-1 bg-sidebar px-4 py-5 md:mx-6 md:overflow-y-auto md:rounded-t-[28px] md:border md:border-b-0 md:border-sidebar-border md:px-8 md:py-6"
-      >
-        {content}
-      </main>
+        {/* Phones and small tablets: the pages slide in as an Intent Sheet. */}
+        <Sheet isOpen={drawer} onOpenChange={setDrawer} position="left" className="w-64 border-sidebar-border bg-sidebar xl:hidden">
+          {drawerNav}
+        </Sheet>
+        <main
+          id={APP_MAIN_ID}
+          data-scroll-restoration-id={APP_MAIN_ID}
+          className="min-w-0 flex-1 bg-sidebar px-4 py-5 md:mx-6 md:overflow-y-auto md:rounded-t-[28px] md:border md:border-b-0 md:border-sidebar-border md:px-8 md:py-6"
+        >
+          {content}
+        </main>
 
-      <CreateWorkspaceDialog isOpen={creating} onOpenChange={setCreating} />
-      <JoinWorkspaceDialog isOpen={joining} onOpenChange={setJoining} />
-      {workspace && <InviteDialog workspaceId={workspace.id} isOpen={inviting} onOpenChange={setInviting} />}
-    </div>
+        <CreateWorkspaceDialog isOpen={creating} onOpenChange={setCreating} />
+        <JoinWorkspaceDialog isOpen={joining} onOpenChange={setJoining} />
+        {workspace && <InviteDialog workspaceId={workspace.id} isOpen={inviting} onOpenChange={setInviting} />}
+        {!onAllReports && <OnboardingWidget />}
+      </div>
+    </OnboardingProvider>
   )
 }

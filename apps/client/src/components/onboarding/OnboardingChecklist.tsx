@@ -229,22 +229,30 @@ export function OnboardingCard() {
   return <Connected variant="card" />
 }
 
-/** The checklist in a corner of every other page: bottom right, or bottom left on phones (the New report button is right). */
-export function OnboardingWidget() {
+/**
+ * The checklist in a corner of every other page: bottom right, or bottom left on phones (the New report button is
+ * right). On phones, and with `startAsPill` (the report page, where it would cover the DevTools panel), it starts as
+ * the pill until opened on this page.
+ */
+export function OnboardingWidget({ startAsPill = false }: { startAsPill?: boolean }) {
   const onboarding = useOnboarding()
   const phone = useMediaQuery("(max-width: 767px)")
-  // On phones it starts as the pill, whatever was saved, until opened on this page.
   const [opened, setOpened] = useState(false)
   if (!onboarding) return null
-  const collapsed = phone && !opened ? true : onboarding.progress.collapsed
+  const pill = (phone || startAsPill) && !opened
+  const collapsed = pill ? true : onboarding.progress.collapsed
   return (
-    <div
-      className="fixed bottom-4 left-4 z-30 md:right-4 md:left-auto"
-      onClickCapture={(event) => {
-        if (phone && !opened && (event.target as HTMLElement).closest("button")) setOpened(true)
-      }}
-    >
-      <Connected variant="widget" collapsed={collapsed} />
-    </div>
+    <>
+      {/* Phones scroll the window: room at the end of the page, so the pill never sits on its last button. */}
+      <div aria-hidden className="h-16 md:hidden" />
+      <div
+        className="fixed bottom-4 left-4 z-30 md:right-4 md:left-auto"
+        onClickCapture={(event) => {
+          if (pill && (event.target as HTMLElement).closest("button")) setOpened(true)
+        }}
+      >
+        <Connected variant="widget" collapsed={collapsed} />
+      </div>
+    </>
   )
 }

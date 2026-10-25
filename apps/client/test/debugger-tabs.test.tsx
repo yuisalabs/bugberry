@@ -9,6 +9,7 @@ import { normalizePayload } from "@bugberry/debugger-view"
 import { networkRows } from "@bugberry/debugger-view"
 import { reportFixture } from "./fixtures"
 import { choose } from "./fields"
+import { type OnboardingContext, OnboardingTestProvider } from "../src/components/onboarding/OnboardingProvider"
 
 const HOSTILE = "<img src=x onerror=alert(1)>"
 
@@ -464,4 +465,39 @@ test("Info lists the recording's notes, and a note's time moves the video there"
   expect(screen.getByText("Spins forever")).toBeTruthy()
   fireEvent.click(screen.getByRole("button", { name: "0:31" }))
   expect(seek).toHaveBeenCalledWith(31_000)
+})
+
+describe("onboarding in the DevTools panel", () => {
+  const view = normalizePayload({ capturedAt: 2000, events: [{ kind: "console", t: 1500, level: "error", args: ["boom"] }] })
+  const onboarding = (record = mock()): OnboardingContext => ({
+    progress: { phase: "required", steps: [], collapsed: false, reportTarget: null, trackerTarget: null },
+    next: "devtools",
+    record,
+    setCollapsed: mock(),
+  })
+  const tabs = (focus: DebuggerFocus | null = null) => (
+    <DebuggerTabs report={reportFixture()} state={{ status: "ready", view }} onRetry={() => {}} focus={focus} />
+  )
+
+  test("the Console and Network tabs pulse while DevTools is next, and choosing one counts", () => {
+    const record = mock()
+    render(<OnboardingTestProvider value={onboarding(record)}>{tabs()}</OnboardingTestProvider>)
+    expect(screen.getByRole("tab", { name: /Console/ }).hasAttribute("data-onboarding-pulse")).toBe(true)
+    expect(screen.getByRole("tab", { name: /Network/ }).hasAttribute("data-onboarding-pulse")).toBe(true)
+    expect(screen.getByText("These errors and requests happened alongside the video. Take a look.")).toBeTruthy()
+    fireEvent.click(screen.getByRole("tab", { name: /Console/ }))
+    expect(record).toHaveBeenCalledWith("devtools")
+  })
+
+  test("an automatic tab switch does not count", () => {
+    const record = mock()
+    render(<OnboardingTestProvider value={onboarding(record)}>{tabs({ tab: "console", nonce: 1 })}</OnboardingTestProvider>)
+    expect(screen.getByRole("tab", { name: /Console/ }).getAttribute("aria-selected")).toBe("true")
+    expect(record).not.toHaveBeenCalled()
+  })
+
+  test("no pulse without onboarding", () => {
+    render(tabs())
+    expect(document.querySelector("[data-onboarding-pulse]")).toBeNull()
+  })
 })

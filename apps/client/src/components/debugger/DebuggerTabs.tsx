@@ -12,6 +12,7 @@ import { Tab, TabList, TabPanel, Tabs } from "@bugberry/ui/tabs"
 import type { ReportDetail } from "../../lib/api"
 import { type DebuggerView, eventBase } from "@bugberry/debugger-view"
 import type { Playback } from "../../lib/timeline"
+import { useOnboarding } from "../onboarding/OnboardingProvider"
 import { EventRowsSkeleton } from "../Skeletons"
 import { ActionsTab } from "./ActionsTab"
 import { ConsoleTab } from "./ConsoleTab"
@@ -56,6 +57,9 @@ export function DebuggerTabs({
   focus?: DebuggerFocus | null
 }) {
   const summary = report.debuggerSummary
+  // Getting started: while "Look at DevTools" is next, Console and Network ask to be opened.
+  const onboarding = useOnboarding()
+  const guide = onboarding?.next === "devtools"
   // Always opens on Overview; a flagged issue (focus) still jumps straight to its tab.
   const [tab, setTab] = useState<TabId>("info")
   // Below 1280 px the panel sits in the page: a short preview until "View all" (wider, it fills its column).
@@ -90,7 +94,10 @@ export function DebuggerTabs({
       <h2 className="sr-only">DevTools</h2>
       <Tabs
         selectedKey={tab}
-        onSelectionChange={(key) => setTab(key as TabId)}
+        onSelectionChange={(key) => {
+          setTab(key as TabId)
+          if (guide && (key === "console" || key === "network")) onboarding.record("devtools")
+        }}
         className="min-w-0 gap-0 self-stretch xl:min-h-0 xl:flex-1"
       >
         <TabList
@@ -105,6 +112,7 @@ export function DebuggerTabs({
               // Each tab takes an equal share, so the row fills the sidebar's width. In a narrow sidebar the icons give
               // way and the tabs sit closer, so all four names still fit.
               className="min-w-0 flex-1 justify-center whitespace-nowrap @max-[30rem]:mx-0 @max-[30rem]:px-1.5 @max-[30rem]:*:[svg]:hidden"
+              {...(guide && (id === "console" || id === "network") ? { "data-onboarding-pulse": "" } : {})}
             >
               <Icon aria-hidden className="size-4 shrink-0" />
               {label}
@@ -112,6 +120,11 @@ export function DebuggerTabs({
             </Tab>
           ))}
         </TabList>
+        {guide && (
+          <p className="mx-4 mt-2 rounded-lg bg-primary-subtle px-3 py-2 text-xs text-primary-subtle-foreground">
+            These errors and requests happened alongside the video. Take a look.
+          </p>
+        )}
         {tabs.map(({ id }) => (
           <TabPanel
             key={id}

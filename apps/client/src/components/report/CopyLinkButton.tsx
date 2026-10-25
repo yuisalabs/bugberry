@@ -11,6 +11,7 @@ import { copiedDescription, sharePopoverState } from "../../lib/share-access"
 import { toast } from "../../lib/toast"
 import { shareUrl } from "../../lib/urls"
 import { roleIn } from "../../lib/workspace"
+import { useOnboarding } from "../onboarding/OnboardingProvider"
 import { SharePopoverView } from "./SharePopover"
 
 /**
@@ -33,11 +34,15 @@ export function CopyLinkButton({
   const workspaces = useQuery({ ...queries.workspaces(), enabled: settings })
   const editable = roleIn(workspaces.data ?? [], report.workspaceId) === "admin" || me.data?.id === report.reporter.id
   const reportKey = queries.report(report.id).queryKey
+  // Getting started: while "Share a report" is next, Copy link asks to be pressed.
+  const onboarding = useOnboarding()
+  const guide = settings && onboarding?.next === "shared"
 
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(shareUrl(report.shareSlug))
       toast({ title: "Link copied", description: copiedDescription(report.visibility, report.internalDomain) })
+      if (guide) onboarding.record("shared")
     } catch {
       toast({ title: "Couldn't copy the link", tone: "error" })
       throw new Error("copy failed")
@@ -73,6 +78,7 @@ export function CopyLinkButton({
         size={bar ? "lg" : "sm"}
         onPress={() => void copy().catch(() => {})}
         className={bar ? "flex-1" : settings ? "rounded-r-none" : undefined}
+        {...(guide ? { "data-onboarding-pulse": "" } : {})}
       >
         <RiLink aria-hidden />
         Copy link

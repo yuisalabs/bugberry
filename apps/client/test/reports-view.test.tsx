@@ -132,3 +132,12 @@ describe("ReportsView", () => {
     expect(onLoadMore).toHaveBeenCalledTimes(1)
   })
 })
+
+describe("ReportsView intro", () => {
+  test("the intro sits above the empty state", () => {
+    render(<ReportsView {...props({ intro: <p>intro</p> })} />)
+    const intro = screen.getByText("intro")
+    const empty = screen.getByText("No bugs caught yet")
+    expect(intro.compareDocumentPosition(empty) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+})
