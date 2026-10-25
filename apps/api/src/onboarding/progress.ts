@@ -141,8 +141,12 @@ export async function onboardingProgress(db: Db, userId: string, workspaceId: st
   const completed = phase === "bonus" && missions.every((id) => steps[id])
 
   if (Object.keys(fresh).length > 0 || completed) {
-    const next: OnboardingState = { ...state, steps, ...(completed ? { completedAt: now } : {}) }
-    await db.update(user).set({ onboarding: next }).where(eq(user.id, userId))
+    // Onto the state as it is now: an event recorded while this ran must stay.
+    await changeOnboarding(db, userId, (latest) => ({
+      ...latest,
+      steps: { ...fresh, ...latest.steps },
+      ...(completed ? { completedAt: now } : {}),
+    }))
   }
   if (completed) return null
 
@@ -164,19 +168,28 @@ export type OnboardingChange = { event: OnboardingEvent } | { collapsed: boolean
  * after the five steps), or the checklist collapsed. Nothing happens for someone without a checklist.
  */
 export async function recordOnboarding(db: Db, userId: string, change: OnboardingChange): Promise<void> {
-  const [row] = await db.select({ onboarding: user.onboarding }).from(user).where(eq(user.id, userId))
-  const state = row?.onboarding
-  if (!state || state.completedAt) return
   const now = new Date().toISOString()
-  let next: OnboardingState
-  if ("collapsed" in change) {
-    next = { ...state, collapsed: change.collapsed }
-  } else if (change.event === "celebrated") {
-    if (state.celebratedAt || !ONBOARDING_STEPS.every((id) => state.steps?.[id])) return
-    next = { ...state, celebratedAt: now }
-  } else {
-    if (state.steps?.[change.event]) return
-    next = { ...state, steps: { ...state.steps, [change.event]: now } }
-  }
-  await db.update(user).set({ onboarding: next }).where(eq(user.id, userId))
+  await changeOnboarding(db, userId, (state) => {
+    if ("collapsed" in change) return { ...state, collapsed: change.collapsed }
+    if (change.event === "celebrated") {
+      if (state.celebratedAt || !ONBOARDING_STEPS.every((id) => state.steps?.[id])) return null
+      return { ...state, celebratedAt: now }
+    }
+    if (state.steps?.[change.event]) return null
+    return { ...state, steps: { ...state.steps, [change.event]: now } }
+  })
+}
+
+/**
+ * Changes the checklist with the person's row locked, so two changes at once (a focus refresh and a click) both
+ * land. `change` sees the state as it is now and answers null to leave it; nothing happens without a checklist.
+ */
+async function changeOnboarding(db: Db, userId: string, change: (state: OnboardingState) => OnboardingState | null): Promise<void> {
+  await db.transaction(async (tx) => {
+    const [row] = await tx.select({ onboarding: user.onboarding }).from(user).where(eq(user.id, userId)).for("update")
+    const state = row?.onboarding
+    if (!state || state.completedAt) return
+    const next = change(state)
+    if (next) await tx.update(user).set({ onboarding: next }).where(eq(user.id, userId))
+  })
 }

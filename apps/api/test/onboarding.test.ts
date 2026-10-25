@@ -193,6 +193,29 @@ describe("POST /me/onboarding", () => {
     expect(await onboardingOf(budi.user.id)).toBeNull()
   })
 
+  test("a progress check at the same moment never loses an event", async () => {
+    for (let round = 0; round < 8; round++) {
+      await ctx.db.delete(report)
+      await setOnboarding(budi.user.id, { steps: ALL_STEPS })
+      // The check finds a fresh mission tick and writes it while the celebration is being recorded.
+      await createReadyReport(ctx.db, { reporterId: budi.user.id })
+      await Promise.all([progress(), record({ event: "celebrated" }), progress(), record({ collapsed: true })])
+      const state = await onboardingOf(budi.user.id)
+      expect(state?.celebratedAt).toBeTruthy()
+      expect(state?.collapsed).toBe(true)
+    }
+    for (let round = 0; round < 8; round++) {
+      await ctx.db.delete(comment)
+      await setOnboarding(budi.user.id, BONUS)
+      const row = await createReadyReport(ctx.db, { reporterId: budi.user.id })
+      await ctx.db.insert(comment).values({ id: newId(), reportId: row.id, authorId: budi.user.id, body: "Seen it" })
+      await Promise.all([progress(), record({ collapsed: true }), progress()])
+      const state = await onboardingOf(budi.user.id)
+      expect(state?.steps?.comment).toBeTruthy()
+      expect(state?.collapsed).toBe(true)
+    }
+  })
+
   test("an unknown event is refused", async () => {
     const { error } = await ctx.api.api.me.onboarding.post({ event: "nope" } as never, { headers: budi.headers })
     expect(error?.status as number | undefined).toBe(422)
