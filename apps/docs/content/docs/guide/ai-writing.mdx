@@ -15,6 +15,8 @@ There are two kinds of key. When both are set, your personal key is used.
 
 **The team key.** A workspace admin opens **AI Agents** in the dashboard's top bar, then **Write with AI**. They choose **OpenAI** or **OpenAI-compatible** (with its base URL, for example `https://ai.example.com/v1`), and enter the model and the key. **Test and save** sends the provider a tiny request first and saves the key only if it answers. The key is stored encrypted on the BugBerry server and never shown again, not even to admins; members only see that a team key is set.
 
+<Screenshot src="/screenshots/ai-writing/settings.png" alt="AI Agents, Write with AI: the team AI key (OpenAI or OpenAI-compatible, model and API key, Test and save), the Send response bodies to AI switch, the default templates and the Templates list with Steps to reproduce and Short" />
+
 **Your personal key.** In the extension's settings, under **Write with AI (personal key)**. It stays in your browser and goes only to your AI provider, never to the BugBerry server. Because the extension calls the provider itself, a model running on your own computer or network works too, for example `http://localhost:11434/v1`. A local server that needs no key can be saved with the key left empty. For Ollama, allow the extension in `OLLAMA_ORIGINS` (for example `chrome-extension://*`), or it refuses the request.
 
 On a self-hosted server, a team key's provider on a private address (`localhost`, `10.x`, `192.168.x`) is refused unless the server allows private integration hosts. A personal key has no such limit.

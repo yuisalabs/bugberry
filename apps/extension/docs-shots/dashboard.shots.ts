@@ -30,6 +30,15 @@ test.afterAll(async () => {
   await h.context.close()
 })
 
+test("write with ai settings", async () => {
+  const page = await dashboardPage(h, "/app/settings/ai#write", { width: 1440, height: 1600 })
+  await expect(page.getByRole("heading", { name: "Team AI key" })).toBeVisible({ timeout: 15_000 })
+  await page.getByText("Steps to reproduce").first().waitFor()
+  await page.waitForTimeout(500)
+  await shot(page, "ai-writing/settings.png")
+  await page.close()
+})
+
 test("report list", async () => {
   const page = await dashboardPage(h, "/app", { width: 1440, height: 620 })
   await expect(page.getByText("Pay button fails at checkout")).toBeVisible()

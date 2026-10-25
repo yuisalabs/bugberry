@@ -71,7 +71,14 @@ test("popup while recording", async () => {
 let reportId = ""
 
 test("review", async () => {
+  // A personal AI key, so the review shows Write with AI (nothing is written: the picture is taken before pressing it).
+  await h.worker.evaluate(() =>
+    (globalThis as unknown as { chrome: { storage: { local: { set(v: object): Promise<void> } } } }).chrome.storage.local.set({
+      aiPersonalKey: { preset: "custom", baseUrl: "http://127.0.0.1:11434/v1", model: "qwen3", apiKey: "" },
+    }),
+  )
   const review = await stopRecording(h, bar)
+  await review.getByRole("button", { name: "Write with AI" }).waitFor({ timeout: 15_000 })
   await review.getByLabel("Title").fill("Pay button fails at checkout")
   await review.getByRole("textbox", { name: "What went wrong?" }).fill("Clicking Pay does nothing. Expected the order confirmation.")
   await review.getByRole("button", { name: /Priority$/ }).click()
