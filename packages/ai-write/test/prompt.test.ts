@@ -60,6 +60,12 @@ describe("parseWriteUp", () => {
   test("a missing description becomes empty, not an error", () => {
     expect(parseWriteUp('{"title":"A"}')).toEqual({ title: "A", description: "" })
   })
+
+  test("reasoning blocks and stray braces around the answer don't hide it", () => {
+    expect(parseWriteUp('<think>Need {title} and {description}</think>{"title":"T","description":"D"}')).toEqual({ title: "T", description: "D" })
+    expect(parseWriteUp('Here: {"title":"T","description":"D"} Hope it helps {:)}')).toEqual({ title: "T", description: "D" })
+    expect(parseWriteUp('{"note":"x"} then {"title":"T","description":"a } b"}')).toEqual({ title: "T", description: "a } b" })
+  })
 })
 
 describe("aiErrorText", () => {

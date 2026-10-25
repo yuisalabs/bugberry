@@ -124,6 +124,20 @@ describe("restrictMaterial", () => {
     expect(out.lines[0]?.body?.length).toBeLessThanOrEqual(MAX_BODY_CHARS + 20)
   })
 
+  test("query strings and fragments are cut from addresses inside any line", () => {
+    const out = restrictMaterial(
+      {
+        ...sent,
+        lines: [
+          { atMs: 0, kind: "error", text: "Failed to load https://cdn.test/a.js?token=abc#x at line 3" },
+          { atMs: 1, kind: "note", text: "see https://shop.test/p?email=budi@contoh.com" },
+        ],
+      },
+      { includeResponseBodies: false },
+    )
+    expect(out.lines.map((line) => line.text)).toEqual(["Failed to load https://cdn.test/a.js at line 3", "see https://shop.test/p"])
+  })
+
   test("re-applies the caps to whatever it was sent", () => {
     const many: Material = { ...sent, lines: Array.from({ length: 1000 }, (_, i) => ({ atMs: i, kind: "action" as const, text: "a".repeat(2000) })) }
     const out = restrictMaterial(many, { includeResponseBodies: false })

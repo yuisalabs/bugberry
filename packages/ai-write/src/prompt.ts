@@ -57,18 +57,44 @@ export function buildMessages(input: {
   ]
 }
 
+/** Every balanced `{…}` in the text, skipping braces inside JSON strings. */
+function objectsIn(text: string): string[] {
+  const found: string[] = []
+  for (let start = text.indexOf("{"); start >= 0; start = text.indexOf("{", start + 1)) {
+    let depth = 0
+    let inString = false
+    for (let at = start; at < text.length; at++) {
+      const char = text[at]
+      if (inString) {
+        if (char === "\\") at++
+        else if (char === '"') inString = false
+      } else if (char === '"') inString = true
+      else if (char === "{") depth++
+      else if (char === "}" && --depth === 0) {
+        found.push(text.slice(start, at + 1))
+        break
+      }
+    }
+  }
+  return found
+}
+
+const hasTitle = (value: unknown): value is { title: string; description?: unknown } =>
+  typeof value === "object" && value !== null && typeof (value as { title?: unknown }).title === "string"
+
 function objectIn(content: string): unknown {
-  const attempts = [content, content.match(/```(?:json)?\s*([\s\S]*?)```/)?.[1]]
-  const first = content.indexOf("{")
-  const last = content.lastIndexOf("}")
-  if (first >= 0 && last > first) attempts.push(content.slice(first, last + 1))
-  for (const text of attempts) {
-    if (!text) continue
+  // Reasoning models (deepseek-r1, qwen3) think aloud first; braces in there are not the answer.
+  const text = content.replace(/<think>[\s\S]*?<\/think>/g, "").slice(0, 200_000)
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/)?.[1]
+  let answer: unknown = null
+  for (const candidate of [text, ...(fenced ? [fenced] : []), ...objectsIn(text)]) {
     try {
-      return JSON.parse(text)
+      const parsed: unknown = JSON.parse(candidate)
+      if (hasTitle(parsed)) answer = parsed
+      if (hasTitle(parsed) && candidate === text) return parsed
     } catch {}
   }
-  return null
+  return answer
 }
 
 /** The title and description from the model's reply; models that wrap JSON in prose or fences still work. */

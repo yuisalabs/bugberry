@@ -11,6 +11,10 @@ export interface ProviderConfig {
 
 export const OPENAI_BASE_URL = "https://api.openai.com/v1"
 export const REQUEST_TIMEOUT_MS = 30_000
+/** Local models on a laptop's CPU are slower: the reporter's own key gets longer. */
+export const LOCAL_TIMEOUT_MS = 120_000
+/** No chat answer comes near this; a provider streaming more is cut off. */
+const MAX_RESPONSE_BYTES = 2_000_000
 
 /** The base URL as stored: a pasted `/chat/completions` endpoint or a trailing slash is dropped. */
 export function normalizeBaseUrl(input: string): string {
@@ -39,7 +43,31 @@ function failure(status: number, body: ProviderErrorBody | null): AiWriteError {
   return new AiWriteError("provider_error", (message || `HTTP ${status}`).slice(0, 200))
 }
 
-/** One chat completion's text. Errors come back as AiWriteError, by what the reporter can do about them. */
+/** The body as text, at most MAX_RESPONSE_BYTES; null past that. The caller's abort signal still applies. */
+async function readCapped(response: Response): Promise<string | null> {
+  if (!response.body) return ""
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let text = ""
+  let received = 0
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) return text + decoder.decode()
+      received += value.byteLength
+      if (received > MAX_RESPONSE_BYTES) return null
+      text += decoder.decode(value, { stream: true })
+    }
+  } finally {
+    reader.cancel().catch(() => {})
+  }
+}
+
+/**
+ * One chat completion's text. Errors come back as AiWriteError, by what the reporter can do about them. Redirects
+ * are not followed (a server-side caller's guard checks only the address it was given), and the timeout covers
+ * reading the answer too.
+ */
 export async function complete(
   provider: ProviderConfig,
   messages: ChatMessage[],
@@ -49,6 +77,7 @@ export async function complete(
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? REQUEST_TIMEOUT_MS)
   let response: Response
+  let raw: string | null
   try {
     response = await fetcher(`${provider.baseUrl}/chat/completions`, {
       method: "POST",
@@ -63,13 +92,22 @@ export async function complete(
         ...(provider.preset === "openai" ? { response_format: { type: "json_object" } } : {}),
       }),
       signal: controller.signal,
+      redirect: "manual",
     })
-  } catch {
+    if (response.type === "opaqueredirect" || (response.status >= 300 && response.status < 400)) {
+      throw new AiWriteError("provider_error", "The provider answered with a redirect; use its final address")
+    }
+    raw = await readCapped(response)
+  } catch (error) {
+    if (error instanceof AiWriteError) throw error
     throw new AiWriteError("unreachable")
   } finally {
     clearTimeout(timer)
   }
-  const body = (await response.json().catch(() => null)) as (ProviderErrorBody & { choices?: Array<{ message?: { content?: unknown } }> }) | null
+  let body: (ProviderErrorBody & { choices?: Array<{ message?: { content?: unknown } }> }) | null = null
+  try {
+    body = raw === null ? null : JSON.parse(raw)
+  } catch {}
   if (!response.ok) throw failure(response.status, body)
   const content = body?.choices?.[0]?.message?.content
   if (typeof content !== "string") throw new AiWriteError("unusable_answer")
@@ -81,11 +119,12 @@ export async function writeUp(
   provider: ProviderConfig,
   input: Parameters<typeof buildMessages>[0],
   fetcher: typeof fetch,
+  opts: { timeoutMs?: number } = {},
 ): Promise<{ title: string; description: string }> {
-  return parseWriteUp(await complete(provider, buildMessages(input), fetcher))
+  return parseWriteUp(await complete(provider, buildMessages(input), fetcher, opts))
 }
 
 /** Whether the provider answers with this key and model: a tiny request, run when a key is saved. */
-export async function testProvider(provider: ProviderConfig, fetcher: typeof fetch): Promise<void> {
-  await complete(provider, [{ role: "user", content: 'Reply with the JSON {"ok": true}.' }], fetcher, { maxTokens: 5 })
+export async function testProvider(provider: ProviderConfig, fetcher: typeof fetch, opts: { timeoutMs?: number } = {}): Promise<void> {
+  await complete(provider, [{ role: "user", content: 'Reply with the JSON {"ok": true}.' }], fetcher, { maxTokens: 5, ...opts })
 }

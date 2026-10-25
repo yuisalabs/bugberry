@@ -66,6 +66,39 @@ describe("complete", () => {
     await expect(complete(provider, messages, fakeFetch([], 200, { choices: [] }))).rejects.toMatchObject({ code: "unusable_answer" })
   })
 
+  test("a redirect is not followed: the request is sent with redirect manual and a 3xx is a provider error", async () => {
+    const seen: Request[] = []
+    const redirecting = (async (url: RequestInfo | URL, init?: RequestInit) => {
+      seen.push(new Request(url, init))
+      return new Response(null, { status: 307, headers: { location: "http://169.254.169.254/" } })
+    }) as typeof fetch
+    await expect(complete(provider, messages, redirecting)).rejects.toMatchObject({ code: "provider_error" })
+    expect(seen[0]?.redirect).toBe("manual")
+  })
+
+  test("a body that never finishes counts against the timeout", async () => {
+    const stalling = (async (_url: RequestInfo | URL, init?: RequestInit) => {
+      const body = new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('{"choices":'))
+          init?.signal?.addEventListener("abort", () => controller.error(new DOMException("aborted", "AbortError")))
+        },
+      })
+      return new Response(body, { status: 200 })
+    }) as typeof fetch
+    await expect(complete(provider, messages, stalling, { timeoutMs: 20 })).rejects.toMatchObject({ code: "unreachable" })
+  })
+
+  test("a huge body is not read past the cap", async () => {
+    const huge = (async () => new Response("x".repeat(3_000_000), { status: 200 })) as unknown as typeof fetch
+    await expect(complete(provider, messages, huge)).rejects.toMatchObject({ code: "unusable_answer" })
+  })
+
+  test("writeUp passes a longer timeout through", async () => {
+    await expect(writeUp(provider, input, neverAnswers, { timeoutMs: 10 })).rejects.toMatchObject({ code: "unreachable" })
+  })
+
+
   test("a network failure or a timeout is unreachable", async () => {
     const throws = (async () => {
       throw new TypeError("fetch failed")
