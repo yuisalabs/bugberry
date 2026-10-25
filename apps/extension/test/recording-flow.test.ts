@@ -807,6 +807,11 @@ describe("recording controls", () => {
     expect(recordingStateFrom({ draftId: "d", tabId: 1, startedAt: 0 })?.source).toBe("tab")
   })
 
+  test("the length limit survives being read back from storage", () => {
+    expect(recordingStateFrom({ draftId: "d", tabId: 1, startedAt: 2, maxMs: 120_000 })?.maxMs).toBe(120_000)
+    expect(recordingStateFrom({ draftId: "d", tabId: 1, startedAt: 2, maxMs: "x" })).not.toHaveProperty("maxMs")
+  })
+
   test("Stop opens the review on the recorded tab", async () => {
     const controller = createRecordingController(deps)
     await controller.start(tab, TAB_OPTIONS)

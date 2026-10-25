@@ -134,6 +134,7 @@ export function recordingStateFrom(value: unknown): RecordingState | null {
     restarting: state.restarting === true,
     source: state.source === "screen" || state.source === "window" ? state.source : "tab",
     tabs: Array.isArray(state.tabs) ? state.tabs.filter((id): id is number => typeof id === "number") : [],
+    ...(typeof state.maxMs === "number" && Number.isFinite(state.maxMs) && state.maxMs > 0 ? { maxMs: state.maxMs } : {}),
   }
 }
 
