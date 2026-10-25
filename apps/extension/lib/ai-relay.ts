@@ -1,6 +1,7 @@
 import {
   AiWriteError,
   aiErrorText,
+  LOCAL_TIMEOUT_MS,
   type Material,
   normalizeBaseUrl,
   OPENAI_BASE_URL,
@@ -62,7 +63,8 @@ export async function handleAiWrite(request: AiWriteRequest, storage: AiKeyStora
   if (!provider) return { ok: false, error: "No personal AI key is set." }
   const material = restrictMaterial(request.material, { includeResponseBodies: request.includeResponseBodies ?? false })
   try {
-    return { ok: true, ...(await writeUp(provider, { material, template: request.template, hint: request.hint }, fetcher)) }
+    const written = await writeUp(provider, { material, template: request.template, hint: request.hint }, fetcher, { timeoutMs: LOCAL_TIMEOUT_MS })
+    return { ok: true, ...written }
   } catch (error) {
     return { ok: false, error: messageOf(error, provider.model) }
   }
@@ -81,7 +83,7 @@ export async function handleAiTest(request: AiTestRequest, fetcher: typeof fetch
     return { ok: false, error: messageOf(error, request.provider.model) }
   }
   try {
-    await testProvider(provider, fetcher)
+    await testProvider(provider, fetcher, { timeoutMs: LOCAL_TIMEOUT_MS })
     return { ok: true, provider }
   } catch (error) {
     return { ok: false, error: messageOf(error, provider.model) }

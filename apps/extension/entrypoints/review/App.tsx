@@ -7,6 +7,7 @@ import { browser } from "wxt/browser"
 import { aiPath, writeWithAi } from "../../lib/ai-assist"
 import { type AiSetup, createBugberryApi, type Project, type Workspace } from "../../lib/api"
 import { browserAiKeyStorage } from "../../lib/browser-ai-key"
+import { latestOnly } from "../../lib/latest"
 import { relayFetcher } from "../../lib/api-relay"
 import { BUILD_SERVER_ORIGIN, browserSettingsStorage, includeCityStorage, lastWorkspaceStorage } from "../../lib/browser-settings"
 import { createIndexedDbDraftStore, saveAnnotations } from "../../lib/draft-store"
@@ -122,15 +123,23 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
     setMembers(listed.map((member) => ({ id: member.id, name: member.name ?? "", email: member.email })))
   }, [])
 
-  const loadAi = useCallback(async (workspaceId: string | null) => {
-    const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
-    setServerUrl(settings?.serverUrl ?? null)
-    if (!settings || !workspaceId) return setAiSetup(null)
-    const setup = await apiOf(settings)
-      .aiSetup(workspaceId)
-      .catch(() => null)
-    setAiSetup({ workspaceId, setup })
-  }, [])
+  // A slow answer for a workspace the reporter has since left must not land: its key and templates would be used.
+  const takeAiSetup = useMemo(() => latestOnly<{ workspaceId: string; setup: AiSetup | null } | null>(setAiSetup), [])
+  const loadAi = useCallback(
+    (workspaceId: string | null) =>
+      takeAiSetup(
+        (async () => {
+          const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
+          setServerUrl(settings?.serverUrl ?? null)
+          if (!settings || !workspaceId) return null
+          const setup = await apiOf(settings)
+            .aiSetup(workspaceId)
+            .catch(() => null)
+          return { workspaceId, setup }
+        })(),
+      ),
+    [takeAiSetup],
+  )
 
   useEffect(() => {
     void browserAiKeyStorage.get().then((key) => setPersonalKey(key !== null))

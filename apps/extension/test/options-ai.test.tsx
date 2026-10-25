@@ -62,6 +62,15 @@ describe("the personal AI key", () => {
     expect(screen.queryByText("k-1…abcd")).toBeNull()
   })
 
+  test("the saved key isn't sent to a new address without typing it again", async () => {
+    const store = storage(saved)
+    const check = await show(store)
+    type("Base URL", "https://elsewhere.test/v1")
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Test and save" })))
+    expect(check).not.toHaveBeenCalled()
+    expect(screen.getByRole("alert").textContent).toBe("Enter the API key again for a new provider address")
+  })
+
   test("says where the key goes", async () => {
     await show(storage(null))
     expect(screen.getByText(/stays in this browser and goes only to your AI provider/)).toBeTruthy()

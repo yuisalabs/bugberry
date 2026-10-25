@@ -45,6 +45,9 @@ export function AiKeySection({
     if (disabled) return
     if (preset === "custom" && !baseUrl.trim()) return setError("Enter the provider's base URL")
     if (!model.trim()) return setError("Enter the model, for example gpt-4.1-mini")
+    // The saved key only goes back to the address it was saved for.
+    const sameAddress = saved?.preset === preset && (preset === "openai" || saved.baseUrl === baseUrl.trim().replace(/\/+$/, ""))
+    if (!apiKey.trim() && saved && !sameAddress) return setError("Enter the API key again for a new provider address")
     const key = apiKey.trim() || saved?.apiKey || ""
     if (!key) return setError("Enter the API key")
     setError(null)

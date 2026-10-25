@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test"
+import { describe, expect, jest, test } from "bun:test"
 import type { ProviderConfig } from "@bugberry/ai-write"
 import { type AiKeyStorage, readStoredKey } from "../lib/ai-key"
 import { type AiWriteRequest, handleAiTest, handleAiWrite, isAiTestRequest, isAiWriteRequest } from "../lib/ai-relay"
@@ -64,6 +64,25 @@ describe("handleAiWrite", () => {
   test("no stored key answers plainly", async () => {
     expect(await handleAiWrite(writeRequest, memoryStorage(null), fakeFetch([], 200, okChoice))).toEqual({ ok: false, error: "No personal AI key is set." })
   })
+})
+
+test("the reporter's own provider gets longer than the server's 30 seconds", async () => {
+  jest.useFakeTimers()
+  try {
+    let release: () => void = () => {}
+    const slow = ((_url: RequestInfo | URL, init?: RequestInit) =>
+      new Promise<Response>((resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")))
+        release = () => resolve(new Response(JSON.stringify(okChoice), { status: 200 }))
+      })) as typeof fetch
+    const pending = handleAiWrite(writeRequest, memoryStorage(local), slow)
+    await Promise.resolve()
+    jest.advanceTimersByTime(60_000)
+    release()
+    expect(await pending).toEqual({ ok: true, title: "T", description: "D" })
+  } finally {
+    jest.useRealTimers()
+  }
 })
 
 describe("handleAiTest", () => {
