@@ -12,6 +12,7 @@ import { Tab, TabList, TabPanel, Tabs } from "@bugberry/ui/tabs"
 import type { ReportDetail } from "../../lib/api"
 import { type DebuggerView, eventBase } from "@bugberry/debugger-view"
 import type { Playback } from "../../lib/timeline"
+import { isUndone } from "../../lib/onboarding"
 import { useOnboarding } from "../onboarding/OnboardingProvider"
 import { EventRowsSkeleton } from "../Skeletons"
 import { ActionsTab } from "./ActionsTab"
@@ -96,7 +97,9 @@ export function DebuggerTabs({
         selectedKey={tab}
         onSelectionChange={(key) => {
           setTab(key as TabId)
-          if (guide && (key === "console" || key === "network")) onboarding.record("devtools")
+          if (onboarding && isUndone(onboarding.progress, "devtools") && (key === "console" || key === "network")) {
+            onboarding.record("devtools")
+          }
         }}
         className="min-w-0 gap-0 self-stretch xl:min-h-0 xl:flex-1"
       >

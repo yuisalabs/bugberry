@@ -32,6 +32,11 @@ export function nextStep(progress: OnboardingProgress): OnboardingItemId | null 
   return progress.steps.find((step) => !step.done)?.id ?? null
 }
 
+/** Whether the checklist still waits for this item: doing it ticks it, whichever step is next. */
+export function isUndone(progress: OnboardingProgress, id: OnboardingItemId): boolean {
+  return progress.steps.some((step) => step.id === id && !step.done)
+}
+
 export function doneCount(progress: OnboardingProgress): { done: number; total: number } {
   return { done: progress.steps.filter((step) => step.done).length, total: progress.steps.length }
 }

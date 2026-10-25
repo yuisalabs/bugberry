@@ -470,7 +470,7 @@ test("Info lists the recording's notes, and a note's time moves the video there"
 describe("onboarding in the DevTools panel", () => {
   const view = normalizePayload({ capturedAt: 2000, events: [{ kind: "console", t: 1500, level: "error", args: ["boom"] }] })
   const onboarding = (record = mock()): OnboardingContext => ({
-    progress: { phase: "required", steps: [], collapsed: false, reportTarget: null, trackerTarget: null },
+    progress: { phase: "required", steps: [{ id: "devtools", done: false }], collapsed: false, reportTarget: null, trackerTarget: null },
     next: "devtools",
     record,
     setCollapsed: mock(),
@@ -494,6 +494,19 @@ describe("onboarding in the DevTools panel", () => {
     render(<OnboardingTestProvider value={onboarding(record)}>{tabs({ tab: "console", nonce: 1 })}</OnboardingTestProvider>)
     expect(screen.getByRole("tab", { name: /Console/ }).getAttribute("aria-selected")).toBe("true")
     expect(record).not.toHaveBeenCalled()
+  })
+
+  test("opening Console counts even before DevTools is next", () => {
+    const record = mock()
+    const early: OnboardingContext = {
+      ...onboarding(record),
+      next: "video",
+      progress: { phase: "required", steps: [{ id: "video", done: false }, { id: "devtools", done: false }], collapsed: false, reportTarget: null, trackerTarget: null },
+    }
+    render(<OnboardingTestProvider value={early}>{tabs()}</OnboardingTestProvider>)
+    expect(document.querySelector("[data-onboarding-pulse]")).toBeNull()
+    fireEvent.click(screen.getByRole("tab", { name: /Network/ }))
+    expect(record).toHaveBeenCalledWith("devtools")
   })
 
   test("no pulse without onboarding", () => {

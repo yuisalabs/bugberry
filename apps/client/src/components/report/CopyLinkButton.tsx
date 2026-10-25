@@ -11,6 +11,7 @@ import { copiedDescription, sharePopoverState } from "../../lib/share-access"
 import { toast } from "../../lib/toast"
 import { shareUrl } from "../../lib/urls"
 import { roleIn } from "../../lib/workspace"
+import { isUndone } from "../../lib/onboarding"
 import { useOnboarding } from "../onboarding/OnboardingProvider"
 import { SharePopoverView } from "./SharePopover"
 
@@ -42,7 +43,7 @@ export function CopyLinkButton({
     try {
       await navigator.clipboard.writeText(shareUrl(report.shareSlug))
       toast({ title: "Link copied", description: copiedDescription(report.visibility, report.internalDomain) })
-      if (guide) onboarding.record("shared")
+      if (settings && onboarding && isUndone(onboarding.progress, "shared")) onboarding.record("shared")
     } catch {
       toast({ title: "Couldn't copy the link", tone: "error" })
       throw new Error("copy failed")
