@@ -472,7 +472,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
         templateFor: (projectId: string | null) =>
           setup ? templateFor(setup, projectId) : (aiTemplates[0]?.id ?? null),
         isAdmin: setup?.role === "admin",
-        settingsUrl: `${serverUrl ?? ""}/app/settings/ai`,
+        settingsUrl: `${serverUrl ?? ""}/app/settings/ai#write`,
       }
     : null
   const onAiWrite = async ({ templateId, hint }: { templateId: string; hint: { title: string; description: string } }) => {

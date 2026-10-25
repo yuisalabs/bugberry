@@ -438,7 +438,7 @@ function McpAgents() {
   )
 }
 
-/** `/app/settings/ai`: Write with AI (the workspace's own key and templates), and AI agents through MCP. */
+/** `/app/settings/ai`: AI agents through MCP, and Write with AI (the workspace's own key and templates) at #write. */
 export function AiAgentsPage() {
   return (
     <section className="flex flex-col gap-8">
@@ -446,8 +446,9 @@ export function AiAgentsPage() {
       <SettingsTabs
         label="AI settings"
         sections={[
-          { id: "write", label: "Write with AI", icon: RiSparkling2Line, panel: <AiWritingSettings /> },
+          // MCP stays first: the top bar's AI Agents link and every older link mean it. Write with AI is #write.
           { id: "agents", label: "AI agents (MCP)", icon: RiRobot2Line, panel: <McpAgents /> },
+          { id: "write", label: "Write with AI", icon: RiSparkling2Line, panel: <AiWritingSettings /> },
         ]}
       />
     </section>
