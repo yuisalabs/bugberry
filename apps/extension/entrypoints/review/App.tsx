@@ -99,6 +99,8 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
   const [sentDetails, setSentDetails] = useState<SentDetails | null>(null)
   const [trackers, setTrackers] = useState<TrackerChoice[] | null>(null)
   const [trackerNote, setTrackerNote] = useState<string | null>(null)
+  // A report sent without a project has no trackers until one is picked in the sent panel.
+  const [needsProject, setNeedsProject] = useState(false)
   // Recordings: the part that is sent, the strip's frames, and how far the trimmed video's encoding is while
   // sending (null when it isn't encoding).
   const [trim, setTrim] = useState<TrimRange | null>(null)
@@ -307,7 +309,21 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       return { id: integration.id, provider: integration.provider, label: integration.label, state: link?.externalUrl ? { url: link.externalUrl } : "idle" }
     })
     setTrackers(choices)
-    setTrackerNote(offered.needsProject ? "Pick a project next time to send reports to its trackers." : null)
+    setNeedsProject(offered.needsProject)
+    setTrackerNote(null)
+  }
+
+  /** Moves the sent report into a project, then offers that project's trackers. */
+  const moveToProject = async (reportId: string, projectId: string) => {
+    const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
+    if (!settings) return
+    try {
+      await apiOf(settings).updateReport(reportId, { projectId })
+    } catch (cause) {
+      setTrackerNote(cause instanceof Error ? cause.message : "Couldn't move the report to the project.")
+      return
+    }
+    await loadSent(reportId)
   }
 
   const changeVisibility = async (reportId: string, visibility: Visibility) => {
@@ -585,6 +601,8 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       sentDetails={sentDetails}
       trackers={trackers}
       trackerNote={trackerNote}
+      needsProject={needsProject}
+      onPickProject={sent ? (projectId) => moveToProject(sent.id, projectId) : undefined}
       onVisibilityChange={sent ? (visibility) => void changeVisibility(sent.id, visibility) : undefined}
       onSendToTracker={sent ? (id) => void sendToTracker(sent.id, id) : undefined}
       onAnother={

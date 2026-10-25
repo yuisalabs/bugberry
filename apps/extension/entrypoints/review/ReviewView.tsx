@@ -142,6 +142,10 @@ export interface ReviewViewProps {
     /** Why the workspace's AI settings couldn't load (not an older server, which has none). */
     error?: string | null
   } | null
+  /** After sending: the report has no project, so it has no trackers until one is picked. */
+  needsProject?: boolean
+  /** Moves the sent report into a project; its trackers are offered then. */
+  onPickProject?(projectId: string): Promise<void> | void
   /** Loads the AI settings again after they failed to load. */
   onAiRetry?(): void
   /** Drafts a title and description; rejects with the text to show. */
@@ -355,6 +359,9 @@ export function ReviewView(props: ReviewViewProps) {
               email={props.email}
               trackers={props.trackers ?? null}
               trackerNote={props.trackerNote ?? null}
+              needsProject={props.needsProject ?? false}
+              projects={props.projects}
+              onPickProject={props.onPickProject}
               onVisibilityChange={props.onVisibilityChange}
               onSendToTracker={props.onSendToTracker}
               onAnother={props.onAnother}
@@ -762,6 +769,9 @@ function SentPanel(props: {
   email: string | null
   trackers: TrackerChoice[] | null
   trackerNote: string | null
+  needsProject: boolean
+  projects: Project[]
+  onPickProject?(projectId: string): Promise<void> | void
   onVisibilityChange?(visibility: Visibility): void
   onSendToTracker?(integrationId: string): void
   onAnother?(): void
@@ -770,6 +780,15 @@ function SentPanel(props: {
 }) {
   const { sent, details } = props
   const [copied, setCopied] = useState<"copied" | "failed" | null>(null)
+  const [moving, setMoving] = useState(false)
+  const pickProject = async (projectId: string) => {
+    setMoving(true)
+    try {
+      await props.onPickProject?.(projectId)
+    } finally {
+      setMoving(false)
+    }
+  }
   const copy = () =>
     void Promise.resolve()
       .then(() => navigator.clipboard.writeText(sent.shareUrl))
@@ -917,6 +936,20 @@ function SentPanel(props: {
               <p className="text-sm text-muted-foreground">Send it to a tracker without leaving this page.</p>
             </>
           )}
+          {props.needsProject &&
+            props.onPickProject &&
+            (props.projects.length > 0 ? (
+              <div className="flex flex-col gap-2">
+                <Select placeholder="Pick a project" selectedKey={null} isDisabled={moving} onSelectionChange={(key) => key !== null && void pickProject(String(key))}>
+                  <Label>Project</Label>
+                  <SelectTrigger prefix={<RiFolderLine size={16} aria-hidden />} />
+                  <SelectContent items={props.projects}>{(project) => <SelectItem id={project.id}>{project.name}</SelectItem>}</SelectContent>
+                </Select>
+                <p className="text-sm text-muted-foreground">{moving ? "Moving it to the project…" : "Pick a project to send it to that project's trackers."}</p>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Create a project with a tracker to send reports there.</p>
+            ))}
           {props.trackerNote && <p className="text-sm text-muted-foreground">{props.trackerNote}</p>}
         </div>
       </div>

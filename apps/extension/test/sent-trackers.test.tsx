@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test"
-import { render, screen } from "@testing-library/react"
+import { act, fireEvent, render, screen } from "@testing-library/react"
 import { ReviewView, type ReviewViewProps, type TrackerChoice } from "../entrypoints/review/ReviewView"
 import type { ReportDraft } from "../lib/types"
 
@@ -27,7 +27,7 @@ const trackers: TrackerChoice[] = [
   { id: "i4", provider: "gitlab", label: "kantor/web", state: { url: "https://gitlab.test/kantor/web/-/issues/1" } },
 ]
 
-function view() {
+function view(overrides: Partial<ReviewViewProps> = {}) {
   const props: ReviewViewProps = {
     embedded: false,
     draft,
@@ -49,9 +49,13 @@ function view() {
     onIncludeCityChange: mock(),
     onChange: mock(),
     onSendToTracker: mock(),
+    ...overrides,
   }
   render(<ReviewView {...props} />)
+  return props
 }
+
+const project = (id: string, name: string) => ({ id, name, slug: id, workspaceId: "w1", urlPatterns: [], logoUrl: null, createdAt: new Date(0) })
 
 describe("the trackers after sending", () => {
   test("each tracker shows its integration's mark and lines up on the left", () => {
@@ -68,5 +72,29 @@ describe("the trackers after sending", () => {
       expect(choice.className).not.toContain("justify-center")
     }
     expect(document.querySelector('[data-tracker-mark="jira"]')?.getAttribute("src")).toBe("/assets/integrations/jira.svg")
+  })
+})
+
+describe("a report sent without a project", () => {
+  test("picking a project here moves the report, so its trackers can show up", async () => {
+    const onPickProject = mock(async () => {})
+    view({ trackers: [], needsProject: true, projects: [project("p1", "Web"), project("p2", "Quinella AI")], onPickProject })
+    expect(screen.getByText("Pick a project to send it to that project's trackers.")).toBeTruthy()
+    expect(screen.queryByText("Pick a project next time to send reports to its trackers.")).toBeNull()
+    fireEvent.click(screen.getByLabelText("Project"))
+    fireEvent.click(screen.getByRole("option", { name: "Quinella AI" }))
+    await act(async () => {})
+    expect(onPickProject).toHaveBeenCalledWith("p2")
+  })
+
+  test("a report already in a project has no picker", () => {
+    view({ needsProject: false, projects: [project("p1", "Web")], onPickProject: mock() })
+    expect(screen.queryByLabelText("Project")).toBeNull()
+  })
+
+  test("a workspace without projects says how to get there", () => {
+    view({ trackers: [], needsProject: true, projects: [], onPickProject: mock() })
+    expect(screen.queryByLabelText("Project")).toBeNull()
+    expect(screen.getByText("Create a project with a tracker to send reports there.")).toBeTruthy()
   })
 })
