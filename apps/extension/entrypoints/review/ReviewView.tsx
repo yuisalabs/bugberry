@@ -33,9 +33,10 @@ import {
   RiWindowLine,
 } from "@remixicon/react"
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
-import { Button as AriaButton, Input as AriaInput, ProgressBar, TextArea as AriaTextArea } from "react-aria-components"
+import { Button as AriaButton, ProgressBar, TextArea as AriaTextArea } from "react-aria-components"
 import type { TemplateText } from "@bugberry/ai-write"
 import type { AiPath } from "../../lib/ai-assist"
+import { useAutoGrow } from "../../lib/auto-grow"
 import type { Project, Workspace } from "../../lib/api"
 import { useUnobscured } from "../../lib/prompt-page"
 import { formProblem } from "../../lib/report-form"
@@ -212,6 +213,9 @@ export function ReviewView(props: ReviewViewProps) {
   const asked = confirm ?? lastAsked.current
   const [problem, setProblem] = useState<string | null>(null)
   const update = (changes: Partial<ReportForm>) => setForm((current) => ({ ...current, ...changes }))
+  // Both fields grow with their text (a written-up description is long), and the title wraps instead of running off.
+  const titleField = useAutoGrow(form.title)
+  const descriptionField = useAutoGrow(form.description)
   // Write with AI: the template follows the project's default until the reporter picks one; Undo brings back what
   // was typed before, until either field is edited again.
   const [pickedTemplate, setPickedTemplate] = useState<string | null>(null)
@@ -456,12 +460,18 @@ export function ReviewView(props: ReviewViewProps) {
                   onChange={(title) => {
                     setTitleEdited(true)
                     setUndo(null)
-                    update({ title })
+                    // A title is one paragraph: pasted line breaks become spaces.
+                    update({ title: title.replace(/\s*\n\s*/g, " ") })
                   }}
                 >
-                  <AriaInput
+                  <AriaTextArea
+                    ref={titleField}
+                    rows={1}
                     placeholder={defaultReportTitle(draft.captureType, props.name ?? "you")}
-                    className="w-full bg-transparent font-heading text-2xl font-bold text-foreground outline-hidden placeholder:text-muted-foreground/70"
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") event.preventDefault()
+                    }}
+                    className="w-full resize-none overflow-hidden bg-transparent font-heading text-2xl/tight font-bold text-foreground outline-hidden placeholder:text-muted-foreground/70"
                   />
                   {!titleEdited && suggestion && (
                     <Description className="text-xs text-primary">
@@ -481,9 +491,10 @@ export function ReviewView(props: ReviewViewProps) {
                   className="flex-1"
                 >
                   <AriaTextArea
+                    ref={descriptionField}
                     rows={4}
                     placeholder="What went wrong? Describe what you expected to happen."
-                    className="min-h-24 w-full flex-1 resize-none bg-transparent text-base text-foreground outline-hidden placeholder:text-muted-foreground/70"
+                    className="min-h-24 w-full resize-none overflow-hidden bg-transparent text-base text-foreground outline-hidden placeholder:text-muted-foreground/70"
                   />
                 </TextField>
 
