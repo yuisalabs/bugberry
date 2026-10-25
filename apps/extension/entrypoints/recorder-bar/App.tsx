@@ -22,6 +22,14 @@ export function barStatusFrom(value: unknown): BarStatus | null {
 const tellPage = (message: ({ bugberry: "bar-size" | "drawing" | "escape" } & Record<string, unknown>) | BarDragMessage) =>
   window.parent.postMessage(message, "*")
 
+/**
+ * What the iframe is sized to: the bar's own content, not the page's body, which is held at the frame's height so the
+ * bar stays at its bottom while the frame grows or shrinks above it.
+ */
+export function barContent(doc: Document): Element {
+  return doc.querySelector("[data-bar-content]") ?? doc.body
+}
+
 /** The Recording Bar page, shown in an iframe on the recorded tab. */
 export function App({ session }: { session: string }) {
   const [status, setStatus] = useState<BarStatus>(QUIET)
@@ -43,11 +51,12 @@ export function App({ session }: { session: string }) {
     void poll()
     const timer = setInterval(() => void poll(), POLL_MS)
     // The page layer sizes the iframe to the bar: toolbars and confirmations open above it.
+    const content = barContent(document)
     const observer = new ResizeObserver(() => {
-      const box = document.body.getBoundingClientRect()
+      const box = content.getBoundingClientRect()
       tellPage({ bugberry: "bar-size", width: Math.ceil(box.width), height: Math.ceil(box.height) })
     })
-    observer.observe(document.body)
+    observer.observe(content)
     return () => {
       alive = false
       clearInterval(timer)

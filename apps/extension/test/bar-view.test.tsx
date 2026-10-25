@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test"
 import { act, fireEvent, render, screen } from "@testing-library/react"
-import { barStatusFrom } from "../entrypoints/recorder-bar/App"
+import { barContent, barStatusFrom } from "../entrypoints/recorder-bar/App"
 import { BarView, type BarViewProps } from "../entrypoints/recorder-bar/BarView"
 
 const RUNNING = { recording: true, elapsedMs: 42_000, paused: false, errors: 2, micOn: false, micAvailable: true, maxMs: null }
@@ -110,6 +110,19 @@ describe("controls", () => {
     expect(container.querySelector("[data-hint-room]")).toBeNull()
     await hintFor(button("Pause"))
     expect(container.querySelector("[data-hint-room]")).toBeTruthy()
+  })
+
+  test("the room grows above a bar held to the frame's bottom, so the bar never moves under the pointer", async () => {
+    const { container } = view()
+    const frame = container.querySelector("[data-bar-frame]") as HTMLElement
+    expect(frame.className).toContain("h-screen")
+    expect(frame.className).toContain("justify-end")
+    await hintFor(button("Pause"))
+    // The page sizes the iframe to the content, measured apart from the frame-high box around it.
+    const content = barContent(document)
+    expect(content.hasAttribute("data-bar-content")).toBe(true)
+    expect(content.querySelector("[data-hint-room]")).toBeTruthy()
+    expect(screen.getByRole("tooltip").getAttribute("data-placement")).toBe("top")
   })
 
   test("Mic on is pressed; a click turns it off", () => {

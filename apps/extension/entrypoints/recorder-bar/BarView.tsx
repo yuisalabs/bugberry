@@ -89,7 +89,8 @@ function Hint({ text, children }: { text: string; children: ReactNode }) {
   return (
     <TooltipTrigger delay={300} closeDelay={0} onOpenChange={onOpen}>
       {children}
-      <Tooltip placement="top" offset={6}>
+      {/* Always above: below the bar there is no room in the frame, and a flip would jump. */}
+      <Tooltip placement="top" shouldFlip={false} offset={6}>
         {text}
       </Tooltip>
     </TooltipTrigger>
@@ -117,106 +118,110 @@ export function BarView(props: BarViewProps) {
 
   return (
     <HintOpen.Provider value={setHinting}>
-      <div className="flex flex-col items-center gap-2 p-1 font-sans text-background">
-        {hinting && <div data-hint-room aria-hidden className={`${HINT_ROOM} shrink-0`} />}
-        {props.drawing && (
-          <div onPointerDown={props.onDragStart} className={`flex items-center gap-1 rounded-xl bg-foreground p-1 shadow-lg ${surface}`}>
-            {TOOLS.map((tool) => (
-              <Hint key={tool.id} text={tool.label}>
-                <Toggle
-                  size="sq-sm"
-                  aria-label={tool.label}
-                  isSelected={props.tool === tool.id}
-                  onChange={() => props.onTool(tool.id)}
-                  className={`${onDark} ${onDarkSelected}`}
-                >
-                  {tool.icon(props.tool === tool.id)}
-                </Toggle>
-              </Hint>
-            ))}
-            {divider}
-            <Button intent="plain" size="xs" onPress={props.onClear} className={onDark}>
-              Clear
-            </Button>
-          </div>
-        )}
-        {confirm && (
-          <div role="alertdialog" onPointerDown={props.onDragStart} className={`flex items-center gap-3 rounded-xl bg-foreground px-3 py-2 text-sm shadow-lg ${surface}`}>
-            <span>{confirm === "restart" ? "Delete this recording and start over?" : "Delete this recording?"}</span>
-            <Button intent="plain" size="xs" onPress={() => setConfirm(null)} className={onDark}>
-              Cancel
-            </Button>
-            <Button
-              intent="danger"
-              size="xs"
-              onPress={() => {
-                setConfirm(null)
-                if (confirm === "restart") props.onRestart()
-                else props.onDiscard()
-              }}
-            >
-              Delete
-            </Button>
-          </div>
-        )}
-        <div data-bar-pill onPointerDown={props.onDragStart} className={`flex h-12 items-center gap-1 rounded-2xl bg-foreground px-2 shadow-lg ${surface}`}>
-          <span className="flex items-center gap-2 pr-1 pl-1 font-mono text-sm font-semibold tabular-nums">
-            <span data-dot className={`size-2.5 rounded-full bg-danger ${status.paused ? "" : "animate-pulse"}`} />
-            {status.maxMs === null ? (
-              clock(status.elapsedMs)
-            ) : (
-              // The last 15 seconds before the limit stand out, so the reporter can wrap up.
-              <span data-ending={status.maxMs - status.elapsedMs <= 15_000 || undefined} className="data-ending:text-warning">
-                {`${clock(status.elapsedMs)} / ${clock(status.maxMs)}`}
+      {/* Frame-high and bottom-aligned: room added above (a tooltip, the drawing tools, a confirmation) grows upwards
+          until the page has resized the frame, so the bar never moves from under the pointer. */}
+      <div data-bar-frame className="flex h-screen flex-col items-center justify-end">
+        <div data-bar-content className="flex flex-col items-center gap-2 p-1 font-sans text-background">
+          {hinting && <div data-hint-room aria-hidden className={`${HINT_ROOM} shrink-0`} />}
+          {props.drawing && (
+            <div onPointerDown={props.onDragStart} className={`flex items-center gap-1 rounded-xl bg-foreground p-1 shadow-lg ${surface}`}>
+              {TOOLS.map((tool) => (
+                <Hint key={tool.id} text={tool.label}>
+                  <Toggle
+                    size="sq-sm"
+                    aria-label={tool.label}
+                    isSelected={props.tool === tool.id}
+                    onChange={() => props.onTool(tool.id)}
+                    className={`${onDark} ${onDarkSelected}`}
+                  >
+                    {tool.icon(props.tool === tool.id)}
+                  </Toggle>
+                </Hint>
+              ))}
+              {divider}
+              <Button intent="plain" size="xs" onPress={props.onClear} className={onDark}>
+                Clear
+              </Button>
+            </div>
+          )}
+          {confirm && (
+            <div role="alertdialog" onPointerDown={props.onDragStart} className={`flex items-center gap-3 rounded-xl bg-foreground px-3 py-2 text-sm shadow-lg ${surface}`}>
+              <span>{confirm === "restart" ? "Delete this recording and start over?" : "Delete this recording?"}</span>
+              <Button intent="plain" size="xs" onPress={() => setConfirm(null)} className={onDark}>
+                Cancel
+              </Button>
+              <Button
+                intent="danger"
+                size="xs"
+                onPress={() => {
+                  setConfirm(null)
+                  if (confirm === "restart") props.onRestart()
+                  else props.onDiscard()
+                }}
+              >
+                Delete
+              </Button>
+            </div>
+          )}
+          <div data-bar-pill onPointerDown={props.onDragStart} className={`flex h-12 items-center gap-1 rounded-2xl bg-foreground px-2 shadow-lg ${surface}`}>
+            <span className="flex items-center gap-2 pr-1 pl-1 font-mono text-sm font-semibold tabular-nums">
+              <span data-dot className={`size-2.5 rounded-full bg-danger ${status.paused ? "" : "animate-pulse"}`} />
+              {status.maxMs === null ? (
+                clock(status.elapsedMs)
+              ) : (
+                // The last 15 seconds before the limit stand out, so the reporter can wrap up.
+                <span data-ending={status.maxMs - status.elapsedMs <= 15_000 || undefined} className="data-ending:text-warning">
+                  {`${clock(status.elapsedMs)} / ${clock(status.maxMs)}`}
+                </span>
+              )}
+            </span>
+            {status.errors > 0 && (
+              <span className="flex items-center gap-1 rounded-full bg-danger/20 px-2 py-0.5 text-xs font-semibold text-danger">
+                <AlertIcon />
+                {errorsText(status.errors)}
               </span>
             )}
-          </span>
-          {status.errors > 0 && (
-            <span className="flex items-center gap-1 rounded-full bg-danger/20 px-2 py-0.5 text-xs font-semibold text-danger">
-              <AlertIcon />
-              {errorsText(status.errors)}
-            </span>
-          )}
-          {divider}
-          <Hint text={status.paused ? "Resume" : "Pause"}>
-            <Button intent="plain" size="sq-sm" aria-label={status.paused ? "Resume" : "Pause"} onPress={status.paused ? props.onResume : props.onPause} className={onDark}>
-              {status.paused ? <PlayIcon /> : <PauseIcon />}
+            {divider}
+            <Hint text={status.paused ? "Resume" : "Pause"}>
+              <Button intent="plain" size="sq-sm" aria-label={status.paused ? "Resume" : "Pause"} onPress={status.paused ? props.onResume : props.onPause} className={onDark}>
+                {status.paused ? <PlayIcon /> : <PauseIcon />}
+              </Button>
+            </Hint>
+            <Hint text={micTitle}>
+              {/* Not isDisabled: a disabled button can't show the tooltip saying why it is off. */}
+              <Toggle
+                size="sq-sm"
+                aria-label="Microphone"
+                aria-disabled={!status.micAvailable || undefined}
+                isSelected={status.micOn}
+                onChange={(on) => status.micAvailable && props.onMic(on)}
+                className={`${onDark} ${onDarkSelected} aria-disabled:cursor-default aria-disabled:opacity-50`}
+              >
+                {status.micOn ? <MicIcon /> : <MicOffIcon />}
+              </Toggle>
+            </Hint>
+            <Hint text="Draw">
+              <Toggle size="sq-sm" aria-label="Draw" isSelected={props.drawing} onChange={props.onDraw} className={`${onDark} ${onDarkSelected}`}>
+                <PenIcon on={props.drawing} />
+              </Toggle>
+            </Hint>
+            {divider}
+            <Hint text="Restart">
+              <Button intent="plain" size="sq-sm" aria-label="Restart" onPress={() => setConfirm("restart")} className={onDark}>
+                <RestartIcon />
+              </Button>
+            </Hint>
+            <Hint text="Discard">
+              <Button intent="plain" size="sq-sm" aria-label="Discard" onPress={() => setConfirm("discard")} className={onDark}>
+                <TrashIcon />
+              </Button>
+            </Hint>
+            {divider}
+            <Button size="sm" onPress={props.onStop}>
+              <span aria-hidden className="size-2.5 rounded-[2px] bg-primary-foreground" />
+              Stop
             </Button>
-          </Hint>
-          <Hint text={micTitle}>
-            {/* Not isDisabled: a disabled button can't show the tooltip saying why it is off. */}
-            <Toggle
-              size="sq-sm"
-              aria-label="Microphone"
-              aria-disabled={!status.micAvailable || undefined}
-              isSelected={status.micOn}
-              onChange={(on) => status.micAvailable && props.onMic(on)}
-              className={`${onDark} ${onDarkSelected} aria-disabled:cursor-default aria-disabled:opacity-50`}
-            >
-              {status.micOn ? <MicIcon /> : <MicOffIcon />}
-            </Toggle>
-          </Hint>
-          <Hint text="Draw">
-            <Toggle size="sq-sm" aria-label="Draw" isSelected={props.drawing} onChange={props.onDraw} className={`${onDark} ${onDarkSelected}`}>
-              <PenIcon on={props.drawing} />
-            </Toggle>
-          </Hint>
-          {divider}
-          <Hint text="Restart">
-            <Button intent="plain" size="sq-sm" aria-label="Restart" onPress={() => setConfirm("restart")} className={onDark}>
-              <RestartIcon />
-            </Button>
-          </Hint>
-          <Hint text="Discard">
-            <Button intent="plain" size="sq-sm" aria-label="Discard" onPress={() => setConfirm("discard")} className={onDark}>
-              <TrashIcon />
-            </Button>
-          </Hint>
-          {divider}
-          <Button size="sm" onPress={props.onStop}>
-            <span aria-hidden className="size-2.5 rounded-[2px] bg-primary-foreground" />
-            Stop
-          </Button>
+          </div>
         </div>
       </div>
     </HintOpen.Provider>
