@@ -1,6 +1,8 @@
 /** A stroke is gone this long after it was drawn, like a laser pointer. */
 export const STROKE_LIFE_MS = 3000
-const FADE_MS = 500
+/** A note has text to read, so it stays a little longer, then fades the same way. */
+export const NOTE_LIFE_MS = 5000
+export const FADE_MS = 500
 
 type Point = [number, number]
 

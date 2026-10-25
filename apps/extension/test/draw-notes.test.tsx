@@ -1,7 +1,8 @@
-import { describe, expect, mock, test } from "bun:test"
+import { describe, expect, jest, mock, test } from "bun:test"
 import { act, fireEvent, render, screen } from "@testing-library/react"
 import { createRef } from "react"
 import { NotesLayer, type NotesLayerHandle } from "../entrypoints/draw/NotesLayer"
+import { NOTE_LIFE_MS } from "../lib/strokes"
 
 function setup(active = true) {
   const addNote = mock(async (_text: string) => ({ n: 1 }))
@@ -27,6 +28,16 @@ describe("numbered notes", () => {
     expect(screen.queryByRole("textbox", { name: "Note" })).toBeNull()
   })
 
+  test("the click that places a note leaves its input focused, ready to type", () => {
+    const { surface } = setup()
+    fireEvent.pointerDown(surface, { clientX: 100, clientY: 120 })
+    const input = screen.getByRole("textbox", { name: "Note" })
+    // The browser's mousedown default would move focus to the clicked surface, off the new input.
+    const kept = !fireEvent.mouseDown(surface, { clientX: 100, clientY: 120 })
+    expect(kept).toBe(true)
+    expect(document.activeElement).toBe(input)
+  })
+
   test("Esc drops an unsaved note", () => {
     const { addNote, surface } = setup()
     fireEvent.pointerDown(surface, { clientX: 100, clientY: 120 })
@@ -44,6 +55,28 @@ describe("numbered notes", () => {
       fireEvent.keyDown(screen.getByRole("textbox", { name: "Note" }), { key: "Enter" })
     })
     expect(addNote).not.toHaveBeenCalled()
+  })
+
+  test("a saved note fades away after a few seconds, like the strokes", async () => {
+    jest.useFakeTimers()
+    try {
+      const { surface } = setup()
+      fireEvent.pointerDown(surface, { clientX: 100, clientY: 120 })
+      const input = screen.getByRole("textbox", { name: "Note" })
+      fireEvent.change(input, { target: { value: "Spins forever" } })
+      await act(async () => {
+        fireEvent.keyDown(input, { key: "Enter" })
+      })
+      const card = () => screen.queryByText("Spins forever")?.closest<HTMLElement>("[data-note]")
+      act(() => jest.advanceTimersByTime(NOTE_LIFE_MS - 600))
+      expect(card()?.style.opacity).toBe("1")
+      act(() => jest.advanceTimersByTime(200))
+      expect(card()?.style.opacity).toBe("0")
+      act(() => jest.advanceTimersByTime(400))
+      expect(card()).toBeFalsy()
+    } finally {
+      jest.useRealTimers()
+    }
   })
 
   test("Clear takes the notes off the screen", async () => {
