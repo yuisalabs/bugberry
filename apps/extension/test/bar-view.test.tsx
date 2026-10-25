@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test"
-import { fireEvent, render, screen } from "@testing-library/react"
+import { act, fireEvent, render, screen } from "@testing-library/react"
 import { barStatusFrom } from "../entrypoints/recorder-bar/App"
 import { BarView, type BarViewProps } from "../entrypoints/recorder-bar/BarView"
 
@@ -27,6 +27,13 @@ function view(overrides: Partial<BarViewProps> = {}) {
 }
 
 const button = (name: string | RegExp) => screen.getByRole("button", { name })
+
+/** The tooltip a control shows when it gets keyboard focus (hover shows the same one after a short delay). */
+async function hintFor(control: HTMLElement): Promise<string | null> {
+  fireEvent.keyDown(document.body, { key: "Tab" })
+  await act(async () => control.focus())
+  return (await screen.findByRole("tooltip")).textContent
+}
 
 describe("status", () => {
   test("the timer and the errors caught", () => {
@@ -72,20 +79,37 @@ describe("controls", () => {
     expect(container.querySelector("[data-dot]")?.className).not.toContain("animate-pulse")
   })
 
-  test("the microphone needs permission first, and shows when it is on", () => {
-    view({ status: { ...RUNNING, micAvailable: false } })
+  test("the microphone needs permission first: it says why, and a click does nothing", async () => {
+    const { props } = view({ status: { ...RUNNING, micAvailable: false } })
     const mic = button(/Microphone/)
-    expect((mic as HTMLButtonElement).disabled).toBe(true)
-    expect(mic.closest("[title]")?.getAttribute("title")).toBe("Allow the microphone in BugBerry first")
-    // A title on a box of its own: display: contents would show no tooltip.
-    expect((mic.closest("[title]") as HTMLElement).className).not.toContain("contents")
+    // Not disabled outright: a disabled button can't show its tooltip.
+    expect(mic.getAttribute("aria-disabled")).toBe("true")
+    fireEvent.click(mic)
+    expect(props.onMic).not.toHaveBeenCalled()
+    expect(await hintFor(mic)).toBe("Allow the microphone in BugBerry first")
   })
 
-  test("every icon button has a hover hint", () => {
+  test("every icon button shows its name in a tooltip, not the browser's", async () => {
     view()
-    for (const name of ["Pause", "Microphone", "Draw", "Restart", "Discard"]) {
-      expect(button(name).closest("[title]")?.getAttribute("title")).toBeTruthy()
+    for (const [name, hint] of [
+      ["Pause", "Pause"],
+      ["Microphone", "Turn the microphone on"],
+      ["Draw", "Draw"],
+      ["Restart", "Restart"],
+      ["Discard", "Discard"],
+    ] as const) {
+      const control = button(name)
+      expect(control.closest("[title]")).toBeNull()
+      expect(await hintFor(control)).toBe(hint)
+      await act(async () => control.blur())
     }
+  })
+
+  test("while a tooltip shows, the bar makes room above itself for it", async () => {
+    const { container } = view()
+    expect(container.querySelector("[data-hint-room]")).toBeNull()
+    await hintFor(button("Pause"))
+    expect(container.querySelector("[data-hint-room]")).toBeTruthy()
   })
 
   test("Mic on is pressed; a click turns it off", () => {
