@@ -113,6 +113,34 @@
         }
     }
 
+    /* Getting started: confetti when the five steps are done, and a soft pulse on what to click next. */
+    [data-confetti] span {
+        position: absolute;
+        top: -8px;
+        width: 7px;
+        height: 11px;
+        border-radius: 2px;
+        animation: confetti-fall 1.4s cubic-bezier(0.2, 0.6, 0.4, 1) both;
+    }
+    @keyframes confetti-fall {
+        from {
+            transform: translateY(0) rotate(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateY(150px) rotate(540deg);
+            opacity: 0;
+        }
+    }
+    [data-onboarding-pulse] {
+        animation: onboarding-pulse 1.8s ease-in-out infinite;
+    }
+    @keyframes onboarding-pulse {
+        50% {
+            box-shadow: 0 0 0 6px color-mix(in oklab, var(--color-primary) 22%, transparent);
+        }
+    }
+
     /* The status pages' berry breathes: a slow bob, so the page is not a still picture. */
     [data-status-art] {
         animation: status-bob 4.5s ease-in-out infinite alternate;
@@ -122,4 +150,10 @@
             transform: translateY(-8px);
         }
     }
+}
+
+/* Without motion, the next thing to click still stands out: a steady outline instead of the pulse. */
+[data-onboarding-pulse] {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
 }
