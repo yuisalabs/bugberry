@@ -28,11 +28,10 @@ const bonus = (collapsed = false): OnboardingProgress => ({
   trackerTarget: null,
 })
 
-const view = (progress: OnboardingProgress, variant: "card" | "widget" = "card", handlers: { onCollapse?: () => void; onCelebrated?: () => void } = {}) =>
+const view = (progress: OnboardingProgress, handlers: { onCollapse?: () => void; onCelebrated?: () => void } = {}) =>
   render(
     <OnboardingChecklistView
       progress={progress}
-      variant={variant}
       actions={{ video: <button type="button">Start recording</button> }}
       onCollapse={handlers.onCollapse ?? mock()}
       onCelebrated={handlers.onCelebrated ?? mock()}
@@ -50,26 +49,26 @@ describe("OnboardingChecklistView", () => {
     expect(screen.getByRole("button", { name: "Start recording" })).toBeTruthy()
   })
 
-  test("collapsing calls back, and the collapsed card is one row", () => {
+  test("collapsing calls back, and collapsed it is a pill", () => {
     const onCollapse = mock()
-    const { rerender } = view(required(["extension"]), "card", { onCollapse })
+    const { rerender } = view(required(["extension"]), { onCollapse })
     fireEvent.click(screen.getByRole("button", { name: "Hide checklist" }))
     expect(onCollapse).toHaveBeenCalledWith(true)
     rerender(
-      <OnboardingChecklistView progress={required(["extension"], { collapsed: true })} variant="card" actions={{}} onCollapse={onCollapse} onCelebrated={mock()} />,
+      <OnboardingChecklistView progress={required(["extension"], { collapsed: true })} actions={{}} onCollapse={onCollapse} onCelebrated={mock()} />,
     )
-    expect(screen.getByRole("button", { name: "Show checklist" })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Getting started 1/5" })).toBeTruthy()
     expect(screen.queryByText("Record your first video")).toBeNull()
   })
 
-  test("the collapsed widget is a pill", () => {
-    view(bonus(true), "widget")
+  test("the collapsed bonus pill counts missions", () => {
+    view(bonus(true))
     expect(screen.getByRole("button", { name: "Missions 1/6" })).toBeTruthy()
   })
 
   test("celebration", () => {
     const onCelebrated = mock()
-    view(required([...ONBOARDING_STEPS], { phase: "celebrate" }), "card", { onCelebrated })
+    view(required([...ONBOARDING_STEPS], { phase: "celebrate" }), { onCelebrated })
     expect(screen.getByText("You're all set to catch bugs!")).toBeTruthy()
     fireEvent.click(screen.getByRole("button", { name: "On to bonus missions" }))
     expect(onCelebrated).toHaveBeenCalled()
@@ -83,7 +82,7 @@ describe("OnboardingChecklistView", () => {
 })
 
 describe("OnboardingWidget", () => {
-  test("on the report page it sits above the phone's Copy link bar", async () => {
+  async function widget(props: { startAsPill?: boolean; aboveBottomBar?: boolean } = {}) {
     const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query")
     const { OnboardingWidget } = await import("../src/components/onboarding/OnboardingChecklist")
     const { OnboardingTestProvider } = await import("../src/components/onboarding/OnboardingProvider")
@@ -95,11 +94,32 @@ describe("OnboardingWidget", () => {
     render(
       <QueryClientProvider client={client}>
         <OnboardingTestProvider value={value}>
-          <OnboardingWidget startAsPill />
+          <OnboardingWidget {...props} />
         </OnboardingTestProvider>
       </QueryClientProvider>,
     )
-    const corner = screen.getByRole("region", { name: "Getting started" }).closest(".fixed")
+    return screen.getByRole("region", { name: "Getting started" }).closest(".fixed")
+  }
+
+  test("it floats bottom left on every screen", async () => {
+    const corner = await widget()
+    expect(corner?.className).toContain("left-4")
+    expect(corner?.className).not.toContain("right-4")
+  })
+
+  test("it opens on All reports", async () => {
+    await widget()
+    expect(screen.getByText("Take your first screenshot")).toBeTruthy()
+  })
+
+  test("elsewhere it starts as the pill", async () => {
+    await widget({ startAsPill: true })
+    expect(screen.getByRole("button", { name: "Getting started 1/5" })).toBeTruthy()
+    expect(screen.queryByText("Take your first screenshot")).toBeNull()
+  })
+
+  test("on the report page it sits above the phone's Copy link bar", async () => {
+    const corner = await widget({ startAsPill: true, aboveBottomBar: true })
     expect(corner?.className).toContain("bottom-20")
     expect(corner?.className).toContain("md:bottom-4")
   })

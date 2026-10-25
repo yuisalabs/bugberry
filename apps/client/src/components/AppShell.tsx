@@ -117,11 +117,11 @@ export function AppShell() {
     return (
       <OnboardingProvider>
         <div className="min-h-screen bg-background">{content}</div>
-        <OnboardingWidget startAsPill />
+        <OnboardingWidget startAsPill aboveBottomBar />
       </OnboardingProvider>
     )
   }
-  // All reports has the checklist as a card at the top; every other page has it in a corner.
+  // The checklist opens on All reports and waits as a pill on every other page.
   const onAllReports = Boolean(matchRoute({ to: "/app" }))
   const isAdmin = workspace?.role === "admin"
   const canInvite = isAdmin && invitesAllowed(limits.data)
@@ -344,7 +344,7 @@ export function AppShell() {
         <CreateWorkspaceDialog isOpen={creating} onOpenChange={setCreating} />
         <JoinWorkspaceDialog isOpen={joining} onOpenChange={setJoining} />
         {workspace && <InviteDialog workspaceId={workspace.id} isOpen={inviting} onOpenChange={setInviting} />}
-        {!onAllReports && <OnboardingWidget />}
+        <OnboardingWidget startAsPill={!onAllReports} />
       </div>
     </OnboardingProvider>
   )

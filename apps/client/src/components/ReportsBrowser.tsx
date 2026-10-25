@@ -27,7 +27,6 @@ export function ReportsBrowser({
   showProjectFilter = false,
   actions,
   showCount,
-  intro,
 }: {
   title: string
   scope: { projectId?: string }
@@ -37,8 +36,6 @@ export function ReportsBrowser({
   actions?: ReactNode
   /** "12 reports" under the title (a project's page). */
   showCount?: boolean
-  /** Above the list: the Getting started checklist on All reports. */
-  intro?: ReactNode
 }) {
   const now = useNow()
   const { workspace } = useCurrentWorkspace()
@@ -89,7 +86,6 @@ export function ReportsBrowser({
       }
       now={now}
       actions={actions}
-      intro={intro}
       canInvite={workspace?.role === "admin" && invitesAllowed(limits.data)}
       onInvite={() => setInviting(true)}
       usage={limits.data ? usageText(limits.data) : null}

@@ -1,5 +1,4 @@
 import { getRouteApi, useNavigate } from "@tanstack/react-router"
-import { OnboardingCard } from "../components/onboarding/OnboardingChecklist"
 import { ReportsBrowser } from "../components/ReportsBrowser"
 
 const routeApi = getRouteApi("/_authed/app")
@@ -15,7 +14,6 @@ export function AllReportsPage() {
       search={search}
       setSearch={(update) => void navigate({ search: update })}
       showProjectFilter
-      intro={<OnboardingCard />}
     />
   )
 }

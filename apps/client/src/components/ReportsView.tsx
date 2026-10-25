@@ -84,7 +84,6 @@ export function ReportsView({
   subtitle,
   statusCounts = null,
   fab,
-  intro,
   recordButton,
   installButton,
   checkedTotal = null,
@@ -126,8 +125,6 @@ export function ReportsView({
   statusCounts?: ReportCounts | null
   /** The phone's floating New report button; from tablet width up the header has its own. */
   fab?: ReactNode
-  /** Above the list or the empty jar: the Getting started checklist on All reports. */
-  intro?: ReactNode
   /** "Record your first bug" on a list with no report at all. */
   recordButton?: ReactNode
   /** "Add to Chrome" on a list with no report, while this browser has no extension. */
@@ -237,8 +234,6 @@ export function ReportsView({
           </div>
         )}
       </div>
-
-      {intro}
 
       {list === "loading" ? (
         <LoadingSkeleton>

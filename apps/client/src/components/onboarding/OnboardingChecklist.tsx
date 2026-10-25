@@ -1,5 +1,5 @@
 import type { OnboardingItemId } from "@bugberry/shared"
-import { RiArrowDownSLine, RiArrowUpSLine, RiCheckLine, RiRecordCircleLine } from "@remixicon/react"
+import { RiArrowDownSLine, RiCheckLine, RiRecordCircleLine } from "@remixicon/react"
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { type ReactNode, useState } from "react"
@@ -31,7 +31,7 @@ function ProgressBar({ done, total }: { done: number; total: number }) {
   )
 }
 
-function Step({ id, done, current, action, compact }: { id: OnboardingItemId; done: boolean; current: boolean; action: ReactNode; compact: boolean }) {
+function Step({ id, done, current, action }: { id: OnboardingItemId; done: boolean; current: boolean; action: ReactNode }) {
   const copy = ONBOARDING_COPY[id]
   return (
     <li className={`flex items-start gap-2.5 rounded-lg ${current ? "bg-primary-subtle p-2.5" : "px-2.5 py-1.5"}`}>
@@ -49,7 +49,7 @@ function Step({ id, done, current, action, compact }: { id: OnboardingItemId; do
         {current && (
           <>
             <span className="text-xs text-muted-foreground">{copy.hint}</span>
-            {action && <div className={compact ? "mt-1" : "mt-1.5"}>{action}</div>}
+            {action && <div className="mt-1">{action}</div>}
           </>
         )}
       </div>
@@ -75,68 +75,46 @@ function Celebration({ onCelebrated }: { onCelebrated(): void }) {
   )
 }
 
-/** The checklist as a card on All reports, or as the corner widget on other pages. */
+/** The checklist as a floating panel, or as a pill while collapsed. */
 export function OnboardingChecklistView({
   progress,
-  variant,
   actions,
   onCollapse,
   onCelebrated,
   collapsed = progress.collapsed,
 }: {
   progress: OnboardingProgress
-  variant: "card" | "widget"
   /** The next item's button. */
   actions: Partial<Record<OnboardingItemId, ReactNode>>
   onCollapse(collapsed: boolean): void
   onCelebrated(): void
-  /** Overrides the saved state (the phone's widget starts as the pill). */
+  /** Overrides the saved state (pages other than All reports, and phones, start as the pill). */
   collapsed?: boolean
 }) {
   const { done, total } = doneCount(progress)
   const next = nextStep(progress)
   const bonus = progress.phase === "bonus"
-  const title = bonus ? "Bonus missions" : "Get to know BugBerry"
-  const widget = variant === "widget"
 
   if (collapsed) {
     return (
       <section aria-label="Getting started">
-        {widget ? (
-          <Button size="sm" onPress={() => onCollapse(false)} className="rounded-full px-4 shadow-lg shadow-primary/30">
-            <RiRecordCircleLine aria-hidden />
-            {`${bonus ? "Missions" : "Getting started"} ${done}/${total}`}
-          </Button>
-        ) : (
-          <div className="mb-4 flex items-center gap-3 rounded-xl border border-border bg-background px-4 py-2.5 text-sm">
-            <span className="font-medium text-foreground">Getting started</span>
-            <span className="text-muted-foreground">{`${done} of ${total}`}</span>
-            <Button intent="plain" size="sm" aria-label="Show checklist" onPress={() => onCollapse(false)} className="ml-auto">
-              Show
-              <RiArrowDownSLine aria-hidden />
-            </Button>
-          </div>
-        )}
+        <Button size="sm" onPress={() => onCollapse(false)} className="rounded-full px-4 shadow-lg shadow-primary/30">
+          <RiRecordCircleLine aria-hidden />
+          {`${bonus ? "Missions" : "Getting started"} ${done}/${total}`}
+        </Button>
       </section>
     )
   }
 
   return (
-    <section
-      aria-label="Getting started"
-      className={
-        widget
-          ? "w-72 rounded-xl border border-border bg-background p-3 shadow-xl"
-          : "mb-4 rounded-xl border border-border bg-background p-4 sm:p-5"
-      }
-    >
+    <section aria-label="Getting started" className="w-72 rounded-xl border border-border bg-background p-3 shadow-xl">
       <div className="flex items-start gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <h2 className={`font-heading font-bold text-foreground ${widget ? "text-sm" : "text-lg"}`}>{title}</h2>
+          <h2 className="font-heading text-sm font-bold text-foreground">{bonus ? "Bonus missions" : "Get to know BugBerry"}</h2>
           <p className="text-xs text-muted-foreground">{`${done} of ${total} done`}</p>
         </div>
         <Button intent="plain" size="sq-sm" aria-label="Hide checklist" onPress={() => onCollapse(true)}>
-          <RiArrowUpSLine aria-hidden />
+          <RiArrowDownSLine aria-hidden />
         </Button>
       </div>
       <div className="my-3">
@@ -145,9 +123,9 @@ export function OnboardingChecklistView({
       {progress.phase === "celebrate" ? (
         <Celebration onCelebrated={onCelebrated} />
       ) : (
-        <ol className={`flex flex-col ${widget ? "gap-0.5" : "gap-1 sm:max-w-xl"}`}>
+        <ol className="flex flex-col gap-0.5">
           {progress.steps.map((step) => (
-            <Step key={step.id} id={step.id} done={step.done} current={step.id === next} action={actions[step.id]} compact={widget} />
+            <Step key={step.id} id={step.id} done={step.done} current={step.id === next} action={actions[step.id]} />
           ))}
         </ol>
       )}
@@ -203,7 +181,7 @@ function useActions(progress: OnboardingProgress | null, onInvite: () => void): 
   return { [next]: action[next]() }
 }
 
-function Connected({ variant, collapsed }: { variant: "card" | "widget"; collapsed?: boolean }) {
+function Connected({ collapsed }: { collapsed: boolean }) {
   const onboarding = useOnboarding()
   const { workspace } = useCurrentWorkspace()
   const [inviting, setInviting] = useState(false)
@@ -213,7 +191,6 @@ function Connected({ variant, collapsed }: { variant: "card" | "widget"; collaps
     <>
       <OnboardingChecklistView
         progress={onboarding.progress}
-        variant={variant}
         actions={actions}
         collapsed={collapsed}
         onCollapse={onboarding.setCollapsed}
@@ -224,17 +201,18 @@ function Connected({ variant, collapsed }: { variant: "card" | "widget"; collaps
   )
 }
 
-/** The checklist at the top of All reports. */
-export function OnboardingCard() {
-  return <Connected variant="card" />
-}
-
 /**
- * The checklist in a corner of every other page: bottom right, or bottom left on phones (the New report button is
- * right). On phones, and with `startAsPill` (the report page, where it would cover the DevTools panel), it starts as
- * the pill until opened on this page.
+ * The checklist floating in the bottom left corner of every page (the New report button is on the right). Open on
+ * All reports; with `startAsPill` (every other page), and on phones, it starts as the pill until opened on this page.
  */
-export function OnboardingWidget({ startAsPill = false }: { startAsPill?: boolean }) {
+export function OnboardingWidget({
+  startAsPill = false,
+  aboveBottomBar = false,
+}: {
+  startAsPill?: boolean
+  /** The report page's phone layout has Copy link in a bar along the bottom: the widget sits above it. */
+  aboveBottomBar?: boolean
+}) {
   const onboarding = useOnboarding()
   const phone = useMediaQuery("(max-width: 767px)")
   const [opened, setOpened] = useState(false)
@@ -246,13 +224,12 @@ export function OnboardingWidget({ startAsPill = false }: { startAsPill?: boolea
       {/* Phones scroll the window: room at the end of the page, so the pill never sits on its last button. */}
       <div aria-hidden className="h-16 md:hidden" />
       <div
-        // The report page's phone layout has Copy link in a bar along the bottom: the pill sits above it.
-        className={`fixed left-4 z-30 md:right-4 md:left-auto ${startAsPill ? "bottom-20 md:bottom-4" : "bottom-4"}`}
+        className={`fixed left-4 z-30 ${aboveBottomBar ? "bottom-20 md:bottom-4" : "bottom-4"}`}
         onClickCapture={(event) => {
           if (pill && (event.target as HTMLElement).closest("button")) setOpened(true)
         }}
       >
-        <Connected variant="widget" collapsed={collapsed} />
+        <Connected collapsed={collapsed} />
       </div>
     </>
   )
