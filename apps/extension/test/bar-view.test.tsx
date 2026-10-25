@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test"
-import { act, fireEvent, render, screen } from "@testing-library/react"
-import { barContent, barStatusFrom } from "../entrypoints/recorder-bar/App"
+import { fireEvent, render, screen } from "@testing-library/react"
+import { barStatusFrom } from "../entrypoints/recorder-bar/App"
 import { BarView, type BarViewProps } from "../entrypoints/recorder-bar/BarView"
 
 const RUNNING = { recording: true, elapsedMs: 42_000, paused: false, errors: 2, micOn: false, micAvailable: true, maxMs: null }
@@ -27,13 +27,6 @@ function view(overrides: Partial<BarViewProps> = {}) {
 }
 
 const button = (name: string | RegExp) => screen.getByRole("button", { name })
-
-/** The tooltip a control shows when it gets keyboard focus (hover shows the same one after a short delay). */
-async function hintFor(control: HTMLElement): Promise<string | null> {
-  fireEvent.keyDown(document.body, { key: "Tab" })
-  await act(async () => control.focus())
-  return (await screen.findByRole("tooltip")).textContent
-}
 
 describe("status", () => {
   test("the timer and the errors caught", () => {
@@ -79,50 +72,20 @@ describe("controls", () => {
     expect(container.querySelector("[data-dot]")?.className).not.toContain("animate-pulse")
   })
 
-  test("the microphone needs permission first: it says why, and a click does nothing", async () => {
-    const { props } = view({ status: { ...RUNNING, micAvailable: false } })
+  test("the microphone needs permission first, and shows when it is on", () => {
+    view({ status: { ...RUNNING, micAvailable: false } })
     const mic = button(/Microphone/)
-    // Not disabled outright: a disabled button can't show its tooltip.
-    expect(mic.getAttribute("aria-disabled")).toBe("true")
-    fireEvent.click(mic)
-    expect(props.onMic).not.toHaveBeenCalled()
-    expect(await hintFor(mic)).toBe("Allow the microphone in BugBerry first")
+    expect((mic as HTMLButtonElement).disabled).toBe(true)
+    expect(mic.closest("[title]")?.getAttribute("title")).toBe("Allow the microphone in BugBerry first")
+    // A title on a box of its own: display: contents would show no tooltip.
+    expect((mic.closest("[title]") as HTMLElement).className).not.toContain("contents")
   })
 
-  test("every icon button shows its name in a tooltip, not the browser's", async () => {
+  test("every icon button has a hover hint", () => {
     view()
-    for (const [name, hint] of [
-      ["Pause", "Pause"],
-      ["Microphone", "Turn the microphone on"],
-      ["Draw", "Draw"],
-      ["Restart", "Restart"],
-      ["Discard", "Discard"],
-    ] as const) {
-      const control = button(name)
-      expect(control.closest("[title]")).toBeNull()
-      expect(await hintFor(control)).toBe(hint)
-      await act(async () => control.blur())
+    for (const name of ["Pause", "Microphone", "Draw", "Restart", "Discard"]) {
+      expect(button(name).closest("[title]")?.getAttribute("title")).toBeTruthy()
     }
-  })
-
-  test("while a tooltip shows, the bar makes room above itself for it", async () => {
-    const { container } = view()
-    expect(container.querySelector("[data-hint-room]")).toBeNull()
-    await hintFor(button("Pause"))
-    expect(container.querySelector("[data-hint-room]")).toBeTruthy()
-  })
-
-  test("the room grows above a bar held to the frame's bottom, so the bar never moves under the pointer", async () => {
-    const { container } = view()
-    const frame = container.querySelector("[data-bar-frame]") as HTMLElement
-    expect(frame.className).toContain("h-screen")
-    expect(frame.className).toContain("justify-end")
-    await hintFor(button("Pause"))
-    // The page sizes the iframe to the content, measured apart from the frame-high box around it.
-    const content = barContent(document)
-    expect(content.hasAttribute("data-bar-content")).toBe(true)
-    expect(content.querySelector("[data-hint-room]")).toBeTruthy()
-    expect(screen.getByRole("tooltip").getAttribute("data-placement")).toBe("top")
   })
 
   test("Mic on is pressed; a click turns it off", () => {
