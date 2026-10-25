@@ -1,4 +1,4 @@
-import { ONBOARDING_STEPS, TRACKER_PROVIDERS, type OnboardingItemId, type OnboardingMissionId } from "@bugberry/shared"
+import { ONBOARDING_STEPS, TRACKER_PROVIDERS, type OnboardingEvent, type OnboardingItemId, type OnboardingMissionId } from "@bugberry/shared"
 import { and, desc, eq, inArray, isNull, type SQL, sql } from "drizzle-orm"
 import type { PgTable } from "drizzle-orm/pg-core"
 import type { Db } from "../db/client"
@@ -144,4 +144,28 @@ export async function onboardingProgress(db: Db, userId: string, workspaceId: st
     reportTarget: await target(db, userId, workspaceId),
     trackerTarget: await target(db, userId, workspaceId, projectIds),
   }
+}
+
+export type OnboardingChange = { event: OnboardingEvent } | { collapsed: boolean }
+
+/**
+ * What the dashboard reports: a step no table records (each written once), the celebration being seen (only
+ * after the five steps), or the checklist collapsed. Nothing happens for someone without a checklist.
+ */
+export async function recordOnboarding(db: Db, userId: string, change: OnboardingChange): Promise<void> {
+  const [row] = await db.select({ onboarding: user.onboarding }).from(user).where(eq(user.id, userId))
+  const state = row?.onboarding
+  if (!state || state.completedAt) return
+  const now = new Date().toISOString()
+  let next: OnboardingState
+  if ("collapsed" in change) {
+    next = { ...state, collapsed: change.collapsed }
+  } else if (change.event === "celebrated") {
+    if (state.celebratedAt || !ONBOARDING_STEPS.every((id) => state.steps?.[id])) return
+    next = { ...state, celebratedAt: now }
+  } else {
+    if (state.steps?.[change.event]) return
+    next = { ...state, steps: { ...state.steps, [change.event]: now } }
+  }
+  await db.update(user).set({ onboarding: next }).where(eq(user.id, userId))
 }

@@ -1,9 +1,10 @@
+import { ONBOARDING_EVENTS } from "@bugberry/shared"
 import { eq } from "drizzle-orm"
 import { Elysia, t } from "elysia"
 import type { AppDeps } from "../../app"
 import { authPlugin } from "../../auth/plugin"
 import { user } from "../../db/schema"
-import { onboardingProgress } from "../../onboarding/progress"
+import { onboardingProgress, recordOnboarding } from "../../onboarding/progress"
 import { requireMember } from "../../workspaces/access"
 import { canCreateWorkspace, isAccountLimited } from "../../workspaces/limits"
 
@@ -29,6 +30,17 @@ export function meModule(deps: AppDeps) {
         return { progress: await onboardingProgress(db, current.id, query.workspaceId) }
       },
       { auth: true, query: t.Object({ workspaceId: t.String({ minLength: 1 }) }) },
+    )
+    .post(
+      "/me/onboarding",
+      async ({ user: current, body }) => {
+        await recordOnboarding(db, current.id, body)
+        return { ok: true }
+      },
+      {
+        auth: true,
+        body: t.Union([t.Object({ event: t.UnionEnum([...ONBOARDING_EVENTS]) }), t.Object({ collapsed: t.Boolean() })]),
+      },
     )
     .put(
       "/me/workspace",

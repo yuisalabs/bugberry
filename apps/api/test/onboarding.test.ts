@@ -127,3 +127,49 @@ describe("GET /me/onboarding", () => {
     expect(error?.status as number | undefined).toBe(404)
   })
 })
+
+describe("POST /me/onboarding", () => {
+  const record = (body: { event: "extension" | "devtools" | "shared" | "celebrated" } | { collapsed: boolean }, person = budi) =>
+    ctx.api.api.me.onboarding.post(body, { headers: person.headers })
+
+  test("events tick client-only steps once", async () => {
+    await record({ event: "devtools" })
+    const first = (await onboardingOf(budi.user.id))?.steps?.devtools
+    expect(first).toBeTruthy()
+    await Bun.sleep(5)
+    await record({ event: "devtools" })
+    expect((await onboardingOf(budi.user.id))?.steps?.devtools).toBe(first)
+    expect(await done("devtools")).toBe(true)
+  })
+
+  test("collapse is remembered", async () => {
+    await record({ collapsed: true })
+    expect((await progress()).data?.collapsed).toBe(true)
+    await record({ collapsed: false })
+    expect((await progress()).data?.collapsed).toBe(false)
+  })
+
+  test("celebrating before the five are done does nothing", async () => {
+    await setOnboarding(budi.user.id, { steps: { extension: "2026-10-25T00:00:00.000Z", screenshot: "2026-10-25T00:00:00.000Z" } })
+    await record({ event: "celebrated" })
+    expect((await progress()).data?.phase).toBe("required")
+    expect((await onboardingOf(budi.user.id))?.celebratedAt).toBeUndefined()
+  })
+
+  test("celebrating after the five moves on to the bonus missions", async () => {
+    await setOnboarding(budi.user.id, { steps: ALL_STEPS })
+    await record({ event: "celebrated" })
+    expect((await progress()).data?.phase).toBe("bonus")
+  })
+
+  test("events do nothing for accounts without onboarding", async () => {
+    await setOnboarding(budi.user.id, null)
+    await record({ event: "shared" })
+    expect(await onboardingOf(budi.user.id)).toBeNull()
+  })
+
+  test("an unknown event is refused", async () => {
+    const { error } = await ctx.api.api.me.onboarding.post({ event: "nope" } as never, { headers: budi.headers })
+    expect(error?.status as number | undefined).toBe(422)
+  })
+})
