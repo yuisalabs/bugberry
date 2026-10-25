@@ -1,10 +1,11 @@
 <!doctype html>
-<html lang="en" style="background: transparent; color-scheme: normal">
+<html lang="en" style="background: transparent; color-scheme: normal; overflow: hidden">
   <head>
     <meta charset="UTF-8" />
     <title>BugBerry recording</title>
   </head>
-  <body class="m-0 inline-block bg-transparent">
+  <!-- The frame is sized to the bar: its page never scrolls (a scrollbar would push the bar about). -->
+  <body class="m-0 inline-block overflow-hidden bg-transparent">
     <div id="root"></div>
     <script type="module" src="./main.tsx"></script>
   </body>

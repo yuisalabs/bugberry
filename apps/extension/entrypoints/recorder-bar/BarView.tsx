@@ -107,7 +107,10 @@ export function BarView(props: BarViewProps) {
   const micTitle = status.micAvailable ? (status.micOn ? "Turn the microphone off" : "Turn the microphone on") : "Allow the microphone in BugBerry first"
 
   return (
-    <div className="flex flex-col items-center gap-2 p-1 font-sans text-background">
+    // In the frame's bottom-left corner: what opens above the bar (the drawing tools, a confirmation) grows upwards
+    // until the page has resized the frame, so the bar itself never jumps. The page keeps the frame's left edge and
+    // bottom in place when it resizes it.
+    <div data-bar-content className="fixed bottom-0 left-0 flex w-max flex-col items-center gap-2 p-1 font-sans text-background">
       {props.drawing && (
         <div onPointerDown={props.onDragStart} className={`flex items-center gap-1 rounded-xl bg-foreground p-1 shadow-lg ${surface}`}>
           {TOOLS.map((tool) => (
