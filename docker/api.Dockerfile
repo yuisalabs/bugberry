@@ -13,6 +13,7 @@ COPY apps/api/package.json apps/api/
 COPY apps/client/package.json apps/client/
 COPY apps/extension/package.json apps/extension/
 COPY packages/shared/package.json packages/shared/
+COPY packages/ai-write/package.json packages/ai-write/
 COPY packages/capture/package.json packages/capture/
 COPY packages/debugger-view/package.json packages/debugger-view/
 COPY packages/player/package.json packages/player/
@@ -24,6 +25,7 @@ FROM manifests AS runtime
 ENV NODE_ENV=production
 RUN bun install --frozen-lockfile --production --ignore-scripts --filter @bugberry/api
 COPY packages/shared packages/shared
+COPY packages/ai-write packages/ai-write
 COPY packages/debugger-view packages/debugger-view
 COPY apps/api/drizzle apps/api/drizzle
 COPY apps/api/geo apps/api/geo
