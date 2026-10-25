@@ -6,7 +6,9 @@ import {
   RiMessage2Line,
   RiPlugLine,
   RiProgress4Line,
+  RiRobot2Line,
   RiServerLine,
+  RiSparkling2Line,
   RiTerminalBoxLine,
   RiTerminalLine,
   type RemixiconComponentType,
@@ -17,7 +19,9 @@ import { Tab, TabList, TabPanel, Tabs } from "react-aria-components"
 import { Button, buttonStyles } from "@bugberry/ui/button"
 import { Input } from "@bugberry/ui/input"
 import { TextField } from "@bugberry/ui/text-field"
+import { AiWritingSettings } from "../../components/ai/AiWritingSettings"
 import { BrandedHeader } from "../../components/BrandedHeader"
+import { SettingsTabs } from "../../components/SettingsTabs"
 import { SettingsPageSkeleton } from "../../components/Skeletons"
 import { CopyButton, ErrorState } from "../../components/ui"
 import { errorMessage } from "../../lib/api"
@@ -122,6 +126,7 @@ export function AiAgentsView({
   onRevokeToken,
   onRevokeApp,
   onDismissToken,
+  header = true,
 }: {
   origin: string
   tokens: readonly TokenRow[]
@@ -133,6 +138,8 @@ export function AiAgentsView({
   onRevokeToken(id: string): void
   onRevokeApp(clientId: string): void
   onDismissToken(): void
+  /** Off inside the AI settings page, whose own header is shown above the tabs. */
+  header?: boolean
 }) {
   const url = `${origin}/api/mcp`
   const snippets = connectSnippets(url)
@@ -142,7 +149,7 @@ export function AiAgentsView({
 
   return (
     <section className="flex flex-col gap-8">
-      <BrandedHeader
+      {header && <BrandedHeader
         title="AI Agents (MCP)"
         description="Let AI apps like Claude Code or Cursor read your reports and work on them. Agents see only what you can see."
         action={
@@ -156,7 +163,7 @@ export function AiAgentsView({
             Read the docs
           </a>
         }
-      />
+      />}
 
       {error && (
         <p role="alert" className="text-sm text-danger-subtle-foreground">
@@ -383,8 +390,8 @@ export function AiAgentsView({
   )
 }
 
-/** `/app/settings/ai`: connect AI apps to the MCP server, see which are connected, and manage personal tokens. */
-export function AiAgentsPage() {
+/** Connect AI apps to the MCP server, see which are connected, and manage personal tokens. */
+function McpAgents() {
   const queryClient = useQueryClient()
   const tokens = useQuery({ queryKey: ["mcp-tokens"], queryFn: () => api.mcpTokens() })
   const apps = useQuery({ queryKey: ["oauth-apps"], queryFn: () => api.oauthApps() })
@@ -426,6 +433,23 @@ export function AiAgentsPage() {
       onRevokeToken={(id) => revokeToken.mutate(id)}
       onRevokeApp={(clientId) => revokeApp.mutate(clientId)}
       onDismissToken={() => setNewToken(null)}
+      header={false}
     />
+  )
+}
+
+/** `/app/settings/ai`: Write with AI (the workspace's own key and templates), and AI agents through MCP. */
+export function AiAgentsPage() {
+  return (
+    <section className="flex flex-col gap-8">
+      <BrandedHeader title="AI" description="Draft reports with your own AI key, and let AI apps like Claude Code or Cursor read and work on them." />
+      <SettingsTabs
+        label="AI settings"
+        sections={[
+          { id: "write", label: "Write with AI", icon: RiSparkling2Line, panel: <AiWritingSettings /> },
+          { id: "agents", label: "AI agents (MCP)", icon: RiRobot2Line, panel: <McpAgents /> },
+        ]}
+      />
+    </section>
   )
 }

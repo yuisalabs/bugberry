@@ -167,6 +167,7 @@ export function AccountSettingsView({
           { id: "sign-in", label: "Sign-in methods", icon: RiShieldKeyholeLine, panel: signIn },
         ]}
       />
+      <p className="text-sm text-muted-foreground">Your personal AI key is set in the BugBerry extension's settings and stays on your computer.</p>
     </section>
   )
 }

@@ -32,13 +32,17 @@ export function projectsModule(deps: AppDeps) {
     }
   }
 
+  /** A project as the API shows it; its AI default template is read and set through /workspaces/:id/ai. */
+  const projectView = ({ aiTemplateId: _aiTemplateId, ...row }: typeof project.$inferSelect) => row
+
   return new Elysia()
     .use(authPlugin(deps))
     .get(
       "/projects",
       async ({ user: current, query }) => {
         const workspaceId = await resolveWorkspace(db, current, query.workspaceId)
-        return db.select().from(project).where(eq(project.workspaceId, workspaceId)).orderBy(asc(project.name))
+        const rows = await db.select().from(project).where(eq(project.workspaceId, workspaceId)).orderBy(asc(project.name))
+        return rows.map(projectView)
       },
       { auth: true, query: t.Object({ workspaceId: t.Optional(t.String({ minLength: 1 })) }) },
     )
@@ -92,7 +96,7 @@ export function projectsModule(deps: AppDeps) {
         await assertSlugFree(workspaceId, fields.slug)
         const [created] = await db.insert(project).values({ id: newId(), workspaceId, ...fields }).returning()
         if (!created) throw new Error("Failed to create project")
-        return created
+        return projectView(created)
       },
       { auth: true, body: t.Object({ workspaceId: t.Optional(t.String({ minLength: 1 })), ...projectFields }) },
     )
@@ -106,7 +110,7 @@ export function projectsModule(deps: AppDeps) {
         if (body.slug) await assertSlugFree(workspaceId, body.slug, params.id)
         const [updated] = await db.update(project).set(body).where(eq(project.id, params.id)).returning()
         if (!updated) throw notFound("project_not_found", "Project not found")
-        return updated
+        return projectView(updated)
       },
       { auth: true, body: t.Partial(t.Object(projectFields)) },
     )

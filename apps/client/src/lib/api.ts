@@ -141,6 +141,20 @@ export interface IntegrationPatch {
   autoSend?: boolean
 }
 
+export interface AiProviderInput {
+  preset: "openai" | "custom"
+  baseUrl?: string
+  model: string
+  /** Left out to keep the saved key. */
+  apiKey?: string
+}
+
+export interface AiSettingsPatch {
+  sendResponseBodies?: boolean
+  defaultTemplateId?: string | null
+  projectDefaults?: Array<{ projectId: string; templateId: string | null }>
+}
+
 export function createApi(origin: string = window.location.origin, fetcher: typeof fetch = fetch) {
   const { api } = treaty<App>(origin, { fetcher })
   return {
@@ -253,6 +267,11 @@ export function createApi(origin: string = window.location.origin, fetcher: type
           .connections({ connectionId: id })
           .options.get({ query: { list, ...(opts.q ? { q: opts.q } : {}), ...(opts.parent ? { parent: opts.parent } : {}) } }),
       ),
+    /** Write with AI: the team key (details for admins only), the switch, the defaults and the shared templates. */
+    aiSetup: (workspaceId: string) => unwrap(api.workspaces({ id: workspaceId }).ai.get()),
+    saveAiProvider: (workspaceId: string, body: AiProviderInput) => unwrap(api.workspaces({ id: workspaceId }).ai.provider.put(body)),
+    removeAiProvider: (workspaceId: string) => unwrap(api.workspaces({ id: workspaceId }).ai.provider.delete()),
+    updateAiSettings: (workspaceId: string, patch: AiSettingsPatch) => unwrap(api.workspaces({ id: workspaceId }).ai.settings.patch(patch)),
     integrations: (projectId: string) => unwrap(api.projects({ id: projectId }).integrations.get()),
     addIntegration: (projectId: string, body: IntegrationInput) =>
       unwrap(api.projects({ id: projectId }).integrations.post(body as never)),
@@ -276,6 +295,7 @@ export type JoinPreview = Awaited<ReturnType<Api["joinPreview"]>>
 export type WorkspaceAccess = Awaited<ReturnType<Api["workspaceAccess"]>>
 export type WorkspaceLimits = Awaited<ReturnType<Api["workspaceLimits"]>>
 export type MyLimits = Awaited<ReturnType<Api["myLimits"]>>
+export type AiSetup = Awaited<ReturnType<Api["aiSetup"]>>
 export type OnboardingProgress = NonNullable<Awaited<ReturnType<Api["onboarding"]>>>
 export type JoinRequest = Awaited<ReturnType<Api["joinRequests"]>>[number]
 export type InviteResult = Awaited<ReturnType<Api["invite"]>>[number]

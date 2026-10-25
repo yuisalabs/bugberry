@@ -102,6 +102,7 @@ export const queries = {
     queryOptions({ queryKey: ["report-trackers", reportId], queryFn: () => api.reportTrackers(reportId) }),
   integrations: (projectId: string) =>
     queryOptions({ queryKey: ["integrations", projectId], queryFn: () => api.integrations(projectId) }),
+  ai: (workspaceId: string) => queryOptions({ queryKey: ["ai", workspaceId], queryFn: () => api.aiSetup(workspaceId) }),
   connections: (workspaceId: string) =>
     queryOptions({ queryKey: ["connections", workspaceId], queryFn: () => api.connections(workspaceId) }),
   connectionOptions: (workspaceId: string, id: string, list: OptionList, q = "", parent = "") =>
