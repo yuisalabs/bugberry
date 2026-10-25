@@ -61,11 +61,17 @@ describe("the title and description fields", () => {
     expect(fireEvent.keyDown(title(), { key: "Enter" })).toBe(false)
   })
 
-  test("both fields grow with their text, so a written-up description shows in full", async () => {
+  test("the title grows with its text; the description fills the space above Project and scrolls inside", async () => {
     Object.defineProperty(HTMLTextAreaElement.prototype, "scrollHeight", { configurable: true, get: () => 240 })
     view()
     await act(async () => fireEvent.change(description(), { target: { value: "## Steps to reproduce\n1. a\n2. b\n3. c" } }))
-    expect(description().style.height).toBe("240px")
     expect(title().style.height).toBe("240px")
+    // The description keeps its place: it doesn't grow, it scrolls, so Project, Priority and Assignee stay in view.
+    expect(description().style.height).toBe("")
+    expect(description().className).toContain("overflow-y-auto")
+    expect(description().className).toContain("flex-1")
+    const field = description().parentElement as HTMLElement
+    expect(field.className).toContain("flex-col")
+    expect(field.className).toContain("flex-1")
   })
 })

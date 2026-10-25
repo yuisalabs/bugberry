@@ -213,9 +213,8 @@ export function ReviewView(props: ReviewViewProps) {
   const asked = confirm ?? lastAsked.current
   const [problem, setProblem] = useState<string | null>(null)
   const update = (changes: Partial<ReportForm>) => setForm((current) => ({ ...current, ...changes }))
-  // Both fields grow with their text (a written-up description is long), and the title wraps instead of running off.
+  // The title wraps onto more lines instead of running off; the description scrolls inside its own space.
   const titleField = useAutoGrow(form.title)
-  const descriptionField = useAutoGrow(form.description)
   // Write with AI: the template follows the project's default until the reporter picks one; Undo brings back what
   // was typed before, until either field is edited again.
   const [pickedTemplate, setPickedTemplate] = useState<string | null>(null)
@@ -471,7 +470,7 @@ export function ReviewView(props: ReviewViewProps) {
                     onKeyDown={(event) => {
                       if (event.key === "Enter") event.preventDefault()
                     }}
-                    className="w-full resize-none overflow-hidden bg-transparent font-heading text-2xl/tight font-bold text-foreground outline-hidden placeholder:text-muted-foreground/70"
+                    className="w-full resize-none overflow-hidden bg-transparent font-heading text-lg/tight font-bold text-foreground outline-hidden placeholder:text-muted-foreground/70"
                   />
                   {!titleEdited && suggestion && (
                     <Description className="text-xs text-primary">
@@ -488,13 +487,14 @@ export function ReviewView(props: ReviewViewProps) {
                     setUndo(null)
                     update({ description })
                   }}
-                  className="flex-1"
+                  // Fills the space down to Project, Priority and Assignee, which stay in view; a long description
+                  // scrolls inside it.
+                  className="flex min-h-32 flex-1 flex-col"
                 >
                   <AriaTextArea
-                    ref={descriptionField}
                     rows={4}
                     placeholder="What went wrong? Describe what you expected to happen."
-                    className="min-h-24 w-full resize-none overflow-hidden bg-transparent text-base text-foreground outline-hidden placeholder:text-muted-foreground/70"
+                    className="min-h-24 w-full flex-1 resize-none overflow-y-auto bg-transparent text-base text-foreground outline-hidden placeholder:text-muted-foreground/70"
                   />
                 </TextField>
 
