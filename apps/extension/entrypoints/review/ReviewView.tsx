@@ -20,7 +20,6 @@ import {
   RiFlagLine,
   RiFolderLine,
   RiGithubFill,
-  RiGitlabFill,
   RiGlobalLine,
   RiHashtag,
   RiLink,
@@ -736,7 +735,24 @@ export function ReviewView(props: ReviewViewProps) {
   )
 }
 
-const TRACKER_ICONS: Record<string, RemixiconComponentType> = { github: RiGithubFill, gitlab: RiGitlabFill }
+/** Integration logos shipped with the extension (public/assets/integrations); GitHub's is the icon font's. */
+const TRACKER_MARKS: Record<string, string> = {
+  activecollab: "/assets/integrations/activecollab.png",
+  gitlab: "/assets/integrations/gitlab.svg",
+  jira: "/assets/integrations/jira.svg",
+  linear: "/assets/integrations/linear.svg",
+  plane: "/assets/integrations/plane.png",
+}
+
+/** The tracker's logo, so a repo name or "Project #261" says which integration it goes to. */
+function TrackerMark({ provider }: { provider: string }) {
+  if (provider === "github") return <RiGithubFill data-tracker-mark="github" aria-hidden className="size-5 shrink-0" />
+  const src = TRACKER_MARKS[provider]
+  return src ? <img data-tracker-mark={provider} src={src} alt="" className="size-5 shrink-0 rounded object-contain" /> : null
+}
+
+/** Tracker choices list the destination next to its logo, from the left. */
+const trackerChoice = "h-auto min-h-10 justify-start py-2 text-left"
 
 /** The right side once the report exists: what was created, its link and who sees it, and where else it can go. */
 function SentPanel(props: {
@@ -865,13 +881,12 @@ function SentPanel(props: {
             <>
               <div className="grid grid-cols-[repeat(auto-fit,minmax(7rem,1fr))] gap-2">
                 {props.trackers.map((tracker) => {
-                  const Icon = TRACKER_ICONS[tracker.provider]
                   const done = typeof tracker.state === "object" && "url" in tracker.state ? tracker.state : null
                   if (done?.url) {
                     return (
-                      <Link key={tracker.id} href={done.url} target="_blank" rel="noreferrer" className={buttonStyles({ intent: "outline", className: "justify-center" })}>
-                        {Icon && <Icon aria-hidden />}
-                        {tracker.label}
+                      <Link key={tracker.id} href={done.url} target="_blank" rel="noreferrer" className={buttonStyles({ intent: "outline", className: trackerChoice })}>
+                        <TrackerMark provider={tracker.provider} />
+                        <span className="min-w-0 flex-1 break-words">{tracker.label}</span>
                         <RiCheckLine aria-hidden className="text-success-subtle-foreground" />
                       </Link>
                     )
@@ -882,9 +897,10 @@ function SentPanel(props: {
                       intent="outline"
                       isDisabled={tracker.state === "sending" || done !== null}
                       onPress={() => props.onSendToTracker?.(tracker.id)}
+                      className={trackerChoice}
                     >
-                      {Icon && <Icon aria-hidden />}
-                      {tracker.state === "sending" ? "Sending…" : tracker.label}
+                      <TrackerMark provider={tracker.provider} />
+                      <span className="min-w-0 flex-1 break-words">{tracker.state === "sending" ? "Sending…" : tracker.label}</span>
                     </Button>
                   )
                 })}
