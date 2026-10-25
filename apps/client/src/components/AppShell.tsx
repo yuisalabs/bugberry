@@ -44,10 +44,8 @@ import { WorkspaceMenu } from "./WorkspaceMenu"
 import { installHref } from "../pages/landing/site-links"
 
 const sectionTitle = "px-2 pb-1 text-xs font-medium text-muted-foreground"
-// Colours live in the active and inactive styles only, so the open page's link never turns grey on hover.
-// The top bar's links are pills; the phone drawer lists the same pages as rows.
 const pill =
-  "flex items-center gap-2 rounded-full px-3 py-2 text-sm whitespace-nowrap 2xl:px-3.5 2xl:text-[15px] outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+  "flex items-center gap-2 rounded-full px-3 py-2 text-sm whitespace-nowrap 2xl:px-3.5 outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
 const pillOn = "bg-sidebar-primary font-medium text-sidebar-primary-foreground [&_svg]:text-sidebar-primary-foreground"
 const pillOff = "text-foreground/80 hover:bg-muted hover:text-foreground"
 const topLink = { className: pill, activeProps: { className: pillOn }, inactiveProps: { className: pillOff } }
@@ -323,8 +321,6 @@ export function AppShell() {
       <Sheet isOpen={drawer} onOpenChange={setDrawer} position="left" className="w-64 border-sidebar-border bg-sidebar xl:hidden">
         {drawerNav}
       </Sheet>
-      {/* The page sits on a soft panel under the top bar that runs to the window's bottom edge; from tablet width up
-          the panel is what scrolls. */}
       <main
         id={APP_MAIN_ID}
         data-scroll-restoration-id={APP_MAIN_ID}
