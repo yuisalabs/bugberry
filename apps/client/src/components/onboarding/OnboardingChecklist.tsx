@@ -246,7 +246,8 @@ export function OnboardingWidget({ startAsPill = false }: { startAsPill?: boolea
       {/* Phones scroll the window: room at the end of the page, so the pill never sits on its last button. */}
       <div aria-hidden className="h-16 md:hidden" />
       <div
-        className="fixed bottom-4 left-4 z-30 md:right-4 md:left-auto"
+        // The report page's phone layout has Copy link in a bar along the bottom: the pill sits above it.
+        className={`fixed left-4 z-30 md:right-4 md:left-auto ${startAsPill ? "bottom-20 md:bottom-4" : "bottom-4"}`}
         onClickCapture={(event) => {
           if (pill && (event.target as HTMLElement).closest("button")) setOpened(true)
         }}

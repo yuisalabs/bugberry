@@ -81,3 +81,26 @@ describe("OnboardingChecklistView", () => {
     expect(screen.getByText("1 of 6 done")).toBeTruthy()
   })
 })
+
+describe("OnboardingWidget", () => {
+  test("on the report page it sits above the phone's Copy link bar", async () => {
+    const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query")
+    const { OnboardingWidget } = await import("../src/components/onboarding/OnboardingChecklist")
+    const { OnboardingTestProvider } = await import("../src/components/onboarding/OnboardingProvider")
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
+    client.setQueryData(["me"], { id: "me", lastWorkspaceId: null })
+    client.setQueryData(["workspaces"], [])
+    client.setQueryData(["client-config"], { extensionInstallUrl: null })
+    const value = { progress: required(["extension"]), next: "screenshot" as const, record: mock(), setCollapsed: mock() }
+    render(
+      <QueryClientProvider client={client}>
+        <OnboardingTestProvider value={value}>
+          <OnboardingWidget startAsPill />
+        </OnboardingTestProvider>
+      </QueryClientProvider>,
+    )
+    const corner = screen.getByRole("region", { name: "Getting started" }).closest(".fixed")
+    expect(corner?.className).toContain("bottom-20")
+    expect(corner?.className).toContain("md:bottom-4")
+  })
+})
