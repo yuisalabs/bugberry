@@ -184,6 +184,12 @@ export function AiWritingSettingsView({
             <SelectContent items={templateItems}>{(item) => <SelectItem id={item.id}>{item.name}</SelectItem>}</SelectContent>
           </Select>
           {projects.length > 0 && (
+            <div className="flex flex-col gap-1 border-t border-border pt-5">
+              <h3 className="font-heading text-base font-semibold text-foreground">Per project</h3>
+              <p className="text-sm text-muted-foreground">Reports from a project's pages start with its template.</p>
+            </div>
+          )}
+          {projects.length > 0 && (
             <div className="grid gap-4 sm:grid-cols-2">
               {projects.map((entry) => (
                 <Select

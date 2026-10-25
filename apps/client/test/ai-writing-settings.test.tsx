@@ -112,6 +112,12 @@ describe("settings", () => {
     expect(props.onChangeSettings).toHaveBeenCalledWith({ projectDefaults: [{ projectId: "p1", templateId: "t2" }] })
   })
 
+  test("project defaults sit under a Per project heading that says what they do", () => {
+    view()
+    expect(screen.getByRole("heading", { name: "Per project" })).toBeTruthy()
+    expect(screen.getByText("Reports from a project's pages start with its template.")).toBeTruthy()
+  })
+
   test("a project with its own template can go back to the workspace default", async () => {
     const props = view({ setup: setup({ projectDefaults: [{ projectId: "p1", templateId: "t2" }] }) })
     choose("Checkout Web", "Use the workspace default")

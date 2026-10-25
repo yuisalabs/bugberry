@@ -32,7 +32,7 @@ import {
   RiVideoOnLine,
   RiWindowLine,
 } from "@remixicon/react"
-import { type ReactNode, useEffect, useRef, useState } from "react"
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
 import { Button as AriaButton, Input as AriaInput, ProgressBar, TextArea as AriaTextArea } from "react-aria-components"
 import type { TemplateText } from "@bugberry/ai-write"
 import type { AiPath } from "../../lib/ai-assist"
@@ -222,8 +222,10 @@ export function ReviewView(props: ReviewViewProps) {
   const writingNow = useRef(false)
   const [aiError, setAiError] = useState<string | null>(null)
   const [undo, setUndo] = useState<{ title: string; description: string } | null>(null)
-  // Over a page, a click on Write with AI counts only while nothing of the page covers the review.
-  const aiRow = useRef<HTMLDivElement>(null)
+  // Over a page, a click on Write with AI counts only while nothing of the page covers the review. The row appears
+  // once the AI settings have loaded, after the first render, so the check follows the element as it mounts.
+  const [aiRowElement, setAiRowElement] = useState<HTMLDivElement | null>(null)
+  const aiRow = useMemo(() => ({ current: aiRowElement }), [aiRowElement])
   const aiSeen = useUnobscured(aiRow, props.embedded)
   const writeWithAi = async () => {
     if (writingNow.current || !aiSeen || !props.onAiWrite || !aiTemplate) return
@@ -387,7 +389,7 @@ export function ReviewView(props: ReviewViewProps) {
                 )}
 
                 {isVideo && ai && !props.signInUrl && (
-                  <div ref={aiRow} className="flex flex-col gap-2">
+                  <div ref={setAiRowElement} className="flex flex-col gap-2">
                     {ai.path ? (
                       ai.templates.length > 0 ? (
                         <div className="flex flex-wrap items-center gap-2">

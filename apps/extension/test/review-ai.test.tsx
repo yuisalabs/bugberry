@@ -60,9 +60,11 @@ function view(overrides: Partial<ReviewViewProps> = {}) {
     onAiWrite: mock(async () => ({ title: "Checkout: Pay spins", description: "## Steps\n1. Click Pay" })),
     ...overrides,
   }
-  render(<ReviewView {...props} />)
+  renderResult = render(<ReviewView {...props} />)
   return props
 }
+
+let renderResult: ReturnType<typeof render>
 
 const titleInput = () => screen.getByRole("textbox", { name: "Title" }) as HTMLInputElement
 const descriptionInput = () => screen.getByRole("textbox", { name: "What went wrong?" }) as HTMLTextAreaElement
@@ -154,6 +156,27 @@ describe("Write with AI in the review", () => {
     expect(descriptionInput().readOnly).toBe(true)
     await act(async () => finish({ title: "T", description: "D" }))
     expect(titleInput().readOnly).toBe(false)
+  })
+
+  test("over a page, Write with AI works once the AI settings arrive after the review opened", async () => {
+    const original = globalThis.IntersectionObserver
+    globalThis.IntersectionObserver = class {
+      constructor(private readonly callback: (entries: Array<{ isVisible: boolean }>) => void) {}
+      observe() {
+        this.callback([{ isVisible: true }])
+      }
+      disconnect() {}
+    } as unknown as typeof IntersectionObserver
+    try {
+      // The review shows first; the workspace's AI settings come from the server a moment later.
+      const props = view({ embedded: true, ai: null })
+      const { rerender } = renderResult
+      await act(async () => rerender(<ReviewView {...props} ai={ai()} />))
+      await act(async () => fireEvent.click(write()))
+      expect(props.onAiWrite).toHaveBeenCalled()
+    } finally {
+      globalThis.IntersectionObserver = original
+    }
   })
 
   test("over a page, Write with AI is off while something covers the review", async () => {
