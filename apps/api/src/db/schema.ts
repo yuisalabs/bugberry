@@ -6,6 +6,7 @@ import {
   PRIORITIES,
   REPORT_STATUSES,
   INTEGRATION_PROVIDERS,
+  type OnboardingItemId,
   UPLOAD_STATUSES,
   type UseTarget,
   VISIBILITIES,
@@ -52,6 +53,14 @@ export const activityKindEnum = pgEnum("activity_kind", ACTIVITY_KINDS)
 
 // --- Better Auth tables: property names must match Better Auth's model fields. ---
 
+/** When each checklist item was first done (ISO time), and how the checklist shows. */
+export interface OnboardingState {
+  steps?: Partial<Record<OnboardingItemId, string>>
+  celebratedAt?: string
+  collapsed?: boolean
+  completedAt?: string
+}
+
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
@@ -62,6 +71,8 @@ export const user = pgTable("user", {
   lastWorkspaceId: text("last_workspace_id").references((): AnyPgColumn => workspace.id, { onDelete: "set null" }),
   /** Exempt from ACCOUNT_LIMITS; set only from the server's CLI (bun run account:unlimited). */
   unlimited: boolean("unlimited").default(false).notNull(),
+  /** The Getting started checklist; null for accounts made before it existed, which never see it. */
+  onboarding: jsonb("onboarding").$type<OnboardingState>(),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 })

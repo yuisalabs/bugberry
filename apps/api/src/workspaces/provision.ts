@@ -50,6 +50,11 @@ export async function createWorkspace(
   }
 }
 
+/** Gives a new account the Getting started checklist; an account that already has one keeps it. */
+export async function startOnboarding(db: Db, userId: string): Promise<void> {
+  await db.update(user).set({ onboarding: {} }).where(and(eq(user.id, userId), isNull(user.onboarding)))
+}
+
 /**
  * Runs once for every new account. Someone who was invited joins through the invitation instead,
  * so they get no workspace of their own; everyone else starts with one. An invitation into a workspace
@@ -60,6 +65,7 @@ export async function provisionNewUser(
   person: { id: string; name: string; email: string },
   limits: AccountLimits | null,
 ): Promise<void> {
+  await startOnboarding(db, person.id)
   const invitations = await db
     .select({ workspaceId: workspaceInvitation.workspaceId })
     .from(workspaceInvitation)

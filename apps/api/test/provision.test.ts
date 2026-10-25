@@ -67,6 +67,27 @@ describe("provisionNewUser", () => {
     }
   })
 
+  const onboardingOf = async (userId: string) =>
+    (await ctx.db.select({ onboarding: user.onboarding }).from(user).where(eq(user.id, userId)))[0]?.onboarding
+
+  test("a new person starts with an empty onboarding", async () => {
+    const person = await createUser(ctx.db, { name: "Budi", email: "budi@ptmaju.com", workspaceId: null })
+    await provisionNewUser(ctx.db, person, null)
+    expect(await onboardingOf(person.id)).toEqual({})
+  })
+
+  test("an invited person starts onboarding too", async () => {
+    await invite("sari@ptmaju.com")
+    const person = await createUser(ctx.db, { name: "Sari", email: "sari@ptmaju.com", workspaceId: null })
+    await provisionNewUser(ctx.db, person, null)
+    expect(await onboardingOf(person.id)).toEqual({})
+  })
+
+  test("an existing account keeps no onboarding", async () => {
+    const person = await createUser(ctx.db, { name: "Lama" })
+    expect(await onboardingOf(person.id)).toBeNull()
+  })
+
   test("signing up through Better Auth provisions the workspace", async () => {
     const outbox: EmailMessage[] = []
     const app = (await setupTestApp({}, { email: { send: async (message) => void outbox.push(message) } })).app
