@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test"
 import { ONBOARDING_STEPS } from "@bugberry/shared"
-import { fireEvent, render, screen } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { OnboardingChecklistView } from "../src/components/onboarding/OnboardingChecklist"
 import type { OnboardingProgress } from "../src/lib/api"
 
@@ -49,15 +49,18 @@ describe("OnboardingChecklistView", () => {
     expect(screen.getByRole("button", { name: "Start recording" })).toBeTruthy()
   })
 
-  test("collapsing calls back, and collapsed it is a pill", () => {
+  test("collapsing plays the closing animation, then calls back, and collapsed it is a pill", async () => {
     const onCollapse = mock()
     const { rerender } = view(required(["extension"]), { onCollapse })
+    expect(screen.getByRole("region", { name: "Getting started" }).hasAttribute("data-onboarding-panel")).toBe(true)
     fireEvent.click(screen.getByRole("button", { name: "Hide checklist" }))
-    expect(onCollapse).toHaveBeenCalledWith(true)
+    expect(screen.getByRole("region", { name: "Getting started" }).hasAttribute("data-leaving")).toBe(true)
+    expect(onCollapse).not.toHaveBeenCalled()
+    await waitFor(() => expect(onCollapse).toHaveBeenCalledWith(true))
     rerender(
       <OnboardingChecklistView progress={required(["extension"], { collapsed: true })} actions={{}} onCollapse={onCollapse} onCelebrated={mock()} />,
     )
-    expect(screen.getByRole("button", { name: "Getting started 1/5" })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Getting started 1/5" }).closest("[data-onboarding-pill]")).toBeTruthy()
     expect(screen.queryByText("Record your first video")).toBeNull()
   })
 

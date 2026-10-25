@@ -132,6 +132,36 @@
             opacity: 0;
         }
     }
+    /* The checklist grows out of its corner when it opens, folds back into it when hidden, and the pill pops in. */
+    [data-onboarding-panel] {
+        transform-origin: bottom left;
+        animation: onboarding-in 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+    [data-onboarding-panel][data-leaving] {
+        animation: onboarding-out 0.18s cubic-bezier(0.4, 0, 1, 1) both;
+    }
+    [data-onboarding-pill] {
+        transform-origin: bottom left;
+        animation: onboarding-pill-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+    @keyframes onboarding-in {
+        from {
+            opacity: 0;
+            transform: translateY(12px) scale(0.92);
+        }
+    }
+    @keyframes onboarding-out {
+        to {
+            opacity: 0;
+            transform: translateY(12px) scale(0.92);
+        }
+    }
+    @keyframes onboarding-pill-in {
+        from {
+            opacity: 0;
+            transform: scale(0.8);
+        }
+    }
     [data-onboarding-pulse] {
         animation: onboarding-pulse 1.8s ease-in-out infinite;
     }

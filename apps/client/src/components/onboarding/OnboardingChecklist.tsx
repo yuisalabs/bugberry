@@ -2,7 +2,7 @@ import type { OnboardingItemId } from "@bugberry/shared"
 import { RiArrowDownSLine, RiCheckLine, RiRecordCircleLine } from "@remixicon/react"
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import { type ReactNode, useState } from "react"
+import { type ReactNode, useEffect, useState } from "react"
 import { Button, buttonStyles } from "@bugberry/ui/button"
 import { useMediaQuery } from "../../hooks/useMediaQuery"
 import type { OnboardingProgress } from "../../lib/api"
@@ -13,6 +13,11 @@ import { installHref } from "../../pages/landing/site-links"
 import { InviteDialog } from "../InviteDialog"
 import { InstallExtensionButton, NewReportButton } from "../NewReportButton"
 import { useOnboarding } from "./OnboardingProvider"
+
+/** How long the panel takes to fold into the pill (styles.css, onboarding-out). */
+const CLOSE_MS = 180
+
+const reducedMotion = () => typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
 
 const CONFETTI = ["#D61F69", "#f59e0b", "#10b981", "#3b82f6", "#a855f7", "#D61F69", "#f59e0b", "#10b981"]
 
@@ -94,10 +99,21 @@ export function OnboardingChecklistView({
   const { done, total } = doneCount(progress)
   const next = nextStep(progress)
   const bonus = progress.phase === "bonus"
+  // Hiding plays the panel's closing animation first, then it becomes the pill.
+  const [leaving, setLeaving] = useState(false)
+  useEffect(() => {
+    if (!leaving) return
+    const timer = setTimeout(() => {
+      setLeaving(false)
+      onCollapse(true)
+    }, CLOSE_MS)
+    return () => clearTimeout(timer)
+  }, [leaving])
+  const hide = () => (reducedMotion() ? onCollapse(true) : setLeaving(true))
 
   if (collapsed) {
     return (
-      <section aria-label="Getting started">
+      <section aria-label="Getting started" data-onboarding-pill>
         <Button size="sm" onPress={() => onCollapse(false)} className="rounded-full px-4 shadow-lg shadow-primary/30">
           <RiRecordCircleLine aria-hidden />
           {`${bonus ? "Missions" : "Getting started"} ${done}/${total}`}
@@ -107,13 +123,18 @@ export function OnboardingChecklistView({
   }
 
   return (
-    <section aria-label="Getting started" className="w-72 rounded-xl border border-border bg-background p-3 shadow-xl">
+    <section
+      aria-label="Getting started"
+      data-onboarding-panel
+      {...(leaving ? { "data-leaving": "" } : {})}
+      className="w-72 rounded-xl border border-border bg-background p-3 shadow-xl"
+    >
       <div className="flex items-start gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <h2 className="font-heading text-sm font-bold text-foreground">{bonus ? "Bonus missions" : "Get to know BugBerry"}</h2>
           <p className="text-xs text-muted-foreground">{`${done} of ${total} done`}</p>
         </div>
-        <Button intent="plain" size="sq-sm" aria-label="Hide checklist" onPress={() => onCollapse(true)}>
+        <Button intent="plain" size="sq-sm" aria-label="Hide checklist" isDisabled={leaving} onPress={hide}>
           <RiArrowDownSLine aria-hidden />
         </Button>
       </div>
