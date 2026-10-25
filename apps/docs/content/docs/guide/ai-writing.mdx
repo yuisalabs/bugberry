@@ -1,0 +1,64 @@
+---
+title: Write with AI
+description: Draft a report's title and steps to reproduce from the recording, with your own OpenAI-compatible key.
+---
+
+After you record a bug, **Write with AI** in the review drafts the title and the description, with steps to reproduce, from what the recording caught. You read it, change what you like, and send. Nothing is sent by itself.
+
+BugBerry doesn't come with an AI model. You bring your own key (BYOK): an OpenAI API key, or a key for any server that speaks OpenAI's API, such as a self-hosted model.
+
+<Callout>A ChatGPT Plus or Pro subscription is not an API key. Create one at platform.openai.com; it is billed by use.</Callout>
+
+## Set up a key
+
+There are two kinds of key. When both are set, your personal key is used.
+
+**The team key.** A workspace admin opens **AI Agents** in the dashboard's top bar, then **Write with AI**. They choose **OpenAI** or **OpenAI-compatible** (with its base URL, for example `https://ai.example.com/v1`), and enter the model and the key. **Test and save** sends the provider a tiny request first and saves the key only if it answers. The key is stored encrypted on the BugBerry server and never shown again, not even to admins; members only see that a team key is set.
+
+**Your personal key.** In the extension's settings, under **Write with AI (personal key)**. It stays in your browser and goes only to your AI provider, never to the BugBerry server. Because the extension calls the provider itself, a model running on your own computer or network works too, for example `http://localhost:11434/v1`.
+
+On a self-hosted server, a team key's provider on a private address (`localhost`, `10.x`, `192.168.x`) is refused unless the server allows private integration hosts. A personal key has no such limit.
+
+## Templates
+
+A template decides how the description is laid out. It has:
+
+- **Sections**: Markdown headings the AI fills in, one per line, such as `## Steps to reproduce`, `## Expected`, `## Actual`;
+- **Extra instructions** (optional), such as "at most 5 steps, end with the likely cause".
+
+The description is written in the language of the template and its instructions. Write them in Indonesian and the description comes out in Indonesian.
+
+Every workspace starts with two templates, **Steps to reproduce** and **Short**. Anyone in the workspace can add, edit or delete templates. Admins choose the workspace's default template and, if they like, a different default per project. In the review the template follows the selected project's default, and you can pick another for one report.
+
+## In the review
+
+Write with AI appears above the title for recordings (not screenshots).
+
+1. Optionally type a few words first, in the title or the description, such as "payment fails with a debit card". The AI uses them as a hint about what you meant to report.
+2. Pick a template, then press **Write with AI**.
+3. The title and description are replaced with the draft. **Undo** brings back what you had typed, until you edit either field again.
+
+If you trimmed the video, only the part you kept is used. The AI is told to build the steps only from what the recording shows, and to say "cause not visible in the recording" rather than guess.
+
+## What is sent to the provider
+
+- What you did: clicks, submits, page changes, and which fields you typed into (never what you typed: the recording only keeps `•••`);
+- the pages you visited, without their query strings;
+- console errors and uncaught errors;
+- failed requests: method, address without its query string, and status;
+- your notes from the recording, the page title, your browser and OS, and your hint.
+
+Never sent: request bodies, headers, requests that succeeded, the video, or screenshots.
+
+**Response bodies** of failed requests often explain an error, so an admin can turn on **Send response bodies to AI** (off by default). It applies to personal keys too. The extension already replaces secrets such as passwords, tokens and `Authorization` headers with `[redacted]`, but other personal data in a response body, such as a customer's name or email, is sent as is.
+
+## When it doesn't work
+
+| Message | What to do |
+| --- | --- |
+| The AI key was rejected | Update the key: an admin in **Write with AI** for the team key, or you in the extension's settings for yours. |
+| Your AI provider says the quota is used up | Add credit or raise the limit at your provider. |
+| The model "…" wasn't found at this provider | Check the model's name in the key's settings. |
+| The AI server didn't answer | The provider is down, slow, or not reachable from where it is called. Try again. |
+| The AI's answer couldn't be used | The model didn't answer in the expected format. Try again, or choose a stronger model. |
+| Ask your admin to set up AI | Nobody has set a team key, and you have no personal key. |
