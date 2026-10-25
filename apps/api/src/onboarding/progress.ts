@@ -87,20 +87,27 @@ function derived(db: Db, id: OnboardingItemId, userId: string, workspaceId: stri
 /** The newest ready report here, the person's own first; optionally only among `projectIds`. */
 async function target(db: Db, userId: string, workspaceId: string, projectIds?: string[]): Promise<string | null> {
   if (projectIds?.length === 0) return null
-  const [row] = await db
-    .select({ id: report.id })
-    .from(report)
-    .where(
-      and(
-        eq(report.workspaceId, workspaceId),
-        eq(report.uploadStatus, "ready"),
-        projectIds ? inArray(report.projectId, projectIds) : undefined,
-      ),
-    )
-    .orderBy(sql`${report.reporterId} = ${userId} desc`, desc(report.createdAt))
-    .limit(1)
-  return row?.id ?? null
+  const newest = async (mine: boolean) => {
+    const [row] = await db
+      .select({ id: report.id })
+      .from(report)
+      .where(
+        and(
+          eq(report.workspaceId, workspaceId),
+          eq(report.uploadStatus, "ready"),
+          mine ? eq(report.reporterId, userId) : undefined,
+          projectIds ? inArray(report.projectId, projectIds) : undefined,
+        ),
+      )
+      .orderBy(desc(report.createdAt))
+      .limit(1)
+    return row?.id ?? null
+  }
+  return (await newest(true)) ?? (await newest(false))
 }
+
+/** The steps whose button opens a report, and the one that opens a report in a project with a tracker. */
+const OPENS_REPORT = new Set<OnboardingItemId>(["devtools", "shared", "comment"])
 
 /**
  * The person's checklist in a workspace, or null when they have none (an account from before it, or one
@@ -118,8 +125,10 @@ export async function onboardingProgress(db: Db, userId: string, workspaceId: st
   const stored = { ...state.steps }
   const now = new Date().toISOString()
   const fresh: Partial<Record<OnboardingItemId, string>> = {}
+  // Missions are only looked at once they show; until then the five steps are all there is to check.
+  const inBonus = ONBOARDING_STEPS.every((id) => stored[id]) && Boolean(state.celebratedAt)
   await Promise.all(
-    [...ONBOARDING_STEPS, ...missions]
+    [...ONBOARDING_STEPS, ...(inBonus ? missions : [])]
       .filter((id) => !stored[id])
       .map(async (id) => {
         if (await derived(db, id, userId, workspaceId)) fresh[id] = now
@@ -137,12 +146,14 @@ export async function onboardingProgress(db: Db, userId: string, workspaceId: st
   }
   if (completed) return null
 
+  // Only the next item has a button, so only its report is looked up.
+  const next = phase === "celebrate" ? undefined : shown.find((id) => !steps[id])
   return {
     phase,
     steps: shown.map((id) => ({ id, done: Boolean(steps[id]) })),
     collapsed: state.collapsed === true,
-    reportTarget: await target(db, userId, workspaceId),
-    trackerTarget: await target(db, userId, workspaceId, projectIds),
+    reportTarget: next && OPENS_REPORT.has(next) ? await target(db, userId, workspaceId) : null,
+    trackerTarget: next === "send" ? await target(db, userId, workspaceId, projectIds) : null,
   }
 }
 

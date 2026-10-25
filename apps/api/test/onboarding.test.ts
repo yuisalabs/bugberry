@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { ONBOARDING_STEPS } from "@bugberry/shared"
-import { eq } from "drizzle-orm"
+import { eq, sql } from "drizzle-orm"
 import { apiToken, comment, type OnboardingState, report, user } from "../src/db/schema"
 import { hashToken } from "../src/lib/api-token"
 import { newId } from "../src/lib/ids"
@@ -96,6 +96,9 @@ describe("GET /me/onboarding", () => {
     expect(await done("tracker")).toBe(true)
     expect(await ids()).toContain("send")
     expect(await done("send")).toBe(false)
+    // Send is next once the missions before it are done; only then is its report looked up.
+    const before = { invite: "2026-10-25T00:00:00.000Z", project: "2026-10-25T00:00:00.000Z", comment: "2026-10-25T00:00:00.000Z" }
+    await setOnboarding(budi.user.id, { ...BONUS, steps: { ...ALL_STEPS, ...before, tracker: "2026-10-25T00:00:00.000Z" } })
     expect((await progress()).data?.trackerTarget).toBeNull()
     const inProject = await createReadyReport(ctx.db, { reporterId: budi.user.id, projectId: web.id })
     await createReadyReport(ctx.db, { reporterId: budi.user.id, projectId: null })
@@ -103,6 +106,7 @@ describe("GET /me/onboarding", () => {
   })
 
   test("reportTarget prefers my own report, else a teammate's", async () => {
+    await setOnboarding(budi.user.id, { steps: { extension: "2026-10-25T00:00:00.000Z", screenshot: "2026-10-25T00:00:00.000Z", video: "2026-10-25T00:00:00.000Z" } })
     const sari = await createUserWithToken(ctx.db, { name: "Sari" })
     const theirs = await createReadyReport(ctx.db, { reporterId: sari.user.id, createdAt: new Date("2026-10-25T10:00:00Z") })
     expect((await progress()).data?.reportTarget).toBe(theirs.id)
@@ -119,6 +123,27 @@ describe("GET /me/onboarding", () => {
     expect((await progress(sari)).data).toBeNull()
     expect((await onboardingOf(sari.user.id))?.completedAt).toBeTruthy()
     expect((await progress(sari)).data).toBeNull()
+  })
+
+  test("targets are only looked up for the step that needs them", async () => {
+    const sari = await createUserWithToken(ctx.db, { name: "Sari" })
+    await createReadyReport(ctx.db, { reporterId: sari.user.id })
+    const { data } = await progress()
+    expect(data?.steps.find((step) => !step.done)?.id).toBe("extension")
+    expect(data?.reportTarget).toBeNull()
+    expect(data?.trackerTarget).toBeNull()
+  })
+
+  test("the columns progress is read by are indexed", async () => {
+    const rows = await ctx.db.execute<{ tablename: string; indexdef: string }>(
+      sql`select tablename, indexdef from pg_indexes where schemaname = 'public'`,
+    )
+    const indexed = (table: string, column: string) =>
+      [...rows].some((row) => row.tablename === table && new RegExp(`\\(${column}[,)]`).test(row.indexdef))
+    expect(indexed("report", "reporter_id")).toBe(true)
+    expect(indexed("comment", "author_id")).toBe(true)
+    expect(indexed("report_activity", "actor_id")).toBe(true)
+    expect(indexed("workspace_invitation", "invited_by_id")).toBe(true)
   })
 
   test("an outsider workspace answers 404", async () => {

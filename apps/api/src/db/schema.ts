@@ -191,7 +191,11 @@ export const workspaceInvitation = pgTable(
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
     createdAt: createdAt(),
   },
-  (table) => [index("workspace_invitation_workspace_idx").on(table.workspaceId), index("workspace_invitation_email_idx").on(table.email)],
+  (table) => [
+    index("workspace_invitation_workspace_idx").on(table.workspaceId),
+    index("workspace_invitation_email_idx").on(table.email),
+    index("workspace_invitation_invited_by_idx").on(table.invitedById),
+  ],
 )
 
 export const apiToken = pgTable(
@@ -284,6 +288,8 @@ export const report = pgTable(
     index("report_status_idx").on(table.status),
     index("report_upload_status_created_idx").on(table.uploadStatus, table.createdAt),
     uniqueIndex("report_workspace_number_idx").on(table.workspaceId, table.number),
+    // The Getting started checklist asks what this person has captured.
+    index("report_reporter_idx").on(table.reporterId, table.captureType, table.uploadStatus),
   ],
 )
 
@@ -310,6 +316,7 @@ export const comment = pgTable(
   (table) => [
     index("comment_report_created_idx").on(table.reportId, table.createdAt),
     index("comment_parent_idx").on(table.parentId),
+    index("comment_author_idx").on(table.authorId),
   ],
 )
 
@@ -347,7 +354,10 @@ export const reportActivity = pgTable(
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (table) => [index("report_activity_report_created_idx").on(table.reportId, table.createdAt)],
+  (table) => [
+    index("report_activity_report_created_idx").on(table.reportId, table.createdAt),
+    index("report_activity_actor_idx").on(table.actorId, table.kind),
+  ],
 )
 
 /** An account or channel a workspace admin connected once; projects use it through `integration` rows. */
