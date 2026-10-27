@@ -13,6 +13,7 @@ const READ = [
   "getPerformance",
   "getCodeHotspots",
   "getScreenshot",
+  "getRecording",
   "getComments",
   "searchReports",
   "listWorkspaces",

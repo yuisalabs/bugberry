@@ -100,6 +100,10 @@ describe("nextSteps", () => {
       "getTimeline",
     ])
   })
+
+  test("a video report also points to its recording", () => {
+    expect(nextSteps({ ...SUMMARY, errors: 0, failedRequests: 0, actions: 0 }, "video")).toEqual(["getTimeline", "getRecording"])
+  })
 })
 
 describe("getComments", () => {

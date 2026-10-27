@@ -1,4 +1,4 @@
-import type { DebuggerSummary } from "@bugberry/shared"
+import type { CaptureType, DebuggerSummary } from "@bugberry/shared"
 import { consoleEntries, environmentRows } from "@bugberry/debugger-view"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { count, eq } from "drizzle-orm"
@@ -17,13 +17,14 @@ const MAX_IMAGE_BYTES = 1024 * 1024
 const LINK_SECONDS = 300
 const TOP_ERRORS = 3
 
-/** What to call next, from what the debugger caught. */
-export function nextSteps(summary: DebuggerSummary): string[] {
+/** What to call next, from what the debugger caught; a video can also be looked at frame by frame. */
+export function nextSteps(summary: DebuggerSummary, captureType: CaptureType = "screenshot"): string[] {
   const steps: string[] = []
   if (summary.errors > 0) steps.push('getConsoleLogs levels=["error"]', "getCodeHotspots")
   if (summary.failedRequests > 0) steps.push("getNetworkRequests failedOnly=true")
   if (summary.actions > 0) steps.push("getUserActions")
   steps.push("getTimeline")
+  if (captureType === "video") steps.push("getRecording")
   return steps
 }
 
@@ -58,7 +59,7 @@ export async function reportSummary(ctx: McpContext, resolved: ResolvedReport) {
     : []
   const url = reportUrl(deps.config.appUrl, resolved.id)
   const summary = detail.debuggerSummary
-  const steps = nextSteps(summary)
+  const steps = nextSteps(summary, detail.captureType)
 
   const lines = [
     `BB-${detail.number} · ${detail.title}`,

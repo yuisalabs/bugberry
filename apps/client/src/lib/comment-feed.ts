@@ -54,6 +54,7 @@ const READ_PARTS: Record<string, string> = {
   report: "this report",
   comments: "the comments",
   screenshot: "the screenshot",
+  recording: "the recording",
   timeline: "the timeline",
   console: "the console",
   actions: "the user actions",

@@ -96,6 +96,7 @@ describe("activitySentence", () => {
     expect(activitySentence(activityFixture({ kind: "agent_read", detail: { parts: ["report", "network", "console"] } }))).toBe(
       "read this report, the network log and the console",
     )
+    expect(activitySentence(activityFixture({ kind: "agent_read", detail: { parts: ["recording"] } }))).toBe("read the recording")
   })
 
   test("the report's creation names the browser extension", () => {

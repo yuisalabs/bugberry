@@ -19,6 +19,7 @@ export type ReadPart =
   | "report"
   | "comments"
   | "screenshot"
+  | "recording"
   | "timeline"
   | "console"
   | "actions"
