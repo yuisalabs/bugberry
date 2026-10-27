@@ -3,7 +3,19 @@ title: Changelog
 description: What changed in BugBerry, newest first.
 ---
 
-Each entry is named after the browser extension's version. Changes to the dashboard and the server ship with it.
+Each entry is named after the browser extension's version. Changes to the dashboard and the server ship with it. A
+release with no extension change still gets its own entry, and the entry says that the extension stays as it is.
+
+## 0.9.1 · 27 October 2026
+
+- **AI agents can watch a recording.** Before, an agent only got a video report's thumbnail. The new MCP tool
+  `getRecording` gives it a link to the video, valid for 5 minutes. It also lists up to 20 moments worth a frame, in
+  video time: errors and failed requests with the click just before them, your notes, rage clicks, and page changes.
+  It comes with the `ffmpeg` commands to cut those frames. An agent on your computer, such as Claude Code, Cursor, or
+  VS Code, downloads the video, looks at the frames next to the console and network logs, then deletes them. For a
+  video report, `getReport` now suggests `getRecording` as a next step, and the report's activity shows "read the
+  recording". See [AI agents](/guide/ai-agents#recordings).
+- **Self-hosting:** update the server. There is no migration and nothing to set. The extension stays at 0.9.0.
 
 ## 0.9.0 · 26 October 2026
 

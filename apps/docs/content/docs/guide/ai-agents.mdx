@@ -18,10 +18,26 @@ Most apps sign in with OAuth: the app opens a BugBerry page where you approve it
 Paste a report link, or a number like `BB-123`, into the agent. It can:
 
 - read the report: details, timeline, console, network, user actions, performance, the files and lines that failed, the screenshot, and comments;
+- look at a recording frame by frame (see below);
 - search reports;
 - comment (shown with a **via AI** badge);
 - change status, priority, or assignee;
 - send the report to a tracker.
+
+### Recordings
+
+For a video report, the agent gets a link to the video that works for 5 minutes, and the moments worth looking at, in
+video time:
+
+- errors and failed requests;
+- the click just before them;
+- your notes, rage clicks, and page changes.
+
+It also gets the `ffmpeg` commands that cut a frame at each moment. An agent that runs on your computer, such as
+Claude Code, Cursor, or VS Code, downloads the video, cuts the frames, looks at them, and deletes them when it's done.
+It needs [ffmpeg](https://ffmpeg.org/download.html) installed.
+
+Apps that can't run commands, such as ChatGPT or Claude.ai, still get the recording's thumbnail.
 
 ## What an agent can't do
 
