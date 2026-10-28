@@ -396,7 +396,8 @@ export default defineBackground(() => {
   /** `reason`: why the recording ended by itself; absent when the reporter stopped it. */
   const stopRecording = async (reason?: RecordingEndReason): Promise<CaptureResult> => {
     const status = await recordings.status()
-    const result = await recordings.stop(reason)
+    // In the recorder build nobody reviews: the agent recorder reads the draft when the agent stops.
+    const result = await recordings.stop(reason, { review: !RECORDER_BUILD })
     return status.recording ? flagFailure(status.tabId, result) : result
   }
 

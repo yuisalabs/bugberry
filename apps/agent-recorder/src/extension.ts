@@ -28,24 +28,27 @@ function failed(answer: unknown): string | null {
   return reply.ok === true ? null : typeof reply.error === "string" ? reply.error : "The extension didn't answer"
 }
 
-/** Records `page` the way the popup's Record button does, without the countdown, with the server's limits. */
-export async function startTabRecording(session: BrowserSession, page: Page, caps: RecordingCaps): Promise<void> {
-  const error = await withAutomationPage(session, async (automation) => {
+/**
+ * Records `page` the way the popup's Record button does, without the countdown, with the server's limits; resolves
+ * with the draft the extension records into.
+ */
+export async function startTabRecording(session: BrowserSession, page: Page, caps: RecordingCaps): Promise<{ draftId: string }> {
+  const answer = await withAutomationPage(session, async (automation) => {
     // Recording a tab asks for it in front, as a person's click on it would leave it.
     await page.bringToFront()
     const tabId = await automation.evaluate(async (url) => (await chrome.tabs.query({ url }))[0]?.id ?? null, page.url())
-    if (tabId === null) return "The recorded tab is not known to the extension"
-    return failed(
-      await automation.evaluate((message) => chrome.runtime.sendMessage(message), {
-        type: "bugberry:record-start",
-        tabId,
-        options: { source: "tab", mic: false, systemAudio: false, countdown: false, camera: null },
-        caps,
-      }),
-    )
+    if (tabId === null) return { ok: false, error: "The recorded tab is not known to the extension" }
+    return automation.evaluate((message) => chrome.runtime.sendMessage(message), {
+      type: "bugberry:record-start",
+      tabId,
+      options: { source: "tab", mic: false, systemAudio: false, countdown: false, camera: null },
+      caps,
+    })
   })
   await page.bringToFront()
+  const error = failed(answer)
   if (error) throw new Error(`Couldn't start recording: ${error}`)
+  return { draftId: String((answer as { draftId: unknown }).draftId) }
 }
 
 /** Stops the running recording with the review left closed; resolves with its draft's id. */
