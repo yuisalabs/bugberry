@@ -3,6 +3,7 @@ export interface PageLike {
   url(): string
   isClosed(): boolean
   goto(url: string): Promise<unknown>
+  reload(): Promise<unknown>
   bringToFront(): Promise<void>
 }
 
@@ -67,4 +68,12 @@ export async function recordedPageFor<P extends PageLike>(context: ContextLike<P
   const page = previous && !previous.isClosed() ? previous : (previous === null ? agentTabs(context)[0] : undefined) ?? (await context.newPage())
   await page.goto(url)
   return page
+}
+
+/**
+ * The extension's id for the recorded tab: the one in front showing its page. The recorded tab was just brought to
+ * front, so another tab on the same address never wins; tabs are compared whole, hash included.
+ */
+export function pickRecordedTab(tabs: Array<{ id?: number; url?: string; active?: boolean }>, pageUrl: string): number | null {
+  return tabs.find((tab) => tab.active && tab.url === pageUrl && tab.id !== undefined)?.id ?? null
 }

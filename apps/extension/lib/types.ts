@@ -3,6 +3,7 @@ import type { DeviceInfo, Priority, Visibility } from "@bugberry/shared"
 import type { Shape } from "./annotations"
 import type { ScreenshotMode } from "./capture-prefs"
 import type { PageCaptureRecord } from "./page-merge"
+import type { RecordingEndReason } from "./recorder"
 import type { TrimRange } from "./review-data"
 
 export interface ReportForm {
@@ -100,6 +101,8 @@ export interface VideoDraft extends DraftBase {
   trimmed?: { range: TrimRange; video: Blob } | null
   /** Set when the time limit ended the recording: the limit it stopped at. */
   stoppedAtLimitMs?: number
+  /** Set when the recording ended by itself (a limit, the tab closed, a recorder error); absent when it was stopped. */
+  endReason?: RecordingEndReason
   /** Set at the first Send: from then on the trim can't change, as part of the full video may be on the server. */
   sendStarted?: boolean
 }

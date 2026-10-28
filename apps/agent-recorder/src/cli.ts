@@ -39,7 +39,7 @@ const session = createRecorderSession<Page>({
   caps: () => recordingCaps(options.server),
   start: (browser, page, caps) => startTabRecording(sessionOf(browser), page, caps),
   stop: (browser) => stopTabRecording(sessionOf(browser)),
-  read: (browser, draftId) => readDraft(sessionOf(browser), draftId),
+  read: (browser, draftId, dir) => readDraft(sessionOf(browser), draftId, dir),
   remove: (browser, draftId) => deleteDraft(sessionOf(browser), draftId),
 })
 

@@ -1,7 +1,7 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs"
+import { rmSync } from "node:fs"
 import { join } from "node:path"
 import type { DebuggerSummary, DeviceInfo } from "@bugberry/shared"
-import type { AutomationDraft } from "../../extension/lib/automation-draft"
+import type { AutomationDraftMeta } from "../../extension/lib/automation-draft"
 import type { RecordingCaps } from "./limits"
 import { agentTabs, type ContextLike, createTabWatcher, type PageLike, recordedPageFor, type TabWatcher } from "./tabs"
 
@@ -20,7 +20,8 @@ export interface SessionDeps<P extends PageLike> {
   caps(): Promise<RecordingCaps>
   start(browser: RecorderBrowser<P>, page: P, caps: RecordingCaps): Promise<{ draftId: string }>
   stop(browser: RecorderBrowser<P>): Promise<{ draftId: string }>
-  read(browser: RecorderBrowser<P>, draftId: string): Promise<AutomationDraft>
+  /** Writes the draft's files into `dir` (media.webm, debugger.json.gz, thumbnail.jpg when there is one). */
+  read(browser: RecorderBrowser<P>, draftId: string, dir: string): Promise<AutomationDraftMeta>
   remove(browser: RecorderBrowser<P>, draftId: string): Promise<void>
   newId?(): string
   now?(): number
@@ -48,7 +49,8 @@ export interface StopResult {
   recordingId: string
   summary: string
   warning: string | null
-  endedBy: "agent" | "limit"
+  /** Who ended it: the agent, a time or size limit, the recorded tab closing, or a recorder error. */
+  endedBy: "agent" | "limit" | "tab-closed" | "error"
   recording: RecordingInfo
 }
 
@@ -84,11 +86,33 @@ const clock = (ms: number) => {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`
 }
 
-function summaryOf(draft: AutomationDraft, endedBy: StopResult["endedBy"]): string {
+function endedByOf(meta: AutomationDraftMeta): StopResult["endedBy"] {
+  if (meta.endReason === "max-duration" || meta.endReason === "size-limit") return "limit"
+  if (meta.endReason === "source-ended") return "tab-closed"
+  return meta.endReason === "error" ? "error" : "agent"
+}
+
+/** Why it stopped before the agent asked, so the agent knows what after that point is missing. */
+function endedLine(meta: AutomationDraftMeta): string {
+  switch (meta.endReason) {
+    case "max-duration":
+      return `The recording reached its ${clock(meta.stoppedAtLimitMs ?? meta.durationMs)} limit and stopped by itself: nothing after that is in it.`
+    case "size-limit":
+      return "The recording reached the server's size limit and stopped by itself: nothing after that is in it."
+    case "source-ended":
+      return "The recorded tab closed, so the recording stopped there."
+    case "error":
+      return "The recorder stopped early after an error: nothing after that is in it."
+    default:
+      return ""
+  }
+}
+
+function summaryOf(draft: AutomationDraftMeta): string {
   const s = draft.debuggerSummary
   return [
     `Recorded ${clock(draft.durationMs)} on ${draft.pageUrl}.`,
-    endedBy === "limit" ? `The recording reached its ${clock(draft.stoppedAtLimitMs ?? draft.durationMs)} limit and stopped by itself.` : "",
+    endedLine(draft),
     `Caught ${plural(s.actions, "action")}, ${plural(s.logs, "console log")} (${plural(s.errors, "error")}), ` +
       `${plural(s.requests, "request")} (${s.failedRequests} failed).`,
     "Next: write a title and description from what you saw, call createUpload on the BugBerry server with this " +
@@ -105,7 +129,8 @@ export function createRecorderSession<P extends PageLike>(deps: SessionDeps<P>):
   let browser: RecorderBrowser<P> | null = null
   let watcher: TabWatcher | null = null
   let page: P | null = null
-  let running: { draftId: string; startedAt: number } | null = null
+  /** `stopped` once the extension stopped it: a stop whose reading failed then only reads again. */
+  let running: { draftId: string; startedAt: number; maxMs: number; stopped: boolean } | null = null
   const stored = new Map<string, StoredRecording>()
 
   const ensureBrowser = async (): Promise<RecorderBrowser<P>> => {
@@ -116,26 +141,6 @@ export function createRecorderSession<P extends PageLike>(deps: SessionDeps<P>):
     page = null
     watcher = createTabWatcher(launched.context, () => page)
     return launched
-  }
-
-  const save = (recordingId: string, draftId: string, draft: AutomationDraft): StoredRecording => {
-    const dir = join(deps.tempDir, recordingId)
-    mkdirSync(dir, { recursive: true })
-    const write = (name: string, base64: string) => {
-      const path = join(dir, name)
-      writeFileSync(path, Buffer.from(base64, "base64"))
-      return path
-    }
-    const recording: StoredRecording = {
-      recordingId,
-      draftId,
-      dir,
-      mediaPath: write("media.webm", draft.videoBase64),
-      debuggerPath: write("debugger.json.gz", draft.debuggerBase64),
-      thumbnailPath: draft.thumbnailBase64 ? write("thumbnail.jpg", draft.thumbnailBase64) : null,
-    }
-    stored.set(recordingId, recording)
-    return recording
   }
 
   return {
@@ -151,8 +156,11 @@ export function createRecorderSession<P extends PageLike>(deps: SessionDeps<P>):
       const current = await ensureBrowser()
       page = await recordedPageFor(current.context, page, parsed.href)
       watcher?.reset()
-      const { draftId } = await deps.start(current, page, await deps.caps())
-      running = { draftId, startedAt: now() }
+      const caps = await deps.caps()
+      const { draftId } = await deps.start(current, page, caps)
+      running = { draftId, startedAt: now(), maxMs: caps.maxMs, stopped: false }
+      // Loaded again while recording, so errors and failed requests on load are in the report.
+      await page.reload()
       const tabIndex = agentTabs(current.context).indexOf(page)
       const others = agentTabs(current.context).length > 1
       return {
@@ -170,44 +178,61 @@ export function createRecorderSession<P extends PageLike>(deps: SessionDeps<P>):
     },
 
     status() {
-      return {
-        recording: running !== null,
-        seconds: running ? Math.round((now() - running.startedAt) / 1000) : 0,
-        warning: running ? (watcher?.warning() ?? null) : null,
-      }
+      if (!running) return { recording: false, seconds: 0, warning: null }
+      const elapsed = now() - running.startedAt
+      const limit = elapsed >= running.maxMs ? `The recording reached its ${clock(running.maxMs)} limit and has stopped: call stopRecording to keep it.` : null
+      return { recording: true, seconds: Math.round(elapsed / 1000), warning: [watcher?.warning(), limit].filter(Boolean).join(" ") || null }
     },
 
     async stop() {
       if (!running || !browser) throw new Error("Nothing is recording. Call startRecording first.")
-      const { draftId } = running
+      const current = running
       const warning = watcher?.warning() ?? null
+      if (!current.stopped) {
+        // A limit may have stopped it already; its draft is the one this recording started.
+        await deps.stop(browser).catch((error: unknown) => {
+          if (!String(error).includes("No recording is running")) throw error
+        })
+        current.stopped = true
+      }
+      const recordingId = newId()
+      const dir = join(deps.tempDir, recordingId)
+      let meta: AutomationDraftMeta
+      try {
+        meta = await deps.read(browser, current.draftId, dir)
+      } catch (error) {
+        rmSync(dir, { recursive: true, force: true })
+        throw new Error(`Couldn't read the recording (${error instanceof Error ? error.message : String(error)}). It is kept: call stopRecording again.`)
+      }
       running = null
-      // A limit may have stopped it already; its draft is the one this recording started.
-      await deps.stop(browser).catch((error: unknown) => {
-        if (!String(error).includes("No recording is running")) throw error
-      })
-      const draft = await deps.read(browser, draftId)
-      if (draft.debuggerSummary.actions === 0) {
-        await deps.remove(browser, draftId)
+      if (meta.agentActions === 0) {
+        rmSync(dir, { recursive: true, force: true })
+        await deps.remove(browser, current.draftId)
         throw new Error(EMPTY_RECORDING)
       }
-      const endedBy = draft.stoppedAtLimitMs === null ? "agent" : "limit"
-      const kept = save(newId(), draftId, draft)
-      const media = Buffer.byteLength(draft.videoBase64, "base64")
+      const kept: StoredRecording = {
+        recordingId,
+        draftId: current.draftId,
+        dir,
+        mediaPath: join(dir, "media.webm"),
+        debuggerPath: join(dir, "debugger.json.gz"),
+        thumbnailPath: meta.sizes.thumbnail === null ? null : join(dir, "thumbnail.jpg"),
+      }
+      stored.set(recordingId, kept)
       return {
-        recordingId: kept.recordingId,
-        summary: summaryOf(draft, endedBy),
+        recordingId,
+        summary: summaryOf(meta),
         warning,
-        endedBy,
+        endedBy: endedByOf(meta),
         recording: {
-          mediaSize: media,
-          debuggerSize: Buffer.byteLength(draft.debuggerBase64, "base64"),
-          ...(draft.thumbnailBase64 ? { thumbnailSize: Buffer.byteLength(draft.thumbnailBase64, "base64") } : {}),
-          durationMs: draft.durationMs,
-          pageUrl: draft.pageUrl,
-          pageTitle: draft.pageTitle,
-          device: draft.device,
-          debuggerSummary: draft.debuggerSummary,
+          mediaSize: meta.sizes.media,
+          debuggerSize: meta.sizes.debugger,
+          ...(meta.sizes.thumbnail === null ? {} : { thumbnailSize: meta.sizes.thumbnail }),
+          durationMs: meta.durationMs,
+          pageUrl: meta.pageUrl,
+          pageTitle: meta.pageTitle,
+          device: meta.device,
+          debuggerSummary: meta.debuggerSummary,
         },
       }
     },

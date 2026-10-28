@@ -427,7 +427,11 @@ export async function stopVideoRecording(
   const state = await deps.state.get()
   if (!state) return { ok: false, error: "No recording is running" }
   // The review says why a recording ended before the reporter stopped it.
-  const stoppedBy = reason === "max-duration" ? { stoppedAtLimitMs: state.maxMs ?? MAX_RECORDING_MS } : {}
+  const stoppedBy = {
+    ...(reason === "max-duration" ? { stoppedAtLimitMs: state.maxMs ?? MAX_RECORDING_MS } : {}),
+    // The agent recorder tells the agent why: a size limit or a closed tab cut the recording short too.
+    ...(reason ? { endReason: reason } : {}),
+  }
   const end = deps.now()
   // Cleared first, so a second stop (shortcut plus time limit) finds nothing to do.
   await deps.state.clear()

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { createTabWatcher, recordedPageFor, type ContextLike, type PageLike } from "../src/tabs"
+import { createTabWatcher, pickRecordedTab, recordedPageFor, type ContextLike, type PageLike } from "../src/tabs"
 
 class FakePage implements PageLike {
   closed = false
@@ -16,6 +16,7 @@ class FakePage implements PageLike {
     this.visited.push(url)
     return null
   }
+  async reload() {}
   async bringToFront() {}
 }
 
@@ -92,5 +93,25 @@ describe("recordedPageFor", () => {
     expect(page).not.toBe(recorded)
     expect(page.url()).toBe("https://shop.test/cart")
     expect(context.pages().indexOf(page)).toBe(1)
+  })
+})
+
+describe("pickRecordedTab", () => {
+  const url = "https://shop.test/#/checkout"
+
+  test("the active tab showing the page, not another tab with the same address", () => {
+    const tabs = [
+      { id: 1, url, active: false },
+      { id: 2, url, active: true },
+    ]
+    expect(pickRecordedTab(tabs, url)).toBe(2)
+  })
+
+  test("hash-routed pages are found", () => {
+    expect(pickRecordedTab([{ id: 5, url: "https://shop.test/#/checkout", active: true }], url)).toBe(5)
+  })
+
+  test("an active tab on another page is not it", () => {
+    expect(pickRecordedTab([{ id: 5, url: "https://shop.test/other", active: true }], url)).toBeNull()
   })
 })

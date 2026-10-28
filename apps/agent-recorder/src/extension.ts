@@ -1,16 +1,24 @@
+import { appendFileSync, mkdirSync, writeFileSync } from "node:fs"
+import { join } from "node:path"
 import type { Page } from "playwright-core"
-import type { AutomationDraft } from "../../extension/lib/automation-draft"
+import type { AutomationDraftMeta } from "../../extension/lib/automation-draft"
 import type { BrowserSession } from "./browser"
 import type { RecordingCaps } from "./limits"
+import { pickRecordedTab } from "./tabs"
+
+/** 8 MB a call: a long recording crosses CDP in pieces, never as one string bigger than V8 allows. */
+const CHUNK_BYTES = 8 * 1024 * 1024
 
 declare const chrome: {
   tabs: { query(filter: Record<string, unknown>): Promise<Array<{ id?: number; url?: string }>> }
   runtime: { sendMessage(message: unknown): Promise<unknown> }
 }
 declare const bugberryAutomation: {
-  readDraft(id: string): Promise<AutomationDraft>
+  prepareDraft(id: string): Promise<AutomationDraftMeta>
+  readChunk(id: string, file: DraftFile, offset: number, length: number): Promise<string>
   deleteDraft(id: string): Promise<void>
 }
+type DraftFile = "media" | "debugger" | "thumbnail"
 
 /** A tab, so it is opened only for one call and closed right after: the agent's browser tool must not pick it. */
 async function withAutomationPage<T>(session: BrowserSession, work: (page: Page) => Promise<T>): Promise<T> {
@@ -36,7 +44,8 @@ export async function startTabRecording(session: BrowserSession, page: Page, cap
   const answer = await withAutomationPage(session, async (automation) => {
     // Recording a tab asks for it in front, as a person's click on it would leave it.
     await page.bringToFront()
-    const tabId = await automation.evaluate(async (url) => (await chrome.tabs.query({ url }))[0]?.id ?? null, page.url())
+    const tabs = await automation.evaluate(() => chrome.tabs.query({ active: true }))
+    const tabId = pickRecordedTab(tabs as Array<{ id?: number; url?: string; active?: boolean }>, page.url())
     if (tabId === null) return { ok: false, error: "The recorded tab is not known to the extension" }
     return automation.evaluate((message) => chrome.runtime.sendMessage(message), {
       type: "bugberry:record-start",
@@ -61,8 +70,30 @@ export async function stopTabRecording(session: BrowserSession): Promise<{ draft
   return { draftId: String((answer as { draftId: unknown }).draftId) }
 }
 
-export function readDraft(session: BrowserSession, draftId: string): Promise<AutomationDraft> {
-  return withAutomationPage(session, (automation) => automation.evaluate((id) => bugberryAutomation.readDraft(id), draftId))
+/** Writes a stopped recording's files into `dir`, a slice at a time, and answers what they hold. */
+export function readDraft(session: BrowserSession, draftId: string, dir: string): Promise<AutomationDraftMeta> {
+  return withAutomationPage(session, async (automation) => {
+    const meta = await automation.evaluate((id) => bugberryAutomation.prepareDraft(id), draftId)
+    mkdirSync(dir, { recursive: true })
+    const files: Array<[DraftFile, string, number | null]> = [
+      ["media", "media.webm", meta.sizes.media],
+      ["debugger", "debugger.json.gz", meta.sizes.debugger],
+      ["thumbnail", "thumbnail.jpg", meta.sizes.thumbnail],
+    ]
+    for (const [file, name, size] of files) {
+      if (size === null) continue
+      const path = join(dir, name)
+      writeFileSync(path, new Uint8Array())
+      for (let offset = 0; offset < size; offset += CHUNK_BYTES) {
+        const chunk = await automation.evaluate(
+          ({ id, file, offset, length }) => bugberryAutomation.readChunk(id, file, offset, length),
+          { id: draftId, file, offset, length: CHUNK_BYTES },
+        )
+        appendFileSync(path, Buffer.from(chunk, "base64"))
+      }
+    }
+    return meta
+  })
 }
 
 export function deleteDraft(session: BrowserSession, draftId: string): Promise<void> {

@@ -1,13 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs"
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import type { AutomationDraft } from "../../extension/lib/automation-draft"
+import type { AutomationDraftMeta } from "../../extension/lib/automation-draft"
 import { createRecorderSession, type SessionDeps } from "../src/session"
 import type { ContextLike, PageLike } from "../src/tabs"
 
 class FakePage implements PageLike {
   closed = false
+  reloads = 0
   constructor(private address = "about:blank") {}
   url() {
     return this.address
@@ -17,6 +18,9 @@ class FakePage implements PageLike {
   }
   async goto(url: string) {
     this.address = url
+  }
+  async reload() {
+    this.reloads++
   }
   async bringToFront() {}
 }
@@ -40,35 +44,35 @@ function fakeContext() {
   } satisfies ContextLike<FakePage> & { open(url: string): void }
 }
 
-const b64 = (bytes: number[]) => Buffer.from(bytes).toString("base64")
-
-function draft(overrides: Partial<AutomationDraft> = {}): AutomationDraft {
+function meta(overrides: Partial<AutomationDraftMeta> = {}): AutomationDraftMeta {
   return {
-    videoBase64: b64([1, 2, 3, 4, 5]),
-    debuggerBase64: b64([9, 9, 9]),
-    thumbnailBase64: b64([7, 7]),
     durationMs: 12_400,
     pageUrl: "https://shop.test/checkout",
     pageTitle: "Checkout",
     device: { browser: "Chromium 156", os: "Windows", viewport: "1280x800" },
     debuggerSummary: { logs: 2, errors: 1, requests: 4, failedRequests: 1, actions: 3, incomplete: [] },
+    agentActions: 3,
     stoppedAtLimitMs: null,
+    endReason: null,
+    sizes: { media: 5, debugger: 3, thumbnail: 2 },
     ...overrides,
   }
 }
 
 let tempDir: string
 let context: ReturnType<typeof fakeContext>
-let stored: AutomationDraft
+let stored: AutomationDraftMeta
 let calls: string[]
 let stopAnswer: () => Promise<{ draftId: string }>
+let readFailures: number
 
 beforeEach(() => {
   tempDir = mkdtempSync(join(tmpdir(), "recorder-test-"))
   context = fakeContext()
-  stored = draft()
+  stored = meta()
   calls = []
   stopAnswer = async () => ({ draftId: "draft-1" })
+  readFailures = 0
 })
 afterEach(() => rmSync(tempDir, { recursive: true, force: true }))
 
@@ -86,7 +90,14 @@ function session(overrides: Partial<SessionDeps<FakePage>> = {}) {
       return { draftId: "draft-1" }
     },
     stop: async () => stopAnswer(),
-    read: async () => stored,
+    read: async (_browser, _id, dir) => {
+      if (readFailures-- > 0) throw new Error("Target page, context or browser has been closed")
+      mkdirSync(dir, { recursive: true })
+      writeFileSync(join(dir, "media.webm"), Buffer.from([1, 2, 3, 4, 5]))
+      writeFileSync(join(dir, "debugger.json.gz"), Buffer.from([9, 9, 9]))
+      if (stored.sizes.thumbnail) writeFileSync(join(dir, "thumbnail.jpg"), Buffer.from([7, 7]))
+      return stored
+    },
     remove: async (_browser, id) => void calls.push(`delete ${id}`),
     newId: () => "rec-1",
     ...overrides,
@@ -113,15 +124,20 @@ describe("recorder session", () => {
     expect(calls).toEqual(["launch", "start https://shop.test/checkout"])
   })
 
+  test("the page is reloaded once recording runs, so errors on load are caught", async () => {
+    await session().start("https://shop.test/checkout")
+    expect(context.pages()[0]?.reloads).toBe(1)
+  })
+
   test("refuses an empty recording", async () => {
-    stored = draft({ debuggerSummary: { logs: 0, errors: 0, requests: 2, failedRequests: 0, actions: 0, incomplete: [] } })
+    stored = meta({ agentActions: 0, debuggerSummary: { logs: 0, errors: 0, requests: 2, failedRequests: 0, actions: 1, incomplete: [] } })
     const recorder = session()
     await recorder.start("https://shop.test/checkout")
     await expect(recorder.stop()).rejects.toThrow("Did you use the bugberry-browser tools?")
     expect(calls).toContain("delete draft-1")
   })
 
-  test("stop writes the files and returns what createUpload takes", async () => {
+  test("stop keeps the files and returns what createUpload takes", async () => {
     const recorder = session()
     await recorder.start("https://shop.test/checkout")
     const result = await recorder.stop()
@@ -154,16 +170,17 @@ describe("recorder session", () => {
   })
 
   test("a recording without a thumbnail leaves thumbnailSize out", async () => {
-    stored = draft({ thumbnailBase64: null })
+    stored = meta({ sizes: { media: 5, debugger: 3, thumbnail: null } })
     const recorder = session()
     await recorder.start("https://shop.test/checkout")
     const { recording } = await recorder.stop()
     expect("thumbnailSize" in recording).toBe(false)
-    expect(existsSync(recorder.take("rec-1")?.thumbnailPath ?? "/none")).toBe(false)
+    expect(recorder.take("rec-1")?.thumbnailPath).toBeNull()
+    expect(existsSync(join(tempDir, "rec-1", "thumbnail.jpg"))).toBe(false)
   })
 
   test("limit-ended recording is returned with its reason", async () => {
-    stored = draft({ stoppedAtLimitMs: 120_000 })
+    stored = meta({ stoppedAtLimitMs: 120_000, endReason: "max-duration" })
     // The extension stopped it by itself when the limit came, so there is nothing to stop any more.
     stopAnswer = async () => {
       throw new Error("Couldn't stop the recording: No recording is running")
@@ -173,6 +190,31 @@ describe("recorder session", () => {
     const result = await recorder.stop()
     expect(result.endedBy).toBe("limit")
     expect(result.summary).toContain("2:00")
+  })
+
+  test("a size limit or a closed tab is said too", async () => {
+    for (const [endReason, endedBy, words] of [
+      ["size-limit", "limit", "size limit"],
+      ["source-ended", "tab-closed", "tab closed"],
+    ] as const) {
+      stored = meta({ endReason })
+      const recorder = session()
+      await recorder.start("https://shop.test/checkout")
+      const result = await recorder.stop()
+      expect(result.endedBy).toBe(endedBy)
+      expect(result.summary).toContain(words)
+    }
+  })
+
+  test("a stop that fails to read can be tried again", async () => {
+    readFailures = 1
+    const recorder = session()
+    await recorder.start("https://shop.test/checkout")
+    await expect(recorder.stop()).rejects.toThrow("call stopRecording again")
+    expect(recorder.status().recording).toBe(true)
+    const result = await recorder.stop()
+    expect(result.recordingId).toBe("rec-1")
+    expect(recorder.status().recording).toBe(false)
   })
 
   test("stop includes the tab warning", async () => {
@@ -215,5 +257,13 @@ describe("recorder session", () => {
     context.open("https://shop.test/two")
     expect(recorder.status()).toMatchObject({ recording: true, seconds: 7 })
     expect(recorder.status().warning).toContain("Go back to tab 0")
+  })
+
+  test("status says when the time limit has stopped the recording", async () => {
+    let now = 1000
+    const recorder = session({ now: () => now })
+    await recorder.start("https://shop.test/checkout")
+    now = 1000 + 121_000
+    expect(recorder.status().warning).toContain("limit")
   })
 })

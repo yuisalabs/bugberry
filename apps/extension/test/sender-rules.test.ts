@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { fromExtensionPage, fromPopup, fromRecordedTab, ofThisRecording } from "../lib/sender-rules"
+import { fromAutomationPage, fromExtensionPage, fromPopup, fromRecordedTab, ofThisRecording } from "../lib/sender-rules"
 
 const ID = "okfoeiknimknnemlonocaimclfnahiop"
 const ORIGIN = `chrome-extension://${ID}/`
@@ -45,4 +45,21 @@ test("a bar request must name the running recording: a page in the recorded tab 
   expect(ofThisRecording(bar, ID, ORIGIN, { tabId: 7, draftId: "d1" }, "d1")).toBe(true)
   expect(ofThisRecording(bar, ID, ORIGIN, { tabId: 7, draftId: "d1" }, "guess")).toBe(false)
   expect(ofThisRecording(bar, ID, ORIGIN, null, "d1")).toBe(false)
+})
+
+describe("the agent recorder's automation path", () => {
+  const page = { id: ID, url: `${ORIGIN}automation.html`, tab: { id: 4 } }
+
+  test("only its automation page, and only in the recorder build", () => {
+    expect(fromAutomationPage(page, ID, ORIGIN, true)).toBe(true)
+    expect(fromAutomationPage(page, ID, ORIGIN, false)).toBe(false)
+  })
+
+  test("never a content script, another extension page, or a look-alike address", () => {
+    expect(fromAutomationPage({ ...page, url: "https://shop.test/automation.html" }, ID, ORIGIN, true)).toBe(false)
+    // Web-accessible pages can be framed by any site: they must not reach it either.
+    expect(fromAutomationPage({ ...page, url: `${ORIGIN}recorder-bar.html` }, ID, ORIGIN, true)).toBe(false)
+    expect(fromAutomationPage({ ...page, url: `${ORIGIN}automation.html2` }, ID, ORIGIN, true)).toBe(false)
+    expect(fromAutomationPage({ ...page, id: "otherextensionid" }, ID, ORIGIN, true)).toBe(false)
+  })
 })

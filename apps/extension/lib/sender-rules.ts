@@ -12,6 +12,14 @@ export function fromExtensionPage(sender: Sender, extensionId: string, extension
   return sender.id === extensionId && typeof sender.url === "string" && sender.url.startsWith(extensionOrigin)
 }
 
+/**
+ * The agent recorder's automation page, in the recorder build only. Not web accessible, so no site can frame it;
+ * other extension pages are, which is why they don't count.
+ */
+export function fromAutomationPage(sender: Sender, extensionId: string, extensionOrigin: string, recorderBuild: boolean): boolean {
+  return recorderBuild && fromExtensionPage(sender, extensionId, extensionOrigin) && sender.url?.split(/[?#]/)[0] === `${extensionOrigin}automation.html`
+}
+
 /** The toolbar popup itself: no site can embed it (it isn't web accessible), and it has no tab. */
 export function fromPopup(sender: Sender, extensionId: string, extensionOrigin: string): boolean {
   if (!fromExtensionPage(sender, extensionId, extensionOrigin) || sender.tab !== undefined) return false

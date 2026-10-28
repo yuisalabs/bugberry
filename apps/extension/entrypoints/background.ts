@@ -43,7 +43,7 @@ import { createWindowRecorderHost, onRecorderClosed } from "../lib/recorder-wind
 import { openSessionToContentScripts } from "../lib/session-access"
 import { createPromptOpener, type PromptTicket, type PromptTickets, ticketFor } from "../lib/prompt-opener"
 import { createReviewOpener } from "../lib/review-opener"
-import { fromExtensionPage, fromPopup, ofThisRecording } from "../lib/sender-rules"
+import { fromAutomationPage, fromExtensionPage, fromPopup, ofThisRecording } from "../lib/sender-rules"
 import { createTakeAgain } from "../lib/take-again"
 import { isBugBerryServer } from "../lib/session"
 import { cropBox, pickArea } from "../lib/select-area"
@@ -550,7 +550,7 @@ export default defineBackground(() => {
       return reply(browser.tabs.get(message.tabId).then((tab) => screenshot(toActiveTab(tab), message.mode ?? "visible")))
     }
     // The agent recorder's own build only, and only from its own pages: a web page or the store build never gets here.
-    const fromRecorder = RECORDER_BUILD && fromExtensionPage(sender, browser.runtime.id, extensionOrigin)
+    const fromRecorder = fromAutomationPage(sender, browser.runtime.id, extensionOrigin, RECORDER_BUILD)
     if (isRecordStartRequest(message)) {
       const caps = fromRecorder ? message.caps : undefined
       return reply(browser.tabs.get(message.tabId).then((tab) => record(toActiveTab(tab), message.options, caps)))

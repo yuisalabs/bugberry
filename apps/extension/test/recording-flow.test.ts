@@ -403,6 +403,19 @@ describe("stopVideoRecording", () => {
     expect((await controller.barStatus()).maxMs).toBeNull()
   })
 
+  test("every reason a recording ended by itself is kept on the draft", async () => {
+    for (const reason of ["size-limit", "source-ended", "max-duration"] as const) {
+      const controller = createRecordingController(deps)
+      await controller.start(tab, TAB_OPTIONS)
+      await controller.stop(reason)
+      expect((store.drafts.get("video-1") as { endReason?: string }).endReason).toBe(reason)
+    }
+    const controller = createRecordingController(deps)
+    await controller.start(tab, TAB_OPTIONS)
+    await controller.stop()
+    expect((store.drafts.get("video-1") as { endReason?: string }).endReason).toBeUndefined()
+  })
+
   test("stopped by the time limit, the draft says at what length", async () => {
     const controller = createRecordingController(deps)
     await controller.start(tab, TAB_OPTIONS)
