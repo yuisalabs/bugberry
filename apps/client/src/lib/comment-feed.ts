@@ -97,7 +97,8 @@ export function activitySentence(item: Activity): string {
     case "agent_read":
       return `read ${listOf(((detail.parts as string[] | undefined) ?? []).map((part) => READ_PARTS[part] ?? part))}`
     case "created":
-      return `reported this via ${reportedVia(String(detail.browser ?? ""))}`
+      // The agent's name already follows the person's ("Ana via Claude Code"), so the browser is left out.
+      return item.viaAgent ? "recorded this" : `reported this via ${reportedVia(String(detail.browser ?? ""))}`
     default:
       return "updated this report"
   }

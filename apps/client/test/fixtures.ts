@@ -21,6 +21,7 @@ export function reportFixture(overrides: Partial<ReportDetail> = {}): ReportDeta
     mediaType: "image/png",
     debuggerSummary: { logs: 2, errors: 1, requests: 3, failedRequests: 1, actions: 4, incomplete: [] },
     uploadStatus: "ready",
+    viaAgent: null,
     createdAt: new Date("2026-10-16T08:00:00Z"),
     updatedAt: new Date("2026-10-16T08:00:00Z"),
     reporter: { id: "u1", name: "Ana", image: null },

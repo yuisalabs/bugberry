@@ -41,7 +41,9 @@ export function ReportMeta({
             className="shrink-0 bg-primary-subtle text-primary-subtle-foreground"
           />
           <span>
-            {report.reporter.name} via {reportedVia(browser)} · {formatRelative(report.createdAt, now)}
+            {report.viaAgent
+              ? `${report.reporter.name} · Recorded by ${report.viaAgent} · ${formatRelative(report.createdAt, now)}`
+              : `${report.reporter.name} via ${reportedVia(browser)} · ${formatRelative(report.createdAt, now)}`}
           </span>
         </p>
       )}

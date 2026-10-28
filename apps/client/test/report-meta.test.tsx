@@ -13,6 +13,18 @@ describe("ReportMeta", () => {
     expect(screen.getByText("1440 × 900")).toBeTruthy()
   })
 
+  test("byline says who recorded an agent report", () => {
+    const report = reportFixture({ createdAt: new Date(Date.now() - 5 * 60_000), viaAgent: "Claude Code" })
+    render(<ReportMeta report={report} issues={[]} />)
+    expect(screen.getByText("Ana · Recorded by Claude Code · 5 minutes ago")).toBeTruthy()
+  })
+
+  test("byline is unchanged without viaAgent", () => {
+    const report = reportFixture({ createdAt: new Date(Date.now() - 5 * 60_000), viaAgent: null })
+    render(<ReportMeta report={report} issues={[]} />)
+    expect(screen.getByText("Ana via Chrome extension · 5 minutes ago")).toBeTruthy()
+  })
+
   test("names the browser the report came from", () => {
     const report = reportFixture({ createdAt: new Date(Date.now() - 5 * 60_000) })
     render(<ReportMeta report={{ ...report, device: { ...report.device, browser: "Firefox 131" } }} issues={[]} />)
