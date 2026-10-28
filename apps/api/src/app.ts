@@ -19,6 +19,7 @@ import { accountModule } from "./modules/account"
 import { meModule } from "./modules/me"
 import { projectsModule } from "./modules/projects"
 import { reportsModule } from "./modules/reports"
+import { agentUploadsModule } from "./modules/reports/agent-uploads"
 import { reportUploadsModule } from "./modules/reports/uploads"
 import { clientIp, shareModule } from "./modules/share"
 import { oauthAppsModule } from "./modules/oauth-apps"
@@ -144,6 +145,7 @@ export function createApp(deps: AppDeps) {
     .use(projectsModule(deps))
     .use(localFilesModule(deps))
     .use(reportUploadsModule(deps))
+    .use(agentUploadsModule(deps))
     .use(reportsModule(deps))
     .use(shareModule(deps))
     .use(commentsModule(deps))
