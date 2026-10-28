@@ -70,6 +70,8 @@ export interface RecorderSession {
   take(recordingId: string): StoredRecording | null
   /** Drops a submitted recording: its files, and the draft in the extension. */
   forget(recordingId: string): Promise<void>
+  /** Closes the browser, as the recorder shuts down. */
+  close(): Promise<void>
 }
 
 export const EMPTY_RECORDING =
@@ -226,6 +228,13 @@ export function createRecorderSession<P extends PageLike>(deps: SessionDeps<P>):
       stored.delete(recordingId)
       rmSync(recording.dir, { recursive: true, force: true })
       if (browser) await deps.remove(browser, recording.draftId).catch(() => {})
+    },
+
+    async close() {
+      const current = browser
+      browser = null
+      running = null
+      if (current?.isOpen()) await current.close()
     },
   }
 }

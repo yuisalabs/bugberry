@@ -195,6 +195,17 @@ describe("recorder session", () => {
     expect(recorder.status().recording).toBe(false)
   })
 
+  test("close shuts the browser it launched", async () => {
+    let closed = 0
+    const recorder = session({ launch: async () => ({ context, isOpen: () => closed === 0, close: async () => void closed++ }) })
+    await recorder.close()
+    expect(closed).toBe(0)
+    await recorder.start("https://shop.test/checkout")
+    await recorder.close()
+    expect(closed).toBe(1)
+    expect(recorder.status().recording).toBe(false)
+  })
+
   test("status says how long it has run and repeats the warning", async () => {
     let now = 1000
     const recorder = session({ now: () => now })

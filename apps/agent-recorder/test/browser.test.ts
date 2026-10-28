@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test"
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { createServer } from "node:net"
+import { extensionIdFromPublicKey } from "../../extension/lib/manifest"
 import { launchBrowser, PortUnavailableError } from "../src/browser"
 import type { RecorderOptions } from "../src/options"
 
@@ -33,6 +37,51 @@ describe("launchBrowser", () => {
       (error: unknown) => error,
     )
     expect((failure as Error).message).toContain("npx playwright@1.64.1 install chromium")
+  })
+
+  test("waits for the extension to start, and says so when it never does", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "ext-"))
+    writeFileSync(join(dir, "manifest.json"), JSON.stringify({ key: "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAw1cm" }))
+    let closed = false
+    const context = {
+      serviceWorkers: () => [],
+      waitForEvent: async () => {
+        throw new Error("Timeout")
+      },
+      close: async () => {
+        closed = true
+      },
+    }
+    const launcher = { executablePath: () => "/chromium", launchPersistentContext: async () => context as never }
+    try {
+      const failure = await launchBrowser(options(0), dir, { chromium: launcher, exists: () => true }).catch((error: unknown) => error)
+      expect((failure as Error).message).toContain("The BugBerry extension didn't start")
+      expect(closed).toBe(true)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  test("headless still launches full Chromium, which can load the extension", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "ext-"))
+    const key = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAw1cm"
+    writeFileSync(join(dir, "manifest.json"), JSON.stringify({ key }))
+    const seen: Array<Record<string, unknown>> = []
+    const worker = { url: () => `chrome-extension://${extensionIdFromPublicKey(key)}/background.js` }
+    const context = { serviceWorkers: () => [worker], close: async () => {} }
+    const launcher = {
+      executablePath: () => "/chromium",
+      launchPersistentContext: async (_dir: string, launchOptions: unknown) => {
+        seen.push(launchOptions as Record<string, unknown>)
+        return context as never
+      },
+    }
+    try {
+      await launchBrowser(options(0), dir, { chromium: launcher, exists: () => true })
+      expect(seen[0]).toMatchObject({ channel: "chromium", headless: true, viewport: { width: 1280, height: 800 } })
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 
   test("a missing extension build is named", async () => {

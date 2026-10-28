@@ -25,6 +25,7 @@ function fakeSession(overrides: Partial<RecorderSession> = {}): RecorderSession 
     discard: async () => {},
     take: (id) => (id === "rec-1" ? STORED : null),
     forget: async (id) => void forgotten.push(id),
+    close: async () => {},
     ...overrides,
   }
 }

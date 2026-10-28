@@ -36,6 +36,10 @@ describe("parseOptions", () => {
     expect(parseOptions(["--headless"], windows).headless).toBe(true)
   })
 
+  test("--profile moves the browser profile, for tests that must not touch the real one", () => {
+    expect(parseOptions(["--profile", "C:\\tmp\\p"], windows).profileDir).toBe("C:\\tmp\\p")
+  })
+
   test("profile folder per platform", () => {
     expect(parseOptions([], windows).profileDir).toBe("C:\\Users\\ana\\AppData\\Local\\BugBerry\\recorder\\profile")
     expect(parseOptions([], { platform: "darwin", home: "/Users/ana" }).profileDir).toBe(

@@ -44,4 +44,15 @@ const session = createRecorderSession<Page>({
 })
 
 const server = createRecorderServer(session, (recording, uploadLink) => submitRecording(recording, uploadLink, { server: options.server }))
+// The agent's app closed the connection, or stopped the recorder: Chromium goes with it, never left running.
+let stopping = false
+const shutdown = async () => {
+  if (stopping) return
+  stopping = true
+  await session.close().catch(() => {})
+  process.exit(0)
+}
+server.server.onclose = () => void shutdown()
+process.stdin.on("end", () => void shutdown())
+for (const signal of ["SIGINT", "SIGTERM"] as const) process.on(signal, () => void shutdown())
 await server.connect(new StdioServerTransport())

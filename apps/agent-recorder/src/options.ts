@@ -47,17 +47,17 @@ function portOf(raw: string): number {
   return port
 }
 
-/** The command line, without node and the script: `--server <url> --port <n> --headless`. */
+/** The command line, without node and the script: `--server <url> --port <n> --headless --profile <dir>`. */
 export function parseOptions(argv: string[], env: RecorderEnv): RecorderOptions {
   const { values } = parseArgs({
     args: argv,
-    options: { server: { type: "string" }, port: { type: "string" }, headless: { type: "boolean" } },
+    options: { server: { type: "string" }, port: { type: "string" }, headless: { type: "boolean" }, profile: { type: "string" } },
     strict: true,
   })
   return {
     server: serverOrigin(values.server ?? BUGBERRY_CLOUD_ORIGIN),
     port: values.port === undefined ? DEFAULT_PORT : portOf(values.port),
     headless: values.headless === true,
-    profileDir: profileDirFor(env),
+    profileDir: values.profile ?? profileDirFor(env),
   }
 }

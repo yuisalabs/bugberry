@@ -6,6 +6,7 @@ ARG BUN_VERSION=1.4.1
 FROM oven/bun:${BUN_VERSION}-slim AS manifests
 WORKDIR /app
 COPY package.json bun.lock ./
+COPY apps/agent-recorder/package.json apps/agent-recorder/
 COPY apps/api/package.json apps/api/
 COPY apps/client/package.json apps/client/
 COPY apps/extension/package.json apps/extension/

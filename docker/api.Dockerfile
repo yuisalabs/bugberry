@@ -9,6 +9,7 @@ WORKDIR /app
 # cached until a package.json or the lockfile changes.
 FROM base AS manifests
 COPY package.json bun.lock ./
+COPY apps/agent-recorder/package.json apps/agent-recorder/
 COPY apps/api/package.json apps/api/
 COPY apps/client/package.json apps/client/
 COPY apps/extension/package.json apps/extension/

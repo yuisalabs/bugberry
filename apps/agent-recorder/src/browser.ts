@@ -9,6 +9,8 @@ import type { RecorderOptions } from "./options"
 const PLAYWRIGHT_VERSION = "1.64.1"
 /** Headless Chromium otherwise draws an 800×600 page, too small to show most apps. */
 const HEADLESS_VIEWPORT = { width: 1280, height: 800 }
+/** How long the extension gets to start in a fresh browser. */
+const EXTENSION_START_MS = 15_000
 
 export class PortUnavailableError extends Error {
   constructor(readonly port: number) {
@@ -70,6 +72,8 @@ export async function launchBrowser(
   await assertPortFree(opts.port)
   const extensionId = extensionIdOf(extensionDir)
   const context = await deps.chromium.launchPersistentContext(opts.profileDir, {
+    // Full Chromium, also headless: the headless shell Playwright picks otherwise can't load extensions.
+    channel: "chromium",
     headless: opts.headless,
     viewport: opts.headless ? HEADLESS_VIEWPORT : null,
     args: [
@@ -80,5 +84,17 @@ export async function launchBrowser(
       ...(opts.headless ? [] : ["--window-size=1280,900"]),
     ],
   })
+  // On a new profile the extension registers a moment after the window opens; its pages fail to load until then.
+  const own = (worker: { url(): string }) => worker.url().startsWith(`chrome-extension://${extensionId}/`)
+  const started =
+    context.serviceWorkers().some(own) ||
+    (await context.waitForEvent("serviceworker", { predicate: own, timeout: EXTENSION_START_MS }).then(
+      () => true,
+      () => false,
+    ))
+  if (!started) {
+    await context.close().catch(() => {})
+    throw new Error("The BugBerry extension didn't start in the recorder's browser. Reinstall @bugberry/recorder and try again.")
+  }
   return { context, extensionId, port: opts.port, close: () => context.close() }
 }
