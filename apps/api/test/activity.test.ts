@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { eq } from "drizzle-orm"
-import { reportActivity } from "../src/db/schema"
+import { report, reportActivity } from "../src/db/schema"
 import { recordActivity, recordAgentRead } from "../src/modules/activity/service"
 import { createProject, createReadyReport, createUserWithToken, createWorkspaceRow, setupTestApp } from "./helpers"
 
@@ -34,6 +34,12 @@ describe("report activity", () => {
     expect(data?.map((item) => item.kind)).toEqual(["status", "priority", "created"])
     expect(data?.[0]).toMatchObject({ actor: { id: budi.user.id, name: "Budi" }, viaAgent: "Claude Code", detail: { from: "open", to: "in_progress" } })
     expect(data?.[2]).toMatchObject({ kind: "created", actor: { id: ana.user.id, name: "Ana" }, viaAgent: null, detail: { browser: "Firefox 131" } })
+  })
+
+  test("created activity names the agent", async () => {
+    await ctx.db.update(report).set({ viaAgent: "Claude Code" }).where(eq(report.id, reportId))
+    const { data } = await activity()
+    expect(data?.at(-1)).toMatchObject({ kind: "created", viaAgent: "Claude Code" })
   })
 
   test("agent reads merge per person and agent within an hour", async () => {

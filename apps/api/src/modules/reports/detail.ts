@@ -58,6 +58,8 @@ export async function loadReportDetail(
     mediaType: r.mediaType,
     debuggerSummary: r.debuggerSummary,
     uploadStatus: r.uploadStatus,
+    /** The AI app that recorded it; null for a report made with the extension. */
+    viaAgent: r.viaAgent,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
     reporter: { id: row.reporter.id, name: row.reporter.name, image: row.reporter.image } satisfies PersonSummary,

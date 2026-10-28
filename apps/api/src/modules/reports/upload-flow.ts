@@ -101,6 +101,7 @@ export async function createReportUpload(
         thumbnailKey,
         thumbnailSize: body.thumbnailSize ?? null,
         debuggerSummary: body.debuggerSummary,
+        viaAgent: opts.viaAgent ?? null,
       })
       .returning({ id: report.id, shareSlug: report.shareSlug, number: report.number })
     return row

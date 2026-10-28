@@ -96,7 +96,7 @@ export async function recordAgentRead(
 export async function listActivity({ db }: Pick<AppDeps, "db">, current: CurrentUser, reportId: string) {
   await requireReportMember(db, current.id, reportId)
   const [target] = await db
-    .select({ createdAt: report.createdAt, device: report.device, reporter: { id: user.id, name: user.name, image: user.image } })
+    .select({ createdAt: report.createdAt, device: report.device, viaAgent: report.viaAgent, reporter: { id: user.id, name: user.name, image: user.image } })
     .from(report)
     .innerJoin(user, eq(user.id, report.reporterId))
     .where(and(eq(report.id, reportId), eq(report.uploadStatus, "ready")))
@@ -143,7 +143,7 @@ export async function listActivity({ db }: Pick<AppDeps, "db">, current: Current
       kind: "created" as const,
       at: target.createdAt,
       actor: target.reporter as PersonSummary | null,
-      viaAgent: null,
+      viaAgent: target.viaAgent,
       detail: { browser: target.device.browser } as Record<string, unknown>,
     },
   ]

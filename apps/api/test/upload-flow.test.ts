@@ -22,6 +22,18 @@ async function rowOf(id: string) {
   return row
 }
 
+describe("createReportUpload", () => {
+  test("createReportUpload stores viaAgent", async () => {
+    const created = await createReportUpload(ctx, reporter, uploadBody(projectId), { viaAgent: "Claude Code" })
+    expect((await rowOf(created.reportId)).viaAgent).toBe("Claude Code")
+  })
+
+  test("reports from the extension have no agent", async () => {
+    const created = await createReportUpload(ctx, reporter, uploadBody(projectId))
+    expect((await rowOf(created.reportId)).viaAgent).toBeNull()
+  })
+})
+
 describe("uploadTargetsFor", () => {
   test("uploadTargetsFor signs links for every declared file", async () => {
     const created = await createReportUpload(

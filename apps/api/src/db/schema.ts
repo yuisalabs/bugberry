@@ -287,6 +287,8 @@ export const report = pgTable(
     uploadError: text("upload_error"),
     /** "City, Country" from the reporter's location, when they chose to include it. Never coordinates. */
     location: text("location"),
+    /** The AI app that recorded it through the agent recorder ("Claude Code", "AI agent"); null for the extension. */
+    viaAgent: text("via_agent"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -299,6 +301,28 @@ export const report = pgTable(
     // The Getting started checklist asks what this person has captured.
     index("report_reporter_idx").on(table.reporterId, table.captureType, table.uploadStatus),
   ],
+)
+
+/**
+ * A link an agent's recording is uploaded through, handed out by the MCP's createUpload: it reaches one report,
+ * for its reporter, until it expires or the upload is finalized. Only the token's hash is kept.
+ */
+export const agentUpload = pgTable(
+  "agent_upload",
+  {
+    id: text("id").primaryKey(),
+    tokenHash: text("token_hash").notNull().unique(),
+    reportId: text("report_id")
+      .notNull()
+      .references(() => report.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    finalizedAt: timestamp("finalized_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (table) => [index("agent_upload_report_idx").on(table.reportId)],
 )
 
 export const comment = pgTable(
