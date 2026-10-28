@@ -6,6 +6,7 @@ data/
 *.log
 .codegraph/
 .output/
+.output-recorder/
 .wxt/
 test-results/
 .next/

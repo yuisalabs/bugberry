@@ -36,6 +36,13 @@ export interface RecordStartRequest {
   type: "bugberry:record-start"
   tabId: number
   options?: RecordOptions
+  /** The agent recorder's limits, read from its server; honoured only in the recorder build, from its own pages. */
+  caps?: { maxMs: number; maxBytes: number }
+}
+
+/** The agent recorder stops the recording; the review stays closed and the recorder reads the draft itself. */
+export interface AutomationStopRequest {
+  type: "bugberry:automation-stop"
 }
 
 
@@ -114,11 +121,23 @@ export function isScreenshotRequest(message: unknown): message is ScreenshotRequ
 
 export function isRecordStartRequest(message: unknown): message is RecordStartRequest {
   const options = field(message, "options")
+  const caps = field(message, "caps")
   return (
     typeOf(message) === "bugberry:record-start" &&
     typeof field(message, "tabId") === "number" &&
-    (options === undefined || isRecordOptions(options))
+    (options === undefined || isRecordOptions(options)) &&
+    (caps === undefined || isRecordingCaps(caps))
   )
+}
+
+function isRecordingCaps(value: unknown): value is { maxMs: number; maxBytes: number } {
+  const { maxMs, maxBytes } = (typeof value === "object" && value !== null ? value : {}) as Record<string, unknown>
+  const positive = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n) && n > 0
+  return positive(maxMs) && positive(maxBytes) && maxMs <= MAX_RECORDING_MS
+}
+
+export function isAutomationStopRequest(message: unknown): message is AutomationStopRequest {
+  return typeOf(message) === "bugberry:automation-stop"
 }
 
 function isRecordOptions(value: unknown): value is RecordOptions {

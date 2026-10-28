@@ -71,6 +71,16 @@ export function manifestFor(target: string, key: string | undefined): Record<str
   return { name, description, permissions: MANIFEST_PERMISSIONS, ...rest, commands: MANIFEST_COMMANDS, ...(key ? { key } : {}) }
 }
 
+/** The page the agent recorder reads finished recordings through; only the recorder build has it. */
+export const AUTOMATION_ENTRYPOINT = "automation"
+
+export { isRecorderBuild } from "./recorder-build"
+
+/** The entrypoints a build keeps: the automation page only in the recorder build. */
+export function entrypointsFor<T extends { name: string }>(found: readonly T[], recorderBuild: boolean): T[] {
+  return found.filter((entry) => recorderBuild || entry.name !== AUTOMATION_ENTRYPOINT)
+}
+
 /** Chrome's extension ID for a public key: SHA-256 of the DER key, first 32 hex digits written as a–p. */
 export function extensionIdFromPublicKey(publicKeyBase64: string): string {
   const hex = createHash("sha256").update(Buffer.from(publicKeyBase64, "base64")).digest("hex").slice(0, 32)

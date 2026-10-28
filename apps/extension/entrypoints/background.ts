@@ -24,6 +24,7 @@ import {
   isPopupRecordingRequest,
   isRecorderReadyNotice,
   isRecordingEndedNotice,
+  isAutomationStopRequest,
   isRecordStartRequest,
   isRecordStatusRequest,
   isPopupPromptRequest,
@@ -70,6 +71,9 @@ const RECORDER_WINDOW_KEY = "recorderWindow"
 const PROMPT_TICKETS_KEY = "promptTickets"
 /** Session storage key of the camera grant; the page layer reads it to know a page load should ask for the bubble. */
 const CAMERA_GRANT_KEY = "camera"
+/** The build bundled with the agent recorder (`bun run build:recorder`); the store builds never have its automation path. */
+// Compared in place, so Vite writes a literal and the store builds drop the automation path altogether.
+const RECORDER_BUILD = import.meta.env.VITE_RECORDER_BUILD === "true"
 /** Where WXT puts recording-ui.content.ts. */
 const PAGE_LAYER_SCRIPT = "/content-scripts/recording-ui.js"
 
@@ -364,8 +368,15 @@ export default defineBackground(() => {
     return { maxBytes: recordingByteBudget(uploadLimitMb(clientConfig)), maxMs }
   }
 
-  /** Without options (the shortcut) the popup's stored choices apply. */
-  const record = async (tab: ActiveTab | null, options?: RecordOptions): Promise<CaptureResult> => {
+  /**
+   * Without options (the shortcut) the popup's stored choices apply. `caps` comes from the agent recorder, which is
+   * never signed in: it read its server's limits itself.
+   */
+  const record = async (
+    tab: ActiveTab | null,
+    options?: RecordOptions,
+    caps?: { maxBytes: number; maxMs: number },
+  ): Promise<CaptureResult> => {
     if (!tab) return { ok: false, error: "No active tab" }
     const picked = options
       ? {
@@ -378,7 +389,7 @@ export default defineBackground(() => {
         }
       : await capturePrefsStorage.get()
     const chosen = recordOptionsFor(picked, tabRecorder)
-    return flagFailure(tab.id, await recordings.start(tab, { ...chosen, ...(await recordingCaps()) }))
+    return flagFailure(tab.id, await recordings.start(tab, { ...chosen, ...(caps ?? (await recordingCaps())) }))
   }
 
   /** A stop from the shortcut or the time limit has no popup either, so its failure goes on the badge. */
@@ -537,8 +548,15 @@ export default defineBackground(() => {
     if (isScreenshotRequest(message)) {
       return reply(browser.tabs.get(message.tabId).then((tab) => screenshot(toActiveTab(tab), message.mode ?? "visible")))
     }
+    // The agent recorder's own build only, and only from its own pages: a web page or the store build never gets here.
+    const fromRecorder = RECORDER_BUILD && fromExtensionPage(sender, browser.runtime.id, extensionOrigin)
     if (isRecordStartRequest(message)) {
-      return reply(browser.tabs.get(message.tabId).then((tab) => record(toActiveTab(tab), message.options)))
+      const caps = fromRecorder ? message.caps : undefined
+      return reply(browser.tabs.get(message.tabId).then((tab) => record(toActiveTab(tab), message.options, caps)))
+    }
+    if (RECORDER_BUILD && isAutomationStopRequest(message)) {
+      if (!fromRecorder) return undefined
+      return reply(recordings.stop(undefined, { review: false }))
     }
     // The page layer asks on every page load whether its tab is being recorded.
     if (isUiStateRequest(message)) {

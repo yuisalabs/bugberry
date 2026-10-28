@@ -10,6 +10,7 @@
     "build:firefox": "wxt build -b firefox --mv3",
     "build:opera": "wxt build -b opera",
     "build:e2e": "VITE_SERVER_ORIGIN=http://127.0.0.1:3999 wxt build",
+    "build:recorder": "VITE_RECORDER_BUILD=true wxt build",
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox --mv3",
     "zip:opera": "wxt zip -b opera",

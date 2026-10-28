@@ -2,7 +2,10 @@ import { describe, expect, test } from "bun:test"
 import { createHash, generateKeyPairSync } from "node:crypto"
 import { EXTENSION_ID_PATTERN } from "@bugberry/shared"
 import {
+  AUTOMATION_ENTRYPOINT,
+  entrypointsFor,
   extensionIdFromPublicKey,
+  isRecorderBuild,
   MANIFEST_COMMANDS,
   manifestFor,
   MANIFEST_PERMISSIONS,
@@ -107,5 +110,25 @@ describe("manifestFor", () => {
     expect(commands["take-screenshot"]).toEqual(MANIFEST_COMMANDS["take-screenshot"])
     expect(commands["start-recording"]).toEqual(MANIFEST_COMMANDS["start-recording"])
     expect(commands["stop-recording"]).toEqual(MANIFEST_COMMANDS["stop-recording"])
+  })
+})
+
+describe("recorder build", () => {
+  const found = [{ name: "background" }, { name: "popup" }, { name: AUTOMATION_ENTRYPOINT }, { name: "review" }]
+
+  test("store build has no automation entrypoint", () => {
+    expect(entrypointsFor(found, false).map((entry) => entry.name)).toEqual(["background", "popup", "review"])
+    expect(JSON.stringify(manifestFor("chrome", undefined))).not.toContain("automation")
+  })
+
+  test("the recorder build keeps it, and only VITE_RECORDER_BUILD=true makes one", () => {
+    expect(entrypointsFor(found, true).map((entry) => entry.name)).toContain(AUTOMATION_ENTRYPOINT)
+    expect(isRecorderBuild({ VITE_RECORDER_BUILD: "true" })).toBe(true)
+    expect(isRecorderBuild({ VITE_RECORDER_BUILD: "1" })).toBe(false)
+    expect(isRecorderBuild({})).toBe(false)
+  })
+
+  test("the automation page is never web accessible", () => {
+    expect(WEB_ACCESSIBLE_RESOURCES.flatMap((entry) => entry.resources)).not.toContain("automation.html")
   })
 })

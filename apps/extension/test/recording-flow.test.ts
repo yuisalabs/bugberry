@@ -322,6 +322,21 @@ describe("recorder window hosts", () => {
 })
 
 describe("stopVideoRecording", () => {
+  test("stop without review does not open the review", async () => {
+    await startVideoRecording(tab, TAB_OPTIONS, deps)
+    clock = 6000
+    expect(await stopVideoRecording(deps, undefined, { review: false })).toEqual({ ok: true, draftId: "video-1" })
+    expect(store.drafts.get("video-1")).toMatchObject({ status: "editing", durationMs: 4000 })
+    expect(opened).toEqual([])
+  })
+
+  test("the controller passes the no-review choice on", async () => {
+    const controller = createRecordingController(deps)
+    await controller.start(tab, TAB_OPTIONS)
+    expect(await controller.stop(undefined, { review: false })).toMatchObject({ ok: true })
+    expect(opened).toEqual([])
+  })
+
   test("adds the page buffer, measured from the recording start, and opens the editor", async () => {
     await startVideoRecording(tab, TAB_OPTIONS, deps)
     clock = 6000

@@ -5,6 +5,7 @@ import {
   isPageFlush,
   isPageStart,
   isRecordingEndedNotice,
+  isAutomationStopRequest,
   isRecordStartRequest,
   isRecordStatusRequest,
   isBarRequest,
@@ -33,6 +34,23 @@ describe("messages", () => {
     }
     expect(isRecordStatusRequest({ type: "bugberry:record-status" })).toBe(true)
     expect(isRecordingEndedNotice({ type: "bugberry:recording-ended", reason: "max-duration" })).toBe(true)
+  })
+
+  test("automation-stop is not a valid message without the type", () => {
+    expect(isAutomationStopRequest({ type: "bugberry:automation-stop" })).toBe(true)
+    expect(isAutomationStopRequest({})).toBe(false)
+    expect(isAutomationStopRequest({ type: "bugberry:bar-stop" })).toBe(false)
+  })
+
+  test("record-start caps must be positive and within MAX_RECORDING_MS", () => {
+    const start = (caps: unknown) => ({ type: "bugberry:record-start", tabId: 7, caps })
+    expect(isRecordStartRequest(start({ maxMs: 120_000, maxBytes: 50_000_000 }))).toBe(true)
+    expect(isRecordStartRequest(start(undefined))).toBe(true)
+    expect(isRecordStartRequest(start({ maxMs: 0, maxBytes: 50_000_000 }))).toBe(false)
+    expect(isRecordStartRequest(start({ maxMs: MAX_RECORDING_MS + 1, maxBytes: 50_000_000 }))).toBe(false)
+    expect(isRecordStartRequest(start({ maxMs: 120_000, maxBytes: -1 }))).toBe(false)
+    expect(isRecordStartRequest(start({ maxMs: 120_000, maxBytes: Number.POSITIVE_INFINITY }))).toBe(false)
+    expect(isRecordStartRequest(start({ maxMs: "2m", maxBytes: 1 }))).toBe(false)
   })
 
   test("the camera bubble asks with its token, to read or to say it's ready", () => {

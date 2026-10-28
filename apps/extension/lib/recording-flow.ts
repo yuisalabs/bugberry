@@ -414,8 +414,16 @@ async function extras(
   }
 }
 
-/** `reason`: why the recording ended by itself; absent when the reporter stopped it. */
-export async function stopVideoRecording(deps: RecordingFlowDeps, reason?: RecordingEndReason): Promise<CaptureResult> {
+/**
+ * `reason`: why the recording ended by itself; absent when the reporter stopped it. `review: false` leaves the
+ * review closed, for the agent recorder, which reads the draft itself.
+ */
+export async function stopVideoRecording(
+  deps: RecordingFlowDeps,
+  reason?: RecordingEndReason,
+  opts: { review?: boolean } = {},
+): Promise<CaptureResult> {
+  const openReview = opts.review === false ? async () => {} : deps.openReview
   const state = await deps.state.get()
   if (!state) return { ok: false, error: "No recording is running" }
   // The review says why a recording ended before the reporter stopped it.
@@ -458,7 +466,7 @@ export async function stopVideoRecording(deps: RecordingFlowDeps, reason?: Recor
       status: "editing",
       error: null,
     })
-    await deps.openReview(state.draftId, state.tabId)
+    await openReview(state.draftId, state.tabId)
     return { ok: true, draftId: state.draftId }
   }
 
@@ -490,7 +498,7 @@ export async function stopVideoRecording(deps: RecordingFlowDeps, reason?: Recor
     status: "editing",
     error: null,
   })
-  await deps.openReview(state.draftId, state.tabId)
+  await openReview(state.draftId, state.tabId)
   return { ok: true, draftId: state.draftId }
 }
 
@@ -518,7 +526,7 @@ async function openPage(
 
 export interface RecordingController {
   start(tab: ActiveTab, options: RecordOptions & { maxBytes: number; maxMs: number }): Promise<CaptureResult>
-  stop(reason?: RecordingEndReason): Promise<CaptureResult>
+  stop(reason?: RecordingEndReason, opts?: { review?: boolean }): Promise<CaptureResult>
   status(): Promise<RecordingStatus>
   noteNavigation(tabId: number): Promise<void>
   notePageFlush(tabId: number, raw: unknown): Promise<void>
@@ -571,7 +579,7 @@ export function createRecordingController(deps: RecordingFlowDeps): RecordingCon
 
   return {
     start: (tab, options) => enqueue(() => startVideoRecording(tab, options, deps)),
-    stop: (reason) => enqueue(() => stopVideoRecording(deps, reason)),
+    stop: (reason, opts) => enqueue(() => stopVideoRecording(deps, reason, opts)),
     status: () => enqueue(() => recordingStatus(deps)),
     noteNavigation: (tabId) => enqueue(() => noteNavigation(tabId, deps)),
     notePageFlush: (tabId, raw) => enqueue(() => notePageFlush(tabId, raw, deps)),
