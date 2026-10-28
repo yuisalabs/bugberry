@@ -26,7 +26,7 @@ export function normalizeServerUrl(input: string): string {
 }
 
 /** BugBerry's own server, the one the store builds use. */
-export const BUGBERRY_CLOUD_ORIGIN = "https://bugberry.yuisalabs.com"
+export { BUGBERRY_CLOUD_ORIGIN } from "@bugberry/shared"
 
 /** The server given at build time (VITE_SERVER_ORIGIN), used until another server is chosen. */
 export function defaultServerUrl(raw: string | undefined): string {

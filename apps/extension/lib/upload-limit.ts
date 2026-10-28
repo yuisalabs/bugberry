@@ -7,10 +7,7 @@ import { BUGBERRY_CLOUD_ORIGIN } from "./settings"
 export const DEFAULT_MAX_UPLOAD_MB = 200
 const READ_TIMEOUT_MS = 2000
 
-/** The video may fill 95% of the server's upload limit; the rest is room for the last chunk and the header. */
-export function recordingByteBudget(maxUploadMb: number): number {
-  return Math.floor(maxUploadMb * 1024 * 1024 * 0.95)
-}
+export { recordingByteBudget } from "@bugberry/shared"
 
 /** `read`'s answer, or null when it fails or doesn't come in time: a recording never waits long to start. */
 async function inTime<T>(read: () => Promise<T>, timeoutMs: number): Promise<T | null> {

@@ -1,0 +1,22 @@
+{
+  "name": "@bugberry/recorder",
+  "version": "0.1.0",
+  "description": "Lets a coding agent record a bug in a browser it drives, and file it in BugBerry.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "bin": { "bugberry-recorder": "dist/cli.js" },
+  "files": ["dist", "extension"],
+  "scripts": {
+    "build": "bun run --cwd ../extension build:recorder && bun build src/cli.ts --target node --outfile dist/cli.js && bun scripts/copy-extension.ts",
+    "test": "bun test test",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "playwright-core": "1.64.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@bugberry/shared": "workspace:*"
+  }
+}

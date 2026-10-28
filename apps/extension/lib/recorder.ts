@@ -1,4 +1,4 @@
-export const MAX_RECORDING_MS = 20 * 60 * 1000
+export { MAX_RECORDING_MS } from "@bugberry/shared"
 /** A 20-minute recording with sound comes to about 245 MB, under the server's default MAX_UPLOAD_MB (300). */
 export const VIDEO_BITS_PER_SECOND = 1_500_000
 export const AUDIO_BITS_PER_SECOND = 128_000
