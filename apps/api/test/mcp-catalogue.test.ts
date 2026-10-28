@@ -24,7 +24,7 @@ const READ = [
   "fetch",
   "listTrackers",
 ]
-const WRITE = ["addComment", "editComment", "deleteComment", "updateReport", "markNotificationsRead", "sendToTracker"]
+const WRITE = ["addComment", "editComment", "deleteComment", "updateReport", "markNotificationsRead", "sendToTracker", "createUpload"]
 
 describe("MCP tool catalogue", () => {
   test("every tool has a title, description and the right annotations", async () => {
