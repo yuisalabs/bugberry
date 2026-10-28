@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test"
+import { MAX_THUMBNAIL_BYTES } from "@bugberry/shared"
 import { eq } from "drizzle-orm"
 import type { CurrentUser } from "../src/auth/plugin"
 import { report } from "../src/db/schema"
@@ -26,6 +27,12 @@ describe("createReportUpload", () => {
   test("createReportUpload stores viaAgent", async () => {
     const created = await createReportUpload(ctx, reporter, uploadBody(projectId), { viaAgent: "Claude Code" })
     expect((await rowOf(created.reportId)).viaAgent).toBe("Claude Code")
+  })
+
+  test("a thumbnail over MAX_THUMBNAIL_BYTES is refused on every path", async () => {
+    await expect(createReportUpload(ctx, reporter, uploadBody(projectId, { thumbnailSize: MAX_THUMBNAIL_BYTES + 1 }))).rejects.toThrow(
+      "Thumbnail",
+    )
   })
 
   test("reports from the extension have no agent", async () => {

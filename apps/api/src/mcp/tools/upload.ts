@@ -1,4 +1,4 @@
-import { matchProject } from "@bugberry/shared"
+import { MAX_THUMBNAIL_BYTES, matchProject } from "@bugberry/shared"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { and, eq, or } from "drizzle-orm"
 import { z } from "zod"
@@ -19,7 +19,7 @@ const recordingArg = z
   .object({
     mediaSize: z.number().int().min(1),
     debuggerSize: z.number().int().min(1),
-    thumbnailSize: z.number().int().min(1).optional(),
+    thumbnailSize: z.number().int().min(1).max(MAX_THUMBNAIL_BYTES).optional(),
     durationMs: z.number().int().min(0).max(3_600_000),
     pageUrl: z.string().min(1).max(2048),
     pageTitle: z.string().max(500),

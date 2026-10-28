@@ -71,6 +71,41 @@ describe("submitRecording", () => {
     expect(calls).toEqual([])
   })
 
+  test("a link on the right server but another path is refused before anything is fetched", async () => {
+    const { fetcher, calls } = fakeServer({})
+    for (const link of [
+      `${SERVER}/api/avatars/u1/a1.png`,
+      `${SERVER}/api/files/read-token`,
+      `${LINK}?next=https://evil.test`,
+      `${LINK}#x`,
+      `${SERVER}/api/agent-uploads/tok/../../files/x`,
+    ]) {
+      await expect(submitRecording(recording, link, { server: SERVER, fetcher })).rejects.toThrow("not an upload link")
+    }
+    expect(calls).toEqual([])
+  })
+
+  test("never follows a redirect", async () => {
+    const { fetcher, calls } = fakeServer({})
+    const seen: Array<RequestInit | undefined> = []
+    const watching = (async (url: string | URL, init?: RequestInit) => {
+      seen.push(init)
+      return fetcher(url, init)
+    }) as unknown as typeof fetch
+    await submitRecording(recording, LINK, { server: SERVER, fetcher: watching, sleep: noWait }).catch(() => {})
+    expect(calls.length).toBeGreaterThan(0)
+    for (const init of seen) expect(init?.redirect).toBe("error")
+  })
+
+  // Storage (S3) links are on another host, always https; the local driver serves from the server itself.
+  test("targets that send the files anywhere but https or the server are refused", async () => {
+    for (const url of ["http://evil.test/collect", "ftp://x/y", "not a url"]) {
+      const { fetcher, calls } = fakeServer({ mediaUpload: put(url), mediaParts: null, debuggerUpload: null, thumbnailUpload: null })
+      await expect(submitRecording(recording, LINK, { server: SERVER, fetcher, sleep: noWait })).rejects.toThrow("unexpected")
+      expect(calls.filter((call) => call.method === "PUT")).toEqual([])
+    }
+  })
+
   test("sends one link per file then finalizes", async () => {
     const { fetcher, calls } = fakeServer({
       mediaUpload: put(`${SERVER}/s/media`),

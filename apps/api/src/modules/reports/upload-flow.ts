@@ -1,4 +1,12 @@
-import { canUseInternal, DEBUGGER_CONTENT_TYPE, defaultReportTitle, emailDomain, MEDIA_TYPES, THUMBNAIL_CONTENT_TYPE } from "@bugberry/shared"
+import {
+  canUseInternal,
+  DEBUGGER_CONTENT_TYPE,
+  defaultReportTitle,
+  emailDomain,
+  MAX_THUMBNAIL_BYTES,
+  MEDIA_TYPES,
+  THUMBNAIL_CONTENT_TYPE,
+} from "@bugberry/shared"
 import { and, eq } from "drizzle-orm"
 import type { AppDeps } from "../../app"
 import type { CurrentUser } from "../../auth/plugin"
@@ -46,6 +54,8 @@ export async function createReportUpload(
   if (body.mediaSize > config.maxUploadBytes || (body.debuggerSize ?? 0) > config.maxUploadBytes) {
     throw payloadTooLarge(`Files must be at most ${maxMb} MB`)
   }
+  // Checked here too, not only by the REST body: the MCP's createUpload reaches this without it.
+  if ((body.thumbnailSize ?? 0) > MAX_THUMBNAIL_BYTES) throw payloadTooLarge("Thumbnail must be at most 1 MB")
   if (body.captureType === "video" && body.durationMs === undefined) {
     throw badRequest("duration_required", "durationMs is required for video reports")
   }
