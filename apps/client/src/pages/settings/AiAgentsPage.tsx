@@ -59,6 +59,78 @@ export function connectSnippets(url: string): Array<{ id: string; label: string;
   ]
 }
 
+/** Where the agent recorder's Chromium listens, as @bugberry/recorder starts it without --port. */
+export const RECORDER_PORT = 9555
+
+/** How to add the agent recorder and its browser in each coding agent: two local servers beside the MCP one. */
+export function recorderSnippets(serverUrl: string, port: number): Array<{ id: string; label: string; where: string; code: string }> {
+  const json = (value: unknown) => JSON.stringify(value, null, 2)
+  const recorder = { command: "npx", args: ["-y", "@bugberry/recorder", "--server", serverUrl] }
+  const browser = { command: "npx", args: ["@playwright/mcp@latest", "--cdp-endpoint", `http://127.0.0.1:${port}`] }
+  const servers = { "bugberry-recorder": recorder, "bugberry-browser": browser }
+  return [
+    {
+      id: "claude-code",
+      label: "Claude Code",
+      where: "Run both in a terminal.",
+      code: [
+        `claude mcp add bugberry-recorder -- ${[recorder.command, ...recorder.args].join(" ")}`,
+        `claude mcp add bugberry-browser -- ${[browser.command, ...browser.args].join(" ")}`,
+      ].join("\n"),
+    },
+    { id: "cursor", label: "Cursor", where: "Add to ~/.cursor/mcp.json, beside bugberry.", code: json({ mcpServers: servers }) },
+    {
+      id: "vscode",
+      label: "VS Code",
+      where: "Add to .vscode/mcp.json, beside bugberry.",
+      code: json({ servers: Object.fromEntries(Object.entries(servers).map(([name, entry]) => [name, { type: "stdio", ...entry }])) }),
+    },
+    { id: "windsurf", label: "Windsurf", where: "Add to ~/.codeium/windsurf/mcp_config.json.", code: json({ mcpServers: servers }) },
+  ]
+}
+
+/** One tab per AI app, each with where to paste its setup and a copy button. */
+function SnippetTabs({ label, snippets }: { label: string; snippets: ReturnType<typeof connectSnippets> }) {
+  return (
+    <Tabs defaultSelectedKey="claude-code" className="flex flex-col gap-3">
+      <TabList aria-label={label} className="grid grid-cols-3 gap-1 rounded-xl bg-muted p-1 sm:grid-cols-6">
+        {snippets.map((item) => (
+          <Tab
+            key={item.id}
+            id={item.id}
+            className="rounded-lg px-2 py-2 text-center text-sm whitespace-nowrap text-muted-foreground outline-hidden transition hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring selected:bg-background selected:font-medium selected:text-foreground selected:shadow-xs"
+          >
+            {item.label}
+          </Tab>
+        ))}
+      </TabList>
+      {snippets.map((item) => (
+        <TabPanel key={item.id} id={item.id} className="flex flex-col gap-3 outline-hidden">
+          <p className="flex items-start gap-2 text-sm text-foreground">
+            <RiTerminalBoxLine aria-hidden className="mt-0.5 size-4 shrink-0 text-primary" />
+            {item.where}
+          </p>
+          <div className={codeBlock}>
+            <pre className="overflow-x-auto break-words whitespace-pre-wrap">
+              {item.id === "claude-code" && (
+                <span aria-hidden className="mr-3 text-primary select-none">
+                  $
+                </span>
+              )}
+              <code>{item.code}</code>
+            </pre>
+            <CopyButton
+              text={item.code}
+              label="Copy"
+              className="absolute top-3 right-3 border-background/15 bg-background/10 text-background hover:bg-background/20"
+            />
+          </div>
+        </TabPanel>
+      ))}
+    </Tabs>
+  )
+}
+
 const when = (value: Date | string | null) => (value ? formatDateTime(value) : "never")
 
 /** The prompt step 3 offers to copy; the person adds their report's link after it. */
@@ -172,82 +244,63 @@ export function AiAgentsView({
       )}
 
       <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)]">
-        <div className={card}>
-          <h2 className={cardTitle}>Connect an app</h2>
-          <ol className="flex flex-col gap-7">
-            <Step number={1} title="Copy the server URL">
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <div className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg border border-border bg-muted px-3 py-2">
-                  <RiServerLine aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-                  <code className="truncate font-mono text-sm text-foreground">{url}</code>
+        <div className="flex min-w-0 flex-col gap-6">
+          <div className={card}>
+            <h2 className={cardTitle}>Connect an app</h2>
+            <ol className="flex flex-col gap-7">
+              <Step number={1} title="Copy the server URL">
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <div className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg border border-border bg-muted px-3 py-2">
+                    <RiServerLine aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+                    <code className="truncate font-mono text-sm text-foreground">{url}</code>
+                  </div>
+                  <CopyButton text={url} label="Copy URL" className="h-auto" />
                 </div>
-                <CopyButton text={url} label="Copy URL" className="h-auto" />
-              </div>
-            </Step>
+              </Step>
 
-            <Step number={2} title="Add it to your AI app">
-              <Tabs defaultSelectedKey="claude-code" className="flex flex-col gap-3">
-                <TabList aria-label="AI apps" className="grid grid-cols-3 gap-1 rounded-xl bg-muted p-1 sm:grid-cols-6">
-                  {snippets.map((item) => (
-                    <Tab
-                      key={item.id}
-                      id={item.id}
-                      className="rounded-lg px-2 py-2 text-center text-sm whitespace-nowrap text-muted-foreground outline-hidden transition hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring selected:bg-background selected:font-medium selected:text-foreground selected:shadow-xs"
-                    >
-                      {item.label}
-                    </Tab>
-                  ))}
-                </TabList>
-                {snippets.map((item) => (
-                  <TabPanel key={item.id} id={item.id} className="flex flex-col gap-3 outline-hidden">
-                    <p className="flex items-start gap-2 text-sm text-foreground">
-                      <RiTerminalBoxLine aria-hidden className="mt-0.5 size-4 shrink-0 text-primary" />
-                      {item.where}
-                    </p>
-                    <div className={codeBlock}>
-                      <pre className="overflow-x-auto break-words whitespace-pre-wrap">
-                        {item.id === "claude-code" && (
-                          <span aria-hidden className="mr-3 text-primary select-none">
-                            $
-                          </span>
-                        )}
-                        <code>{item.code}</code>
-                      </pre>
-                      <CopyButton
-                        text={item.code}
-                        label="Copy"
-                        className="absolute top-3 right-3 border-background/15 bg-background/10 text-background hover:bg-background/20"
-                      />
-                    </div>
-                  </TabPanel>
+              <Step number={2} title="Add it to your AI app">
+                <SnippetTabs label="AI apps" snippets={snippets} />
+              </Step>
+
+              <Step number={3} title="Paste a report link into your agent">
+                <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">
+                  <RiChat3Line aria-hidden className="size-4 shrink-0" />
+                  <span className="min-w-0 flex-1">
+                    {AGENT_PROMPT}
+                    <span className="font-mono whitespace-nowrap text-primary">&lt;report link&gt;</span>
+                  </span>
+                  <CopyButton text={AGENT_PROMPT} label="Copy" className="bg-background" />
+                </div>
+              </Step>
+            </ol>
+            <div className="flex flex-col gap-1.5 border-t border-border pt-5 text-sm text-muted-foreground">
+              <span>A report link is either:</span>
+              <ul className="flex flex-col gap-1">
+                {reportLinkForms(origin).map((form) => (
+                  <li key={form.link} className="flex flex-wrap items-baseline gap-x-2">
+                    <code className="font-mono break-all text-foreground">{form.link}</code>
+                    <span>{form.what}</span>
+                  </li>
                 ))}
-              </Tabs>
-            </Step>
+              </ul>
+              <span>
+                A number like <code className="font-mono text-foreground">BB-123</code> works too.
+              </span>
+            </div>
+          </div>
 
-            <Step number={3} title="Paste a report link into your agent">
-              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">
-                <RiChat3Line aria-hidden className="size-4 shrink-0" />
-                <span className="min-w-0 flex-1">
-                  {AGENT_PROMPT}
-                  <span className="font-mono whitespace-nowrap text-primary">&lt;report link&gt;</span>
-                </span>
-                <CopyButton text={AGENT_PROMPT} label="Copy" className="bg-background" />
-              </div>
-            </Step>
-          </ol>
-          <div className="flex flex-col gap-1.5 border-t border-border pt-5 text-sm text-muted-foreground">
-            <span>A report link is either:</span>
-            <ul className="flex flex-col gap-1">
-              {reportLinkForms(origin).map((form) => (
-                <li key={form.link} className="flex flex-wrap items-baseline gap-x-2">
-                  <code className="font-mono break-all text-foreground">{form.link}</code>
-                  <span>{form.what}</span>
-                </li>
-              ))}
-            </ul>
-            <span>
-              A number like <code className="font-mono text-foreground">BB-123</code> works too.
-            </span>
+          <div className={card}>
+            <div className="flex flex-col gap-1">
+              <h2 className={cardTitle}>Let agents record bugs</h2>
+              <p className="text-sm text-muted-foreground">
+                A coding agent can record a bug in a browser it drives and file it here, with video, console and network.
+                Add these two servers beside BugBerry, connected with changes allowed. Then ask: “Show me the bug on /checkout.”
+              </p>
+            </div>
+            <SnippetTabs label="AI apps for recording" snippets={recorderSnippets(origin, RECORDER_PORT)} />
+            <a href={`${DOCS_URL}/guide/agent-recordings`} target="_blank" rel="noreferrer" className="text-sm text-primary hover:underline">
+              How agent recordings work
+            </a>
           </div>
         </div>
 

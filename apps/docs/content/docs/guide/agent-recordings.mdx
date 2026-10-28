@@ -1,0 +1,84 @@
+---
+title: Agent recordings
+description: Let a coding agent record a bug in a browser it drives, and file it in BugBerry.
+---
+
+A coding agent such as Claude Code, Cursor, or VS Code can record what it does in a browser and file it as a BugBerry
+report. The report looks like one made with the extension: the video, the console, the network requests, and the
+actions. It says **Recorded by** and the agent's name.
+
+Ask your agent something like "Show me the bug on /checkout", or "The Pay button does nothing, find it and record it".
+
+## What you need
+
+- The [BugBerry MCP server](/guide/ai-agents), connected with changes allowed.
+- [Node.js](https://nodejs.org) 20 or later.
+- Two more MCP servers, added beside BugBerry:
+  - **`bugberry-recorder`** opens a browser with BugBerry inside and records it;
+  - **`bugberry-browser`** is [Playwright MCP](https://github.com/microsoft/playwright-mcp), pointed at that browser, so the agent can click and type in it.
+
+Your own Playwright MCP, if you have one, stays as it is: `bugberry-browser` is a second one, only for recordings.
+
+## Set it up
+
+Open **AI Agents** in the dashboard's top bar. Under **Let agents record bugs**, the page has copy-paste setup for
+Claude Code, Cursor, VS Code, and Windsurf, with your BugBerry address filled in. For Claude Code:
+
+```bash
+claude mcp add bugberry-recorder -- npx -y @bugberry/recorder --server https://bugberry.example.com
+claude mcp add bugberry-browser -- npx @playwright/mcp@latest --cdp-endpoint http://127.0.0.1:9555
+```
+
+The recorder uses Playwright's Chromium. The first time, it may ask you to install it:
+
+```bash
+npx playwright@1.64.1 install chromium
+```
+
+### Options
+
+- `--server`: your BugBerry address. Recordings only ever go there, and its recording limits apply. Without it, BugBerry cloud.
+- `--port`: where the browser listens for `bugberry-browser`, `9555` by default. Change it in both servers.
+- `--headless`: record without a window on your screen.
+
+## How a recording goes
+
+1. The agent calls **`startRecording`** with the page. A Chromium window opens on it and the recording starts.
+2. The agent clicks and types with the **`bugberry-browser`** tools until the bug shows.
+3. It calls **`stopRecording`** and reads what was caught: errors, failed requests, actions.
+4. It writes a title and description and calls **`createUpload`** on BugBerry. The report is created, with its project
+   picked from the page address unless the agent names one.
+5. It calls **`submitRecording`** to send the video and logs, and gives you the report's link.
+
+The report is in your name, as you connected the BugBerry MCP server.
+
+### One tab only
+
+A recording follows one tab, the one it started on. If the agent opens another tab, what happens there is not in the
+video or the logs, and the recorder tells the agent to go back.
+
+If the agent used its other browser tools by mistake, nothing happened in the recorded tab: the recorder doesn't send
+an empty recording, and says why.
+
+## Staying signed in
+
+The recorder's browser keeps its own profile, so the agent signs in to the app it tests once, and stays signed in for
+the next recordings. It is never signed in to BugBerry. The profile is in:
+
+- Windows: `%LOCALAPPDATA%\BugBerry\recorder\profile`
+- macOS: `~/Library/Application Support/BugBerry/recorder/profile`
+- Linux: `~/.local/share/bugberry/recorder/profile`
+
+Delete that folder to sign the agent out of everything.
+
+## If the port is taken
+
+When the recorder says port `9555` is not available, another program uses it, or Windows reserved it (Hyper-V does).
+On Windows, see which ports are reserved:
+
+```bash
+netsh int ipv4 show excludedportrange protocol=tcp
+```
+
+Pick a port outside those ranges, then set it in both servers: `--port` for `bugberry-recorder`, and `--cdp-endpoint`
+for `bugberry-browser`.

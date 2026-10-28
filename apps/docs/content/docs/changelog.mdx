@@ -6,6 +6,19 @@ description: What changed in BugBerry, newest first.
 Each entry is named after the browser extension's version. Changes to the dashboard and the server ship with it. A
 release with no extension change still gets its own entry, and the entry says that the extension stays as it is.
 
+## 0.9.2 · 29 October 2026
+
+- **Coding agents can record a bug and file it.** The new `@bugberry/recorder` MCP server opens a browser with BugBerry
+  inside. The agent drives it with Playwright MCP, records the bug, writes the title and description, and files the
+  report with video, console, network, and its actions. It hands back the link. The report says **Recorded by** and the
+  agent's name, and nothing new is needed in the browser: identity comes from your BugBerry MCP connection. A recording
+  follows one tab, and the recorder warns the agent when it opens another. Setup for Claude Code, Cursor, VS Code, and
+  Windsurf is under **AI Agents → Let agents record bugs**. See [Agent recordings](/guide/agent-recordings).
+- **New MCP tool `createUpload`** creates the report for a recording, and gives the recorder a link to send it through
+  that works for 15 minutes.
+- **Self-hosting:** update the server; a migration adds the agent upload links and a column on reports when it starts.
+  Set `--server` to your address in the recorder. The extension stays at 0.9.0.
+
 ## 0.9.1 · 27 October 2026
 
 - **AI agents can watch a recording.** Before, an agent only got a video report's thumbnail. The new MCP tool

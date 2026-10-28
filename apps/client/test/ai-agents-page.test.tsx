@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, mock, test } from "bun:test"
 import { act, fireEvent, render, screen, within } from "@testing-library/react"
-import { AGENT_PROMPT, AiAgentsView, connectSnippets, reportLinkForms } from "../src/pages/settings/AiAgentsPage"
+import { AGENT_PROMPT, AiAgentsView, connectSnippets, recorderSnippets, reportLinkForms } from "../src/pages/settings/AiAgentsPage"
 
 const ORIGIN = "https://bugberry.kantor.test"
 const base = {
@@ -41,7 +41,32 @@ describe("connectSnippets", () => {
   })
 })
 
+describe("recorderSnippets", () => {
+  test("recorder snippets name both servers and the port", () => {
+    const snippets = recorderSnippets("https://example.test", 9555)
+    expect(snippets.map((item) => item.id)).toEqual(["claude-code", "cursor", "vscode", "windsurf"])
+    for (const item of snippets) {
+      for (const part of ["@bugberry/recorder", "--server", "https://example.test", "bugberry-browser", "--cdp-endpoint", "http://127.0.0.1:9555"]) {
+        expect(item.code).toContain(part)
+      }
+    }
+    const cursor = JSON.parse(snippets.find((item) => item.id === "cursor")?.code ?? "")
+    expect(cursor).toEqual({
+      mcpServers: {
+        "bugberry-recorder": { command: "npx", args: ["-y", "@bugberry/recorder", "--server", "https://example.test"] },
+        "bugberry-browser": { command: "npx", args: ["@playwright/mcp@latest", "--cdp-endpoint", "http://127.0.0.1:9555"] },
+      },
+    })
+  })
+})
+
 describe("AiAgentsView", () => {
+  test("offers the recorder setup next to the MCP server", () => {
+    render(<AiAgentsView {...base} />)
+    expect(screen.getByRole("heading", { name: "Let agents record bugs" })).toBeTruthy()
+    expect(screen.getByText(/claude mcp add bugberry-recorder/)).toBeTruthy()
+  })
+
   test("shows the server URL and the Claude Code command", () => {
     render(<AiAgentsView {...base} />)
     expect(screen.getByRole("heading", { name: "AI Agents (MCP)" })).toBeTruthy()

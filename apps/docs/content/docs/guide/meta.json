@@ -9,6 +9,7 @@
     "workspaces-and-access",
     "trackers",
     "ai-agents",
+    "agent-recordings",
     "firefox"
   ]
 }
