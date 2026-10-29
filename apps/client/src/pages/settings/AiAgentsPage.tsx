@@ -52,6 +52,12 @@ export function connectSnippets(url: string): Array<{ id: string; label: string;
   return [
     { id: "claude-code", label: "Claude Code", where: "Run in a terminal, then sign in when Claude Code asks.", code: `claude mcp add --transport http bugberry ${url}` },
     { id: "claude-ai", label: "Claude.ai", where: "Settings → Connectors → Add custom connector, then paste this URL.", code: url },
+    {
+      id: "codex",
+      label: "Codex",
+      where: "Run both in a terminal; the second signs you in.",
+      code: [`codex mcp add bugberry --url ${url}`, "codex mcp login bugberry"].join("\n"),
+    },
     { id: "cursor", label: "Cursor", where: "Add to ~/.cursor/mcp.json (or .cursor/mcp.json in a project).", code: json({ mcpServers: { bugberry: { url } } }) },
     { id: "vscode", label: "VS Code", where: "Add to .vscode/mcp.json, or run “MCP: Add Server” and choose HTTP.", code: json({ servers: { bugberry: { type: "http", url } } }) },
     { id: "windsurf", label: "Windsurf", where: "Add to ~/.codeium/windsurf/mcp_config.json.", code: json({ mcpServers: { bugberry: { serverUrl: url } } }) },
@@ -76,6 +82,15 @@ export function recorderSnippets(serverUrl: string, port: number): Array<{ id: s
       code: [
         `claude mcp add bugberry-recorder -- ${[recorder.command, ...recorder.args].join(" ")}`,
         `claude mcp add bugberry-browser -- ${[browser.command, ...browser.args].join(" ")}`,
+      ].join("\n"),
+    },
+    {
+      id: "codex",
+      label: "Codex",
+      where: "Run both in a terminal.",
+      code: [
+        `codex mcp add bugberry-recorder -- ${[recorder.command, ...recorder.args].join(" ")}`,
+        `codex mcp add bugberry-browser -- ${[browser.command, ...browser.args].join(" ")}`,
       ].join("\n"),
     },
     { id: "cursor", label: "Cursor", where: "Add to ~/.cursor/mcp.json, beside bugberry.", code: json({ mcpServers: servers }) },
@@ -295,6 +310,7 @@ export function AiAgentsView({
               <p className="text-sm text-muted-foreground">
                 A coding agent can record a bug in a browser it drives and file it here, with video, console and network.
                 Add these two servers beside BugBerry, connected with changes allowed. Then ask: “Show me the bug on /checkout.”
+                Or ask it to test a page: the recorder's test-page prompt finds the bugs and files each one.
               </p>
             </div>
             <SnippetTabs label="AI apps for recording" snippets={recorderSnippets(origin, RECORDER_PORT)} />

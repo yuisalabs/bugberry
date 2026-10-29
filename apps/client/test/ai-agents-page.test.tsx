@@ -38,13 +38,14 @@ describe("connectSnippets", () => {
     expect(JSON.parse(snippets.windsurf ?? "")).toEqual({ mcpServers: { bugberry: { serverUrl: `${ORIGIN}/api/mcp` } } })
     expect(snippets["claude-ai"]).toBe(`${ORIGIN}/api/mcp`)
     expect(snippets.chatgpt).toBe(`${ORIGIN}/api/mcp`)
+    expect(snippets.codex).toBe(`codex mcp add bugberry --url ${ORIGIN}/api/mcp\ncodex mcp login bugberry`)
   })
 })
 
 describe("recorderSnippets", () => {
   test("recorder snippets name both servers and the port", () => {
     const snippets = recorderSnippets("https://example.test", 9555)
-    expect(snippets.map((item) => item.id)).toEqual(["claude-code", "cursor", "vscode", "windsurf"])
+    expect(snippets.map((item) => item.id)).toEqual(["claude-code", "codex", "cursor", "vscode", "windsurf"])
     for (const item of snippets) {
       for (const part of ["@bugberry/recorder", "--server", "https://example.test", "bugberry-browser", "--cdp-endpoint", "http://127.0.0.1:9555"]) {
         expect(item.code).toContain(part)
@@ -65,6 +66,11 @@ describe("AiAgentsView", () => {
     render(<AiAgentsView {...base} />)
     expect(screen.getByRole("heading", { name: "Let agents record bugs" })).toBeTruthy()
     expect(screen.getByText(/claude mcp add bugberry-recorder/)).toBeTruthy()
+  })
+
+  test("recorder card mentions testing a page", () => {
+    render(<AiAgentsView {...base} />)
+    expect(screen.getByText(/test-page/)).toBeTruthy()
   })
 
   test("shows the server URL and the Claude Code command", () => {
