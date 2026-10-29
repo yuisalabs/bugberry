@@ -1,5 +1,5 @@
 import { Elysia } from "elysia"
-import type { AppDeps } from "./app"
+import type { AppDeps } from "../../deps"
 
 /**
  * OAuth discovery lives at the site root, outside /api: MCP clients look for the protected resource

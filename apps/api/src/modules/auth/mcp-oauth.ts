@@ -1,4 +1,4 @@
-import type { Config } from "../config"
+import type { Config } from "../../config"
 
 /** Scopes an AI app can ask for; bugberry:write covers every MCP tool that changes something. */
 export const MCP_SCOPES = ["openid", "profile", "offline_access", "bugberry:read", "bugberry:write"] as const

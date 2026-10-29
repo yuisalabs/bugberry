@@ -1,6 +1,6 @@
 import { DEMO_TEAM_SIZES, DEMO_TRACKERS } from "@bugberry/shared"
 import { Elysia, t } from "elysia"
-import type { AppDeps } from "../../app"
+import type { AppDeps } from "../../deps"
 import { demoRequest } from "../../db/schema"
 import { demoRequestEmail } from "../../email/demo-request-email"
 import { createEmailSender, type EmailSender } from "../../email/sender"

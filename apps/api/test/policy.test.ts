@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { isEmailAllowed } from "../src/auth/policy"
+import { isEmailAllowed } from "../src/modules/auth/policy"
 
 describe("isEmailAllowed with no domain list", () => {
   test("any real address is allowed; one without a domain is not", () => {

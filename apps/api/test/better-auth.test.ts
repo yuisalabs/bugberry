@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { createAuth } from "../src/auth/better-auth"
+import { createAuth } from "../src/modules/auth/better-auth"
 import { getTestDb, testConfig } from "./helpers"
 
 // Drives the provisioning hooks Better Auth runs during the Google callback, without a real OAuth round trip.

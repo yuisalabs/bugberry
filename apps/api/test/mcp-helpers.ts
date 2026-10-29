@@ -1,7 +1,7 @@
 import type { DebuggerPayload } from "@bugberry/capture"
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
-import type { CurrentUser } from "../src/auth/plugin"
+import type { CurrentUser } from "../src/plugins/auth"
 import type { McpCaller, McpContext } from "../src/mcp/context"
 import { createDebuggerCache } from "../src/mcp/debugger"
 import { createRateLimiter } from "../src/lib/rate-limit"

@@ -1,10 +1,10 @@
 import { and, eq, isNull } from "drizzle-orm"
 import { Elysia } from "elysia"
-import type { AppDeps } from "../app"
+import type { AppDeps } from "../deps"
 import { apiToken, user } from "../db/schema"
 import { hashToken, TOKEN_PREFIX } from "../lib/api-token"
 import { forbidden, unauthorized } from "../lib/errors"
-import { isEmailAllowed } from "./policy"
+import { isEmailAllowed } from "../modules/auth/policy"
 
 export interface CurrentUser {
   id: string

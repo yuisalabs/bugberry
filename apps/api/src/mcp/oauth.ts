@@ -8,8 +8,8 @@
 import { cleanAppName } from "@bugberry/shared"
 import { and, eq } from "drizzle-orm"
 import { createLocalJWKSet, decodeProtectedHeader, type JSONWebKeySet, jwtVerify } from "jose"
-import type { AppDeps } from "../app"
-import { mcpResource } from "../auth/mcp-oauth"
+import type { AppDeps } from "../deps"
+import { mcpResource } from "../modules/auth/mcp-oauth"
 import { oauthClient, oauthConsent } from "../db/schema"
 import type { McpScope } from "./context"
 

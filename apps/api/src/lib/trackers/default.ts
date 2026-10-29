@@ -1,4 +1,4 @@
-import type { AppDeps } from "../../app"
+import type { AppDeps } from "../../deps"
 import { createHostGuard } from "../net/host-guard"
 import { createTrackerFactory, DEFAULT_TIMEOUT_MS, type TrackerFactory } from "./providers"
 

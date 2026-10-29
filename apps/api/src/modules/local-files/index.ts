@@ -1,5 +1,5 @@
 import { Elysia } from "elysia"
-import type { AppDeps } from "../../app"
+import type { AppDeps } from "../../deps"
 import { AppError, badRequest, conflict, notFound, payloadTooLarge, unauthorized } from "../../lib/errors"
 import { LocalStorageDriver, ObjectExistsError } from "../../storage/local"
 

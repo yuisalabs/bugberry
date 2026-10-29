@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm"
 import { Elysia } from "elysia"
-import type { AppDeps } from "../../app"
+import type { AppDeps } from "../../deps"
 import type { Db } from "../../db/client"
 import { agentUpload, report } from "../../db/schema"
 import { hashToken } from "../../lib/api-token"

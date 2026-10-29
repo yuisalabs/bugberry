@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { githubUserInfo, gitlabUserInfo, pickGithubEmail } from "../src/auth/identity"
+import { githubUserInfo, gitlabUserInfo, pickGithubEmail } from "../src/modules/auth/identity"
 
 const fakeFetch = (answers: Record<string, unknown>) => {
   const seen: string[] = []

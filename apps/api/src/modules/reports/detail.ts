@@ -1,7 +1,7 @@
 import { DEBUGGER_CONTENT_TYPE, FREE_EMAIL_DOMAINS } from "@bugberry/shared"
 import { eq, type SQL } from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"
-import type { AppDeps } from "../../app"
+import type { AppDeps } from "../../deps"
 import { report, user } from "../../db/schema"
 
 export interface PersonSummary {

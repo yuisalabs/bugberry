@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { otpEmail } from "../src/email/otp-email"
+import { otpEmail } from "../src/modules/auth/otp-email"
 import { createEmailSender } from "../src/email/sender"
 
 describe("otpEmail", () => {

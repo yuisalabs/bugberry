@@ -1,6 +1,6 @@
 import { Elysia } from "elysia"
-import type { AppDeps } from "../../app"
-import { authPlugin } from "../../auth/plugin"
+import type { AppDeps } from "../../deps"
+import { authPlugin } from "../../plugins/auth"
 import { listActivity } from "./service"
 
 export function activityModule(deps: AppDeps) {

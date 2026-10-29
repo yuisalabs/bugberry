@@ -1,6 +1,6 @@
 import { Elysia, t } from "elysia"
-import type { AppDeps } from "../../app"
-import { authPlugin } from "../../auth/plugin"
+import type { AppDeps } from "../../deps"
+import { authPlugin } from "../../plugins/auth"
 import { createCommentsService } from "./service"
 
 const commentBody = t.Object({ body: t.String({ minLength: 1, maxLength: 5000 }) })

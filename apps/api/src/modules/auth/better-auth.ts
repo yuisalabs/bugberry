@@ -3,8 +3,8 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { APIError, createAuthMiddleware } from "better-auth/api"
 import { mcp } from "@better-auth/mcp"
 import { emailOTP, jwt } from "better-auth/plugins"
-import type { Config } from "../config"
-import type { Db } from "../db/client"
+import type { Config } from "../../config"
+import type { Db } from "../../db/client"
 import {
   account,
   jwks,
@@ -18,12 +18,12 @@ import {
   session,
   user,
   verification,
-} from "../db/schema"
-import { createRateLimiter } from "../lib/rate-limit"
-import { otpEmail } from "../email/otp-email"
-import { createEmailSender, type EmailSender } from "../email/sender"
+} from "../../db/schema"
+import { createRateLimiter } from "../../lib/rate-limit"
+import { otpEmail } from "./otp-email"
+import { createEmailSender, type EmailSender } from "../../email/sender"
 import { githubUserInfo, gitlabUserInfo } from "./identity"
-import { provisionNewUser } from "../workspaces/provision"
+import { provisionNewUser } from "../../workspaces/provision"
 import { MCP_SCOPES, mcpResource } from "./mcp-oauth"
 import { isEmailAllowed } from "./policy"
 

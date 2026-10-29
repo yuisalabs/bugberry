@@ -1,6 +1,6 @@
 import { NOTIFIER_PROVIDERS, type NotifierConfig, type NotifierProvider } from "@bugberry/shared"
 import { and, eq, sql } from "drizzle-orm"
-import type { AppDeps } from "../../app"
+import type { AppDeps } from "../../deps"
 import { integration, project, report, user } from "../../db/schema"
 import { createHostGuard } from "../net/host-guard"
 import { createSecretBox, SECRET_UNREADABLE } from "../secret-box"

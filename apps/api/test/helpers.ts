@@ -13,7 +13,7 @@ import {
 } from "@bugberry/shared"
 import { sql } from "drizzle-orm"
 import { createApp } from "../src/app"
-import { createAuth } from "../src/auth/better-auth"
+import { createAuth } from "../src/modules/auth/better-auth"
 import type { EmailSender } from "../src/email/sender"
 import type { Config } from "../src/config"
 import { createDb, type Db } from "../src/db/client"

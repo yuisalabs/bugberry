@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { eq } from "drizzle-orm"
-import { createAuth } from "../src/auth/better-auth"
+import { createAuth } from "../src/modules/auth/better-auth"
 import { loadConfig } from "../src/config"
 import { account, user } from "../src/db/schema"
 import { imageType } from "../src/lib/image-type"

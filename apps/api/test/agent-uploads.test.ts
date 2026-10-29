@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { eq } from "drizzle-orm"
-import type { CurrentUser } from "../src/auth/plugin"
+import type { CurrentUser } from "../src/plugins/auth"
 import { agentUpload, report } from "../src/db/schema"
 import { AGENT_UPLOAD_TTL_MS, issueAgentUpload } from "../src/modules/reports/agent-uploads"
 import { createReportUpload } from "../src/modules/reports/upload-flow"

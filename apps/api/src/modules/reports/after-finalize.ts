@@ -1,4 +1,4 @@
-import type { AppDeps } from "../../app"
+import type { AppDeps } from "../../deps"
 
 /**
  * Starts the work that follows a finished upload (auto-send, notifications) without holding up the answer. The work

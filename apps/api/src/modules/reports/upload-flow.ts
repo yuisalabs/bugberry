@@ -8,8 +8,8 @@ import {
   THUMBNAIL_CONTENT_TYPE,
 } from "@bugberry/shared"
 import { and, eq } from "drizzle-orm"
-import type { AppDeps } from "../../app"
-import type { CurrentUser } from "../../auth/plugin"
+import type { AppDeps } from "../../deps"
+import type { CurrentUser } from "../../plugins/auth"
 import { project, report, workspace } from "../../db/schema"
 import { badRequest, conflict, notFound, payloadTooLarge, unprocessable } from "../../lib/errors"
 import { newId, newShareSlug } from "../../lib/ids"

@@ -1,6 +1,6 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js"
-import type { AppDeps } from "../app"
-import type { CurrentUser } from "../auth/plugin"
+import type { AppDeps } from "../deps"
+import type { CurrentUser } from "../plugins/auth"
 import { AppError } from "../lib/errors"
 import type { RateLimiter } from "../lib/rate-limit"
 import type { createDispatcher } from "../lib/trackers/dispatch"

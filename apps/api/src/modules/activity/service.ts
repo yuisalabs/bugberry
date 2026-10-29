@@ -1,6 +1,6 @@
 import { and, desc, eq, gt, inArray, sql } from "drizzle-orm"
-import type { AppDeps } from "../../app"
-import type { CurrentUser } from "../../auth/plugin"
+import type { AppDeps } from "../../deps"
+import type { CurrentUser } from "../../plugins/auth"
 import type { Db } from "../../db/client"
 import { type ActivityKind, report, reportActivity, user } from "../../db/schema"
 import { notFound } from "../../lib/errors"

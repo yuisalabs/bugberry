@@ -1,8 +1,8 @@
 import { cleanAppName } from "@bugberry/shared"
 import { and, desc, eq, max } from "drizzle-orm"
 import { Elysia } from "elysia"
-import type { AppDeps } from "../../app"
-import { authPlugin } from "../../auth/plugin"
+import type { AppDeps } from "../../deps"
+import { authPlugin } from "../../plugins/auth"
 import { oauthAccessToken, oauthClient, oauthConsent, oauthRefreshToken } from "../../db/schema"
 import { forbidden, notFound } from "../../lib/errors"
 

@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm"
-import { isEmailAllowed } from "../auth/policy"
+import { isEmailAllowed } from "../modules/auth/policy"
 import type { Config } from "../config"
 import type { Db } from "../db/client"
 import { apiToken, user } from "../db/schema"

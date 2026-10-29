@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { createApp } from "../src/app"
-import { type Auth, createAuth } from "../src/auth/better-auth"
+import { type Auth, createAuth } from "../src/modules/auth/better-auth"
 import type { Config } from "../src/config"
 import { createStorage } from "../src/storage"
 import { getTestDb, resetDb, testConfig } from "./helpers"

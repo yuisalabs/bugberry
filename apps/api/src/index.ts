@@ -1,5 +1,5 @@
 import { createApp } from "./app"
-import { createAuth } from "./auth/better-auth"
+import { createAuth } from "./modules/auth/better-auth"
 import { accountLimitsNotice, loadConfig } from "./config"
 import { createDb } from "./db/client"
 import { runMigrations } from "./db/migrate"

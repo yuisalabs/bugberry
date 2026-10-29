@@ -1,5 +1,5 @@
 import { and, eq, inArray, lt } from "drizzle-orm"
-import type { AppDeps } from "../app"
+import type { AppDeps } from "../deps"
 import { agentUpload, report } from "../db/schema"
 import { thumbnailKeyFor } from "../storage/keys"
 

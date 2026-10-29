@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { MAX_THUMBNAIL_BYTES } from "@bugberry/shared"
 import { eq } from "drizzle-orm"
-import type { CurrentUser } from "../src/auth/plugin"
+import type { CurrentUser } from "../src/plugins/auth"
 import { report } from "../src/db/schema"
 import { createReportUpload, uploadTargetsFor } from "../src/modules/reports/upload-flow"
 import { createProject, createUserWithToken, setupTestApp, uploadBody } from "./helpers"
