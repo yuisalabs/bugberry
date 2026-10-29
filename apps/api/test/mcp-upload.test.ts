@@ -68,9 +68,13 @@ describe("createUpload", () => {
     expect((await rowOf((result.structured as { reportId: string }).reportId)).priority).toBe("none")
   })
 
-  test("unknown priority is refused", async () => {
-    const result = await create({ priority: "urgent" })
-    expect(result.isError).toBe(true)
+  test("unknown priority is refused, and no report is made", async () => {
+    const before = (await ctx.db.select({ id: report.id }).from(report)).length
+    for (const priority of ["urgent", "High"]) {
+      const result = await create({ priority })
+      expect(result.isError).toBe(true)
+    }
+    expect((await ctx.db.select({ id: report.id }).from(report)).length).toBe(before)
   })
 
   test("project comes from URL patterns when not given", async () => {

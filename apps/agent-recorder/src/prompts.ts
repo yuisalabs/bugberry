@@ -17,7 +17,7 @@ export const TEST_RULES = [
     "flow is unclear, ask before exploring.",
   "",
   "1. Explore first, without recording. Use your own browser tool (for example Playwright MCP), not bugberry-browser: " +
-    "bugberry-browser only works while a recording runs. If you have no browser tool other than bugberry-browser, " +
+    "bugberry-browser is only for recordings. If you have no browser tool other than bugberry-browser, " +
     "stop and ask the developer to add Playwright MCP. Go through to the end and note every finding: the page, the " +
     "steps that led to it, what happened, what you expected, and any console error or failed request.",
   "2. Irreversible actions: Stop just before anything that can't be undone, such as pay, place an order, delete, or " +
@@ -31,7 +31,8 @@ export const TEST_RULES = [
   "   - low: a typo, confusing text, a slow page (more than 3 seconds to show the result), an awkward flow",
   "4. When the flow is done, sort your findings. Findings that are the same bug, seen in several places, are one finding " +
     "and get one report. Look each one up with searchReports on the BugBerry server, across the whole workspace " +
-    "(reports agents filed earlier count too), before recording anything:",
+    "(reports agents filed earlier count too), before recording anything. When a match only looks alike, open it with " +
+    "getReport and compare its page, console and network before deciding it is the same bug:",
   "   - If any match is open or in_progress, it is already reported: it is not filed.",
   "   - Only when every match is resolved or closed did the bug come back: it is filed, and its description starts " +
     "with \"This came back: it was BB-<n>\" (the newest match) and that report's link.",

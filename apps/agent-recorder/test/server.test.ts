@@ -126,4 +126,8 @@ describe("recorder MCP server", () => {
     const client = await connect(fakeSession({ discard: async () => null }))
     expect(textOf(await client.callTool({ name: "discardRecording", arguments: {} }))).toContain("Nothing to discard")
   })
+  test("test-page with an address that isn't http(s) fails at the server", async () => {
+    const client = await connect(fakeSession())
+    await expect(client.getPrompt({ name: "test-page", arguments: { url: "file:///etc/passwd" } })).rejects.toThrow(/http:\/\/ or https:\/\//)
+  })
 })

@@ -86,4 +86,10 @@ describe("testPageInstructions", () => {
       expect(text).toContain(phrase)
     }
   })
+  test("bugberry-browser is described as the recording browser, and getReport confirms a likely duplicate", () => {
+    const text = testPageInstructions({ url: "https://shop.test/" })
+    expect(text).toContain("bugberry-browser is only for recordings")
+    expect(text).not.toContain("only works while a recording runs")
+    expect(text).toContain("getReport")
+  })
 })
