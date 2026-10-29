@@ -1,4 +1,4 @@
-import type { OptionList } from "../api"
+import type { OptionList } from "../../features/integrations/queries"
 import type { ReportFilterQuery } from "../report-feed"
 
 /**

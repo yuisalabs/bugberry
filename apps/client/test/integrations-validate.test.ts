@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { EMPTY_FIELDS, validateChatId, validateConnection, validateSecret } from "../src/lib/integrations"
+import { EMPTY_FIELDS, validateChatId, validateConnection, validateSecret } from "../src/features/integrations/integrations"
 
 describe("validateConnection", () => {
   test("GitHub and Linear keep nothing but the token", () => {

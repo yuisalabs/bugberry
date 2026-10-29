@@ -1,9 +1,13 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
-import { ConnectionForm } from "../src/components/ConnectionForm"
-import { GITHUB_TOKEN_URL, IssuePreview } from "../src/components/IntegrationForm"
-import type { Connection } from "../src/lib/api"
-import { AllIntegrations, catalogueOrder, ConnectionGroups, ConnectionRow, deleteDescription, EmptyGroup, usageText } from "../src/pages/settings/ConnectionsPage"
+import { ConnectionForm } from "../src/features/integrations/ConnectionForm"
+import { GITHUB_TOKEN_URL, IssuePreview } from "../src/features/integrations/IntegrationForm"
+import { AllIntegrations } from "../src/features/integrations/AllIntegrations"
+import { ConnectionGroups } from "../src/features/integrations/ConnectionGroups"
+import { ConnectionRow } from "../src/features/integrations/ConnectionRow"
+import { EmptyGroup } from "../src/features/integrations/IntegrationsLayout"
+import { catalogueOrder, deleteDescription, usageText } from "../src/features/integrations/provider-info"
+import type { Connection } from "../src/features/integrations/queries"
 
 const slack: Connection = {
   id: "c1",

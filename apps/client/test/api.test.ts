@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { createApi } from "../src/lib/api"
 import { me as fetchMe } from "../src/features/account/queries"
 import { createProject } from "../src/features/projects/queries"
+import { testIntegration } from "../src/features/integrations/queries"
 import { shouldRetry } from "../src/lib/query/client"
 import { maintenanceOf } from "../src/lib/status"
 import { fakeFetch, restoreFetch } from "./support/fake-fetch"
@@ -56,7 +57,7 @@ describe("createApi", () => {
     const client = createApi()
     await client.addComment("r1", "Hello")
     await client.sendToTracker("r1", "i1")
-    await client.testIntegration("p1", "i1")
+    await testIntegration("p1", "i1")
     expect(requests.map((request) => `${request.method} ${new URL(request.url).pathname}`)).toEqual([
       "POST /api/reports/r1/comments",
       "POST /api/reports/r1/trackers/i1/send",

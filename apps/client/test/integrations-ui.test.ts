@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { INITIAL_INTEGRATIONS_UI, integrationsUi } from "../src/lib/integrations-ui"
+import { INITIAL_INTEGRATIONS_UI, integrationsUi } from "../src/features/integrations/integrations-ui"
 
 describe("integrationsUi", () => {
   test("a saved change clears the old connection test result", () => {

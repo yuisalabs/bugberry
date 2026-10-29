@@ -6,9 +6,9 @@ import { Button } from "@bugberry/ui/button"
 import { Label } from "@bugberry/ui/field"
 import { Input, InputGroup } from "@bugberry/ui/input"
 import { TextField } from "@bugberry/ui/text-field"
-import type { Connection } from "../lib/api"
-import { type ConnectionFields, EMPTY_FIELDS, validateConnection, validateSecret } from "../lib/integrations"
+import { type ConnectionFields, EMPTY_FIELDS, validateConnection, validateSecret } from "./integrations"
 import { DEFAULT_ADDRESS, Field, IssuePreview, MessagePreview, PROVIDER_GROUPS, ProviderOption, SECRET_SETUP } from "./IntegrationForm"
+import type { Connection } from "./queries"
 
 export interface ConnectionSubmit {
   provider: IntegrationProvider

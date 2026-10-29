@@ -17,7 +17,6 @@ function breaksRules(file: string, text: string): boolean {
 /** Files still on the old layer; each feature task removes its own. Empty when the refactor is done. */
 const PENDING = new Set<string>([
   "components/AppShell.tsx",
-  "components/ConnectionForm.tsx",
   "components/CreateWorkspaceDialog.tsx",
   "components/InviteDialog.tsx",
   "components/JoinWorkspaceDialog.tsx",
@@ -30,7 +29,6 @@ const PENDING = new Set<string>([
   "components/ReportView.tsx",
   "components/ReportsBrowser.tsx",
   "components/ReportsView.tsx",
-  "components/UseConnectionDialog.tsx",
   "components/VideoOverlay.tsx",
   "components/ai/AiWritingSettings.tsx",
   "components/ai/TemplatesList.tsx",
@@ -49,7 +47,6 @@ const PENDING = new Set<string>([
   "components/report/TrackerButton.tsx",
   "components/report/useReportTrackers.ts",
   "features/auth/admin-guard.ts",
-  "features/projects/ProjectCard.tsx",
   "lib/api.ts",
   "lib/client.ts",
   "lib/comment-feed.ts",
@@ -65,11 +62,9 @@ const PENDING = new Set<string>([
   "pages/DemoPage.tsx",
   "pages/InvitePage.tsx",
   "pages/JoinPage.tsx",
-  "pages/ProjectIntegrationsPage.tsx",
   "pages/ReportPage.tsx",
   "pages/SharePage.tsx",
   "pages/settings/AiAgentsPage.tsx",
-  "pages/settings/ConnectionsPage.tsx",
   "pages/settings/MembersPage.tsx",
   "pages/settings/WorkspaceSettingsPage.tsx",
 ])

@@ -5,7 +5,7 @@ import type { ReactNode } from "react"
 import { Button, buttonStyles } from "@bugberry/ui/button"
 import { Menu, MenuItem, MenuLabel, MenuTrigger } from "@bugberry/ui/menu"
 import { formatAgo } from "../../lib/format"
-import { queries } from "../../lib/queries"
+import { integrationQueries } from "../integrations/queries"
 import { card, pinkAction } from "./card-styles"
 import { ProjectTile } from "./ProjectTile"
 import type { Project } from "./queries"
@@ -138,7 +138,7 @@ export function ProjectCardView({
 }
 
 export function ProjectCard({ project, ...rest }: Omit<Parameters<typeof ProjectCardView>[0], "integrationCount" | "integrationsLink">) {
-  const integrations = useQuery(queries.integrations(project.id))
+  const integrations = useQuery(integrationQueries.integrations(project.id))
   return (
     <ProjectCardView
       project={project}

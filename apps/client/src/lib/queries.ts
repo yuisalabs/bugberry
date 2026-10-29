@@ -1,5 +1,4 @@
 import { infiniteQueryOptions, keepPreviousData, queryOptions } from "@tanstack/react-query"
-import type { OptionList } from "./api"
 import { api } from "./client"
 import { nextReportsPage, type ReportFilterQuery, reportsPageQuery } from "./report-feed"
 
@@ -77,17 +76,5 @@ export const queries = {
     queryOptions({ queryKey: ["activity", reportId], queryFn: () => api.activity(reportId), refetchOnWindowFocus: true }),
   reportTrackers: (reportId: string) =>
     queryOptions({ queryKey: ["report-trackers", reportId], queryFn: () => api.reportTrackers(reportId) }),
-  integrations: (projectId: string) =>
-    queryOptions({ queryKey: ["integrations", projectId], queryFn: () => api.integrations(projectId) }),
   ai: (workspaceId: string) => queryOptions({ queryKey: ["ai", workspaceId], queryFn: () => api.aiSetup(workspaceId) }),
-  connections: (workspaceId: string) =>
-    queryOptions({ queryKey: ["connections", workspaceId], queryFn: () => api.connections(workspaceId) }),
-  connectionOptions: (workspaceId: string, id: string, list: OptionList, q = "", parent = "") =>
-    queryOptions({
-      queryKey: ["connection-options", workspaceId, id, list, q, parent],
-      queryFn: () => api.connectionOptions(workspaceId, id, list, { q, parent }),
-      // A provider's list rarely changes while a dialog is open; a failure shows its reason instead of retrying.
-      staleTime: 60_000,
-      retry: false,
-    }),
 }

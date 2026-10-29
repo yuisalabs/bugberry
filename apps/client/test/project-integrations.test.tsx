@@ -1,9 +1,11 @@
 import type * as React from "react"
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { UseConnectionModal, UseConnectionSteps } from "../src/components/UseConnectionDialog"
-import type { Connection, Integration, OptionList } from "../src/lib/api"
-import { IntegrationGroup, IntegrationRow, ReadyToUse } from "../src/pages/ProjectIntegrationsPage"
+import { UseConnectionModal, UseConnectionSteps } from "../src/features/integrations/UseConnectionDialog"
+import { IntegrationRow } from "../src/features/integrations/IntegrationRow"
+import { IntegrationGroup } from "../src/features/integrations/IntegrationsLayout"
+import { ReadyToUse } from "../src/features/integrations/ReadyToUse"
+import type { Connection, Integration, OptionList } from "../src/features/integrations/queries"
 
 const status = { failing: 0, lastError: null, lastDeliveredAt: null }
 const githubKantor: Connection = { id: "c-gh", provider: "github", kind: "tracker", name: "GitHub Kantor", usedIn: 1, status }
