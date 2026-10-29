@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { loginErrorMessage, validateLoginSearch } from "../src/lib/login"
+import { loginErrorMessage, validateLoginSearch } from "../src/features/auth/login"
 
 describe("loginErrorMessage", () => {
   test("explains a rejected domain with the server's domain list", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test"
-import { answerConsent, fetchOAuthClient, incompleteConsentRequest, loginTarget, oauthResumeUrl, redirectHost, scopeLines } from "../src/lib/oauth"
+import { answerConsent, fetchOAuthClient, incompleteConsentRequest, loginTarget, oauthResumeUrl, redirectHost, scopeLines } from "../src/features/auth/oauth"
 
 const SIGNED = "?response_type=code&client_id=abc&scope=openid+bugberry%3Aread&exp=1&sig=xyz"
 

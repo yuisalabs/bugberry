@@ -21,7 +21,7 @@ import { Button } from "@bugberry/ui/button"
 import { Sheet } from "@bugberry/ui/sheet"
 import { usePageDrawer } from "../hooks/usePageDrawer"
 import { APP_MAIN_ID } from "../lib/app-scroll"
-import { signOut } from "../lib/auth"
+import { signOut } from "../features/auth/auth"
 import { useServerInExtension } from "../lib/extension-bridge"
 import { queries } from "../lib/queries"
 import { toast } from "../lib/toast"
@@ -44,6 +44,7 @@ import { ProjectTile } from "./ProjectTile"
 import { ReportDetailSkeleton, ReportsPageSkeleton } from "./Skeletons"
 import { WorkspaceMenu } from "./WorkspaceMenu"
 import { installHref } from "../pages/landing/site-links"
+import { authQueries } from "../features/auth/queries"
 
 const sectionTitle = "px-2 pb-1 text-xs font-medium text-muted-foreground"
 const pill =
@@ -85,7 +86,7 @@ export function AppShell() {
   const waitingCount = waiting.data?.length ?? 0
   const myLimits = useQuery(queries.myLimits())
   const limits = useQuery({ ...queries.workspaceLimits(workspace?.id ?? ""), enabled: workspace?.role === "admin" })
-  const config = useQuery(queries.clientConfig())
+  const config = useQuery(authQueries.clientConfig())
   // The server's own install link, else BugBerry's Chrome Web Store page, as on the public site.
   const installUrl = installHref(config.data?.extensionInstallUrl ?? null)
   const extension = useExtensionAnswer()

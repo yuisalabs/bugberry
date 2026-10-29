@@ -7,12 +7,12 @@ import { Button, buttonStyles } from "@bugberry/ui/button"
 import { useMediaQuery } from "../../hooks/useMediaQuery"
 import type { OnboardingProgress } from "../../lib/api"
 import { doneCount, nextStep, ONBOARDING_COPY } from "../../lib/onboarding"
-import { queries } from "../../lib/queries"
 import { useCurrentWorkspace } from "../../lib/workspace"
 import { installHref } from "../../pages/landing/site-links"
 import { InviteDialog } from "../InviteDialog"
 import { InstallExtensionButton, NewReportButton } from "../NewReportButton"
 import { useOnboarding } from "./OnboardingProvider"
+import { authQueries } from "../../features/auth/queries"
 
 /** How long the panel takes to fold into the pill (styles.css, onboarding-out). */
 const CLOSE_MS = 180
@@ -163,7 +163,7 @@ const MISSING_TARGET: Partial<Record<OnboardingItemId, string>> = {
 
 /** The next item's button, wired to the dashboard; the hint says what's missing when there's nowhere to go. */
 function useActions(progress: OnboardingProgress | null, onInvite: () => void): Partial<Record<OnboardingItemId, ReactNode>> {
-  const config = useQuery(queries.clientConfig())
+  const config = useQuery(authQueries.clientConfig())
   const installUrl = installHref(config.data?.extensionInstallUrl ?? null)
   if (!progress) return {}
   const next = nextStep(progress)

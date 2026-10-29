@@ -2,7 +2,6 @@ import { RiRecordCircleLine } from "@remixicon/react"
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query"
 import { type ReactNode, useState } from "react"
 import { useNow } from "../hooks/useNow"
-import { queries } from "../lib/queries"
 import { invitesAllowed, usageText } from "../lib/usage"
 import { feedItems } from "../lib/report-feed"
 import { hasFilters, type ReportSearch, toReportsQuery } from "../lib/report-search"
@@ -12,6 +11,8 @@ import { InviteDialog } from "./InviteDialog"
 import { InstallExtensionButton, NewReportButton } from "./NewReportButton"
 import { ReportsView } from "./ReportsView"
 import { installHref } from "../pages/landing/site-links"
+import { authQueries } from "../features/auth/queries"
+import { queries } from "../lib/queries"
 
 export type SearchUpdater = (update: (prev: ReportSearch) => ReportSearch) => void
 
@@ -44,7 +45,7 @@ export function ReportsBrowser({
   // The project filter needs them on the all-reports page; the list view names projects on every page.
   const projects = useQuery({ ...queries.projects(workspaceId), enabled: Boolean(workspace) })
   const reports = useInfiniteQuery({ ...queries.reportFeed(workspaceId, toReportsQuery(scope, search)), enabled: Boolean(workspace) })
-  const config = useQuery(queries.clientConfig())
+  const config = useQuery(authQueries.clientConfig())
   // The server's own install link, else BugBerry's Chrome Web Store page.
   const installUrl = installHref(config.data?.extensionInstallUrl ?? null)
   const [layout, setLayout] = useState<ReportLayout>(readLayout)

@@ -1,8 +1,8 @@
 import { getRouteApi } from "@tanstack/react-router"
 import { useState } from "react"
-import { StatusPage } from "../components/status/StatusPage"
-import { lastSessionEnd } from "../lib/session-end"
-import { safeNext } from "../lib/urls"
+import { StatusPage } from "../../components/status/StatusPage"
+import { lastSessionEnd } from "./session-end"
+import { safeNext } from "../../lib/urls"
 
 const routeApi = getRouteApi("/session-ended")
 

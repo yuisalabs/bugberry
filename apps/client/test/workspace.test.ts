@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { QueryClient, queryOptions } from "@tanstack/react-query"
-import { requireWorkspaceAdmin } from "../src/lib/admin-guard"
+import { requireWorkspaceAdmin } from "../src/features/auth/admin-guard"
 import { ApiError, type Me, type Workspace } from "../src/lib/api"
 import { pickWorkspace, roleIn, roleLabel } from "../src/lib/workspace"
 

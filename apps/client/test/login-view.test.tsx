@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
-import { LoginView } from "../src/components/LoginView"
+import { LoginView } from "../src/features/auth/LoginView"
 import { DOCS_URL } from "../src/lib/docs-url"
 
 const all = { github: true, gitlab: true, google: true, emailOtp: true }

@@ -14,9 +14,9 @@ import { Link } from "@bugberry/ui/link"
 import { Label } from "@bugberry/ui/field"
 import { Input, InputGroup } from "@bugberry/ui/input"
 import { TextField } from "@bugberry/ui/text-field"
-import type { AuthMethods } from "../lib/api"
-import type { SocialProvider } from "../lib/auth"
-import { DOCS_URL } from "../lib/docs-url"
+import type { AuthMethods } from "./queries"
+import type { SocialProvider } from "./auth"
+import { DOCS_URL } from "../../lib/docs-url"
 
 const RESEND_AFTER_SECONDS = 30
 

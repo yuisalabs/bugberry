@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { type AuthDeps, sendLoginCode, signInWithProvider, signOut, verifyLoginCode } from "../src/lib/auth"
+import { type AuthDeps, sendLoginCode, signInWithProvider, signOut, verifyLoginCode } from "../src/features/auth/auth"
 
 function recorder(response: Response) {
   const calls: Array<{ url: string; init: RequestInit }> = []

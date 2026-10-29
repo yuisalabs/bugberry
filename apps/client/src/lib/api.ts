@@ -16,24 +16,6 @@ import { unwrap } from "./query/unwrap"
 
 export { ApiError, errorMessage, unwrap } from "./query/unwrap"
 
-/** Which sign-in methods the server enables (GET /api/auth-methods). */
-export type SignInMethod = "google" | "github" | "gitlab" | "email"
-
-/** Public settings the dashboard reads before anyone signs in. */
-export interface ClientConfig {
-  extensionInstallUrl: string | null
-  maxUploadMb: number
-  /** False on self-hosted servers: the marketing pages go to sign-in there. */
-  publicSite: boolean
-}
-
-export interface AuthMethods {
-  github: boolean
-  gitlab: boolean
-  google: boolean
-  emailOtp: boolean
-}
-
 export interface ProjectInput {
   name: string
   slug: string
@@ -166,8 +148,6 @@ export function createApi(origin: string = window.location.origin, fetcher: type
       unwrap(api.workspaces({ id: workspaceId })["join-requests"]({ userId }).approve.post()),
     declineJoinRequest: (workspaceId: string, userId: string) =>
       unwrap(api.workspaces({ id: workspaceId })["join-requests"]({ userId }).delete()),
-    // Eden widens this public route's type with Response; the server only ever answers this object.
-    authMethods: async (): Promise<AuthMethods> => (await unwrap(api["auth-methods"].get())) as AuthMethods,
     projects: (workspaceId: string) => unwrap(api.projects.get({ query: { workspaceId } })),
     createProject: (workspaceId: string, body: ProjectInput) => unwrap(api.projects.post({ workspaceId, ...body })),
     updateProject: (id: string, body: ProjectInput) => unwrap(api.projects({ id }).patch(body)),
@@ -198,7 +178,6 @@ export function createApi(origin: string = window.location.origin, fetcher: type
     confirmAvatar: (avatarId: string) => unwrap(api.me.avatar({ avatarId }).post()),
     removeAvatar: () => unwrap(api.me.avatar.delete()),
     signInMethods: () => unwrap(api.me["sign-in-methods"].get()),
-    clientConfig: async (): Promise<ClientConfig> => (await unwrap(api["client-config"].get())) as ClientConfig,
     /** "Book your demo" on the public site. */
     requestDemo: (input: DemoRequestInput) => unwrap(api["demo-requests"].post(input)),
     notifications: () => unwrap(api.notifications.get()),

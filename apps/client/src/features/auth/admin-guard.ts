@@ -1,7 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query"
-import { ApiError } from "./api"
-import { queries } from "./queries"
-import { pickWorkspace } from "./workspace"
+import { ApiError } from "../../lib/api"
+import { queries } from "../../lib/queries"
+import { pickWorkspace } from "../../lib/workspace"
 
 /**
  * For workspace settings. Asks the server every time (staleTime 0) instead of trusting the cached

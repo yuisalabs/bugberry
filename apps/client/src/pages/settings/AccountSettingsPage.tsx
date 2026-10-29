@@ -7,7 +7,7 @@ import { FileTrigger } from "@bugberry/ui/file-trigger"
 import { Input } from "@bugberry/ui/input"
 import { TextField } from "@bugberry/ui/text-field"
 import { BrandedHeader } from "../../components/BrandedHeader"
-import { GithubIcon, GitlabIcon, GoogleIcon } from "../../components/LoginView"
+import { GithubIcon, GitlabIcon, GoogleIcon } from "../../features/auth/LoginView"
 import { Badge, dangerText, ErrorState } from "../../components/ui"
 import {
   SettingRow,
@@ -18,7 +18,8 @@ import {
 } from "../../components/SettingsCard"
 import { SettingsTabs } from "../../components/SettingsTabs"
 import { SettingsPageSkeleton } from "../../components/Skeletons"
-import { errorMessage, type SignInMethod } from "../../lib/api"
+import { errorMessage } from "../../lib/api"
+import type { SignInMethod } from "../../features/auth/queries"
 import { api } from "../../lib/client"
 import { initialsOf } from "../../lib/people"
 import { queries } from "../../lib/queries"

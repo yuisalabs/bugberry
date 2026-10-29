@@ -12,12 +12,12 @@ import {
 import { AppShell } from "./components/AppShell"
 import { ErrorPage } from "./components/status/ErrorPage"
 import { StatusPage } from "./components/status/StatusPage"
-import { requireWorkspaceAdmin } from "./lib/admin-guard"
+import { requireWorkspaceAdmin } from "./features/auth/admin-guard"
 import { ApiError } from "./lib/api"
 import { legacyAppPath } from "./lib/legacy-paths"
 import { publicSiteGate } from "./lib/public-site"
 import { startSecondsFrom } from "./lib/urls"
-import { validateLoginSearch } from "./lib/login"
+import { validateLoginSearch } from "./features/auth/login"
 import { queries } from "./lib/queries"
 import { validateProjectReportSearch, validateReportSearch } from "./lib/report-search"
 // The report lists load with the app; the report page (debugger, media), sharing, sign-in and the
@@ -50,7 +50,7 @@ const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/login",
   validateSearch: validateLoginSearch,
-  component: lazyRouteComponent(() => import("./pages/LoginPage"), "LoginPage"),
+  component: lazyRouteComponent(() => import("./features/auth/LoginPage"), "LoginPage"),
 })
 
 /** Everything behind login. Without a session the person goes to /login and comes back afterwards. */
@@ -94,7 +94,7 @@ const inviteRoute = createRoute({ getParentRoute: () => rootRoute, path: "/invit
 const oauthConsentRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/oauth/consent",
-  component: lazyRouteComponent(() => import("./pages/OAuthConsentPage"), "OAuthConsentPage"),
+  component: lazyRouteComponent(() => import("./features/auth/OAuthConsentPage"), "OAuthConsentPage"),
 })
 
 /** Where a session that ended mid-use lands (lib/session-end): the 401 page, with a way to sign in again. */
@@ -102,7 +102,7 @@ const sessionEndedRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/session-ended",
   validateSearch: (search: Record<string, unknown>): { next?: string } => ({ next: typeof search.next === "string" ? search.next : undefined }),
-  component: lazyRouteComponent(() => import("./pages/SessionEndedPage"), "SessionEndedPage"),
+  component: lazyRouteComponent(() => import("./features/auth/SessionEndedPage"), "SessionEndedPage"),
 })
 
 /** Public: the privacy policy the browser extension stores link to. */

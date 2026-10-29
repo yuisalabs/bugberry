@@ -1,4 +1,4 @@
-import { safeNext } from "./urls"
+import { safeNext } from "../../lib/urls"
 
 export interface AuthDeps {
   fetch(url: string, init: RequestInit): Promise<Response>

@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
-import { ConsentView } from "../src/pages/OAuthConsentPage"
+import { ConsentView } from "../src/features/auth/OAuthConsentPage"
 
 const props = {
   appName: "Claude Code",

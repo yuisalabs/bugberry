@@ -25,8 +25,6 @@ export const queries = {
   /** Refreshed when the tab is back in front: a capture sent from the extension ticks its step. */
   onboarding: (workspaceId: string) =>
     queryOptions({ queryKey: ["onboarding", workspaceId], queryFn: () => api.onboarding(workspaceId), refetchOnWindowFocus: true }),
-  clientConfig: () => queryOptions({ queryKey: ["client-config"], queryFn: () => api.clientConfig(), staleTime: Infinity }),
-  authMethods: () => queryOptions({ queryKey: ["auth-methods"], queryFn: () => api.authMethods(), staleTime: Infinity }),
   workspaces: () => queryOptions({ queryKey: ["workspaces"], queryFn: () => api.workspaces(), staleTime: 60_000 }),
   projects: (workspaceId: string) =>
     queryOptions({ queryKey: ["projects", workspaceId], queryFn: () => api.projects(workspaceId) }),

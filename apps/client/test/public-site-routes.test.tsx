@@ -1,10 +1,14 @@
-import { describe, expect, spyOn, test } from "bun:test"
+import { afterEach, describe, expect, test } from "bun:test"
 import { QueryClient } from "@tanstack/react-query"
 import { isRedirect } from "@tanstack/react-router"
-import { api } from "../src/lib/client"
 import { publicSiteGate } from "../src/lib/public-site"
 import { createQueryClient } from "../src/lib/query/client"
 import { createAppRouter } from "../src/router"
+import { fakeFetch, restoreFetch } from "./support/fake-fetch"
+
+afterEach(restoreFetch)
+
+const configRequests = (requests: Request[]) => requests.filter((request) => new URL(request.url).pathname === "/api/client-config")
 
 const PUBLIC_PAGES = ["/", "/pricing", "/integrations", "/ai-agents", "/demo"]
 
@@ -34,36 +38,28 @@ describe("public site routes", () => {
   })
 
   test("when the settings can't be read, the page shows rather than a blank screen", async () => {
-    const offline = spyOn(api, "clientConfig").mockRejectedValue(new TypeError("offline"))
-    try {
-      expect(await publicSiteGate({ context: { queryClient: new QueryClient() } })).toBeUndefined()
-      expect(offline).toHaveBeenCalled()
-    } finally {
-      offline.mockRestore()
-    }
+    const { requests } = fakeFetch(() => {
+      throw new TypeError("offline")
+    })
+    expect(await publicSiteGate({ context: { queryClient: new QueryClient() } })).toBeUndefined()
+    expect(configRequests(requests).length).toBeGreaterThan(0)
   })
 
   test("with the app's own query client, a failing config is asked once, not retried", async () => {
-    const offline = spyOn(api, "clientConfig").mockRejectedValue(new TypeError("offline"))
-    try {
-      const started = Date.now()
-      expect(await publicSiteGate({ context: { queryClient: createQueryClient(() => {}) } })).toBeUndefined()
-      expect(offline).toHaveBeenCalledTimes(1)
-      expect(Date.now() - started).toBeLessThan(500)
-    } finally {
-      offline.mockRestore()
-    }
+    const { requests } = fakeFetch(() => {
+      throw new TypeError("offline")
+    })
+    const started = Date.now()
+    expect(await publicSiteGate({ context: { queryClient: createQueryClient(() => {}) } })).toBeUndefined()
+    expect(configRequests(requests)).toHaveLength(1)
+    expect(Date.now() - started).toBeLessThan(500)
   })
 
   test("a config request that hangs shows the page after a short wait instead of a blank screen", async () => {
-    const hung = spyOn(api, "clientConfig").mockReturnValue(new Promise(() => {}))
-    try {
-      const started = Date.now()
-      expect(await publicSiteGate({ context: { queryClient: createQueryClient(() => {}) } })).toBeUndefined()
-      expect(Date.now() - started).toBeLessThan(2500)
-    } finally {
-      hung.mockRestore()
-    }
+    fakeFetch(() => new Promise<Response>(() => {}))
+    const started = Date.now()
+    expect(await publicSiteGate({ context: { queryClient: createQueryClient(() => {}) } })).toBeUndefined()
+    expect(Date.now() - started).toBeLessThan(2500)
   })
 
   test("an older server that doesn't say shows the pages too", async () => {

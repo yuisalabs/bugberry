@@ -1,5 +1,5 @@
 import { RiWebhookLine } from "@remixicon/react"
-import { GithubIcon } from "../../components/LoginView"
+import { GithubIcon } from "../../features/auth/LoginView"
 
 export type IntegrationKind = "Issues" | "Tickets" | "Tasks" | "Work items" | "Alerts" | "Webhook"
 

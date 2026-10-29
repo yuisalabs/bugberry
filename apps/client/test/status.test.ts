@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { QueryClient } from "@tanstack/react-query"
 import { ApiError } from "../src/lib/api"
-import { lastSessionEnd, sessionEndTarget } from "../src/lib/session-end"
+import { lastSessionEnd, sessionEndTarget } from "../src/features/auth/session-end"
 import { maintenanceOf, statusKind } from "../src/lib/status"
 
 describe("statusKind", () => {

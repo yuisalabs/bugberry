@@ -9,7 +9,7 @@ const SRC = join(import.meta.dir, "..", "src")
  * status pages' drawings (their hand-drawn arrows and the 504's vines).
  */
 const OWN_SVG = new Set([
-  "components/LoginView.tsx",
+  "features/auth/LoginView.tsx",
   "components/ui/avatar.tsx",
   "components/ui/loader.tsx",
   "components/ui/popover.tsx",

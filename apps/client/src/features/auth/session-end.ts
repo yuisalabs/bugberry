@@ -1,6 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query"
-import type { Me } from "./api"
-import { queries } from "./queries"
+import type { Me } from "../../lib/api"
+import { queries } from "../../lib/queries"
 
 /** Who was signed in when the session ended, for the 401 page's ticket. Kept in memory only, never in the URL. */
 export interface SessionEnd {

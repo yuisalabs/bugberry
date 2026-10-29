@@ -1,6 +1,6 @@
 import { cleanAppName } from "@bugberry/shared"
 import type { AuthDeps } from "./auth"
-import { safeNext } from "./urls"
+import { safeNext } from "../../lib/urls"
 
 const browserDeps: AuthDeps = {
   fetch: (url, init) => fetch(url, init),

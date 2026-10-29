@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "@bugberry/ui/link"
 import type { ReactNode } from "react"
-import { queries } from "../lib/queries"
 import { SiteChrome } from "./landing/SiteChrome"
 import { SiteNavigation } from "./landing/SiteNavigation"
 import { usePageMeta } from "./landing/usePageMeta"
+import { authQueries } from "../features/auth/queries"
+import { queries } from "../lib/queries"
 
 const CONTACT = "yuisalabs@gmail.com"
 const UPDATED = "22 October 2026"
@@ -190,7 +191,7 @@ export function PrivacyView({
 /** Public: readable without signing in, on every server. */
 export function PrivacyPage() {
   const me = useQuery({ ...queries.me(), retry: false, meta: { signedOutIsFine: true } })
-  const config = useQuery(queries.clientConfig())
+  const config = useQuery(authQueries.clientConfig())
   usePageMeta("Privacy Policy", "What BugBerry collects, how it is kept safe, and the terms of using the service.")
   return (
     <SiteNavigation>

@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query"
 import { Button } from "@bugberry/ui/button"
 import { useEffect, useState } from "react"
-import { BugBerryLogo } from "../components/BugBerryLogo"
-import { StatusPage } from "../components/status/StatusPage"
-import { Loading } from "../components/ui"
-import { ApiError } from "../lib/api"
-import { answerConsent, fetchOAuthClient, incompleteConsentRequest, redirectHost, scopeLines } from "../lib/oauth"
-import { queries } from "../lib/queries"
+import { BugBerryLogo } from "../../components/BugBerryLogo"
+import { StatusPage } from "../../components/status/StatusPage"
+import { Loading } from "../../components/ui"
+import { ApiError } from "../../lib/api"
+import { answerConsent, incompleteConsentRequest, redirectHost, scopeLines } from "./oauth"
+import { authQueries } from "./queries"
+import { queries } from "../../lib/queries"
 
 export function ConsentView({
   appName,
@@ -77,7 +78,7 @@ export function OAuthConsentPage() {
   const params = new URLSearchParams(search)
   const clientId = params.get("client_id") ?? ""
   const me = useQuery({ ...queries.me(), retry: false, meta: { signedOutIsFine: true } })
-  const app = useQuery({ queryKey: ["oauth-client", clientId], queryFn: () => fetchOAuthClient(clientId), enabled: Boolean(clientId) && me.isSuccess })
+  const app = useQuery({ ...authQueries.oauthClient(clientId), enabled: Boolean(clientId) && me.isSuccess })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 

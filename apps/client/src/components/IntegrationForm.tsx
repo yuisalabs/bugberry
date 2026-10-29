@@ -17,7 +17,7 @@ import {
 import type { ReactNode } from "react"
 import { Radio } from "react-aria-components"
 import type { ConnectionFields } from "../lib/integrations"
-import { GithubIcon } from "./LoginView"
+import { GithubIcon } from "../features/auth/LoginView"
 
 /** Where a GitHub admin makes the fine-grained token this form asks for. */
 export const GITHUB_TOKEN_URL = "https://github.com/settings/personal-access-tokens/new"
