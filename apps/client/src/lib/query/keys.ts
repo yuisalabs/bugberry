@@ -1,5 +1,5 @@
 import type { OptionList } from "../../features/integrations/queries"
-import type { ReportFilterQuery } from "../report-feed"
+import type { ReportFilterQuery } from "../../features/reports/list/report-feed"
 
 /**
  * Every query key, in one place. The values are the ones the code always used, so each invalidation still reaches

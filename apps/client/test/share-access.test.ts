@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { accessOptions, copiedDescription, sharePopoverState } from "../src/lib/share-access"
+import { accessOptions, copiedDescription, sharePopoverState } from "../src/features/reports/share/share-access"
 
 describe("accessOptions", () => {
   test("offers the three levels in order, naming the company domain", () => {

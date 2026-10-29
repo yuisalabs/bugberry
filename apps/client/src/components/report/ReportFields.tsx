@@ -4,7 +4,7 @@ import type { ReactNode } from "react"
 import { Label } from "@bugberry/ui/field"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@bugberry/ui/select"
 import type { ReportDetail, ReportPatch } from "../../lib/api"
-import { PRIORITY_ICON_STYLES, PRIORITY_LABELS, STATUS_DOT_STYLES, STATUS_LABELS } from "../../lib/labels"
+import { PRIORITY_ICON_STYLES, PRIORITY_LABELS, STATUS_DOT_STYLES, STATUS_LABELS } from "../../features/reports/list/labels"
 import type { Member } from "../../features/workspaces/queries"
 
 /** "Unassigned" in the assignee list; a list key can't be empty. */

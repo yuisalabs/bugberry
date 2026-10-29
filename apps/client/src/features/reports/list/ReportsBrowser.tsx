@@ -1,20 +1,20 @@
 import { RiRecordCircleLine } from "@remixicon/react"
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query"
 import { type ReactNode, useState } from "react"
-import { useNow } from "../hooks/useNow"
-import { invitesAllowed, usageText } from "../features/workspaces/usage"
-import { feedItems } from "../lib/report-feed"
-import { hasFilters, type ReportSearch, toReportsQuery } from "../lib/report-search"
-import { readLayout, type ReportLayout, saveLayout } from "../lib/report-layout"
-import { useCurrentWorkspace } from "../features/workspaces/workspace"
-import { InviteDialog } from "../features/workspaces/InviteDialog"
+import { useNow } from "../../../hooks/useNow"
+import { invitesAllowed, usageText } from "../../workspaces/usage"
+import { feedItems } from "./report-feed"
+import { hasFilters, type ReportSearch, toReportsQuery } from "./report-search"
+import { readLayout, type ReportLayout, saveLayout } from "./report-layout"
+import { useCurrentWorkspace } from "../../workspaces/workspace"
+import { InviteDialog } from "../../workspaces/InviteDialog"
 import { InstallExtensionButton, NewReportButton } from "./NewReportButton"
 import { ReportsView } from "./ReportsView"
-import { installHref } from "../pages/landing/site-links"
-import { authQueries } from "../features/auth/queries"
-import { queries } from "../lib/queries"
-import { projectQueries } from "../features/projects/queries"
-import { workspaceQueries } from "../features/workspaces/queries"
+import { installHref } from "../../../pages/landing/site-links"
+import { authQueries } from "../../auth/queries"
+import { projectQueries } from "../../projects/queries"
+import { workspaceQueries } from "../../workspaces/queries"
+import { reportQueries } from "../queries"
 
 export type SearchUpdater = (update: (prev: ReportSearch) => ReportSearch) => void
 
@@ -46,7 +46,7 @@ export function ReportsBrowser({
   const members = useQuery({ ...workspaceQueries.members(workspaceId), enabled: Boolean(workspace) })
   // The project filter needs them on the all-reports page; the list view names projects on every page.
   const projects = useQuery({ ...projectQueries.projects(workspaceId), enabled: Boolean(workspace) })
-  const reports = useInfiniteQuery({ ...queries.reportFeed(workspaceId, toReportsQuery(scope, search)), enabled: Boolean(workspace) })
+  const reports = useInfiniteQuery({ ...reportQueries.reportFeed(workspaceId, toReportsQuery(scope, search)), enabled: Boolean(workspace) })
   const config = useQuery(authQueries.clientConfig())
   // The server's own install link, else BugBerry's Chrome Web Store page.
   const installUrl = installHref(config.data?.extensionInstallUrl ?? null)
@@ -59,11 +59,11 @@ export function ReportsBrowser({
   // Filters left nothing: count the whole list, so the page can say how much was searched.
   // The phone's status chips: each status's count under the other filters.
   const statusCounts = useQuery({
-    ...queries.reportStatusCounts(workspaceId, toReportsQuery(scope, search)),
+    ...reportQueries.reportStatusCounts(workspaceId, toReportsQuery(scope, search)),
     enabled: Boolean(workspace),
   })
   const nothingMatches = hasFilters(search) && pages.length > 0 && (pages.at(-1)?.total ?? 0) === 0
-  const everything = useQuery({ ...queries.reportCount(workspaceId, scope.projectId), enabled: Boolean(workspace) && nothingMatches })
+  const everything = useQuery({ ...reportQueries.reportCount(workspaceId, scope.projectId), enabled: Boolean(workspace) && nothingMatches })
 
   return (
     <>

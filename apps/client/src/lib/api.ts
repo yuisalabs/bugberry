@@ -1,7 +1,6 @@
 import { treaty } from "@elysiajs/eden"
 import type { App } from "@bugberry/api"
 import type {
-  CaptureType,
   DemoRequestInput,
   Priority,
   ReportStatus,
@@ -19,31 +18,12 @@ export interface ReportPatch {
   projectId?: string | null
 }
 
-export interface ReportsQuery {
-  /** A project id, "none" for reports without a project, or absent for all reports. */
-  projectId?: string
-  status?: ReportStatus[]
-  priority?: Priority[]
-  assigneeId?: string
-  reporterId?: string
-  captureType?: CaptureType
-  q?: string
-  sort: "newest" | "oldest" | "priority"
-  page: number
-  perPage: number
-}
-
 export function createApi(origin: string = window.location.origin, fetcher: typeof fetch = fetch) {
   const { api } = treaty<App>(origin, { fetcher })
   return {
-    reports: (workspaceId: string, query: ReportsQuery) => unwrap(api.reports.get({ query: { workspaceId, ...query } })),
-    reportCounts: (workspaceId: string, query: Omit<ReportsQuery, "page" | "perPage">) =>
-      unwrap(api.reports.counts.get({ query: { workspaceId, ...query } })),
     report: (id: string) => unwrap(api.reports({ id }).get()),
     updateReport: (id: string, patch: ReportPatch) => unwrap(api.reports({ id }).patch(patch)),
     deleteReport: (id: string) => unwrap(api.reports({ id }).delete()),
-    regenerateShare: (id: string) => unwrap(api.reports({ id }).share.regenerate.post()),
-    share: (slug: string) => unwrap(api.share({ slug }).get()),
     comments: (reportId: string) => unwrap(api.reports({ id: reportId }).comments.get()),
     addComment: (reportId: string, body: string, replyTo?: string) =>
       unwrap(api.reports({ id: reportId }).comments.post(replyTo ? { body, replyTo } : { body })),
@@ -61,9 +41,6 @@ export function createApi(origin: string = window.location.origin, fetcher: type
 }
 
 export type Api = ReturnType<typeof createApi>
-export type ReportList = Awaited<ReturnType<Api["reports"]>>
-export type ReportCounts = Awaited<ReturnType<Api["reportCounts"]>>
-export type ReportListItem = ReportList["items"][number]
 export type ReportDetail = Awaited<ReturnType<Api["report"]>>
 /** A thread: its first comment, with the replies under it. */
 export type CommentThread = Awaited<ReturnType<Api["comments"]>>[number]

@@ -34,7 +34,7 @@ import { CreateWorkspaceDialog } from "../features/workspaces/CreateWorkspaceDia
 import { useExtensionAnswer } from "../features/onboarding/ExtensionCard"
 import { InviteDialog } from "../features/workspaces/InviteDialog"
 import { JoinWorkspaceDialog } from "../features/workspaces/JoinWorkspaceDialog"
-import { NewReportButton } from "./NewReportButton"
+import { NewReportButton } from "../features/reports/list/NewReportButton"
 import { NotificationBell } from "../features/notifications/NotificationBell"
 import { OnboardingWidget } from "../features/onboarding/OnboardingChecklist"
 import { OnboardingProvider } from "../features/onboarding/OnboardingProvider"

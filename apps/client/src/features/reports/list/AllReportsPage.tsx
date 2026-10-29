@@ -1,5 +1,5 @@
 import { getRouteApi, useNavigate } from "@tanstack/react-router"
-import { ReportsBrowser } from "../components/ReportsBrowser"
+import { ReportsBrowser } from "./ReportsBrowser"
 
 const routeApi = getRouteApi("/_authed/app")
 

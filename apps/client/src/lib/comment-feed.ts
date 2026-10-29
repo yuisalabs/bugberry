@@ -1,7 +1,7 @@
 import { type IntegrationProvider, issueReference, PROVIDER_LABELS, type Priority, type ReportStatus } from "@bugberry/shared"
 import { reportedVia } from "../components/report/ReportMeta"
 import type { Activity, CommentThread } from "./api"
-import { PRIORITY_LABELS, STATUS_LABELS } from "./labels"
+import { PRIORITY_LABELS, STATUS_LABELS } from "../features/reports/list/labels"
 
 /** One line of the comments feed: a thread, or (under All activity) something that happened to the report. */
 export type FeedEntry = { kind: "thread"; at: Date; thread: CommentThread } | { kind: "activity"; at: Date; item: Activity }

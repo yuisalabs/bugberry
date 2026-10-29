@@ -1,9 +1,9 @@
 import { describe, expect, mock, test } from "bun:test"
 import { render, screen } from "@testing-library/react"
 import { ExtensionCardView } from "../src/features/onboarding/ExtensionCard"
-import { NewReportGuide } from "../src/components/NewReportButton"
-import { ReportSearchBox } from "../src/components/ReportSearchBox"
-import { isMacPlatform, searchShortcut } from "../src/lib/shortcuts"
+import { NewReportGuide } from "../src/features/reports/list/NewReportButton"
+import { ReportSearchBox } from "../src/features/reports/list/ReportSearchBox"
+import { isMacPlatform, searchShortcut } from "../src/features/reports/list/shortcuts"
 
 describe("shortcuts are written for the reader's system", () => {
   test("a Mac is told apart from Windows and Linux", () => {

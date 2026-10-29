@@ -3,7 +3,7 @@ import { type FormEvent, useEffect, useRef, useState } from "react"
 import { Input, InputGroup } from "@bugberry/ui/input"
 import { Keyboard } from "@bugberry/ui/keyboard"
 import { SearchField } from "@bugberry/ui/search-field"
-import { isMacPlatform, searchShortcut } from "../lib/shortcuts"
+import { isMacPlatform, searchShortcut } from "./shortcuts"
 
 /** "Search reports" in the page header. Ctrl K (⌘K) focuses it from anywhere on the page. */
 export function ReportSearchBox({

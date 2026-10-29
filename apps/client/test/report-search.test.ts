@@ -5,7 +5,7 @@ import {
   toReportsQuery,
   validateProjectReportSearch,
   validateReportSearch,
-} from "../src/lib/report-search"
+} from "../src/features/reports/list/report-search"
 
 describe("validateReportSearch", () => {
   test("keeps capture type, reporter and project filters", () => {

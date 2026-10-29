@@ -2,11 +2,11 @@ import { RiApps2Line, RiSettings3Line } from "@remixicon/react"
 import { useQuery } from "@tanstack/react-query"
 import { getRouteApi, Link, useNavigate } from "@tanstack/react-router"
 import { buttonStyles } from "@bugberry/ui/button"
-import { ReportsBrowser } from "../components/ReportsBrowser"
-import { ReportsPageSkeleton } from "../components/Skeletons"
-import { EmptyState, ErrorState } from "../components/ui"
-import { useCurrentWorkspace } from "../features/workspaces/workspace"
-import { projectQueries } from "../features/projects/queries"
+import { ReportsBrowser } from "./ReportsBrowser"
+import { ReportsPageSkeleton } from "../../../components/Skeletons"
+import { EmptyState, ErrorState } from "../../../components/ui"
+import { useCurrentWorkspace } from "../../workspaces/workspace"
+import { projectQueries } from "../../projects/queries"
 
 const routeApi = getRouteApi("/_authed/app/p/$projectSlug")
 

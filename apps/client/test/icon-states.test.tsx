@@ -12,7 +12,7 @@ import { render, screen } from "@testing-library/react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { ActiveIcon } from "../src/components/ActiveIcon"
 import { DevtoolsToggle } from "../src/components/DevtoolsLayout"
-import { LayoutToggle, ReportFilters } from "../src/components/ReportFilters"
+import { LayoutToggle, ReportFilters } from "../src/features/reports/list/ReportFilters"
 
 /** The shape an icon draws, to tell its line and fill variants apart. */
 const shape = (Icon: RemixiconComponentType) => renderToStaticMarkup(<Icon />).match(/ d="([^"]+)"/)?.[1] ?? "none"

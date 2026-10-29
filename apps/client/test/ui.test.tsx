@@ -59,7 +59,7 @@ describe("ui wrappers", () => {
 
   test("the pages that wait before showing anything use the centred loading", () => {
     const page = (path: string) => readFileSync(join(import.meta.dir, "..", "src", path), "utf8")
-    for (const name of ["features/auth/LoginPage.tsx", "pages/SharePage.tsx"]) {
+    for (const name of ["features/auth/LoginPage.tsx", "features/reports/share/SharePage.tsx"]) {
       expect(page(name)).toContain("return <PageLoading")
       expect(page(name)).not.toContain("return <Loading")
     }

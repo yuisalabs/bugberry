@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test"
 import type { Visibility } from "@bugberry/shared"
 import { act, fireEvent, render, screen } from "@testing-library/react"
-import { SharePopoverView } from "../src/components/report/SharePopover"
+import { SharePopoverView } from "../src/features/reports/share/SharePopover"
 
 function view(overrides: Partial<Parameters<typeof SharePopoverView>[0]> = {}) {
   const props = {

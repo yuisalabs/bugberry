@@ -1,12 +1,12 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import type { ComponentProps } from "react"
-import { NewReportButton } from "../src/components/NewReportButton"
-import { ReportCardBody } from "../src/components/ReportCard"
-import { checkedText, ReportsView } from "../src/components/ReportsView"
+import { NewReportButton } from "../src/features/reports/list/NewReportButton"
+import { ReportCardBody } from "../src/features/reports/list/ReportCard"
+import { checkedText, ReportsView } from "../src/features/reports/list/ReportsView"
 import type { ExtensionAnswer } from "../src/features/onboarding/extension-bridge"
-import type { ReportFeed } from "../src/lib/report-feed"
-import { CLEARED_FILTERS } from "../src/lib/report-search"
+import type { ReportFeed } from "../src/features/reports/list/report-feed"
+import { CLEARED_FILTERS } from "../src/features/reports/list/report-search"
 import { listItemFixture, NOW } from "./fixtures"
 
 const feed = (total: number): ReportFeed => ({

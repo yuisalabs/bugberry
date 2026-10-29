@@ -1,8 +1,8 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
-import { ReportFilters } from "../src/components/ReportFilters"
-import { ReportSearchBox } from "../src/components/ReportSearchBox"
-import { STATUS_LABELS } from "../src/lib/labels"
+import { ReportFilters } from "../src/features/reports/list/ReportFilters"
+import { ReportSearchBox } from "../src/features/reports/list/ReportSearchBox"
+import { STATUS_LABELS } from "../src/features/reports/list/labels"
 import { choose } from "./fields"
 
 const members = [{ id: "u1", name: "Ana", email: "ana@kantor.test", image: null, role: "member" as const, owner: false, joinedAt: new Date("2026-09-12T00:00:00Z") }]

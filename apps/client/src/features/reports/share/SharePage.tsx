@@ -1,15 +1,15 @@
 import { useQuery } from "@tanstack/react-query"
 import { getRouteApi, useNavigate } from "@tanstack/react-router"
 import { useEffect } from "react"
-import { CopyLinkButton } from "../components/report/CopyLinkButton"
-import { ReportHeader } from "../components/report/ReportHeader"
-import { ReportTitle } from "../components/report/ReportTitle"
-import { ReportView } from "../components/ReportView"
-import { ErrorPage } from "../components/status/ErrorPage"
-import { PageLoading } from "../components/ui"
-import { queries } from "../lib/queries"
-import { sharePageTarget } from "../lib/report-page"
-import { ApiError } from "../lib/query/unwrap"
+import { CopyLinkButton } from "./CopyLinkButton"
+import { ReportHeader } from "../../../components/report/ReportHeader"
+import { ReportTitle } from "../../../components/report/ReportTitle"
+import { ReportView } from "../../../components/ReportView"
+import { ErrorPage } from "../../../components/status/ErrorPage"
+import { PageLoading } from "../../../components/ui"
+import { sharePageTarget } from "../../../lib/report-page"
+import { ApiError } from "../../../lib/query/unwrap"
+import { reportQueries } from "../queries"
 
 const routeApi = getRouteApi("/s/$slug")
 
@@ -22,7 +22,7 @@ export function SharePage() {
   const { slug } = routeApi.useParams()
   const { t } = routeApi.useSearch()
   const navigate = useNavigate()
-  const share = useQuery(queries.share(slug))
+  const share = useQuery(reportQueries.share(slug))
   const target = share.data ? sharePageTarget(share.data) : null
 
   useEffect(() => {

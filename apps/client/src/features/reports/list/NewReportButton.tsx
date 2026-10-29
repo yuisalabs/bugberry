@@ -4,8 +4,8 @@ import { Button as AriaButton } from "react-aria-components"
 import { Button, buttonStyles } from "@bugberry/ui/button"
 import { Dialog, DialogBody, DialogHeader, DialogTitle } from "@bugberry/ui/dialog"
 import { Link } from "@bugberry/ui/link"
-import { askExtension, type ExtensionAnswer, openExtensionPopup, useServerInExtension } from "../features/onboarding/extension-bridge"
-import { useExtensionAnswer } from "../features/onboarding/ExtensionCard"
+import { askExtension, type ExtensionAnswer, openExtensionPopup, useServerInExtension } from "../../onboarding/extension-bridge"
+import { useExtensionAnswer } from "../../onboarding/ExtensionCard"
 
 /** How to start a report when the extension can't open its popup for this dashboard. */
 export function NewReportGuide({

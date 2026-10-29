@@ -1,9 +1,8 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
-import { LoadMore } from "../src/components/LoadMore"
-import { queries } from "../src/lib/queries"
-import { REPORT_LIST_REFRESH_MS } from "../src/features/reports/queries"
-import { feedItems, nextReportsPage, REPORTS_PAGE_SIZE, reportsPageQuery } from "../src/lib/report-feed"
+import { LoadMore } from "../src/features/reports/list/LoadMore"
+import { REPORT_LIST_REFRESH_MS, reportQueries } from "../src/features/reports/queries"
+import { feedItems, nextReportsPage, REPORTS_PAGE_SIZE, reportsPageQuery } from "../src/features/reports/list/report-feed"
 import { listItemFixture } from "./fixtures"
 
 /**
@@ -68,7 +67,7 @@ describe("the report feed", () => {
   })
 
   test("the query starts at part 1, follows nextReportsPage, and keeps the previews fresh", () => {
-    const options = queries.reportFeed("w1", { sort: "newest" })
+    const options = reportQueries.reportFeed("w1", { sort: "newest" })
     expect(options.initialPageParam).toBe(1)
     expect(options.getNextPageParam).toBe(nextReportsPage)
     expect(options.refetchInterval).toBe(REPORT_LIST_REFRESH_MS)

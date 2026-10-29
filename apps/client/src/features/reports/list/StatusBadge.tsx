@@ -1,5 +1,5 @@
 import type { ReportStatus } from "@bugberry/shared"
-import { STATUS_LABELS, STATUS_STYLES } from "../lib/labels"
+import { STATUS_LABELS, STATUS_STYLES } from "./labels"
 
 /** A report's status as a small coloured label: Open, In progress, Resolved or Closed. */
 export function StatusBadge({ status, className = "" }: { status: ReportStatus; className?: string }) {

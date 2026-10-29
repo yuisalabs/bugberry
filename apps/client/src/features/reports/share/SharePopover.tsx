@@ -6,7 +6,7 @@ import { SelectValue } from "react-aria-components/Select"
 import { Button } from "@bugberry/ui/button"
 import { Label } from "@bugberry/ui/field"
 import { Select, SelectContent, SelectDescription, SelectItem, SelectLabel, SelectTrigger } from "@bugberry/ui/select"
-import { accessOptions, type AccessOption } from "../../lib/share-access"
+import { accessOptions, type AccessOption } from "./share-access"
 
 const ICONS = { workspace: RiLockLine, internal: RiBuilding2Line, public: RiGlobalLine } as const
 

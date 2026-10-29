@@ -1,4 +1,5 @@
-import type { Activity, Comment, CommentThread, ReportDetail, ReportListItem } from "../src/lib/api"
+import type { Activity, Comment, CommentThread, ReportDetail } from "../src/lib/api"
+import type { ReportListItem } from "../src/features/reports/queries"
 
 export function reportFixture(overrides: Partial<ReportDetail> = {}): ReportDetail {
   return {

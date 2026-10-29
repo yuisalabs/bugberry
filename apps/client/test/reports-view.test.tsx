@@ -1,12 +1,12 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
 import type { ComponentProps } from "react"
-import { ReportCardBody } from "../src/components/ReportCard"
-import { ReportsView } from "../src/components/ReportsView"
-import { ReportTableBody } from "../src/components/ReportTable"
-import type { ReportListItem } from "../src/lib/api"
-import type { ReportFeed } from "../src/lib/report-feed"
+import { ReportCardBody } from "../src/features/reports/list/ReportCard"
+import { ReportsView } from "../src/features/reports/list/ReportsView"
+import { ReportTableBody } from "../src/features/reports/list/ReportTable"
+import type { ReportFeed } from "../src/features/reports/list/report-feed"
 import { listItemFixture, NOW } from "./fixtures"
+import type { ReportListItem } from "../src/features/reports/queries"
 
 const members = [{ id: "u1", name: "Ana", email: "ana@kantor.test", image: null, role: "member" as const, owner: false, joinedAt: new Date("2026-09-12T00:00:00Z") }]
 

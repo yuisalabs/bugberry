@@ -1,9 +1,9 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { InstallExtensionButton, NewReportButton, NewReportGuide } from "../src/components/NewReportButton"
-import { ReportsEmpty } from "../src/components/ReportsView"
+import { InstallExtensionButton, NewReportButton, NewReportGuide } from "../src/features/reports/list/NewReportButton"
+import { ReportsEmpty } from "../src/features/reports/list/ReportsView"
 import type { ExtensionAnswer } from "../src/features/onboarding/extension-bridge"
-import { readLayout, saveLayout } from "../src/lib/report-layout"
+import { readLayout, saveLayout } from "../src/features/reports/list/report-layout"
 
 describe("New report", () => {
   test("New report opens the popup, or explains how", async () => {

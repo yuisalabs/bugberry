@@ -17,12 +17,12 @@ import { legacyAppPath } from "./lib/legacy-paths"
 import { publicSiteGate } from "./lib/public-site"
 import { startSecondsFrom } from "./lib/urls"
 import { validateLoginSearch } from "./features/auth/login"
-import { validateProjectReportSearch, validateReportSearch } from "./lib/report-search"
+import { validateProjectReportSearch, validateReportSearch } from "./features/reports/list/report-search"
 // The report lists load with the app; the report page (debugger, media), sharing, sign-in and the
 // settings pages are split off so the first load stays small.
-import { AllReportsPage } from "./pages/AllReportsPage"
+import { AllReportsPage } from "./features/reports/list/AllReportsPage"
 import { LandingPage } from "./pages/LandingPage"
-import { ProjectReportsPage } from "./pages/ProjectReportsPage"
+import { ProjectReportsPage } from "./features/reports/list/ProjectReportsPage"
 
 /** Any address no page answers, at the top level or inside the dashboard. */
 function NotFoundPage() {
@@ -114,7 +114,7 @@ const shareRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/s/$slug",
   validateSearch: (search: Record<string, unknown>): { t?: number } => ({ t: startSecondsFrom(search) }),
-  component: lazyRouteComponent(() => import("./pages/SharePage"), "SharePage"),
+  component: lazyRouteComponent(() => import("./features/reports/share/SharePage"), "SharePage"),
 })
 
 /** Takes `?t=` too, so a member sent on from a share link keeps the start time. */

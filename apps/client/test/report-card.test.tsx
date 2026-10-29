@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
-import { CardCopyLink, ReportCardBody } from "../src/components/ReportCard"
-import { PRIORITY_LABELS, STATUS_LABELS } from "../src/lib/labels"
+import { CardCopyLink, ReportCardBody } from "../src/features/reports/list/ReportCard"
+import { PRIORITY_LABELS, STATUS_LABELS } from "../src/features/reports/list/labels"
 import { listItemFixture, NOW } from "./fixtures"
 
 describe("ReportCardBody", () => {

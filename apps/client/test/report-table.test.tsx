@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { render, screen, within } from "@testing-library/react"
-import { ReportTableBody } from "../src/components/ReportTable"
+import { ReportTableBody } from "../src/features/reports/list/ReportTable"
 import { listItemFixture, NOW } from "./fixtures"
 
 const members = [{ id: "u2", name: "Budi", email: "budi@kantor.test", image: null, role: "member" as const, owner: false, joinedAt: new Date("2026-09-12T00:00:00Z") }]

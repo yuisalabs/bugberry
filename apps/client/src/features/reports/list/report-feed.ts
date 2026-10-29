@@ -1,4 +1,4 @@
-import type { ReportList, ReportListItem, ReportsQuery } from "./api"
+import type { ReportList, ReportListItem, ReportsQuery } from "../queries"
 
 /** Reports fetched per part as the list scrolls: three rows of the three-column grid. */
 export const REPORTS_PAGE_SIZE = 9

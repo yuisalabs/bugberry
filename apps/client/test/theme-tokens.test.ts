@@ -4,7 +4,7 @@ import { join, relative } from "node:path"
 
 const SRC = join(import.meta.dir, "..", "src")
 /** Intent UI's own files, and the categorical status/priority colours, may name palette colours. */
-const ALLOWED = new Set(["lib/labels.ts"])
+const ALLOWED = new Set(["features/reports/list/labels.ts"])
 const PALETTE = /\b[a-z:-]*-(slate|gray|zinc|sky|blue|red|amber|yellow|orange|emerald|green)-\d{2,3}\b|\bbg-white\b/g
 
 function sources(dir: string): string[] {

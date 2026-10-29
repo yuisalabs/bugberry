@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { Skeleton } from "@bugberry/ui/skeleton"
-import type { ReportLayout } from "../lib/report-layout"
+import type { ReportLayout } from "../features/reports/list/report-layout"
 
 /** Announces the loading once for screen readers; the placeholders themselves are hidden from them. */
 export function LoadingSkeleton({ label = "Loading…", className, children }: { label?: string; className?: string; children: ReactNode }) {

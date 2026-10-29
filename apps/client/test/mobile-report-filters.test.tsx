@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen, within } from "@testing-library/react"
-import { activeFilterCount, FiltersSheetContent, StatusChips } from "../src/components/MobileReportFilters"
-import { CLEARED_FILTERS } from "../src/lib/report-search"
+import { activeFilterCount, FiltersSheetContent, StatusChips } from "../src/features/reports/list/MobileReportFilters"
+import { CLEARED_FILTERS } from "../src/features/reports/list/report-search"
 
 const counts = { total: 9, byStatus: { open: 6, in_progress: 1, resolved: 2, closed: 0 } }
 const members = [

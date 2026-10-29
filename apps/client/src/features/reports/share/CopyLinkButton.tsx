@@ -4,19 +4,21 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Dialog, DialogTrigger } from "react-aria-components"
 import { Button } from "@bugberry/ui/button"
 import { Popover } from "@bugberry/ui/popover"
-import type { ReportDetail } from "../../lib/api"
-import { api } from "../../lib/client"
-import { queries } from "../../lib/queries"
-import { copiedDescription, sharePopoverState } from "../../lib/share-access"
-import { toast } from "../../lib/toast"
-import { shareUrl } from "../../lib/urls"
-import { roleIn } from "../../features/workspaces/workspace"
-import { isUndone } from "../../features/onboarding/onboarding"
-import { useOnboarding } from "../../features/onboarding/OnboardingProvider"
+import type { ReportDetail } from "../../../lib/api"
+import { api } from "../../../lib/client"
+import { queries } from "../../../lib/queries"
+import { copiedDescription, sharePopoverState } from "./share-access"
+import { toast } from "../../../lib/toast"
+import { shareUrl } from "../../../lib/urls"
+import { roleIn } from "../../workspaces/workspace"
+import { isUndone } from "../../onboarding/onboarding"
+import { useOnboarding } from "../../onboarding/OnboardingProvider"
 import { SharePopoverView } from "./SharePopover"
-import { errorMessage } from "../../lib/query/unwrap"
-import { accountQueries } from "../../features/account/queries"
-import { workspaceQueries } from "../../features/workspaces/queries"
+import { errorMessage } from "../../../lib/query/unwrap"
+import { accountQueries } from "../../account/queries"
+import { workspaceQueries } from "../../workspaces/queries"
+import { regenerateShare } from "../queries"
+import { qk } from "../../../lib/query/keys"
 
 /**
  * The one share link of a report. The main part copies it as it is; the arrow opens the Share popover,
@@ -58,13 +60,13 @@ export function CopyLinkButton({
     onSuccess: (detail) => {
       const retired = report.visibility === "public" && detail.visibility !== "public"
       queryClient.setQueryData(reportKey, detail)
-      void queryClient.invalidateQueries({ queryKey: ["reports"] })
+      void queryClient.invalidateQueries({ queryKey: qk.reports.all })
       if (retired) toast({ title: "Public link turned off. The old link no longer works.", tone: "info" })
     },
     onError: (error) => toast({ title: errorMessage(error), tone: "error" }),
   })
   const reset = useMutation({
-    mutationFn: () => api.regenerateShare(report.id),
+    mutationFn: () => regenerateShare(report.id),
     onSuccess: ({ shareSlug }) => {
       queryClient.setQueryData(reportKey, (old: ReportDetail | undefined) => (old ? { ...old, shareSlug } : old))
       toast({ title: "New link created" })

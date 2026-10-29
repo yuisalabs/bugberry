@@ -7,6 +7,7 @@ import { shouldRetry } from "../src/lib/query/client"
 import { maintenanceOf } from "../src/lib/status"
 import { fakeFetch, restoreFetch } from "./support/fake-fetch"
 import { ApiError, errorMessage } from "../src/lib/query/unwrap"
+import { reports } from "../src/features/reports/queries"
 
 const ORIGIN = window.location.origin
 
@@ -24,7 +25,7 @@ describe("createApi", () => {
 
   test("sends list filters as repeated query parameters", async () => {
     const { requests } = fakeFetch(() => Response.json({ items: [], page: 2, perPage: 20, total: 0 }))
-    await createApi().reports("w1", {
+    await reports("w1", {
       projectId: "p1",
       status: ["open", "closed"],
       captureType: "video",
