@@ -7,11 +7,9 @@ import {
   MEDIA_TYPES,
   THUMBNAIL_CONTENT_TYPE,
 } from "@bugberry/shared"
-import { and, eq } from "drizzle-orm"
-import { executor, withTransaction } from "../../db/client"
+import { withTransaction } from "../../db/client"
 import type { AppDeps } from "../../deps"
 import type { CurrentUser } from "../../plugins/auth"
-import { project, report, workspace } from "../../db/schema"
 import { badRequest, conflict, notFound, payloadTooLarge, unprocessable } from "../../lib/errors"
 import { newId, newShareSlug } from "../../lib/ids"
 import { notifyNewReport } from "../notifiers/deliver"
@@ -23,10 +21,21 @@ import { resolveWorkspace } from "../workspaces/access"
 import { assertCanCreateReport } from "../workspaces/limits"
 import { afterFinalize } from "./after-finalize"
 import type { CreateUploadBody } from "./model"
-import { claimReportNumber } from "./numbers"
+import { findProject } from "../projects/repository"
+import {
+  claimReportNumber,
+  findReport,
+  findUploadState,
+  insertReport,
+  lockMediaUpload,
+  lockWorkspaceForReports,
+  markUploadReady,
+  type ReportRow,
+  updateReport,
+} from "./repository"
 
 type Deps = Pick<AppDeps, "config" | "db" | "storage">
-export type ReportRow = typeof report.$inferSelect
+export type { ReportRow } from "./repository"
 
 /** Where the client sends a report's files; media goes in parts or in one PUT, never both. */
 export interface UploadTargets {
@@ -65,12 +74,9 @@ export async function createReportUpload(
     throw unprocessable("internal_unavailable", "Internal sharing needs a company email domain")
   }
   if (body.projectId) {
-    const [target] = await db
-      .select({ id: project.id })
-      .from(project)
-      .where(and(eq(project.id, body.projectId), eq(project.workspaceId, workspaceId)))
-      .limit(1)
-    if (!target) throw unprocessable("project_not_found", "Project not found in this workspace")
+    if ((await findProject(db, body.projectId))?.workspaceId !== workspaceId) {
+      throw unprocessable("project_not_found", "Project not found in this workspace")
+    }
   }
 
   // Only a file too big for one part is worth the extra requests.
@@ -82,41 +88,36 @@ export async function createReportUpload(
   const thumbnailKey = body.thumbnailSize ? thumbnailKeyFor(id) : null
 
   const created = await withTransaction(db, async () => {
-    const tx = executor(db)
-    const number = await claimReportNumber(tx, workspaceId)
+    const number = await claimReportNumber(db, workspaceId)
     // Counted after the claim, which locks the workspace row: uploads at the same time take turns here.
     await assertCanCreateReport(db, config, workspaceId, body.captureType, body.durationMs ?? null)
-    const [row] = await tx
-      .insert(report)
-      .values({
-        id,
-        workspaceId,
-        number,
-        projectId: body.projectId ?? null,
-        reporterId: user.id,
-        reporterDomain: emailDomain(user.email),
-        title: body.title?.trim() || defaultReportTitle(body.captureType, user.name),
-        description: body.description ?? "",
-        priority: body.priority ?? "none",
-        visibility: body.visibility ?? "workspace",
-        shareSlug: newShareSlug(),
-        captureType: body.captureType,
-        pageUrl: body.pageUrl,
-        pageTitle: body.pageTitle ?? "",
-        device: body.device,
-        durationMs: body.durationMs ?? null,
-        mediaKey,
-        mediaType,
-        mediaSize: body.mediaSize,
-        debuggerKey,
-        debuggerSize: body.debuggerSize ?? null,
-        thumbnailKey,
-        thumbnailSize: body.thumbnailSize ?? null,
-        debuggerSummary: body.debuggerSummary,
-        viaAgent: opts.viaAgent ?? null,
-      })
-      .returning({ id: report.id, shareSlug: report.shareSlug, number: report.number })
-    return row
+    return insertReport(db, {
+      id,
+      workspaceId,
+      number,
+      projectId: body.projectId ?? null,
+      reporterId: user.id,
+      reporterDomain: emailDomain(user.email),
+      title: body.title?.trim() || defaultReportTitle(body.captureType, user.name),
+      description: body.description ?? "",
+      priority: body.priority ?? "none",
+      visibility: body.visibility ?? "workspace",
+      shareSlug: newShareSlug(),
+      captureType: body.captureType,
+      pageUrl: body.pageUrl,
+      pageTitle: body.pageTitle ?? "",
+      device: body.device,
+      durationMs: body.durationMs ?? null,
+      mediaKey,
+      mediaType,
+      mediaSize: body.mediaSize,
+      debuggerKey,
+      debuggerSize: body.debuggerSize ?? null,
+      thumbnailKey,
+      thumbnailSize: body.thumbnailSize ?? null,
+      debuggerSummary: body.debuggerSummary,
+      viaAgent: opts.viaAgent ?? null,
+    })
   })
   if (!created) throw new Error("Failed to create report")
 
@@ -125,7 +126,7 @@ export async function createReportUpload(
   if (multipart) {
     const { uploadId, parts } = await multipart.create(mediaKey, { contentType: mediaType, partSizes: partSizes(body.mediaSize) })
     try {
-      await db.update(report).set({ mediaUploadId: uploadId }).where(eq(report.id, created.id))
+      await updateReport(db, created.id, { mediaUploadId: uploadId })
     } catch (error) {
       await multipart.abort(mediaKey, uploadId).catch(() => undefined)
       throw error
@@ -178,7 +179,7 @@ export async function uploadTargetsFor({ storage }: Deps, row: ReportRow): Promi
 async function failUpload({ db, storage }: Deps, row: ReportRow, message: string): Promise<never> {
   const keys = [row.mediaKey, row.debuggerKey, row.thumbnailKey].filter((key): key is string => key !== null)
   await Promise.all(keys.map((key) => storage.delete(key).catch(() => undefined)))
-  await db.update(report).set({ uploadStatus: "failed", uploadError: message, mediaUploadId: null }).where(eq(report.id, row.id))
+  await updateReport(db, row.id, { uploadStatus: "failed", uploadError: message, mediaUploadId: null })
   throw unprocessable("upload_size_mismatch", message)
 }
 
@@ -191,13 +192,13 @@ async function joinMediaParts(deps: Deps, row: ReportRow): Promise<void> {
   const { db, storage } = deps
   const multipart = storage.multipart
   if (!multipart) throw new Error("The storage can't finish an upload in parts (was STORAGE_DRIVER changed?)")
-  const joined = await db.transaction(async (tx) => {
-    const [locked] = await tx.select({ mediaUploadId: report.mediaUploadId }).from(report).where(eq(report.id, row.id)).for("update")
+  const joined = await withTransaction(db, async () => {
+    const uploadId = await lockMediaUpload(db, row.id)
     // Joined, or failed, by the finalize this one waited for.
-    if (!locked?.mediaUploadId) return null
-    const result = await multipart.complete(row.mediaKey, locked.mediaUploadId, partSizes(row.mediaSize))
-    if (result === "completed") await tx.update(report).set({ mediaUploadId: null }).where(eq(report.id, row.id))
-    return { result, uploadId: locked.mediaUploadId }
+    if (!uploadId) return null
+    const result = await multipart.complete(row.mediaKey, uploadId, partSizes(row.mediaSize))
+    if (result === "completed") await updateReport(db, row.id, { mediaUploadId: null })
+    return { result, uploadId }
   })
   if (joined?.result === "incomplete") {
     throw conflict("upload_incomplete", "Upload has not finished yet; retry the upload, then finalize again")
@@ -221,7 +222,7 @@ export async function finalizeReportUpload(
   reportId: string,
 ): Promise<{ id: string; uploadStatus: "ready"; reportUrl: string; shareUrl: string }> {
   const { config, db, storage } = deps
-  const [row] = await db.select().from(report).where(eq(report.id, reportId)).limit(1)
+  const row = await findReport(db, reportId)
   if (!row) throw notFound("report_not_found", "Report not found")
   const ready = () => ({ id: row.id, uploadStatus: "ready" as const, ...reportLinks(config.appUrl, row) })
   // A failed upload only comes from a size mismatch below or in joinMediaParts; answer a retry the same way.
@@ -254,25 +255,14 @@ export async function finalizeReportUpload(
     if (!keepThumbnail) await storage.delete(row.thumbnailKey).catch(() => undefined)
   }
   const madeReady = await withTransaction(db, async () => {
-    const tx = executor(db)
     // Locks the workspace row as an upload does, so finalizes and new uploads take turns at the count.
-    await tx.select({ id: workspace.id }).from(workspace).where(eq(workspace.id, row.workspaceId)).for("update")
+    await lockWorkspaceForReports(db, row.workspaceId)
     await assertCanCreateReport(db, config, row.workspaceId, row.captureType, row.durationMs, row.id)
-    const updated = await tx
-      .update(report)
-      .set({
-        uploadStatus: "ready",
-        uploadError: null,
-        ...(keepThumbnail ? {} : { thumbnailKey: null, thumbnailSize: null }),
-      })
-      // Only from uploading: of two finalizes at the same time, one makes the report ready.
-      .where(and(eq(report.id, row.id), eq(report.uploadStatus, "uploading")))
-      .returning({ id: report.id })
-    return updated.length > 0
+    return markUploadReady(db, row.id, keepThumbnail)
   })
   if (!madeReady) {
     // The other finalize got there first; it also sends the notifications, so they go out once.
-    const [now] = await db.select({ uploadStatus: report.uploadStatus, uploadError: report.uploadError }).from(report).where(eq(report.id, row.id))
+    const now = await findUploadState(db, row.id)
     if (!now) throw notFound("report_not_found", "Report not found")
     if (now.uploadStatus !== "ready") {
       throw unprocessable("upload_size_mismatch", now.uploadError ?? "Uploaded file size did not match")

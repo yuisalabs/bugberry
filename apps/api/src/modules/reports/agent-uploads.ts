@@ -1,13 +1,11 @@
-import { eq } from "drizzle-orm"
 import { Elysia } from "elysia"
 import type { AppDeps } from "../../deps"
 import type { Db } from "../../db/client"
-import { agentUpload, report } from "../../db/schema"
 import { hashToken } from "../tokens/token"
 import { gone, notFound, unprocessable } from "../../lib/errors"
-import { newId } from "../../lib/ids"
 import { createDispatcher } from "../trackers/dispatch"
 import { trackerFactoryFor } from "../trackers/default"
+import { findAgentUpload, findReport, insertAgentUpload, markAgentUploadFinalized } from "./repository"
 import { finalizeReportUpload, uploadTargetsFor } from "./upload-flow"
 
 /** Long enough to stop a recording, write it up and send it; short enough that a leaked link is soon worthless. */
@@ -17,7 +15,7 @@ export const AGENT_UPLOAD_TTL_MS = 15 * 60_000
 export async function issueAgentUpload(db: Db, reportId: string, userId: string, now = new Date()) {
   const token = Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url")
   const expiresAt = new Date(now.getTime() + AGENT_UPLOAD_TTL_MS)
-  await db.insert(agentUpload).values({ id: newId(), tokenHash: hashToken(token), reportId, userId, expiresAt, createdAt: now })
+  await insertAgentUpload(db, { tokenHash: hashToken(token), reportId, userId, expiresAt, createdAt: now })
   return { token, expiresAt }
 }
 
@@ -32,7 +30,7 @@ export function agentUploadsModule(deps: AppDeps) {
   const dispatcher = createDispatcher({ ...deps, trackers: trackerFactoryFor(deps) })
 
   const ticketFor = async (token: string) => {
-    const [ticket] = await db.select().from(agentUpload).where(eq(agentUpload.tokenHash, hashToken(token))).limit(1)
+    const ticket = await findAgentUpload(db, hashToken(token))
     if (!ticket) throw notFound("upload_link_unknown", "This upload link is not known. Call createUpload again.")
     return ticket
   }
@@ -50,7 +48,7 @@ export function agentUploadsModule(deps: AppDeps) {
       const ticket = await ticketFor(params.token)
       if (ticket.finalizedAt) throw gone("upload_link_used", "This recording was already sent with this link.")
       if (expired(ticket)) throw expiredError()
-      const [row] = await db.select().from(report).where(eq(report.id, ticket.reportId)).limit(1)
+      const row = await findReport(db, ticket.reportId)
       if (!row) throw notFound("report_not_found", "Report not found")
       // Only a report still waiting for its files gets targets: one sent another way, or failed, takes none.
       if (row.uploadStatus === "ready") throw gone("upload_link_used", "This recording was already sent with this link.")
@@ -64,7 +62,7 @@ export function agentUploadsModule(deps: AppDeps) {
       // A retry after a finalize that worked answers ready again; finalizeReportUpload sends nothing twice.
       if (!ticket.finalizedAt && pastFinalize(ticket)) throw expiredError()
       const result = await finalizeReportUpload(deps, dispatcher, ticket.reportId)
-      if (!ticket.finalizedAt) await db.update(agentUpload).set({ finalizedAt: new Date() }).where(eq(agentUpload.id, ticket.id))
+      if (!ticket.finalizedAt) await markAgentUploadFinalized(db, ticket.id)
       return result
     })
 }

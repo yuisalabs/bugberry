@@ -16,7 +16,6 @@ const mayOpenTransaction = (path: string) =>
 
 /** Files that still query outside a repository; each repository task removes its own. Empty when the refactor is done. */
 const PENDING = new Set<string>([
-  "jobs/cleanup.ts",
   "mcp/oauth.ts",
   "mcp/refs.ts",
   "mcp/route.ts",
@@ -24,14 +23,6 @@ const PENDING = new Set<string>([
   "mcp/tools/report-read.ts",
   "mcp/tools/upload.ts",
   "mcp/tools/write.ts",
-  "modules/reports/agent-uploads.ts",
-  "modules/reports/detail.ts",
-  "modules/reports/index.ts",
-  "modules/reports/numbers.ts",
-  "modules/reports/service.ts",
-  "modules/reports/upload-flow.ts",
-  "modules/reports/uploads.ts",
-  "modules/share/index.ts",
 ])
 
 async function violators(): Promise<string[]> {

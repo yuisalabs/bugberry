@@ -1,8 +1,6 @@
-import { eq } from "drizzle-orm"
 import { Elysia } from "elysia"
 import type { AppDeps } from "../../deps"
 import { authPlugin } from "../../plugins/auth"
-import { report } from "../../db/schema"
 import { conflict, forbidden, notFound, tooManyRequests } from "../../lib/errors"
 import { createRateLimiter } from "../../lib/rate-limit"
 import { createDispatcher } from "../trackers/dispatch"
@@ -10,6 +8,7 @@ import { trackerFactoryFor } from "../trackers/default"
 import { PART_BYTES, partSizes } from "../../storage/multipart"
 import { requireReportMember } from "../workspaces/access"
 import { createUploadBody } from "./model"
+import { findReport } from "./repository"
 import { createReportUpload, finalizeReportUpload } from "./upload-flow"
 
 export const UPLOAD_SESSIONS_PER_MINUTE = 30
@@ -36,7 +35,7 @@ export function reportUploadsModule(deps: AppDeps) {
         // Links for media in parts are signed when the upload starts and last UPLOAD_URL_TTL_SECONDS; on a slow
         // connection the last parts are sent after that, so the client asks here for new ones and goes on.
         await requireReportMember(db, user.id, params.id)
-        const [row] = await db.select().from(report).where(eq(report.id, params.id)).limit(1)
+        const row = await findReport(db, params.id)
         if (!row) throw notFound("report_not_found", "Report not found")
         if (row.reporterId !== user.id) throw forbidden("Only the reporter can upload to this report")
         const multipart = storage.multipart
@@ -51,7 +50,7 @@ export function reportUploadsModule(deps: AppDeps) {
       "/reports/:id/finalize",
       async ({ user, params }) => {
         await requireReportMember(db, user.id, params.id)
-        const [row] = await db.select({ reporterId: report.reporterId }).from(report).where(eq(report.id, params.id)).limit(1)
+        const row = await findReport(db, params.id)
         if (!row) throw notFound("report_not_found", "Report not found")
         if (row.reporterId !== user.id) throw forbidden("Only the reporter can finalize this upload")
         return finalizeReportUpload(deps, dispatcher, params.id)

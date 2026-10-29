@@ -34,7 +34,7 @@ const duration = (ms: number | null) => (ms === null ? null : `${Math.round(ms /
 export async function reportSummary(ctx: McpContext, resolved: ResolvedReport) {
   const { deps } = ctx
   const member = resolved.access === "member"
-  const detail = await loadReportDetail(deps, eq(report.id, resolved.id), { forMember: member })
+  const detail = await loadReportDetail(deps, { id: resolved.id }, { forMember: member })
   if (!detail) throw new Error("report vanished")
   const data = await loadDebuggerData(ctx, resolved)
   const view = data === "unreadable" ? null : data

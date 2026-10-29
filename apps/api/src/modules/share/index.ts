@@ -1,15 +1,14 @@
-import { and, eq } from "drizzle-orm"
 import type { Server } from "bun"
 import { Elysia } from "elysia"
 import type { AppDeps } from "../../deps"
 import { createUserResolver } from "../../plugins/auth"
 import { isEmailAllowed } from "../auth/policy"
-import { report } from "../../db/schema"
 import { notFound, tooManyRequests, unauthorized } from "../../lib/errors"
 import { createRateLimiter } from "../../lib/rate-limit"
 import { loadReportDetail } from "../reports/detail"
 import { memberRole } from "../workspaces/access"
 import { reportAccess } from "../reports/access"
+import { findReadyReportVisibility } from "../reports/repository"
 
 const SHARE_VIEWS_PER_MINUTE = 60
 /**
@@ -47,13 +46,7 @@ export function shareModule(deps: AppDeps) {
   return new Elysia().get("/share/:slug", async ({ params, request, server }) => {
     if (!limiter.consume(clientIp(request, server, deps.config.proxyHops))) throw tooManyRequests()
 
-    const where = and(eq(report.shareSlug, params.slug), eq(report.uploadStatus, "ready"))
-    if (!where) throw notFound()
-    const [target] = await deps.db
-      .select({ workspaceId: report.workspaceId, visibility: report.visibility, reporterDomain: report.reporterDomain })
-      .from(report)
-      .where(where)
-      .limit(1)
+    const target = await findReadyReportVisibility(deps.db, { shareSlug: params.slug })
     if (!target) throw notFound("report_not_found", "Report not found")
 
     const resolved = await resolveUser(request.headers)
@@ -67,7 +60,7 @@ export function shareModule(deps: AppDeps) {
     if (!access) throw notFound("report_not_found", "Report not found")
 
     // Only members get the long-lived media links; viewers outside the workspace get short ones.
-    const detail = await loadReportDetail(deps, where, isMember ? {} : { readTtlSeconds: ANONYMOUS_READ_TTL_SECONDS })
+    const detail = await loadReportDetail(deps, { shareSlug: params.slug }, isMember ? {} : { readTtlSeconds: ANONYMOUS_READ_TTL_SECONDS })
     if (!detail) throw notFound("report_not_found", "Report not found")
     // A member who followed a share link is sent on to the full report page.
     return { ...detail, viewerIsMember: isMember }

@@ -1,8 +1,6 @@
 import { DEBUGGER_CONTENT_TYPE, FREE_EMAIL_DOMAINS } from "@bugberry/shared"
-import { eq, type SQL } from "drizzle-orm"
-import { alias } from "drizzle-orm/pg-core"
 import type { AppDeps } from "../../deps"
-import { report, user } from "../../db/schema"
+import { findDetailRow, type ReportKey } from "./repository"
 
 export interface PersonSummary {
   id: string
@@ -10,25 +8,13 @@ export interface PersonSummary {
   image: string | null
 }
 
-const reporterUser = alias(user, "reporter")
-const assigneeUser = alias(user, "assignee")
 
 export async function loadReportDetail(
   { db, storage }: Pick<AppDeps, "db" | "storage">,
-  where: SQL,
+  key: ReportKey,
   opts: { readTtlSeconds?: number; forMember?: boolean } = {},
 ) {
-  const [row] = await db
-    .select({
-      report,
-      reporter: { id: reporterUser.id, name: reporterUser.name, image: reporterUser.image, email: reporterUser.email },
-      assignee: { id: assigneeUser.id, name: assigneeUser.name, image: assigneeUser.image },
-    })
-    .from(report)
-    .innerJoin(reporterUser, eq(report.reporterId, reporterUser.id))
-    .leftJoin(assigneeUser, eq(report.assigneeId, assigneeUser.id))
-    .where(where)
-    .limit(1)
+  const row = await findDetailRow(db, key)
   if (!row) return null
 
   const r = row.report
