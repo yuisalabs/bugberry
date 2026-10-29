@@ -1,7 +1,7 @@
 import type { CaptureType, DebuggerSummary } from "@bugberry/shared"
 import { consoleEntries, environmentRows } from "@bugberry/debugger-view"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
-import { count, eq } from "drizzle-orm"
+import { and, count, eq } from "drizzle-orm"
 import { comment, project, report, reportExternalLink, workspace } from "../../db/schema"
 import { loadReportDetail } from "../../modules/reports/detail"
 import { createCommentsService } from "../../modules/comments/service"
@@ -38,15 +38,17 @@ export async function reportSummary(ctx: McpContext, resolved: ResolvedReport) {
   if (!detail) throw new Error("report vanished")
   const data = await loadDebuggerData(ctx, resolved)
   const view = data === "unreadable" ? null : data
-  const [projectRow] = detail.projectId
-    ? await deps.db.select({ name: project.name, slug: project.slug }).from(project).where(eq(project.id, detail.projectId)).limit(1)
-    : []
-  // Where a member files a follow-up (a fix proof) for this report; a share viewer can't file there, so isn't told.
-  const [workspaceRow] = member
-    ? await deps.db.select({ slug: workspace.slug }).from(workspace).where(eq(workspace.id, resolved.workspaceId)).limit(1)
-    : []
-  const projectSlug = member ? (projectRow?.slug ?? null) : null
-  const workspaceSlug = workspaceRow?.slug ?? null
+  // The project and the workspace in one read. Their slugs say where a member files a follow-up (a fix proof);
+  // a share viewer can't file there, so isn't told.
+  const [place] = await deps.db
+    .select({ projectName: project.name, projectSlug: project.slug, workspaceSlug: workspace.slug })
+    .from(workspace)
+    .leftJoin(project, and(eq(project.id, detail.projectId ?? ""), eq(project.workspaceId, workspace.id)))
+    .where(eq(workspace.id, resolved.workspaceId))
+    .limit(1)
+  const projectRow = place?.projectName ? { name: place.projectName } : undefined
+  const projectSlug = member ? (place?.projectSlug ?? null) : null
+  const workspaceSlug = member ? (place?.workspaceSlug ?? null) : null
   const trackers = member
     ? await deps.db
         .select({ url: reportExternalLink.externalUrl, error: reportExternalLink.error })

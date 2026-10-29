@@ -147,6 +147,10 @@ describe("verifyFixInstructions", () => {
     expect(testPageInstructions({ url: "https://shop.test/" })).toContain('"Fix proof:" are proof of a fix, not a match')
   })
 
+  test("the proof title is kept within createUpload's 200 characters", () => {
+    expect(verifyFixInstructions({ report: "BB-123", server: SERVER })).toContain("fits in 200 characters")
+  })
+
   test("only a report link on this BugBerry server is taken", () => {
     for (const report of ["http://localhost:3000/checkout", "https://other.test/app/r/abc", "https://bugs.test/app/r/abc?x=1#y"]) {
       expect(() => verifyFixInstructions({ report, server: SERVER })).toThrow(/BB-123/)

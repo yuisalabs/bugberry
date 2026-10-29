@@ -96,7 +96,8 @@ export const FIX_RULES = [
     "discardRecording and start again: that isn't the attempt.",
   "   - If the bug still shows (the step fails, or the report's errors or failed requests come back): " +
     "discardRecording, file nothing, and tell the developer what still happens.",
-  "   - If it is gone: createUpload with the title \"Fix proof: <the report's title> (BB-<n>)\", a description that " +
+  "   - If it is gone: createUpload with the title \"Fix proof: <the report's title> (BB-<n>)\" (shorten the report's " +
+    "title with \"…\" so the whole title fits in 200 characters), a description that " +
     "starts \"Proof that BB-<n> is fixed: <its link>\" and then says what was changed, which steps you redid, and any " +
     "new console error or failed request the recording caught (say so in your answer too), " +
     "project = its projectSlug and workspace = its workspace (leave project out when it has none), and its priority; " +
