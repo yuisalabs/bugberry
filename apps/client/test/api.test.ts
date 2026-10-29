@@ -1,33 +1,26 @@
-import { describe, expect, test } from "bun:test"
+import { afterEach, describe, expect, test } from "bun:test"
 import { ApiError, createApi, errorMessage } from "../src/lib/api"
 import { shouldRetry } from "../src/lib/query/client"
 import { maintenanceOf } from "../src/lib/status"
+import { fakeFetch, restoreFetch } from "./support/fake-fetch"
 
-const ORIGIN = "https://bugberry.kantor.test"
+const ORIGIN = window.location.origin
 
-function fakeFetch(respond: (request: Request) => Response | Promise<Response>) {
-  const requests: Request[] = []
-  const fetcher = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const request = new Request(input, init)
-    requests.push(request)
-    return respond(request)
-  }) as typeof fetch
-  return { fetcher, requests }
-}
+afterEach(restoreFetch)
 
 describe("createApi", () => {
-  test("calls the API on the given origin", async () => {
-    const { fetcher, requests } = fakeFetch(() =>
+  test("calls the API on the page's origin", async () => {
+    const { requests } = fakeFetch(() =>
       Response.json({ id: "u1", email: "ana@kantor.test", name: "Ana", image: null, lastWorkspaceId: "w1" }),
     )
-    const me = await createApi(ORIGIN, fetcher).me()
+    const me = await createApi().me()
     expect(me.name).toBe("Ana")
     expect(requests[0]?.url).toBe(`${ORIGIN}/api/me`)
   })
 
   test("sends list filters as repeated query parameters", async () => {
-    const { fetcher, requests } = fakeFetch(() => Response.json({ items: [], page: 2, perPage: 20, total: 0 }))
-    await createApi(ORIGIN, fetcher).reports("w1", {
+    const { requests } = fakeFetch(() => Response.json({ items: [], page: 2, perPage: 20, total: 0 }))
+    await createApi().reports("w1", {
       projectId: "p1",
       status: ["open", "closed"],
       captureType: "video",
@@ -47,10 +40,10 @@ describe("createApi", () => {
   })
 
   test("turns the server's error body into an ApiError", async () => {
-    const { fetcher } = fakeFetch(() =>
+    fakeFetch(() =>
       Response.json({ code: "slug_taken", message: "Slug is already used by another project" }, { status: 409 }),
     )
-    const error = await createApi(ORIGIN, fetcher)
+    const error = await createApi()
       .createProject("w1", { name: "Web", slug: "web", urlPatterns: [] })
       .catch((caught) => caught)
     expect(error).toBeInstanceOf(ApiError)
@@ -58,8 +51,8 @@ describe("createApi", () => {
   })
 
   test("calls the comment and tracker endpoints", async () => {
-    const { fetcher, requests } = fakeFetch(() => Response.json({ ok: true }))
-    const client = createApi(ORIGIN, fetcher)
+    const { requests } = fakeFetch(() => Response.json({ ok: true }))
+    const client = createApi()
     await client.addComment("r1", "Hello")
     await client.sendToTracker("r1", "i1")
     await client.testIntegration("p1", "i1")
@@ -72,27 +65,27 @@ describe("createApi", () => {
   })
 
   test("a failed fetch becomes a network ApiError", async () => {
-    const { fetcher } = fakeFetch(() => {
+    fakeFetch(() => {
       throw new TypeError("Failed to fetch")
     })
-    const error = await createApi(ORIGIN, fetcher).me().catch((caught) => caught)
+    const error = await createApi().me().catch((caught) => caught)
     expect(error).toMatchObject({ status: 0, code: "network" })
   })
 
   test("a gateway timeout says how long the request waited", async () => {
-    const { fetcher } = fakeFetch(async () => {
+    fakeFetch(async () => {
       await Bun.sleep(30)
       return new Response("<html>504 Gateway Time-out</html>", { status: 504, headers: { "content-type": "text/html" } })
     })
-    const error = await createApi(ORIGIN, fetcher).me().catch((caught) => caught)
+    const error = await createApi().me().catch((caught) => caught)
     expect(error).toMatchObject({ status: 504 })
     expect(error.waitedMs).toBeGreaterThanOrEqual(25)
   })
 
   test("nginx's maintenance notice keeps its message and time", async () => {
     const notice = { code: "maintenance", message: "Upgrading the database", until: "2026-10-24T14:30:00Z" }
-    const { fetcher } = fakeFetch(() => Response.json(notice, { status: 503 }))
-    const error = await createApi(ORIGIN, fetcher).me().catch((caught) => caught)
+    fakeFetch(() => Response.json(notice, { status: 503 }))
+    const error = await createApi().me().catch((caught) => caught)
     expect(error).toMatchObject({ status: 503, code: "maintenance" })
     // Eden reads the ISO time as a Date; maintenanceOf takes either.
     expect(maintenanceOf(error)).toEqual({ message: "Upgrading the database", until: new Date("2026-10-24T14:30:00Z") })
