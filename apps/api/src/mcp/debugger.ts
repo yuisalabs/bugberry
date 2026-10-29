@@ -21,8 +21,10 @@ export interface DebuggerCache {
 }
 
 /**
- * Validated debugger views kept a few minutes (bounded by count and JSON size, least recently used out first), so an
- * agent's tools read storage once; unreadable payloads are cached too. Access is still checked on every call.
+ * Validated debugger views kept for a few minutes, so an agent's run of tools on one report reads
+ * storage once. Bounded by count and by the size of the JSON they came from; least recently used goes
+ * first. Unreadable payloads are remembered too, so a broken file is not fetched and unpacked on every
+ * call. Only data is cached: every tool call still checks who may read the report.
  */
 export function createDebuggerCache(
   opts: { maxEntries?: number; maxBytes?: number; ttlMs?: number; now?: () => number } = {},

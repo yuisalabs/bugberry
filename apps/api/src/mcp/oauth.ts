@@ -1,6 +1,9 @@
 /**
- * Verifies the mcp() plugin's EdDSA access tokens in-process against the `jwks` table (aud `${APP_URL}/api/mcp`,
- * iss `${APP_URL}/api/auth`) and requires the consent to still exist, so revoking an app stops its tokens at once.
+ * Access tokens from Better Auth's mcp() plugin are EdDSA JWTs signed with the keys jwt() keeps in the
+ * `jwks` table: sub = user id, client_id = the AI app, aud includes `${APP_URL}/api/mcp`, iss =
+ * `${APP_URL}/api/auth`, scope = space-separated. They are verified here in-process against those keys
+ * (no HTTP round trip to /api/auth/jwks), and the person's consent must still exist, so revoking an app
+ * in the dashboard stops its tokens at once instead of when they expire.
  */
 import { cleanAppName } from "@bugberry/shared"
 import { createLocalJWKSet, decodeProtectedHeader, type JSONWebKeySet, jwtVerify } from "jose"

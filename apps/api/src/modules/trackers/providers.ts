@@ -110,8 +110,9 @@ function githubClient(config: GithubConfig, token: string, http: Http): TrackerC
 
   return {
     /**
-     * Reading the repo proves access, not that issues can be created: this checks Issues are on and, for classic
-     * tokens, the repo/public_repo scope. Fine-grained tokens hide their permissions; the first send checks those.
+     * Reading the repo proves access, not that issues can be created. What can be checked here is:
+     * Issues switched on, and for classic tokens (which list their scopes) the repo/public_repo scope.
+     * Fine-grained tokens do not reveal their permissions; those are checked by the first send.
      */
     async test() {
       const response = await guardedSend(http, "GitHub", base, { headers })

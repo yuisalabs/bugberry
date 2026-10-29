@@ -187,8 +187,9 @@ export function createCommentsService(deps: AppDeps) {
       return (await reactionsFor(db, [commentId])).get(commentId) ?? []
     },
     /**
-     * A first comment with replies stays as "This comment was deleted" (body wiped, reactions and notifications gone);
-     * anything else is removed, and a deleted first comment goes with its last reply.
+     * A thread's first comment with replies stays as "This comment was deleted": its body is wiped (search reads
+     * it) and its reactions and notifications go. Anything else is removed, and a deleted first comment left with
+     * no replies goes with its last one.
      */
     async remove(current: CurrentUser, commentId: string) {
       const { authorId, role, parentId } = await commentAccess(current.id, commentId)

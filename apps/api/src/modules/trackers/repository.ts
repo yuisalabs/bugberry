@@ -26,8 +26,10 @@ export function listLinks(db: Db, reportId: string) {
 }
 
 /**
- * Takes the (report, integration) row as a lock and returns the claim's timestamp (null when sent or being sent).
- * Times come from the database clock the 2-minute lease uses, cut to milliseconds to survive a JavaScript Date.
+ * Takes the (report, integration) row as a lock. Returns the claim's timestamp, which identifies
+ * this sender, or null when the link is sent or being sent. Timestamps come from the database clock,
+ * the same one the 2-minute lease is measured against, cut to milliseconds so they survive the trip
+ * through a JavaScript Date.
  */
 export async function claimLink(db: Db, reportId: string, integrationId: string, provider: IntegrationProvider): Promise<Date | null> {
   const databaseNow = sql<Date>`date_trunc('milliseconds', now())`

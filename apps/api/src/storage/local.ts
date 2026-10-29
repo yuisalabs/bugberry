@@ -94,8 +94,9 @@ export class LocalStorageDriver implements StorageDriver {
   }
 
   /**
-   * Streams the body to a temp file and moves it into place when complete, so an interrupted upload leaves no partial
-   * object; with `exclusive` an existing object is never replaced. Returns the bytes written.
+   * Streams the body to a temporary file and moves it into place only once it is complete,
+   * so an interrupted upload never leaves a partial object that blocks the retry.
+   * With `exclusive`, an existing object is never replaced. Returns the number of bytes written.
    */
   async writeObject(
     key: string,

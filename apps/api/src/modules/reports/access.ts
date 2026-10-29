@@ -1,8 +1,11 @@
 import { emailDomain, FREE_EMAIL_DOMAINS, type Visibility } from "@bugberry/shared"
 
 /**
- * Members of the workspace work on a report; anyone reads a public one and the reporter's company domain an
- * internal one, read-only through the share link ("viewer"). Free email domains are not companies.
+ * Who may see a report:
+ * - members of its workspace work on it ("member");
+ * - anyone may read a public report, and anyone at the reporter's company domain an internal one
+ *   ("viewer", read-only through the share link);
+ * - nobody else. Free email domains are not companies, so "internal" never reaches anyone there.
  */
 export function reportAccess(
   report: { workspaceId: string; visibility: Visibility; reporterDomain: string | null },

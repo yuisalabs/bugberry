@@ -79,8 +79,13 @@ function writtenByChrome(head: Uint8Array, info: Element): boolean {
 }
 
 /**
- * fix-webm-duration gave old recordings' unknown-size Segment and first Cluster a size reaching the file's end, which
- * Safari won't play. The repair restores the unknown size in place, reading only `head`; anything else is left alone.
+ * Recordings made before the extension stopped using fix-webm-duration: that library gave Chrome's
+ * unknown-size Segment and first Cluster a size running to the end of the file, so every later Cluster
+ * sits inside the first. Chrome and Firefox play that; Safari reads the header and never plays.
+ *
+ * The repair puts the unknown size back into those two size fields, keeping their byte length, so the
+ * file keeps its length and every other byte. Only `head` (the start of the file) is read; anything that
+ * does not look exactly like such a recording is left alone.
  */
 export function planWebmRepair(head: Uint8Array, fileSize: number): WebmRepairPlan {
   const unrecognized = (reason: string): WebmRepairPlan => ({ status: "unrecognized", reason })

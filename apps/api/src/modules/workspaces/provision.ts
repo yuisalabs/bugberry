@@ -44,8 +44,9 @@ export async function startOnboarding(db: Db, userId: string): Promise<void> {
 }
 
 /**
- * Runs once per new account: invited people join through the invitation and get no workspace of their own. An
- * invitation into a workspace under ACCOUNT_LIMITS doesn't count, since accepting it would be refused.
+ * Runs once for every new account. Someone who was invited joins through the invitation instead,
+ * so they get no workspace of their own; everyone else starts with one. An invitation into a workspace
+ * under ACCOUNT_LIMITS doesn't count: accepting it would be refused.
  */
 export async function provisionNewUser(
   db: Db,

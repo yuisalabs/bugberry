@@ -2,8 +2,11 @@ import { Elysia } from "elysia"
 import type { AppDeps } from "../../deps"
 
 /**
- * OAuth discovery at the site root, outside /api: AS_IS paths go to Better Auth unchanged, and the bare discovery
- * paths some clients try first map onto /api/auth/.well-known/*.
+ * OAuth discovery lives at the site root, outside /api: MCP clients look for the protected resource
+ * metadata of `${APP_URL}/api/mcp` at /.well-known/oauth-protected-resource/api/mcp, and for the
+ * issuer `${APP_URL}/api/auth` at /.well-known/oauth-authorization-server/api/auth. Better Auth's mcp()
+ * plugin answers the first two paths as they are; the bare discovery paths some clients try first are
+ * mapped onto Better Auth's own /api/auth/.well-known/* documents.
  */
 const AS_IS = [
   "/.well-known/oauth-protected-resource",
