@@ -1,14 +1,13 @@
 import { DEMO_TEAM_SIZES, DEMO_TRACKERS } from "@bugberry/shared"
 import { Elysia, t } from "elysia"
 import type { AppDeps } from "../../deps"
-import { demoRequest } from "../../db/schema"
 import { demoRequestEmail } from "./demo-request-email"
 import { createEmailSender, type EmailSender } from "../../lib/email/sender"
 import { notFound, tooManyRequests } from "../../lib/errors"
-import { newId } from "../../lib/ids"
 import { createRateLimiter } from "../../lib/rate-limit"
 import { oneOf } from "../../lib/schema"
 import { clientIp } from "../share"
+import { insertDemoRequest } from "./repository"
 
 /** Enough for someone who mistyped and sent again; not enough to fill the table. */
 const REQUESTS_PER_IP_PER_HOUR = 5
@@ -41,7 +40,7 @@ export function demoRequestsModule(deps: AppDeps) {
         selfHosting: body.selfHosting,
       }
       const receivedAt = new Date()
-      await db.insert(demoRequest).values({ id: newId(), ...input, createdAt: receivedAt })
+      await insertDemoRequest(db, { ...input, createdAt: receivedAt })
 
       const to = config.demoRequestEmail
       if (to && sender) {

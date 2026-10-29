@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm"
 import { integration, reportActivity, reportExternalLink } from "../src/db/schema"
 import { createSecretBox } from "../src/lib/secret-box"
 import { newId } from "../src/lib/ids"
-import { BACKFILL_TRACKER_ACTIVITY, backfillTrackerActivity } from "../src/modules/activity/backfill"
+import { BACKFILL_TRACKER_ACTIVITY, backfillTrackerActivity } from "../src/modules/activity/repository"
 import {
   createIntegration,
   createProject,

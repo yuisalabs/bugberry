@@ -1,19 +1,10 @@
-import { and, count, desc, eq, inArray, isNull } from "drizzle-orm"
-import { alias } from "drizzle-orm/pg-core"
 import type { AppDeps } from "../../deps"
 import type { CurrentUser } from "../../plugins/auth"
-import { comment, notification, report, user, workspaceMember } from "../../db/schema"
 import { notFound } from "../../lib/errors"
 import { mentionedIds, snippetOf } from "../comments/mentions"
+import { countVisibleUnread, findOwnNotification, listVisibleNotifications, markAllRead, markRead, memberNames } from "./repository"
 
 const LIMIT = 50
-
-const actor = alias(user, "actor")
-const callerMember = alias(workspaceMember, "caller")
-
-/** Rows of the caller's that sit in a workspace the caller is still a member of. */
-const visible = (userId: string) =>
-  and(eq(notification.userId, userId), eq(callerMember.userId, userId), eq(callerMember.workspaceId, report.workspaceId))
 
 /** The bell: mentions of the caller and replies in their threads, only in workspaces they still belong to. */
 export async function listNotifications(
@@ -21,48 +12,16 @@ export async function listNotifications(
   current: CurrentUser,
   opts: { unreadOnly?: boolean; limit?: number } = {},
 ) {
-  const rows = await db
-    .select({
-      id: notification.id,
-      kind: notification.kind,
-      readAt: notification.readAt,
-      createdAt: notification.createdAt,
-      commentId: notification.commentId,
-      body: comment.body,
-      viaAgent: comment.viaAgent,
-      workspaceId: report.workspaceId,
-      report: { id: report.id, number: report.number, title: report.title },
-      actorId: actor.id,
-      actorName: actor.name,
-      actorImage: actor.image,
-    })
-    .from(notification)
-    .innerJoin(report, eq(report.id, notification.reportId))
-    .innerJoin(callerMember, eq(callerMember.workspaceId, report.workspaceId))
-    .innerJoin(comment, eq(comment.id, notification.commentId))
-    .leftJoin(actor, eq(actor.id, notification.actorId))
-    .where(opts.unreadOnly ? and(visible(current.id), isNull(notification.readAt)) : visible(current.id))
-    .orderBy(desc(notification.createdAt), desc(notification.id))
-    .limit(opts.limit ?? LIMIT)
-
-  const [unread] = await db
-    .select({ value: count() })
-    .from(notification)
-    .innerJoin(report, eq(report.id, notification.reportId))
-    .innerJoin(callerMember, eq(callerMember.workspaceId, report.workspaceId))
-    .where(and(visible(current.id), isNull(notification.readAt)))
+  const rows = await listVisibleNotifications(db, current.id, {
+    unreadOnly: opts.unreadOnly ?? false,
+    limit: opts.limit ?? LIMIT,
+  })
+  const unreadCount = await countVisibleUnread(db, current.id)
 
   // Names are looked up per workspace: a token only shows a name for a member of that workspace.
   const ids = [...new Set(rows.flatMap((row) => mentionedIds(row.body)))]
   const workspaces = [...new Set(rows.map((row) => row.workspaceId))]
-  const members =
-    ids.length === 0
-      ? []
-      : await db
-          .select({ workspaceId: workspaceMember.workspaceId, id: user.id, name: user.name })
-          .from(workspaceMember)
-          .innerJoin(user, eq(user.id, workspaceMember.userId))
-          .where(and(inArray(workspaceMember.workspaceId, workspaces), inArray(workspaceMember.userId, ids)))
+  const members = ids.length === 0 ? [] : await memberNames(db, workspaces, ids)
   const namesIn = (workspaceId: string) =>
     new Map(members.filter((member) => member.workspaceId === workspaceId).map((member) => [member.id, member.name]))
 
@@ -78,27 +37,20 @@ export async function listNotifications(
       snippet: snippetOf(row.body, namesIn(row.workspaceId)),
       viaAgent: row.viaAgent,
     })),
-    unreadCount: unread?.value ?? 0,
+    unreadCount,
   }
 }
 
 export type NotificationView = Awaited<ReturnType<typeof listNotifications>>["items"][number]
 
 export async function markAllNotificationsRead({ db }: Pick<AppDeps, "db">, current: CurrentUser) {
-  await db
-    .update(notification)
-    .set({ readAt: new Date() })
-    .where(and(eq(notification.userId, current.id), isNull(notification.readAt)))
+  await markAllRead(db, current.id)
   return { ok: true as const }
 }
 
 export async function markNotificationRead({ db }: Pick<AppDeps, "db">, current: CurrentUser, id: string) {
-  const [row] = await db
-    .select({ readAt: notification.readAt })
-    .from(notification)
-    .where(and(eq(notification.id, id), eq(notification.userId, current.id)))
-    .limit(1)
+  const row = await findOwnNotification(db, current.id, id)
   if (!row) throw notFound("notification_not_found", "Notification not found")
-  if (!row.readAt) await db.update(notification).set({ readAt: new Date() }).where(eq(notification.id, id))
+  if (!row.readAt) await markRead(db, id)
   return { ok: true as const }
 }

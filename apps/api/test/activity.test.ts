@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { eq } from "drizzle-orm"
 import { report, reportActivity } from "../src/db/schema"
-import { recordActivity, recordAgentRead } from "../src/modules/activity/service"
+import { recordActivity } from "../src/modules/activity/repository"
+import { recordAgentRead } from "../src/modules/activity/service"
 import { createProject, createReadyReport, createUserWithToken, createWorkspaceRow, setupTestApp } from "./helpers"
 
 let ctx: Awaited<ReturnType<typeof setupTestApp>>

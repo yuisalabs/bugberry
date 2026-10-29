@@ -1,9 +1,6 @@
-import { and, asc, count, eq, inArray } from "drizzle-orm"
-import { alias } from "drizzle-orm/pg-core"
 import type { AppDeps } from "../../deps"
 import type { CurrentUser } from "../../plugins/auth"
 import { memberRole, requireReportMember } from "../workspaces/access"
-import { comment, commentReaction, notification, report, user } from "../../db/schema"
 import { badRequest, forbidden, notFound, unprocessable } from "../../lib/errors"
 import { newId } from "../../lib/ids"
 import { mentionEmail } from "./mention-email"
@@ -11,19 +8,24 @@ import { createEmailSender, type EmailSender } from "../../lib/email/sender"
 import { memberNames, mentionedIds, mentionsOf, notifyMentions, snippetOf } from "./mentions"
 import { isEmoji, reactionsFor } from "./reactions"
 import { notifyReplies } from "./replies"
-
-const author = alias(user, "author")
-const commentColumns = {
-  id: comment.id,
-  reportId: comment.reportId,
-  parentId: comment.parentId,
-  body: comment.body,
-  createdAt: comment.createdAt,
-  updatedAt: comment.updatedAt,
-  deletedAt: comment.deletedAt,
-  viaAgent: comment.viaAgent,
-  author: { id: author.id, name: author.name, image: author.image },
-}
+import {
+  type CommentRow,
+  countReplies,
+  deleteComment,
+  deleteReaction,
+  findComment,
+  findCommentDeletedAt,
+  findCommentPlace,
+  findReportComment,
+  findReportHeading,
+  insertComment,
+  insertReaction,
+  isReadyReport,
+  listReportComments,
+  updateCommentBody,
+  userEmails,
+  wipeComment,
+} from "./repository"
 
 /** A comment counts as edited when it changed more than a second after it was written. */
 const EDITED_AFTER_MS = 1000
@@ -41,8 +43,6 @@ export function createCommentsService(deps: AppDeps) {
   const { db, config } = deps
   const sender: EmailSender | null = deps.email ?? (config.email ? createEmailSender(config.email) : null)
 
-  const select = () => db.select(commentColumns).from(comment).innerJoin(author, eq(comment.authorId, author.id))
-  type CommentRow = Awaited<ReturnType<ReturnType<typeof select>["where"]>>[number]
   /**
    * What the API shows of each comment, with the current names of the members it mentions. A deleted comment
    * kept for its replies shows nothing of what it said or who said it.
@@ -69,7 +69,7 @@ export function createCommentsService(deps: AppDeps) {
     })
   }
   const loadComment = async (id: string, workspaceId: string) => {
-    const [row] = await select().where(eq(comment.id, id)).limit(1)
+    const row = await findComment(db, id)
     if (!row) throw notFound("comment_not_found", "Comment not found")
     const [shown] = await toViews([row], workspaceId)
     return shown as NonNullable<typeof shown>
@@ -90,7 +90,7 @@ export function createCommentsService(deps: AppDeps) {
     if (!sender || input.userIds.length === 0) return
     const mailer = sender
     const task = (async () => {
-      const [target] = await db.select({ number: report.number, title: report.title }).from(report).where(eq(report.id, input.reportId)).limit(1)
+      const target = await findReportHeading(db, input.reportId)
       if (!target) return
       const names = await memberNames(db, input.workspaceId, mentionedIds(input.body))
       const email = mentionEmail({
@@ -101,7 +101,7 @@ export function createCommentsService(deps: AppDeps) {
         url: `${config.appUrl}/app/r/${input.reportId}#comment-${input.commentId}`,
         viaAgent: input.viaAgent,
       })
-      const people = await db.select({ email: user.email }).from(user).where(inArray(user.id, input.userIds))
+      const people = await userEmails(db, input.userIds)
       for (const person of people) {
         await mailer.send({ to: person.email, ...email }).catch((error) => console.error("mention email failed", error))
       }
@@ -111,40 +111,19 @@ export function createCommentsService(deps: AppDeps) {
   /** A ready report in a workspace the caller belongs to; returns that workspace. */
   const requireReport = async (userId: string, id: string) => {
     const { workspaceId } = await requireReportMember(db, userId, id)
-    const [row] = await db
-      .select({ id: report.id })
-      .from(report)
-      .where(and(eq(report.id, id), eq(report.uploadStatus, "ready")))
-      .limit(1)
-    if (!row) throw notFound("report_not_found", "Report not found")
+    if (!(await isReadyReport(db, id))) throw notFound("report_not_found", "Report not found")
     return workspaceId
   }
   /** The comment's author and the caller's role in its report's workspace; outsiders get 404. */
   const commentAccess = async (userId: string, id: string) => {
-    const [row] = await db
-      .select({
-        authorId: comment.authorId,
-        reportId: comment.reportId,
-        workspaceId: report.workspaceId,
-        viaAgent: comment.viaAgent,
-        parentId: comment.parentId,
-        deletedAt: comment.deletedAt,
-      })
-      .from(comment)
-      .innerJoin(report, eq(report.id, comment.reportId))
-      .where(eq(comment.id, id))
-      .limit(1)
+    const row = await findCommentPlace(db, id)
     const role = row ? await memberRole(db, userId, row.workspaceId) : null
     if (!row || !role || row.deletedAt !== null) throw notFound("comment_not_found", "Comment not found")
     return { ...row, role }
   }
   /** The thread a reply goes into: the comment's own thread when it is itself a reply, so threads stay one level. */
   const threadRootOf = async (reportId: string, replyTo: string) => {
-    const [target] = await db
-      .select({ id: comment.id, parentId: comment.parentId })
-      .from(comment)
-      .where(and(eq(comment.id, replyTo), eq(comment.reportId, reportId)))
-      .limit(1)
+    const target = await findReportComment(db, reportId, replyTo)
     if (!target) throw notFound("comment_not_found", "Comment not found")
     return target.parentId ?? target.id
   }
@@ -153,7 +132,7 @@ export function createCommentsService(deps: AppDeps) {
     /** Threads newest first by their first comment; each thread's replies oldest first. */
     async list(current: CurrentUser, reportId: string) {
       const workspaceId = await requireReport(current.id, reportId)
-      const rows = await select().where(eq(comment.reportId, reportId)).orderBy(asc(comment.createdAt), asc(comment.id))
+      const rows = await listReportComments(db, reportId)
       const views = await toViews(rows, workspaceId)
       const replies = new Map<string, typeof views>()
       for (const view of views) {
@@ -171,7 +150,7 @@ export function createCommentsService(deps: AppDeps) {
       const text = cleanBody(body)
       const viaAgent = opts.viaAgent ?? null
       const parentId = opts.replyTo ? await threadRootOf(reportId, opts.replyTo) : null
-      await db.insert(comment).values({ id, reportId, authorId: current.id, body: text, viaAgent, parentId })
+      await insertComment(db, { id, reportId, authorId: current.id, body: text, viaAgent, parentId })
       const notified = await notifyMentions(db, { commentId: id, reportId, workspaceId, actorId: current.id, body: text })
       if (parentId) await notifyReplies(db, { commentId: id, reportId, workspaceId, actorId: current.id, rootId: parentId })
       emailMentions({ userIds: notified, commentId: id, reportId, workspaceId, actorName: current.name, body: text, viaAgent })
@@ -181,7 +160,7 @@ export function createCommentsService(deps: AppDeps) {
       const access = await commentAccess(current.id, commentId)
       if (access.authorId !== current.id) throw forbidden("Only the author can edit this comment")
       const text = cleanBody(body)
-      await db.update(comment).set({ body: text }).where(eq(comment.id, commentId))
+      await updateCommentBody(db, commentId, text)
       const notified = await notifyMentions(db, {
         commentId,
         reportId: access.reportId,
@@ -204,11 +183,7 @@ export function createCommentsService(deps: AppDeps) {
     async toggleReaction(current: CurrentUser, commentId: string, emoji: string) {
       await commentAccess(current.id, commentId)
       if (!isEmoji(emoji)) throw unprocessable("invalid_emoji", "A reaction must be an emoji")
-      const mine = and(eq(commentReaction.commentId, commentId), eq(commentReaction.userId, current.id), eq(commentReaction.emoji, emoji))
-      const removed = await db.delete(commentReaction).where(mine).returning({ emoji: commentReaction.emoji })
-      if (removed.length === 0) {
-        await db.insert(commentReaction).values({ commentId, userId: current.id, emoji }).onConflictDoNothing()
-      }
+      if (!(await deleteReaction(db, commentId, current.id, emoji))) await insertReaction(db, commentId, current.id, emoji)
       return (await reactionsFor(db, [commentId])).get(commentId) ?? []
     },
     /**
@@ -221,21 +196,15 @@ export function createCommentsService(deps: AppDeps) {
       if (authorId !== current.id && role !== "admin") {
         throw forbidden("Only the author or an admin can delete this comment")
       }
-      const [{ replies } = { replies: 0 }] =
-        parentId === null ? await db.select({ replies: count() }).from(comment).where(eq(comment.parentId, commentId)) : []
+      const replies = parentId === null ? await countReplies(db, commentId) : 0
       if (replies > 0) {
-        await db.transaction(async (tx) => {
-          await tx.update(comment).set({ body: "", deletedAt: new Date() }).where(eq(comment.id, commentId))
-          await tx.delete(commentReaction).where(eq(commentReaction.commentId, commentId))
-          await tx.delete(notification).where(eq(notification.commentId, commentId))
-        })
+        await wipeComment(db, commentId)
         return { ok: true as const }
       }
-      await db.delete(comment).where(eq(comment.id, commentId))
+      await deleteComment(db, commentId)
       if (parentId !== null) {
-        const [root] = await db.select({ deletedAt: comment.deletedAt }).from(comment).where(eq(comment.id, parentId)).limit(1)
-        const [left] = await db.select({ value: count() }).from(comment).where(eq(comment.parentId, parentId))
-        if (root?.deletedAt && (left?.value ?? 0) === 0) await db.delete(comment).where(eq(comment.id, parentId))
+        const root = await findCommentDeletedAt(db, parentId)
+        if (root?.deletedAt && (await countReplies(db, parentId)) === 0) await deleteComment(db, parentId)
       }
       return { ok: true as const }
     },

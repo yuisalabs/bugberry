@@ -1,6 +1,5 @@
-import { asc, eq, inArray } from "drizzle-orm"
 import type { Db } from "../../db/client"
-import { commentReaction, user } from "../../db/schema"
+import { listReactions } from "./repository"
 
 /** One emoji on a comment: how many people put it there, and who, in the order they did. */
 export interface ReactionView {
@@ -22,12 +21,7 @@ export function isEmoji(value: string): boolean {
 export async function reactionsFor(db: Db, commentIds: string[]): Promise<Map<string, ReactionView[]>> {
   const byComment = new Map<string, ReactionView[]>()
   if (commentIds.length === 0) return byComment
-  const rows = await db
-    .select({ commentId: commentReaction.commentId, emoji: commentReaction.emoji, id: user.id, name: user.name })
-    .from(commentReaction)
-    .innerJoin(user, eq(user.id, commentReaction.userId))
-    .where(inArray(commentReaction.commentId, commentIds))
-    .orderBy(asc(commentReaction.createdAt), asc(commentReaction.userId))
+  const rows = await listReactions(db, commentIds)
   for (const row of rows) {
     const reactions = byComment.get(row.commentId) ?? []
     const existing = reactions.find((reaction) => reaction.emoji === row.emoji)

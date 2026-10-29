@@ -8,7 +8,7 @@ import { badRequest, forbidden, notFound, unprocessable } from "../../lib/errors
 import { newShareSlug } from "../../lib/ids"
 import { escapeLike } from "../../lib/sql"
 import { memberRole, requireReportMember, resolveWorkspace } from "../workspaces/access"
-import { recordActivity } from "../activity/service"
+import { recordActivity } from "../activity/repository"
 import { loadReportDetail, type ReportDetail } from "./detail"
 import { type listReportsQuery, NO_ASSIGNEE, NO_PROJECT, type updateReportBody } from "./model"
 
