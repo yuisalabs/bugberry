@@ -1,8 +1,7 @@
 import { BUILT_IN_TEMPLATES } from "@bugberry/ai-write"
-import { and, asc, eq, isNull } from "drizzle-orm"
-import type { Db } from "../../db/client"
-import { reportTemplate, workspace } from "../../db/schema"
+import { type Db, withTransaction } from "../../db/client"
 import { newId } from "../../lib/ids"
+import { claimTemplateSeeding, insertTemplates, listTemplateRows, updateAiSettings } from "./repository"
 
 export interface TemplateRow {
   id: string
@@ -23,31 +22,16 @@ export interface AiSetup {
  * the default. Only once: a workspace that deleted them all keeps none.
  */
 export async function ensureTemplates(db: Db, workspaceId: string): Promise<void> {
-  await db.transaction(async (tx) => {
-    const [claimed] = await tx
-      .update(workspace)
-      .set({ aiTemplatesSeededAt: new Date() })
-      .where(and(eq(workspace.id, workspaceId), isNull(workspace.aiTemplatesSeededAt)))
-      .returning({ id: workspace.id })
-    if (!claimed) return
+  await withTransaction(db, async () => {
+    if (!(await claimTemplateSeeding(db, workspaceId))) return
     const rows = BUILT_IN_TEMPLATES.map((template) => ({ id: newId(), workspaceId, ...template }))
-    await tx.insert(reportTemplate).values(rows)
-    await tx.update(workspace).set({ aiDefaultTemplateId: rows[0]?.id ?? null }).where(eq(workspace.id, workspaceId))
+    await insertTemplates(db, rows)
+    await updateAiSettings(db, workspaceId, { aiDefaultTemplateId: rows[0]?.id ?? null })
   })
 }
 
-export async function listTemplates(db: Db, workspaceId: string): Promise<TemplateRow[]> {
-  return db
-    .select({
-      id: reportTemplate.id,
-      name: reportTemplate.name,
-      skeleton: reportTemplate.skeleton,
-      instructions: reportTemplate.instructions,
-      updatedAt: reportTemplate.updatedAt,
-    })
-    .from(reportTemplate)
-    .where(eq(reportTemplate.workspaceId, workspaceId))
-    .orderBy(asc(reportTemplate.createdAt), asc(reportTemplate.id))
+export function listTemplates(db: Db, workspaceId: string): Promise<TemplateRow[]> {
+  return listTemplateRows(db, workspaceId)
 }
 
 export { templateFor } from "@bugberry/ai-write"

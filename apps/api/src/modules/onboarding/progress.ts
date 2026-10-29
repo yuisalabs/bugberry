@@ -1,21 +1,15 @@
-import { ONBOARDING_STEPS, TRACKER_PROVIDERS, type OnboardingEvent, type OnboardingItemId, type OnboardingMissionId } from "@bugberry/shared"
-import { and, desc, eq, inArray, isNull, type SQL, sql } from "drizzle-orm"
-import type { PgTable } from "drizzle-orm/pg-core"
-import type { Db } from "../../db/client"
-import {
-  apiToken,
-  comment,
-  connection,
-  integration,
-  oauthConsent,
-  type OnboardingState,
-  project,
-  report,
-  reportActivity,
-  user,
-  workspaceInvitation,
-} from "../../db/schema"
+import { ONBOARDING_STEPS, type OnboardingEvent, type OnboardingItemId, type OnboardingMissionId } from "@bugberry/shared"
+import { type Db, withTransaction } from "../../db/client"
+import type { OnboardingState } from "../../db/schema"
 import { memberRole } from "../workspaces/access"
+import {
+  doneElsewhere,
+  findOnboardingState,
+  listTrackerProjects,
+  lockOnboardingState,
+  newestReadyReport,
+  setOnboardingState,
+} from "./repository"
 
 export type OnboardingPhase = "required" | "celebrate" | "bonus"
 
@@ -33,76 +27,10 @@ export interface OnboardingProgress {
 const BONUS_ORDER: OnboardingMissionId[] = ["invite", "project", "comment", "tracker", "send", "agent"]
 const ADMIN_ONLY = new Set<OnboardingMissionId>(["invite", "project", "tracker"])
 
-async function exists(db: Db, query: { from: PgTable; where: SQL | undefined }): Promise<boolean> {
-  const rows = await db.select({ one: sql`1` }).from(query.from).where(query.where).limit(1)
-  return rows.length > 0
-}
-
-/** A project of this workspace uses a tracker (not a notifier): only then can a report be sent to one. */
-function trackerProjects(db: Db, workspaceId: string) {
-  return db
-    .select({ id: project.id })
-    .from(project)
-    .innerJoin(integration, eq(integration.projectId, project.id))
-    .where(and(eq(project.workspaceId, workspaceId), inArray(integration.provider, [...TRACKER_PROVIDERS])))
-}
-
-/** Whether a step or mission is done according to the other tables; null for steps only the dashboard reports. */
-function derived(db: Db, id: OnboardingItemId, userId: string, workspaceId: string): Promise<boolean> | null {
-  const captured = (type: "screenshot" | "video") =>
-    exists(db, {
-      from: report,
-      where: and(eq(report.reporterId, userId), eq(report.captureType, type), eq(report.uploadStatus, "ready")),
-    })
-  switch (id) {
-    // Every report came from the extension, whatever became of its upload.
-    case "extension":
-      return exists(db, { from: report, where: eq(report.reporterId, userId) })
-    case "screenshot":
-    case "video":
-      return captured(id)
-    case "invite":
-      return exists(db, { from: workspaceInvitation, where: eq(workspaceInvitation.invitedById, userId) })
-    case "project":
-      return exists(db, { from: project, where: eq(project.workspaceId, workspaceId) })
-    case "comment":
-      return exists(db, { from: comment, where: eq(comment.authorId, userId) })
-    case "tracker":
-      return exists(db, {
-        from: connection,
-        where: and(eq(connection.workspaceId, workspaceId), inArray(connection.provider, [...TRACKER_PROVIDERS])),
-      })
-    case "send":
-      return exists(db, { from: reportActivity, where: and(eq(reportActivity.actorId, userId), eq(reportActivity.kind, "tracker")) })
-    case "agent":
-      return Promise.all([
-        exists(db, { from: apiToken, where: and(eq(apiToken.userId, userId), eq(apiToken.kind, "mcp"), isNull(apiToken.revokedAt)) }),
-        exists(db, { from: oauthConsent, where: eq(oauthConsent.userId, userId) }),
-      ]).then(([token, consent]) => token || consent)
-    default:
-      return null
-  }
-}
-
 /** The newest ready report here, the person's own first; optionally only among `projectIds`. */
 async function target(db: Db, userId: string, workspaceId: string, projectIds?: string[]): Promise<string | null> {
   if (projectIds?.length === 0) return null
-  const newest = async (mine: boolean) => {
-    const [row] = await db
-      .select({ id: report.id })
-      .from(report)
-      .where(
-        and(
-          eq(report.workspaceId, workspaceId),
-          eq(report.uploadStatus, "ready"),
-          mine ? eq(report.reporterId, userId) : undefined,
-          projectIds ? inArray(report.projectId, projectIds) : undefined,
-        ),
-      )
-      .orderBy(desc(report.createdAt))
-      .limit(1)
-    return row?.id ?? null
-  }
+  const newest = (mine: boolean) => newestReadyReport(db, { workspaceId, reporterId: mine ? userId : undefined, projectIds })
   return (await newest(true)) ?? (await newest(false))
 }
 
@@ -114,12 +42,11 @@ const OPENS_REPORT = new Set<OnboardingItemId>(["devtools", "shared", "comment"]
  * that finished). Whatever the other tables show done is written down, so it stays done.
  */
 export async function onboardingProgress(db: Db, userId: string, workspaceId: string): Promise<OnboardingProgress | null> {
-  const [row] = await db.select({ onboarding: user.onboarding }).from(user).where(eq(user.id, userId))
-  const state = row?.onboarding
+  const state = await findOnboardingState(db, userId)
   if (!state || state.completedAt) return null
 
   const isAdmin = (await memberRole(db, userId, workspaceId)) === "admin"
-  const projectIds = (await trackerProjects(db, workspaceId)).map((item) => item.id)
+  const projectIds = await listTrackerProjects(db, workspaceId)
   const missions = BONUS_ORDER.filter((id) => (isAdmin || !ADMIN_ONLY.has(id)) && (id !== "send" || projectIds.length > 0))
 
   const stored = { ...state.steps }
@@ -131,7 +58,7 @@ export async function onboardingProgress(db: Db, userId: string, workspaceId: st
     [...ONBOARDING_STEPS, ...(inBonus ? missions : [])]
       .filter((id) => !stored[id])
       .map(async (id) => {
-        if (await derived(db, id, userId, workspaceId)) fresh[id] = now
+        if (await doneElsewhere(db, id, userId, workspaceId)) fresh[id] = now
       }),
   )
   const steps = { ...stored, ...fresh }
@@ -185,11 +112,10 @@ export async function recordOnboarding(db: Db, userId: string, change: Onboardin
  * land. `change` sees the state as it is now and answers null to leave it; nothing happens without a checklist.
  */
 async function changeOnboarding(db: Db, userId: string, change: (state: OnboardingState) => OnboardingState | null): Promise<void> {
-  await db.transaction(async (tx) => {
-    const [row] = await tx.select({ onboarding: user.onboarding }).from(user).where(eq(user.id, userId)).for("update")
-    const state = row?.onboarding
+  await withTransaction(db, async () => {
+    const state = await lockOnboardingState(db, userId)
     if (!state || state.completedAt) return
     const next = change(state)
-    if (next) await tx.update(user).set({ onboarding: next }).where(eq(user.id, userId))
+    if (next) await setOnboardingState(db, userId, next)
   })
 }
