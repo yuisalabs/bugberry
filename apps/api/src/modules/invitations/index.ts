@@ -1,66 +1,34 @@
-import { and, asc, eq, gt, isNull } from "drizzle-orm"
-import { alias } from "drizzle-orm/pg-core"
 import { Elysia, t } from "elysia"
 import type { AppDeps } from "../../deps"
 import { authPlugin } from "../../plugins/auth"
 import { isEmailAllowed } from "../auth/policy"
-import type { AccountLimits } from "../../config"
-import { type Db, executor, withTransaction } from "../../db/client"
-import { joinRequest, user, workspace, workspaceInvitation, workspaceMember } from "../../db/schema"
 import { inviteEmail } from "./invite-email"
 import { hashCode, newJoinCode } from "../join/join-codes"
 import { createEmailSender, type EmailSender } from "../../lib/email/sender"
 import { AppError, conflict, notFound, tooManyRequests } from "../../lib/errors"
-import { newId } from "../../lib/ids"
 import { createRateLimiter } from "../../lib/rate-limit"
 import { requireMember } from "../workspaces/access"
 import { assertCanAddMembers, isWorkspaceLimited } from "../workspaces/limits"
-import { hashInviteToken, INVITE_TTL_MS, invitationStatus, inviteUrl, newInviteToken } from "./service"
+import { findWorkspaceSummary } from "../workspaces/repository"
+import {
+  findInvitationByTokenHash,
+  findInvitationForEmail,
+  findLiveInvitation,
+  hasLiveInvitation,
+  insertInvitation,
+  isMemberEmail,
+  listLiveInvitations,
+  listLiveInvitationsForEmail,
+  renewInvitation,
+  revokeInvitation,
+} from "./repository"
+import { accept, gone, hashInviteToken, INVITE_TTL_MS, invitationStatus, inviteUrl, newInviteToken } from "./service"
 
 const INVITES_PER_WORKSPACE_PER_HOUR = 50
 /** Sign-up is open, so one person with many workspaces must not be able to send more than this. */
 const INVITES_PER_PERSON_PER_HOUR = 50
-const inviter = alias(user, "inviter")
 
 export type InviteOutcome = "sent" | "member" | "pending" | "not_allowed" | "invalid"
-
-const gone = () => new AppError(410, "invite_unavailable", "This invitation has expired or was withdrawn")
-
-/**
- * Adds the person to the invitation's workspace once, with the invitation's role, and makes it their current workspace. A workspace
- * under ACCOUNT_LIMITS takes no new members; the invitation then stays pending.
- */
-export async function accept(
-  db: Db,
-  limits: AccountLimits | null,
-  invitationId: string,
-  workspaceId: string,
-  userId: string,
-): Promise<{ workspaceId: string }> {
-  await withTransaction(db, async () => {
-    const tx = executor(db)
-    await assertCanAddMembers(db, limits, workspaceId, "joiner")
-    const marked = await tx
-      .update(workspaceInvitation)
-      .set({ acceptedAt: new Date() })
-      .where(
-        and(
-          eq(workspaceInvitation.id, invitationId),
-          isNull(workspaceInvitation.acceptedAt),
-          isNull(workspaceInvitation.revokedAt),
-          gt(workspaceInvitation.expiresAt, new Date()),
-        ),
-      )
-      .returning({ id: workspaceInvitation.id, role: workspaceInvitation.role })
-    const [invitation] = marked
-    if (!invitation) throw gone()
-    await tx.insert(workspaceMember).values({ workspaceId, userId, role: invitation.role }).onConflictDoNothing()
-    // A request to join that was still waiting is answered now.
-    await tx.delete(joinRequest).where(and(eq(joinRequest.workspaceId, workspaceId), eq(joinRequest.userId, userId)))
-    await tx.update(user).set({ lastWorkspaceId: workspaceId }).where(eq(user.id, userId))
-  })
-  return { workspaceId }
-}
 
 export function invitationsModule(deps: AppDeps) {
   const { config, db } = deps
@@ -68,8 +36,7 @@ export function invitationsModule(deps: AppDeps) {
   const limiter = createRateLimiter({ limit: INVITES_PER_WORKSPACE_PER_HOUR, windowMs: 60 * 60 * 1000 })
   const perPerson = createRateLimiter({ limit: INVITES_PER_PERSON_PER_HOUR, windowMs: 60 * 60 * 1000 })
 
-  const workspaceName = async (workspaceId: string) =>
-    (await db.select({ name: workspace.name }).from(workspace).where(eq(workspace.id, workspaceId)).limit(1))[0]?.name ?? ""
+  const workspaceName = async (workspaceId: string) => (await findWorkspaceSummary(db, workspaceId))?.name ?? ""
 
   const sendInvite = async (to: string, workspaceId: string, from: { id: string; name: string }, token: string, code: string) => {
     if (!sender) throw conflict("email_unavailable", "Set up email (EMAIL_DRIVER) to send invitations")
@@ -78,31 +45,14 @@ export function invitationsModule(deps: AppDeps) {
     await sender.send({ to, ...mail })
   }
 
-  const liveNow = () =>
-    and(isNull(workspaceInvitation.acceptedAt), isNull(workspaceInvitation.revokedAt), gt(workspaceInvitation.expiresAt, new Date()))
-
   const findLive = async (workspaceId: string, invitationId: string) => {
-    const [row] = await db
-      .select()
-      .from(workspaceInvitation)
-      .where(and(eq(workspaceInvitation.id, invitationId), eq(workspaceInvitation.workspaceId, workspaceId), liveNow()))
-      .limit(1)
+    const row = await findLiveInvitation(db, workspaceId, invitationId)
     if (!row) throw notFound("invitation_not_found", "Invitation not found")
     return row
   }
 
   const byToken = async (token: string) => {
-    const [row] = await db
-      .select({
-        invitation: workspaceInvitation,
-        workspaceName: workspace.name,
-        inviterName: inviter.name,
-      })
-      .from(workspaceInvitation)
-      .innerJoin(workspace, eq(workspace.id, workspaceInvitation.workspaceId))
-      .leftJoin(inviter, eq(inviter.id, workspaceInvitation.invitedById))
-      .where(eq(workspaceInvitation.tokenHash, hashInviteToken(token)))
-      .limit(1)
+    const row = await findInvitationByTokenHash(db, hashInviteToken(token))
     if (!row) throw notFound("invitation_not_found", "Invitation not found")
     return row
   }
@@ -125,30 +75,18 @@ export function invitationsModule(deps: AppDeps) {
             outcomes.push({ email, status: "not_allowed" })
             continue
           }
-          const [existingMember] = await db
-            .select({ id: user.id })
-            .from(workspaceMember)
-            .innerJoin(user, eq(user.id, workspaceMember.userId))
-            .where(and(eq(workspaceMember.workspaceId, params.id), eq(user.email, email)))
-            .limit(1)
-          if (existingMember) {
+          if (await isMemberEmail(db, params.id, email)) {
             outcomes.push({ email, status: "member" })
             continue
           }
-          const [pending] = await db
-            .select({ id: workspaceInvitation.id })
-            .from(workspaceInvitation)
-            .where(and(eq(workspaceInvitation.workspaceId, params.id), eq(workspaceInvitation.email, email), liveNow()))
-            .limit(1)
-          if (pending) {
+          if (await hasLiveInvitation(db, params.id, email)) {
             outcomes.push({ email, status: "pending" })
             continue
           }
           const { token, hash } = newInviteToken()
           const code = newJoinCode()
           await sendInvite(email, params.id, current, token, code)
-          await db.insert(workspaceInvitation).values({
-            id: newId(),
+          await insertInvitation(db, {
             workspaceId: params.id,
             email,
             tokenHash: hash,
@@ -175,18 +113,7 @@ export function invitationsModule(deps: AppDeps) {
       "/workspaces/:id/invitations",
       async ({ user: current, params }) => {
         await requireMember(db, current.id, params.id, "admin")
-        const rows = await db
-          .select({
-            id: workspaceInvitation.id,
-            email: workspaceInvitation.email,
-            invitedBy: inviter.name,
-            role: workspaceInvitation.role,
-            expiresAt: workspaceInvitation.expiresAt,
-          })
-          .from(workspaceInvitation)
-          .leftJoin(inviter, eq(inviter.id, workspaceInvitation.invitedById))
-          .where(and(eq(workspaceInvitation.workspaceId, params.id), liveNow()))
-          .orderBy(asc(workspaceInvitation.createdAt))
+        const rows = await listLiveInvitations(db, params.id)
         // Sending (or resending) sets the expiry a fixed time ahead, so it also says when the email last went out.
         return rows.map((row) => ({ ...row, sentAt: new Date(row.expiresAt.getTime() - INVITE_TTL_MS) }))
       },
@@ -197,7 +124,7 @@ export function invitationsModule(deps: AppDeps) {
       async ({ user: current, params }) => {
         await requireMember(db, current.id, params.id, "admin")
         const row = await findLive(params.id, params.invitationId)
-        await db.update(workspaceInvitation).set({ revokedAt: new Date() }).where(eq(workspaceInvitation.id, row.id))
+        await revokeInvitation(db, row.id)
         return { ok: true }
       },
       { auth: true },
@@ -211,10 +138,12 @@ export function invitationsModule(deps: AppDeps) {
         const { token, hash } = newInviteToken()
         const code = newJoinCode()
         await sendInvite(row.email, params.id, current, token, code)
-        await db
-          .update(workspaceInvitation)
-          .set({ tokenHash: hash, codeHash: hashCode(code), expiresAt: new Date(Date.now() + INVITE_TTL_MS), invitedById: current.id })
-          .where(eq(workspaceInvitation.id, row.id))
+        await renewInvitation(db, row.id, {
+          tokenHash: hash,
+          codeHash: hashCode(code),
+          expiresAt: new Date(Date.now() + INVITE_TTL_MS),
+          invitedById: current.id,
+        })
         return { ok: true }
       },
       { auth: true },
@@ -244,13 +173,7 @@ export function invitationsModule(deps: AppDeps) {
     .get(
       "/me/invitations",
       async ({ user: current }) => {
-        const rows = await db
-          .select({ id: workspaceInvitation.id, workspaceId: workspaceInvitation.workspaceId, workspaceName: workspace.name, inviterName: inviter.name })
-          .from(workspaceInvitation)
-          .innerJoin(workspace, eq(workspace.id, workspaceInvitation.workspaceId))
-          .leftJoin(inviter, eq(inviter.id, workspaceInvitation.invitedById))
-          .where(and(eq(workspaceInvitation.email, current.email.trim().toLowerCase()), liveNow()))
-          .orderBy(asc(workspaceInvitation.createdAt))
+        const rows = await listLiveInvitationsForEmail(db, current.email.trim().toLowerCase())
         // A workspace under ACCOUNT_LIMITS takes nobody new: its invitations would only fail.
         const open = []
         for (const { workspaceId, ...row } of rows) if (!(await isWorkspaceLimited(db, config.accountLimits, workspaceId))) open.push(row)
@@ -261,11 +184,7 @@ export function invitationsModule(deps: AppDeps) {
     .post(
       "/me/invitations/:id/accept",
       async ({ user: current, params }) => {
-        const [row] = await db
-          .select()
-          .from(workspaceInvitation)
-          .where(and(eq(workspaceInvitation.id, params.id), eq(workspaceInvitation.email, current.email.trim().toLowerCase())))
-          .limit(1)
+        const row = await findInvitationForEmail(db, params.id, current.email.trim().toLowerCase())
         if (!row) throw notFound("invitation_not_found", "Invitation not found")
         if (invitationStatus(row) !== "pending") throw gone()
         return accept(db, config.accountLimits, row.id, row.workspaceId, current.id)

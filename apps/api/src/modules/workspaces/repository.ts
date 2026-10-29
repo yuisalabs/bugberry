@@ -266,3 +266,8 @@ export async function setPendingLogo(db: Db, workspaceId: string, logoId: string
 export async function deletePendingLogo(db: Db, workspaceId: string): Promise<void> {
   await executor(db).delete(pendingLogo).where(eq(pendingLogo.workspaceId, workspaceId))
 }
+
+/** Adds the person with this role unless they are already a member. */
+export async function addMemberIfAbsent(db: Db, workspaceId: string, userId: string, role: WorkspaceRole): Promise<void> {
+  await executor(db).insert(workspaceMember).values({ workspaceId, userId, role }).onConflictDoNothing()
+}

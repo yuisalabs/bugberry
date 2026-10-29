@@ -29,8 +29,6 @@ const PENDING = new Set<string>([
   "modules/connections/index.ts",
   "modules/integrations/index.ts",
   "modules/integrations/resolve.ts",
-  "modules/invitations/index.ts",
-  "modules/join/index.ts",
   "modules/notifiers/deliver.ts",
   "modules/onboarding/progress.ts",
   "modules/projects/index.ts",

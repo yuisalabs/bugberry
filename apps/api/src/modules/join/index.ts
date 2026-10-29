@@ -1,26 +1,34 @@
 import { emailDomain, FREE_EMAIL_DOMAINS } from "@bugberry/shared"
-import { and, asc, count, eq, gt, isNull, notInArray } from "drizzle-orm"
-import { alias } from "drizzle-orm/pg-core"
 import { Elysia, t } from "elysia"
-import { executor, withTransaction } from "../../db/client"
 import type { AppDeps } from "../../deps"
 import { authPlugin } from "../../plugins/auth"
 import { isEmailAllowed } from "../auth/policy"
-import { joinRequest, user, workspace, workspaceInvitation, workspaceMember } from "../../db/schema"
 import { notFound, tooManyRequests, unprocessable } from "../../lib/errors"
 import { createRateLimiter } from "../../lib/rate-limit"
 import { oneOf } from "../../lib/schema"
-import { hashInviteToken } from "../invitations/service"
+import { findLiveInvitationByHash } from "../invitations/repository"
+import { accept, hashInviteToken } from "../invitations/service"
 import { requireMember } from "../workspaces/access"
 import { assertCanAddMembers, isWorkspaceLimited } from "../workspaces/limits"
-import { hashCode, newJoinCode, parseJoinValue } from "./join-codes"
-import { isUniqueViolation } from "../workspaces/slug"
-import { accept } from "../invitations"
+import { addMemberIfAbsent, findMemberRole } from "../workspaces/repository"
+import { hashCode, parseJoinValue } from "./join-codes"
+import {
+  deleteJoinRequest,
+  findDomainWorkspace,
+  findJoinSettings,
+  findWorkspaceByShareCode,
+  findWorkspaceCard,
+  insertJoinRequest,
+  listDomainWorkspacesNotJoined,
+  listJoinRequests,
+  listRequestedWorkspaces,
+  updateJoinSettings,
+} from "./repository"
+import { joinAsMember, setNewShareCode } from "./service"
 
 /** Codes are short, so looking them up is capped per person to stop guessing. */
 const LOOKUPS_PER_PERSON = 20
 const LOOKUP_WINDOW_MS = 10 * 60 * 1000
-const inviter = alias(user, "inviter")
 const invalid = () => notFound("join_code_invalid", "This link or code doesn't work")
 
 type Caller = { id: string; email: string }
@@ -35,43 +43,17 @@ export function joinModule(deps: AppDeps) {
   const lookups = createRateLimiter({ limit: LOOKUPS_PER_PERSON, windowMs: LOOKUP_WINDOW_MS })
 
   const card = async (workspaceId: string) => {
-    const [row] = await db
-      .select({ id: workspace.id, name: workspace.name, logoUrl: workspace.logoUrl })
-      .from(workspace)
-      .where(eq(workspace.id, workspaceId))
-      .limit(1)
-    if (!row) throw invalid()
-    const [members] = await db.select({ value: count() }).from(workspaceMember).where(eq(workspaceMember.workspaceId, workspaceId))
-    return { ...row, memberCount: members?.value ?? 0 }
+    const found = await findWorkspaceCard(db, workspaceId)
+    if (!found) throw invalid()
+    return found
   }
-  const isMember = async (workspaceId: string, userId: string) =>
-    (
-      await db
-        .select({ userId: workspaceMember.userId })
-        .from(workspaceMember)
-        .where(and(eq(workspaceMember.workspaceId, workspaceId), eq(workspaceMember.userId, userId)))
-        .limit(1)
-    ).length > 0
+  const isMember = async (workspaceId: string, userId: string) => (await findMemberRole(db, userId, workspaceId)) !== null
 
   /** A live personal invitation for exactly this person. */
-  const invitationFor = async (caller: Caller, match: ReturnType<typeof eq>) => {
-    const [row] = await db
-      .select({ id: workspaceInvitation.id, workspaceId: workspaceInvitation.workspaceId, email: workspaceInvitation.email, inviterName: inviter.name })
-      .from(workspaceInvitation)
-      .leftJoin(inviter, eq(inviter.id, workspaceInvitation.invitedById))
-      .where(
-        and(
-          match,
-          isNull(workspaceInvitation.acceptedAt),
-          isNull(workspaceInvitation.revokedAt),
-          gt(workspaceInvitation.expiresAt, new Date()),
-        ),
-      )
-      .limit(1)
+  const invitationFor = async (caller: Caller, by: { tokenHash: string } | { codeHash: string }) => {
+    const row = await findLiveInvitationByHash(db, by)
     return row && row.email === caller.email.trim().toLowerCase() ? row : null
   }
-  const sharedWorkspace = async (code: string) =>
-    (await db.select({ id: workspace.id }).from(workspace).where(eq(workspace.shareCode, formatted(code))).limit(1))[0] ?? null
 
   /** What a pasted link or code means for this person, or "doesn't work". Every lookup counts toward the cap. */
   const resolve = async (caller: Caller, value: string): Promise<Resolved> => {
@@ -80,30 +62,16 @@ export function joinModule(deps: AppDeps) {
     const parsed = parseJoinValue(value)
     if (!parsed) throw invalid()
     if (parsed.kind === "token" || parsed.kind === "code") {
-      const match =
-        parsed.kind === "token" ? eq(workspaceInvitation.tokenHash, hashInviteToken(parsed.token)) : eq(workspaceInvitation.codeHash, hashCode(parsed.code))
-      const invitation = await invitationFor(caller, match)
+      const by = parsed.kind === "token" ? { tokenHash: hashInviteToken(parsed.token) } : { codeHash: hashCode(parsed.code) }
+      const invitation = await invitationFor(caller, by)
       if (invitation) {
         return { workspaceId: invitation.workspaceId, via: "invitation", inviterName: invitation.inviterName ?? "Someone", invitationId: invitation.id }
       }
       if (parsed.kind === "token") throw invalid()
     }
-    const shared = await sharedWorkspace(parsed.code)
+    const shared = await findWorkspaceByShareCode(db, formatted(parsed.code))
     if (!shared) throw invalid()
-    return { workspaceId: shared.id, via: "shared", inviterName: null, invitationId: null }
-  }
-
-  /** Adds the person as Member (once) and makes the workspace their current one. */
-  const joinAsMember = async (workspaceId: string, userId: string) => {
-    await withTransaction(db, async () => {
-      const tx = executor(db)
-      await assertCanAddMembers(db, config.accountLimits, workspaceId, "joiner")
-      await tx.insert(workspaceMember).values({ workspaceId, userId, role: "member" }).onConflictDoNothing()
-      // A request still waiting would keep counting in the admins' sidebar.
-      await tx.delete(joinRequest).where(and(eq(joinRequest.workspaceId, workspaceId), eq(joinRequest.userId, userId)))
-      await tx.update(user).set({ lastWorkspaceId: workspaceId }).where(eq(user.id, userId))
-    })
-    return { workspaceId }
+    return { workspaceId: shared, via: "shared", inviterName: null, invitationId: null }
   }
 
   const previewOf = async (caller: Caller, resolved: Resolved) => ({
@@ -122,37 +90,15 @@ export function joinModule(deps: AppDeps) {
   }
 
   const accessOf = async (workspaceId: string, caller: Caller) => {
-    const [row] = await db
-      .select({ shareCode: workspace.shareCode, joinDomain: workspace.joinDomain, joinMode: workspace.joinMode })
-      .from(workspace)
-      .where(eq(workspace.id, workspaceId))
-      .limit(1)
+    const row = await findJoinSettings(db, workspaceId)
     if (!row) throw notFound("workspace_not_found", "Workspace not found")
     return { ...row, ownDomain: usableDomain(caller.email) }
-  }
-
-  /** A fresh shared code; a clash with another workspace's code just draws again. */
-  const setNewShareCode = async (workspaceId: string) => {
-    for (let attempt = 1; ; attempt++) {
-      try {
-        await db.update(workspace).set({ shareCode: newJoinCode() }).where(eq(workspace.id, workspaceId))
-        return
-      } catch (error) {
-        if (!isUniqueViolation(error) || attempt >= 5) throw error
-      }
-    }
   }
 
   /** The workspace if its join domain is the caller's, else "not found". */
   const domainWorkspace = async (workspaceId: string, caller: Caller) => {
     const domain = usableDomain(caller.email)
-    const [row] = domain
-      ? await db
-          .select({ id: workspace.id, joinMode: workspace.joinMode })
-          .from(workspace)
-          .where(and(eq(workspace.id, workspaceId), eq(workspace.joinDomain, domain)))
-          .limit(1)
-      : []
+    const row = domain ? await findDomainWorkspace(db, workspaceId, domain) : null
     if (!row) throw notFound("workspace_not_found", "Workspace not found")
     return row
   }
@@ -174,8 +120,8 @@ export function joinModule(deps: AppDeps) {
         // Closing a way in is always allowed; opening one is not in a workspace under ACCOUNT_LIMITS.
         const opens = body.shareLink === "on" || body.shareLink === "reset" || (typeof body.joinDomain === "string" && body.joinDomain.trim() !== "")
         if (opens) await assertCanAddMembers(db, config.accountLimits, params.id)
-        if (body.shareLink === "off") await db.update(workspace).set({ shareCode: null }).where(eq(workspace.id, params.id))
-        else if (body.shareLink) await setNewShareCode(params.id)
+        if (body.shareLink === "off") await updateJoinSettings(db, params.id, { shareCode: null })
+        else if (body.shareLink) await setNewShareCode(db, params.id)
         const changes: { joinDomain?: string | null; joinMode?: "direct" | "approval" } = {}
         if (body.joinDomain !== undefined) {
           const domain = body.joinDomain?.trim().toLowerCase() ?? null
@@ -186,7 +132,7 @@ export function joinModule(deps: AppDeps) {
         }
         if (body.joinMode) changes.joinMode = body.joinMode
         else if (changes.joinDomain && !(await accessOf(params.id, current)).joinMode) changes.joinMode = "approval"
-        if (Object.keys(changes).length > 0) await db.update(workspace).set(changes).where(eq(workspace.id, params.id))
+        if (Object.keys(changes).length > 0) await updateJoinSettings(db, params.id, changes)
         return accessOf(params.id, current)
       },
       {
@@ -204,18 +150,11 @@ export function joinModule(deps: AppDeps) {
       async ({ user: current }) => {
         const domain = usableDomain(current.email)
         if (!domain) return []
-        const mine = db.select({ id: workspaceMember.workspaceId }).from(workspaceMember).where(eq(workspaceMember.userId, current.id))
-        const rows = await db
-          .select({ id: workspace.id, joinMode: workspace.joinMode })
-          .from(workspace)
-          .where(and(eq(workspace.joinDomain, domain), notInArray(workspace.id, mine)))
-          .orderBy(asc(workspace.name))
+        const rows = await listDomainWorkspacesNotJoined(db, domain, current.id)
         // A workspace under ACCOUNT_LIMITS takes nobody new, so it isn't offered.
         const open = []
         for (const row of rows) if (!(await isWorkspaceLimited(db, config.accountLimits, row.id))) open.push(row)
-        const asked = new Set(
-          (await db.select({ id: joinRequest.workspaceId }).from(joinRequest).where(eq(joinRequest.userId, current.id))).map((row) => row.id),
-        )
+        const asked = new Set(await listRequestedWorkspaces(db, current.id))
         return Promise.all(
           open.map(async (row) => ({
             workspace: await card(row.id),
@@ -232,8 +171,8 @@ export function joinModule(deps: AppDeps) {
         const target = await domainWorkspace(params.workspaceId, current)
         if (await isMember(target.id, current.id)) return { workspaceId: target.id }
         await assertCanAddMembers(db, config.accountLimits, target.id, "joiner")
-        if (target.joinMode === "direct") return joinAsMember(target.id, current.id)
-        await db.insert(joinRequest).values({ workspaceId: target.id, userId: current.id }).onConflictDoNothing()
+        if (target.joinMode === "direct") return joinAsMember(db, config.accountLimits, target.id, current.id)
+        await insertJoinRequest(db, target.id, current.id)
         return { requested: true as const }
       },
       { auth: true },
@@ -241,7 +180,7 @@ export function joinModule(deps: AppDeps) {
     .delete(
       "/join/domain/:workspaceId/request",
       async ({ user: current, params }) => {
-        await db.delete(joinRequest).where(and(eq(joinRequest.workspaceId, params.workspaceId), eq(joinRequest.userId, current.id)))
+        await deleteJoinRequest(db, params.workspaceId, current.id)
         return { ok: true }
       },
       { auth: true },
@@ -250,12 +189,7 @@ export function joinModule(deps: AppDeps) {
       "/workspaces/:id/join-requests",
       async ({ user: current, params }) => {
         await requireMember(db, current.id, params.id, "admin")
-        return db
-          .select({ user: { id: user.id, name: user.name, email: user.email, image: user.image }, createdAt: joinRequest.createdAt })
-          .from(joinRequest)
-          .innerJoin(user, eq(user.id, joinRequest.userId))
-          .where(eq(joinRequest.workspaceId, params.id))
-          .orderBy(asc(joinRequest.createdAt))
+        return listJoinRequests(db, params.id)
       },
       { auth: true },
     )
@@ -264,12 +198,8 @@ export function joinModule(deps: AppDeps) {
       async ({ user: current, params }) => {
         await requireMember(db, current.id, params.id, "admin")
         await assertCanAddMembers(db, config.accountLimits, params.id)
-        const removed = await db
-          .delete(joinRequest)
-          .where(and(eq(joinRequest.workspaceId, params.id), eq(joinRequest.userId, params.userId)))
-          .returning({ userId: joinRequest.userId })
-        if (removed.length > 0) {
-          await db.insert(workspaceMember).values({ workspaceId: params.id, userId: params.userId, role: "member" }).onConflictDoNothing()
+        if (await deleteJoinRequest(db, params.id, params.userId)) {
+          await addMemberIfAbsent(db, params.id, params.userId, "member")
           return { ok: true }
         }
         // Approved already (or joined another way): nothing left to do.
@@ -282,7 +212,7 @@ export function joinModule(deps: AppDeps) {
       "/workspaces/:id/join-requests/:userId",
       async ({ user: current, params }) => {
         await requireMember(db, current.id, params.id, "admin")
-        await db.delete(joinRequest).where(and(eq(joinRequest.workspaceId, params.id), eq(joinRequest.userId, params.userId)))
+        await deleteJoinRequest(db, params.id, params.userId)
         return { ok: true }
       },
       { auth: true },
@@ -296,7 +226,7 @@ export function joinModule(deps: AppDeps) {
       async ({ user: current, body }) => {
         const resolved = await resolve(current, body.value)
         if (resolved.invitationId) return accept(db, config.accountLimits, resolved.invitationId, resolved.workspaceId, current.id)
-        return joinAsMember(resolved.workspaceId, current.id)
+        return joinAsMember(db, config.accountLimits, resolved.workspaceId, current.id)
       },
       { auth: true, body: t.Object({ value: t.String({ minLength: 1, maxLength: 500 }) }) },
     )
