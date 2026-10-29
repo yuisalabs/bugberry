@@ -1,4 +1,4 @@
-import { index, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core"
+import { index, pgTable, text, timestamp } from "drizzle-orm/pg-core"
 import { createdAt } from "./columns"
 import { apiTokenKindEnum } from "./enums"
 import { user } from "./auth"

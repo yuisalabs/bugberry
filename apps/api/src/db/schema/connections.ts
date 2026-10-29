@@ -1,11 +1,9 @@
 import type { ConnectionSettings, UseTarget } from "@bugberry/shared"
-import { boolean, index, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core"
+import { boolean, index, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core"
 import { createdAt, updatedAt } from "./columns"
 import { integrationProviderEnum } from "./enums"
-import { account } from "./auth"
 import { workspace } from "./workspaces"
 import { project } from "./projects"
-import { notification } from "./notifications"
 
 /** An account or channel a workspace admin connected once; projects use it through `integration` rows. */
 export const connection = pgTable(

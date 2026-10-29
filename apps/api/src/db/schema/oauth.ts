@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm"
-import { boolean, index, integer, jsonb, pgTable, primaryKey, text } from "drizzle-orm/pg-core"
+import { boolean, index, integer, jsonb, pgTable, text } from "drizzle-orm/pg-core"
 import { ts } from "./columns"
 import { session, user } from "./auth"
 

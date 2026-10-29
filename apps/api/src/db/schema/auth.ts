@@ -1,5 +1,5 @@
 import type { OnboardingItemId } from "@bugberry/shared"
-import { type AnyPgColumn, boolean, index, jsonb, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core"
+import { type AnyPgColumn, boolean, index, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core"
 import { createdAt, ts, updatedAt } from "./columns"
 import { workspace } from "./workspaces"
 

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm"
-import { type AnyPgColumn, pgTable, primaryKey, text, uniqueIndex } from "drizzle-orm/pg-core"
+import { type AnyPgColumn, pgTable, text, uniqueIndex } from "drizzle-orm/pg-core"
 import { createdAt } from "./columns"
 import { workspace } from "./workspaces"
 import { reportTemplate } from "./ai"

@@ -2,8 +2,6 @@ import { type AnyPgColumn, boolean, index, integer, pgTable, primaryKey, text, t
 import { createdAt, updatedAt } from "./columns"
 import { workspaceRoleEnum } from "./enums"
 import { user } from "./auth"
-import { project } from "./projects"
-import { report } from "./reports"
 import { reportTemplate } from "./ai"
 
 /** A team: its members see its reports, projects and integrations; nobody else does. */

@@ -1,7 +1,5 @@
 import { CAPTURE_TYPES, INTEGRATION_PROVIDERS, PRIORITIES, REPORT_STATUSES, UPLOAD_STATUSES, VISIBILITIES, WORKSPACE_ROLES } from "@bugberry/shared"
 import { pgEnum } from "drizzle-orm/pg-core"
-import { report } from "./reports"
-import { integration } from "./connections"
 
 export const reportStatusEnum = pgEnum("report_status", REPORT_STATUSES)
 

@@ -1,4 +1,4 @@
-import { index, pgTable, primaryKey, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core"
+import { index, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core"
 import { createdAt } from "./columns"
 import { notificationKindEnum } from "./enums"
 import { user } from "./auth"

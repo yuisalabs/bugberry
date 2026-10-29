@@ -1,4 +1,4 @@
-import { boolean, pgTable, primaryKey, text } from "drizzle-orm/pg-core"
+import { boolean, pgTable, text } from "drizzle-orm/pg-core"
 import { createdAt } from "./columns"
 
 /** Someone asked for a demo on the public site (PUBLIC_SITE); the team is emailed and replies. */

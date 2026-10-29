@@ -1,4 +1,4 @@
-import { pgTable, primaryKey, text } from "drizzle-orm/pg-core"
+import { pgTable, text } from "drizzle-orm/pg-core"
 import { createdAt } from "./columns"
 import { user } from "./auth"
 import { workspace } from "./workspaces"

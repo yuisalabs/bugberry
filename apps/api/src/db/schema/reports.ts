@@ -1,11 +1,11 @@
 import type { DebuggerSummary, DeviceInfo } from "@bugberry/shared"
-import { index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core"
+import { index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core"
 import { createdAt, updatedAt } from "./columns"
 import { activityKindEnum, captureTypeEnum, integrationProviderEnum, priorityEnum, reportStatusEnum, uploadStatusEnum, visibilityEnum } from "./enums"
-import { session, user } from "./auth"
+import { user } from "./auth"
 import { workspace } from "./workspaces"
 import { project } from "./projects"
-import { connection, integration } from "./connections"
+import { integration } from "./connections"
 
 export const report = pgTable(
   "report",
