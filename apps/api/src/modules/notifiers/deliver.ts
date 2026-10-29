@@ -1,12 +1,11 @@
 import { NOTIFIER_PROVIDERS, type NotifierConfig, type NotifierProvider } from "@bugberry/shared"
-import { and, eq, sql } from "drizzle-orm"
 import type { AppDeps } from "../../deps"
-import { integration, project, report, user } from "../../db/schema"
 import { createHostGuard } from "../../lib/net/host-guard"
 import { createSecretBox, SECRET_UNREADABLE } from "../../lib/secret-box"
 import { DEFAULT_TIMEOUT_MS, TrackerError } from "../trackers/providers"
 import { createNotifierFactory, type NotifierFactory } from "./channels"
 import { buildNewReportMessage, type NewReportMessage } from "./message"
+import { findReportForChannels, recordDelivery } from "../integrations/repository"
 import { usesOfProject } from "../integrations/resolve"
 
 /** The app's notifier factory: the one a test gave, or the real one behind the private-network guard. */
@@ -34,24 +33,7 @@ type Deps = Pick<AppDeps, "config" | "db" | "notifiers">
 
 /** Posts a just-finalized report to every notification channel of its project. One failing channel never stops the others. */
 export async function notifyNewReport(deps: Deps, reportId: string, opts: DeliveryOptions = {}): Promise<void> {
-  const [row] = await deps.db
-    .select({
-      id: report.id,
-      number: report.number,
-      title: report.title,
-      pageUrl: report.pageUrl,
-      device: report.device,
-      debuggerSummary: report.debuggerSummary,
-      createdAt: report.createdAt,
-      projectId: project.id,
-      projectName: project.name,
-      reporterName: user.name,
-    })
-    .from(report)
-    .innerJoin(project, eq(project.id, report.projectId))
-    .innerJoin(user, eq(user.id, report.reporterId))
-    .where(and(eq(report.id, reportId), eq(report.uploadStatus, "ready")))
-    .limit(1)
+  const row = await findReportForChannels(deps.db, reportId)
   if (!row) return
   const channels = await usesOfProject(deps.db, row.projectId, NOTIFIER_PROVIDERS)
   const message = buildNewReportMessage(row, row.projectName, row.reporterName, deps.config.appUrl)
@@ -74,29 +56,26 @@ interface Channel {
 async function deliver(deps: Deps, channel: Channel, message: NewReportMessage, opts: DeliveryOptions): Promise<void> {
   const sleep = opts.sleep ?? ((ms: number) => Bun.sleep(ms))
   const delays = opts.delaysMs ?? RETRY_DELAYS_MS
-  const record = (values: { lastError: string | null; lastDeliveredAt?: ReturnType<typeof sql> }) =>
-    deps.db
-      .update(integration)
-      .set({ ...values, lastError: values.lastError?.slice(0, MAX_ERROR_LENGTH) ?? null })
-      .where(eq(integration.id, channel.id))
+  const record = (lastError: string | null, delivered = false) =>
+    recordDelivery(deps.db, channel.id, lastError?.slice(0, MAX_ERROR_LENGTH) ?? null, delivered)
 
   let secret: string
   try {
     secret = createSecretBox(deps.config.encryptionKey).open(channel.secretEncrypted)
   } catch {
-    await record({ lastError: SECRET_UNREADABLE })
+    await record(SECRET_UNREADABLE)
     return
   }
   const client = notifierFactoryFor(deps)(channel.provider, channel.config as NotifierConfig, secret)
   for (let attempt = 0; ; attempt++) {
     try {
       await client.send(message)
-      await record({ lastError: null, lastDeliveredAt: sql`now()` })
+      await record(null, true)
       return
     } catch (error) {
       const wait = delays[attempt]
       if (wait === undefined) {
-        await record({ lastError: deliveryFailure(error) })
+        await record(deliveryFailure(error))
         return
       }
       await sleep(wait)

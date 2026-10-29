@@ -7,11 +7,10 @@ import {
   targetKey,
   type UseTarget,
 } from "@bugberry/shared"
-import { and, eq, sql } from "drizzle-orm"
 import { Elysia, t } from "elysia"
 import type { AppDeps } from "../../deps"
 import { authPlugin } from "../../plugins/auth"
-import { connection, integration, project } from "../../db/schema"
+import type { integration } from "../../db/schema"
 import { conflict, notFound, unprocessable } from "../../lib/errors"
 import { newId } from "../../lib/ids"
 import { loadUse, type ResolvedUse, usesOfProject } from "./resolve"
@@ -22,6 +21,9 @@ import { createSecretBox, SECRET_UNREADABLE, SecretError } from "../../lib/secre
 import { trackerFactoryFor } from "../trackers/default"
 import { TrackerError } from "../trackers/providers"
 import { requireProjectRole } from "../workspaces/access"
+import { findConnection } from "../connections/repository"
+import { findProject } from "../projects/repository"
+import { deleteIntegration, insertIntegration, recordDelivery, updateIntegration } from "./repository"
 
 const createBody = t.Object({
   connectionId: t.String({ minLength: 1 }),
@@ -89,16 +91,12 @@ export function integrationsModule(deps: AppDeps) {
       "/projects/:id/integrations",
       async ({ user, params, body }) => {
         const workspaceId = await requireProjectRole(db, user.id, params.id)
-        const [owner] = await db
-          .select({ id: connection.id, provider: connection.provider })
-          .from(connection)
-          .where(and(eq(connection.id, body.connectionId), eq(connection.workspaceId, workspaceId)))
-          .limit(1)
+        const owner = await findConnection(db, workspaceId, body.connectionId)
         if (!owner) throw notFound("connection_not_found", "Connection not found")
         const target = normalizeTarget(owner.provider, body.target)
         const id = newId()
         try {
-          await db.insert(integration).values({
+          await insertIntegration(db, {
             id,
             projectId: params.id,
             connectionId: owner.id,
@@ -126,7 +124,7 @@ export function integrationsModule(deps: AppDeps) {
           changes.config = { ...use.target, labels: [...new Set(body.labels.map((label) => label.trim()).filter(Boolean))] } as UseTarget
         }
         if (body.autoSend !== undefined && isTrackerProvider(use.provider)) changes.autoSend = body.autoSend
-        if (Object.keys(changes).length > 0) await db.update(integration).set(changes).where(eq(integration.id, use.id))
+        if (Object.keys(changes).length > 0) await updateIntegration(db, use.id, changes)
         return publicUse(await find(params.id, use.id))
       },
       { auth: true, body: patchBody },
@@ -137,7 +135,7 @@ export function integrationsModule(deps: AppDeps) {
         await requireProjectRole(db, user.id, params.id)
         const use = await find(params.id, params.integrationId)
         // Links to issues already sent stay (report_external_link.integration_id is set null).
-        await db.delete(integration).where(eq(integration.id, use.id))
+        await deleteIntegration(db, use.id)
         return { ok: true }
       },
       { auth: true },
@@ -159,10 +157,10 @@ export function integrationsModule(deps: AppDeps) {
             await trackers(use.provider, use.config as TrackerConfig, secret).test()
           } else {
             // A notifier is tested by posting one message: no retries, so the answer comes at once.
-            const [owner] = await db.select({ name: project.name }).from(project).where(eq(project.id, params.id)).limit(1)
+            const owner = await findProject(db, params.id)
             await notifiers(use.provider, use.config as NotifierConfig, secret).send(testMessage(owner?.name ?? "", deps.config.appUrl))
             // It got through, so the channel works again: an old failure would mislead.
-            await db.update(integration).set({ lastError: null, lastDeliveredAt: sql`now()` }).where(eq(integration.id, use.id))
+            await recordDelivery(db, use.id, null, true)
           }
         } catch (error) {
           throw unprocessable("integration_test_failed", error instanceof TrackerError ? error.message : "The connection test failed")

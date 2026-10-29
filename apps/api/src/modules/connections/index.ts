@@ -1,11 +1,9 @@
 import { type ConnectionSettings, integrationKind, isTrackerProvider, type NotifierConfig } from "@bugberry/shared"
-import { and, asc, eq, inArray } from "drizzle-orm"
 import { Elysia, t } from "elysia"
 import type { AppDeps } from "../../deps"
 import { authPlugin } from "../../plugins/auth"
-import { connection, integration, project, workspace } from "../../db/schema"
+import type { connection } from "../../db/schema"
 import { conflict, notFound, unprocessable } from "../../lib/errors"
-import { newId } from "../../lib/ids"
 import { accountFactoryFor, ListUnavailableError, OPTION_LISTS } from "./accounts"
 import { checkAddresses, checkWebhookSecret, normalizeSettings, settingsBody, settingsSchemas } from "./validate"
 import { createHostGuard } from "../../lib/net/host-guard"
@@ -14,6 +12,16 @@ import { testMessage } from "../notifiers/message"
 import { createSecretBox, SECRET_UNREADABLE, SecretError } from "../../lib/secret-box"
 import { TrackerError } from "../trackers/providers"
 import { requireMember } from "../workspaces/access"
+import { findWorkspaceSummary } from "../workspaces/repository"
+import {
+  type ConnectionRow,
+  deleteConnection,
+  findConnection,
+  insertConnection,
+  listConnections,
+  listConnectionUses,
+  updateConnection,
+} from "./repository"
 
 const name = t.String({ minLength: 1, maxLength: 80 })
 const secret = t.String({ minLength: 1, maxLength: 500 })
@@ -34,7 +42,6 @@ const patchBody = t.Object({
   secret: t.Optional(t.String({ maxLength: 500 })),
 })
 
-type ConnectionRow = typeof connection.$inferSelect
 interface UseRow {
   connectionId: string
   projectId: string
@@ -79,28 +86,10 @@ export function connectionsModule(deps: AppDeps) {
   const accounts = accountFactoryFor(deps)
   const guard = createHostGuard({ allowPrivate: deps.config.allowPrivateIntegrationHosts })
 
-  const usesOf = async (ids: string[]): Promise<UseRow[]> =>
-    ids.length === 0
-      ? []
-      : db
-          .select({
-            connectionId: integration.connectionId,
-            projectId: integration.projectId,
-            projectName: project.name,
-            lastError: integration.lastError,
-            lastDeliveredAt: integration.lastDeliveredAt,
-            updatedAt: integration.updatedAt,
-          })
-          .from(integration)
-          .innerJoin(project, eq(project.id, integration.projectId))
-          .where(inArray(integration.connectionId, ids))
+  const usesOf = async (ids: string[]): Promise<UseRow[]> => (ids.length === 0 ? [] : listConnectionUses(db, ids))
 
   const find = async (workspaceId: string, id: string) => {
-    const [row] = await db
-      .select()
-      .from(connection)
-      .where(and(eq(connection.id, id), eq(connection.workspaceId, workspaceId)))
-      .limit(1)
+    const row = await findConnection(db, workspaceId, id)
     if (!row) throw notFound("connection_not_found", "Connection not found")
     return row
   }
@@ -120,7 +109,7 @@ export function connectionsModule(deps: AppDeps) {
       "/workspaces/:id/connections",
       async ({ user, params }) => {
         const role = await requireMember(db, user.id, params.id)
-        const rows = await db.select().from(connection).where(eq(connection.workspaceId, params.id)).orderBy(asc(connection.createdAt))
+        const rows = await listConnections(db, params.id)
         const uses = await usesOf(rows.map((row) => row.id))
         const view = role === "admin" ? adminView : memberView
         return rows.map((row) => view(row, uses.filter((use) => use.connectionId === row.id)))
@@ -135,18 +124,13 @@ export function connectionsModule(deps: AppDeps) {
         const plain = body.secret?.trim() ?? ""
         checkWebhookSecret(body.provider, plain)
         await checkAddresses(guard, settings)
-        const [created] = await db
-          .insert(connection)
-          .values({
-            id: newId(),
-            workspaceId: params.id,
-            provider: body.provider,
-            name: body.name.trim(),
-            settings,
-            secretEncrypted: box.seal(plain),
-          })
-          .returning()
-        if (!created) throw new Error("Failed to create connection")
+        const created = await insertConnection(db, {
+          workspaceId: params.id,
+          provider: body.provider,
+          name: body.name.trim(),
+          settings,
+          secretEncrypted: box.seal(plain),
+        })
         return adminView(created, [])
       },
       { auth: true, body: createBody },
@@ -166,10 +150,7 @@ export function connectionsModule(deps: AppDeps) {
           checkWebhookSecret(row.provider, body.secret.trim())
           changes.secretEncrypted = box.seal(body.secret.trim())
         }
-        const [updated] =
-          Object.keys(changes).length === 0
-            ? [row]
-            : await db.update(connection).set(changes).where(eq(connection.id, row.id)).returning()
+        const updated = Object.keys(changes).length === 0 ? row : await updateConnection(db, row.id, changes)
         if (!updated) throw notFound("connection_not_found", "Connection not found")
         return adminView(updated, await usesOf([updated.id]))
       },
@@ -180,8 +161,7 @@ export function connectionsModule(deps: AppDeps) {
       async ({ user, params }) => {
         await requireMember(db, user.id, params.id, "admin")
         const row = await find(params.id, params.connectionId)
-        // Its uses go with it; links to issues already sent stay (report_external_link.integration_id is set null).
-        await db.delete(connection).where(eq(connection.id, row.id))
+        await deleteConnection(db, row.id)
         return { ok: true }
       },
       { auth: true },
@@ -199,7 +179,7 @@ export function connectionsModule(deps: AppDeps) {
             return { ok: true }
           }
           // A channel with nothing to pick is tested by posting one message to it.
-          const [owner] = await db.select({ name: workspace.name }).from(workspace).where(eq(workspace.id, params.id)).limit(1)
+          const owner = await findWorkspaceSummary(db, params.id)
           await notifiers(row.provider, row.settings as NotifierConfig, plain).send(testMessage(owner?.name ?? "", deps.config.appUrl))
         } catch (error) {
           throw unprocessable("integration_test_failed", error instanceof TrackerError ? error.message : "The connection test failed")

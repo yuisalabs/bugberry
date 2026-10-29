@@ -1,18 +1,18 @@
-import { and, eq, inArray, sql } from "drizzle-orm"
 import type { Config } from "../../config"
 import type { Db } from "../../db/client"
-import { integration, report, reportExternalLink } from "../../db/schema"
+import type { reportExternalLink } from "../../db/schema"
 import type { StorageDriver } from "../../storage/types"
 import { AppError, conflict, notFound, unprocessable } from "../../lib/errors"
-import { newId } from "../../lib/ids"
 import { createSecretBox, SECRET_UNREADABLE } from "../../lib/secret-box"
 import { buildIssueContent } from "./content"
 import { recordActivity } from "../activity/repository"
 import type { ActivityActor } from "../activity/service"
 import { readTopErrors } from "./debugger-errors"
 import { type TrackerFactory, TrackerError } from "./providers"
-import { type IntegrationProvider, isTrackerProvider, TRACKER_PROVIDERS, type TrackerConfig } from "@bugberry/shared"
+import { type IntegrationProvider, isTrackerProvider, type TrackerConfig } from "@bugberry/shared"
+import { integrationExists, listAutoSendTrackers } from "../integrations/repository"
 import { loadUse } from "../integrations/resolve"
+import { claimLink, findLink, findReadyReport, findReportProject, finishLink, listLinks } from "./repository"
 
 export interface TrackerLink {
   /** Null once the use that sent it is gone; the link and its issue stay. */
@@ -24,53 +24,13 @@ export interface TrackerLink {
   updatedAt: Date
 }
 
-const linkColumns = {
-  integrationId: reportExternalLink.integrationId,
-  provider: reportExternalLink.provider,
-  externalId: reportExternalLink.externalId,
-  externalUrl: reportExternalLink.externalUrl,
-  error: reportExternalLink.error,
-  updatedAt: reportExternalLink.updatedAt,
-}
-
 export function createDispatcher(deps: { config: Config; db: Db; storage: StorageDriver; trackers: TrackerFactory }) {
   const { db } = deps
   const box = createSecretBox(deps.config.encryptionKey)
-  const sameLink = (reportId: string, integrationId: string) =>
-    and(eq(reportExternalLink.reportId, reportId), eq(reportExternalLink.integrationId, integrationId))
-
-  const loadLink = async (reportId: string, integrationId: string): Promise<TrackerLink | null> => {
-    const [row] = await db.select(linkColumns).from(reportExternalLink).where(sameLink(reportId, integrationId)).limit(1)
-    return row ?? null
-  }
-
-  /**
-   * Takes the (report, integration) row as a lock. Returns the claim's timestamp, which identifies
-   * this sender, or null when the link is sent or being sent. Timestamps come from the database clock,
-   * the same one the 2-minute lease is measured against, cut to milliseconds so they survive the trip
-   * through a JavaScript Date.
-   */
-  const claim = async (reportId: string, integrationId: string, provider: IntegrationProvider): Promise<Date | null> => {
-    const databaseNow = sql<Date>`date_trunc('milliseconds', now())`
-    const [claimed] = await db
-      .insert(reportExternalLink)
-      .values({ id: newId(), reportId, integrationId, provider, updatedAt: databaseNow })
-      .onConflictDoUpdate({
-        target: [reportExternalLink.reportId, reportExternalLink.integrationId],
-        set: { error: null, updatedAt: databaseNow },
-        setWhere: sql`${reportExternalLink.externalId} is null and (${reportExternalLink.error} is not null or ${reportExternalLink.updatedAt} < now() - interval '2 minutes')`,
-      })
-      .returning({ updatedAt: reportExternalLink.updatedAt })
-    return claimed?.updatedAt ?? null
-  }
 
   /** `by` is who pressed Send, for the report's activity; null for an automatic send. */
   async function send(reportId: string, integrationId: string, by: ActivityActor | null = null): Promise<TrackerLink> {
-    const [row] = await db
-      .select()
-      .from(report)
-      .where(and(eq(report.id, reportId), eq(report.uploadStatus, "ready")))
-      .limit(1)
+    const row = await findReadyReport(db, reportId)
     if (!row) throw notFound("report_not_found", "Report not found")
     // Integrations belong to projects, so a report outside every project has none to send to.
     if (!row.projectId) {
@@ -86,30 +46,22 @@ export function createDispatcher(deps: { config: Config; db: Db; storage: Storag
     const errors = row.debuggerKey ? await readTopErrors(deps.storage, row.debuggerKey) : []
     const content = buildIssueContent(row, errors, deps.config.appUrl)
 
-    const claimedAt = await claim(reportId, integrationId, target.provider)
+    const claimedAt = await claimLink(db, reportId, integrationId, target.provider)
     if (!claimedAt) {
-      const existing = await loadLink(reportId, integrationId)
+      const existing = await findLink(db, reportId, integrationId)
       if (existing?.externalId) return existing
       throw conflict("send_in_progress", "This report is already being sent to that tracker")
     }
 
     /** Writes the result only while this sender still owns the claim; a takeover's result wins. */
     const finish = async (values: Partial<typeof reportExternalLink.$inferInsert>): Promise<TrackerLink> => {
-      const updated = await db
-        .update(reportExternalLink)
-        .set({ ...values, updatedAt: sql`now()` })
-        .where(and(sameLink(reportId, integrationId), eq(reportExternalLink.updatedAt, claimedAt)))
-        .returning({ id: reportExternalLink.id })
-      if (updated.length === 0) console.error("tracker send lost its claim", { reportId, integrationId, ...values })
-      const link = await loadLink(reportId, integrationId)
+      if (!(await finishLink(db, reportId, integrationId, claimedAt, values))) {
+        console.error("tracker send lost its claim", { reportId, integrationId, ...values })
+      }
+      const link = await findLink(db, reportId, integrationId)
       if (link) return link
       // The link row goes with its report or its integration; say which one is gone.
-      const [stillThere] = await db
-        .select({ id: integration.id })
-        .from(integration)
-        .where(eq(integration.id, integrationId))
-        .limit(1)
-      throw stillThere
+      throw (await integrationExists(db, integrationId))
         ? notFound("report_not_found", "Report not found")
         : notFound("integration_not_found", "Integration not found")
     }
@@ -139,17 +91,11 @@ export function createDispatcher(deps: { config: Config; db: Db; storage: Storag
 
   /** Sends a just-finalized report to every auto-send integration of its project. */
   async function autoSend(reportId: string): Promise<void> {
-    const [row] = await db.select({ projectId: report.projectId }).from(report).where(eq(report.id, reportId)).limit(1)
+    const row = await findReportProject(db, reportId, false)
     if (!row?.projectId) return
-    const targets = await db
-      .select({ id: integration.id })
-      .from(integration)
-      .where(
-        and(eq(integration.projectId, row.projectId), eq(integration.autoSend, true), inArray(integration.provider, [...TRACKER_PROVIDERS])),
-      )
-    for (const target of targets) {
+    for (const target of await listAutoSendTrackers(db, row.projectId)) {
       try {
-        await send(reportId, target.id)
+        await send(reportId, target)
       } catch (error) {
         if (!(error instanceof AppError && error.code === "send_in_progress")) console.error("auto-send failed", error)
       }
@@ -157,7 +103,7 @@ export function createDispatcher(deps: { config: Config; db: Db; storage: Storag
   }
 
   async function linksFor(reportId: string): Promise<TrackerLink[]> {
-    return db.select(linkColumns).from(reportExternalLink).where(eq(reportExternalLink.reportId, reportId))
+    return listLinks(db, reportId)
   }
 
   return { send, autoSend, linksFor }

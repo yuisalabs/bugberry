@@ -1,14 +1,13 @@
 import { TRACKER_PROVIDERS } from "@bugberry/shared"
-import { and, eq } from "drizzle-orm"
 import { Elysia } from "elysia"
 import type { AppDeps } from "../../deps"
 import { authPlugin } from "../../plugins/auth"
-import { report } from "../../db/schema"
 import { usesOfProject } from "../integrations/resolve"
 import { notFound } from "../../lib/errors"
 import { createDispatcher } from "./dispatch"
 import { requireReportMember } from "../workspaces/access"
 import { trackerFactoryFor } from "./default"
+import { findReportProject } from "./repository"
 
 export function trackersModule(deps: AppDeps) {
   const { db } = deps
@@ -20,11 +19,7 @@ export function trackersModule(deps: AppDeps) {
       "/reports/:id/trackers",
       async ({ user, params }) => {
         await requireReportMember(db, user.id, params.id)
-        const [row] = await db
-          .select({ projectId: report.projectId })
-          .from(report)
-          .where(and(eq(report.id, params.id), eq(report.uploadStatus, "ready")))
-          .limit(1)
+        const row = await findReportProject(db, params.id, true)
         if (!row) throw notFound("report_not_found", "Report not found")
         if (!row.projectId) return { integrations: [], links: await dispatcher.linksFor(params.id), needsProject: true }
         const uses = await usesOfProject(db, row.projectId, TRACKER_PROVIDERS)

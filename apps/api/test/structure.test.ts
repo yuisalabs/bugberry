@@ -26,10 +26,6 @@ const PENDING = new Set<string>([
   "mcp/tools/write.ts",
   "modules/ai/index.ts",
   "modules/ai/setup.ts",
-  "modules/connections/index.ts",
-  "modules/integrations/index.ts",
-  "modules/integrations/resolve.ts",
-  "modules/notifiers/deliver.ts",
   "modules/onboarding/progress.ts",
   "modules/reports/agent-uploads.ts",
   "modules/reports/detail.ts",
@@ -39,8 +35,6 @@ const PENDING = new Set<string>([
   "modules/reports/upload-flow.ts",
   "modules/reports/uploads.ts",
   "modules/share/index.ts",
-  "modules/trackers/dispatch.ts",
-  "modules/trackers/index.ts",
 ])
 
 async function violators(): Promise<string[]> {
