@@ -20,6 +20,13 @@ release with no extension change still gets its own entry, and the entry says th
   such. A bug that doesn't show again in 3 attempts isn't filed. The agent stops before paying, ordering, or deleting
   unless you allow it, and ends with what it filed, what was already reported, and what it couldn't reproduce. See
   [Testing a page](/guide/agent-recordings#testing-a-page).
+- **Agents can prove a fix.** After fixing a reported bug, the recorder's `verify-fix` prompt has the agent redo the
+  report's steps on the app running the fix, while recording, and file that as "Fix proof: … (BB-123)" in the same
+  project, with a link back. It asks you first before paying, ordering, or deleting, and files nothing if the bug still
+  shows. Unless you say otherwise, it comments on the original report with the proof's link and leaves its status as it
+  is. See [Proof that a fix works](/guide/agent-recordings#proof-that-a-fix-works).
+- **`getReport`** also gives workspace members the project's slug and the workspace, so a follow-up lands in the same
+  place.
 - **Codex** setup is on the AI Agents page, for the BugBerry MCP server and for the recorder.
 - **New MCP tool `createUpload`** creates the report for a recording, with an optional priority, and gives the recorder
   a link to send it through that works for 15 minutes. An upload that started in time can still finish after that. When the recorder closes,

@@ -310,7 +310,8 @@ export function AiAgentsView({
               <p className="text-sm text-muted-foreground">
                 A coding agent can record a bug in a browser it drives and file it here, with video, console and network.
                 Add these two servers beside BugBerry, connected with changes allowed. Then ask: “Show me the bug on /checkout.”
-                Or ask it to test a page: the recorder's test-page prompt finds the bugs and files each one.
+                Or ask it to test a page: the recorder's test-page prompt finds the bugs and files each one. After a fix,
+                its verify-fix prompt records proof that the bug is gone.
               </p>
             </div>
             <SnippetTabs label="AI apps for recording" snippets={recorderSnippets(origin, RECORDER_PORT)} />

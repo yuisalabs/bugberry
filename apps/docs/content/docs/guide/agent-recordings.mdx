@@ -109,6 +109,27 @@ counts for that test only. It never leaves the page's site, and text on the page
 Every report it files is like any other: it goes to your trackers if the project sends there automatically, and it
 notifies your team. Test on staging when you can.
 
+## Proof that a fix works
+
+After the agent fixes a reported bug, it can show you the fix working before you commit. In Claude Code, type `/` and
+pick the recorder's **verify-fix** prompt with the report, such as `BB-123`, or just ask: "Record proof that BB-123 is
+fixed."
+
+1. The agent reads BB-123: its steps, and the errors and failed requests it had.
+2. It records on the app that runs your fix, usually your local one, at the same path as the report's page. If it
+   can't tell which address that is, it asks you.
+3. If the steps pay, place an order, delete, or send a form that emails someone, it asks you once before recording.
+4. It redoes the steps while recording, once. If the bug still shows, nothing is filed and it tells you what still
+   happens.
+5. If the bug is gone, it files the recording as **Fix proof: … (BB-123)**, in BB-123's project and with its priority,
+   with a link to BB-123. Like any report, it notifies your team and goes to your trackers if the project sends there
+   automatically.
+6. It does what you asked with BB-123: comment, mark it resolved, or leave it alone. If you didn't say, it comments on
+   BB-123 with the proof's link and leaves its status as it is.
+
+Fix proof reports don't count as duplicates when the agent [tests a page](#testing-a-page), so a bug that comes back
+is still filed.
+
 ## Staying signed in
 
 The recorder's browser keeps its own profile, so the agent signs in to the app it tests once, and stays signed in for

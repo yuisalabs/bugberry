@@ -68,6 +68,11 @@ describe("AiAgentsView", () => {
     expect(screen.getByText(/claude mcp add bugberry-recorder/)).toBeTruthy()
   })
 
+  test("recorder card mentions fix proof", () => {
+    render(<AiAgentsView {...base} />)
+    expect(screen.getByText(/verify-fix/)).toBeTruthy()
+  })
+
   test("recorder card mentions testing a page", () => {
     render(<AiAgentsView {...base} />)
     expect(screen.getByText(/test-page/)).toBeTruthy()
