@@ -1,81 +1,13 @@
-import {
-  INTEGRATION_PROVIDERS,
-  integrationKind,
-  isTrackerProvider,
-  type NotifierConfig,
-  type TrackerConfig,
-  targetKey,
-  type UseTarget,
-} from "@bugberry/shared"
-import { Elysia, t } from "elysia"
+import { Elysia } from "elysia"
 import type { AppDeps } from "../../deps"
 import { authPlugin } from "../../plugins/auth"
-import type { integration } from "../../db/schema"
-import { conflict, notFound, unprocessable } from "../../lib/errors"
-import { newId } from "../../lib/ids"
-import { loadUse, type ResolvedUse, usesOfProject } from "./resolve"
-import { normalizeTarget, targetBody } from "../connections/validate"
-import { notifierFactoryFor } from "../notifiers/deliver"
-import { testMessage } from "../notifiers/message"
-import { createSecretBox, SECRET_UNREADABLE, SecretError } from "../../lib/secret-box"
-import { trackerFactoryFor } from "../trackers/default"
-import { TrackerError } from "../trackers/providers"
 import { requireProjectRole } from "../workspaces/access"
-import { findConnection } from "../connections/repository"
-import { findProjectName } from "../projects/repository"
-import { deleteIntegration, insertIntegration, recordDelivery, updateIntegration } from "./repository"
-
-const createBody = t.Object({
-  connectionId: t.String({ minLength: 1 }),
-  target: targetBody,
-  autoSend: t.Optional(t.Boolean()),
-})
-/** A use's target never changes: changing it is removing the use and adding it again. */
-const patchBody = t.Object({
-  labels: t.Optional(t.Array(t.String({ minLength: 1, maxLength: 50 }), { maxItems: 10 })),
-  autoSend: t.Optional(t.Boolean()),
-  // Elysia drops unknown keys silently; a target sent here is refused instead (422).
-  target: t.Optional(t.Never()),
-})
-
-/** What a project sees of a use: never the connection's settings or secret. */
-function publicUse(use: ResolvedUse) {
-  return {
-    id: use.id,
-    projectId: use.projectId,
-    provider: use.provider,
-    kind: integrationKind(use.provider),
-    connection: { id: use.connectionId, name: use.connectionName },
-    target: use.target,
-    label: use.label,
-    autoSend: use.autoSend,
-    /** A notification channel's last delivery: when it worked, or why it failed. */
-    lastError: use.lastError,
-    lastDeliveredAt: use.lastDeliveredAt,
-    createdAt: use.createdAt,
-  }
-}
-
-/** Postgres refused a duplicate (project, connection, target): the unique index does the deciding under races. */
-function isUniqueViolation(error: unknown): boolean {
-  for (let current = error; current; current = (current as { cause?: unknown }).cause) {
-    const code = (current as { errno?: unknown; code?: unknown }).errno ?? (current as { code?: unknown }).code
-    if (code === "23505") return true
-  }
-  return false
-}
+import { createBody, patchBody } from "./model"
+import { createIntegrationsService } from "./service"
 
 export function integrationsModule(deps: AppDeps) {
   const { db } = deps
-  const box = createSecretBox(deps.config.encryptionKey)
-  const trackers = trackerFactoryFor(deps)
-  const notifiers = notifierFactoryFor(deps)
-
-  const find = async (projectId: string, id: string) => {
-    const use = await loadUse(db, id)
-    if (!use || use.projectId !== projectId) throw notFound("integration_not_found", "Integration not found")
-    return use
-  }
+  const integrations = createIntegrationsService(deps)
 
   return new Elysia()
     .use(authPlugin(deps))
@@ -83,7 +15,7 @@ export function integrationsModule(deps: AppDeps) {
       "/projects/:id/integrations",
       async ({ user, params }) => {
         await requireProjectRole(db, user.id, params.id)
-        return (await usesOfProject(db, params.id, INTEGRATION_PROVIDERS)).map(publicUse)
+        return integrations.list(params.id)
       },
       { auth: true },
     )
@@ -91,26 +23,7 @@ export function integrationsModule(deps: AppDeps) {
       "/projects/:id/integrations",
       async ({ user, params, body }) => {
         const workspaceId = await requireProjectRole(db, user.id, params.id)
-        const owner = await findConnection(db, workspaceId, body.connectionId)
-        if (!owner) throw notFound("connection_not_found", "Connection not found")
-        const target = normalizeTarget(owner.provider, body.target)
-        const id = newId()
-        try {
-          await insertIntegration(db, {
-            id,
-            projectId: params.id,
-            connectionId: owner.id,
-            provider: owner.provider,
-            config: target,
-            targetKey: targetKey(owner.provider, target),
-            // Only trackers send every report as an issue; notifiers always post new reports.
-            autoSend: isTrackerProvider(owner.provider) ? (body.autoSend ?? false) : false,
-          })
-        } catch (error) {
-          if (isUniqueViolation(error)) throw conflict("already_used", "This project already uses that connection for that target")
-          throw error
-        }
-        return publicUse(await find(params.id, id))
+        return integrations.create(workspaceId, params.id, body)
       },
       { auth: true, body: createBody },
     )
@@ -118,14 +31,7 @@ export function integrationsModule(deps: AppDeps) {
       "/projects/:id/integrations/:integrationId",
       async ({ user, params, body }) => {
         await requireProjectRole(db, user.id, params.id)
-        const use = await find(params.id, params.integrationId)
-        const changes: Partial<typeof integration.$inferInsert> = {}
-        if (body.labels && "labels" in use.target) {
-          changes.config = { ...use.target, labels: [...new Set(body.labels.map((label) => label.trim()).filter(Boolean))] } as UseTarget
-        }
-        if (body.autoSend !== undefined && isTrackerProvider(use.provider)) changes.autoSend = body.autoSend
-        if (Object.keys(changes).length > 0) await updateIntegration(db, use.id, changes)
-        return publicUse(await find(params.id, use.id))
+        return integrations.change(params.id, params.integrationId, body)
       },
       { auth: true, body: patchBody },
     )
@@ -133,10 +39,7 @@ export function integrationsModule(deps: AppDeps) {
       "/projects/:id/integrations/:integrationId",
       async ({ user, params }) => {
         await requireProjectRole(db, user.id, params.id)
-        const use = await find(params.id, params.integrationId)
-        // Links to issues already sent stay (report_external_link.integration_id is set null).
-        await deleteIntegration(db, use.id)
-        return { ok: true }
+        return integrations.remove(params.id, params.integrationId)
       },
       { auth: true },
     )
@@ -144,28 +47,7 @@ export function integrationsModule(deps: AppDeps) {
       "/projects/:id/integrations/:integrationId/test",
       async ({ user, params }) => {
         await requireProjectRole(db, user.id, params.id)
-        const use = await find(params.id, params.integrationId)
-        let secret: string
-        try {
-          secret = box.open(use.secretEncrypted)
-        } catch (error) {
-          if (error instanceof SecretError) throw conflict("secret_unreadable", SECRET_UNREADABLE)
-          throw error
-        }
-        try {
-          if (isTrackerProvider(use.provider)) {
-            await trackers(use.provider, use.config as TrackerConfig, secret).test()
-          } else {
-            // A notifier is tested by posting one message: no retries, so the answer comes at once.
-            const ownerName = await findProjectName(db, params.id)
-            await notifiers(use.provider, use.config as NotifierConfig, secret).send(testMessage(ownerName ?? "", deps.config.appUrl))
-            // It got through, so the channel works again: an old failure would mislead.
-            await recordDelivery(db, use.id, null, true)
-          }
-        } catch (error) {
-          throw unprocessable("integration_test_failed", error instanceof TrackerError ? error.message : "The connection test failed")
-        }
-        return { ok: true }
+        return integrations.test(params.id, params.integrationId)
       },
       { auth: true },
     )

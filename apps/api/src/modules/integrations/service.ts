@@ -1,0 +1,137 @@
+import {
+  INTEGRATION_PROVIDERS,
+  integrationKind,
+  isTrackerProvider,
+  type NotifierConfig,
+  type TrackerConfig,
+  targetKey,
+  type UseTarget,
+} from "@bugberry/shared"
+import type { AppDeps } from "../../deps"
+import type { integration } from "../../db/schema"
+import { conflict, notFound, unprocessable } from "../../lib/errors"
+import { newId } from "../../lib/ids"
+import { createSecretBox, SECRET_UNREADABLE, SecretError } from "../../lib/secret-box"
+import { findConnection } from "../connections/repository"
+import { normalizeTarget } from "../connections/validate"
+import { notifierFactoryFor } from "../notifiers/deliver"
+import { testMessage } from "../notifiers/message"
+import { findProjectName } from "../projects/repository"
+import { trackerFactoryFor } from "../trackers/default"
+import { TrackerError } from "../trackers/providers"
+import type { createBody, patchBody } from "./model"
+import { deleteIntegration, insertIntegration, recordDelivery, updateIntegration } from "./repository"
+import { loadUse, type ResolvedUse, usesOfProject } from "./resolve"
+
+/** What a project sees of a use: never the connection's settings or secret. */
+function publicUse(use: ResolvedUse) {
+  return {
+    id: use.id,
+    projectId: use.projectId,
+    provider: use.provider,
+    kind: integrationKind(use.provider),
+    connection: { id: use.connectionId, name: use.connectionName },
+    target: use.target,
+    label: use.label,
+    autoSend: use.autoSend,
+    /** A notification channel's last delivery: when it worked, or why it failed. */
+    lastError: use.lastError,
+    lastDeliveredAt: use.lastDeliveredAt,
+    createdAt: use.createdAt,
+  }
+}
+
+/** Postgres refused a duplicate (project, connection, target): the unique index does the deciding under races. */
+function isUniqueViolation(error: unknown): boolean {
+  for (let current = error; current; current = (current as { cause?: unknown }).cause) {
+    const code = (current as { errno?: unknown; code?: unknown }).errno ?? (current as { code?: unknown }).code
+    if (code === "23505") return true
+  }
+  return false
+}
+
+/** A project's uses of its workspace's connections: where each sends, and testing it. */
+export function createIntegrationsService(deps: Pick<AppDeps, "config" | "db" | "trackers" | "notifiers">) {
+  const { db } = deps
+  const box = createSecretBox(deps.config.encryptionKey)
+  const trackers = trackerFactoryFor(deps)
+  const notifiers = notifierFactoryFor(deps)
+
+  const find = async (projectId: string, id: string) => {
+    const use = await loadUse(db, id)
+    if (!use || use.projectId !== projectId) throw notFound("integration_not_found", "Integration not found")
+    return use
+  }
+
+  return {
+    async list(projectId: string) {
+      return (await usesOfProject(db, projectId, INTEGRATION_PROVIDERS)).map(publicUse)
+    },
+
+    async create(workspaceId: string, projectId: string, body: typeof createBody.static) {
+      const owner = await findConnection(db, workspaceId, body.connectionId)
+      if (!owner) throw notFound("connection_not_found", "Connection not found")
+      const target = normalizeTarget(owner.provider, body.target)
+      const id = newId()
+      try {
+        await insertIntegration(db, {
+          id,
+          projectId,
+          connectionId: owner.id,
+          provider: owner.provider,
+          config: target,
+          targetKey: targetKey(owner.provider, target),
+          // Only trackers send every report as an issue; notifiers always post new reports.
+          autoSend: isTrackerProvider(owner.provider) ? (body.autoSend ?? false) : false,
+        })
+      } catch (error) {
+        if (isUniqueViolation(error)) throw conflict("already_used", "This project already uses that connection for that target")
+        throw error
+      }
+      return publicUse(await find(projectId, id))
+    },
+
+    async change(projectId: string, integrationId: string, body: typeof patchBody.static) {
+      const use = await find(projectId, integrationId)
+      const changes: Partial<typeof integration.$inferInsert> = {}
+      if (body.labels && "labels" in use.target) {
+        changes.config = { ...use.target, labels: [...new Set(body.labels.map((label) => label.trim()).filter(Boolean))] } as UseTarget
+      }
+      if (body.autoSend !== undefined && isTrackerProvider(use.provider)) changes.autoSend = body.autoSend
+      if (Object.keys(changes).length > 0) await updateIntegration(db, use.id, changes)
+      return publicUse(await find(projectId, use.id))
+    },
+
+    /** Links to issues already sent stay (report_external_link.integration_id is set null). */
+    async remove(projectId: string, integrationId: string) {
+      const use = await find(projectId, integrationId)
+      await deleteIntegration(db, use.id)
+      return { ok: true }
+    },
+
+    async test(projectId: string, integrationId: string) {
+      const use = await find(projectId, integrationId)
+      let secret: string
+      try {
+        secret = box.open(use.secretEncrypted)
+      } catch (error) {
+        if (error instanceof SecretError) throw conflict("secret_unreadable", SECRET_UNREADABLE)
+        throw error
+      }
+      try {
+        if (isTrackerProvider(use.provider)) {
+          await trackers(use.provider, use.config as TrackerConfig, secret).test()
+        } else {
+          // A notifier is tested by posting one message: no retries, so the answer comes at once.
+          const ownerName = await findProjectName(db, projectId)
+          await notifiers(use.provider, use.config as NotifierConfig, secret).send(testMessage(ownerName ?? "", deps.config.appUrl))
+          // It got through, so the channel works again: an old failure would mislead.
+          await recordDelivery(db, use.id, null, true)
+        }
+      } catch (error) {
+        throw unprocessable("integration_test_failed", error instanceof TrackerError ? error.message : "The connection test failed")
+      }
+      return { ok: true }
+    },
+  }
+}
