@@ -1,14 +1,13 @@
-import { eq } from "drizzle-orm"
 import { Elysia, t } from "elysia"
 import type { AppDeps } from "../../deps"
 import { authPlugin } from "../../plugins/auth"
-import { pendingProjectLogo, project } from "../../db/schema"
 import { notFound, payloadTooLarge, tooManyRequests, unprocessable } from "../../lib/errors"
 import { newId } from "../../lib/ids"
 import { checkUploadedImage, IMAGE_EXTENSIONS, imageIdType, MAX_IMAGE_BYTES } from "../../lib/image-upload"
 import { createRateLimiter } from "../../lib/rate-limit"
 import { projectLogoKeyFor } from "../../storage/keys"
 import { requireProjectRole } from "../workspaces/access"
+import { deletePendingProjectLogo, findPendingProjectLogo, findProject, setPendingProjectLogo, updateProject } from "./repository"
 
 /** Each upload target lets an admin put up to 2 MB in storage, so they are capped per project. */
 const UPLOADS_PER_PROJECT_PER_HOUR = 20
@@ -20,7 +19,7 @@ export function projectLogoModule(deps: AppDeps) {
   const logoUrl = (projectId: string, logoId: string) => `${config.appUrl}/api/project-logos/${projectId}/${logoId}`
 
   const current = async (projectId: string) => {
-    const [row] = await db.select().from(project).where(eq(project.id, projectId)).limit(1)
+    const row = await findProject(db, projectId)
     if (!row) throw notFound("project_not_found", "Project not found")
     return row
   }
@@ -33,7 +32,7 @@ export function projectLogoModule(deps: AppDeps) {
   }
   const setLogo = async (projectId: string, url: string | null) => {
     const before = await current(projectId)
-    const [updated] = await db.update(project).set({ logoUrl: url }).where(eq(project.id, projectId)).returning()
+    const updated = await updateProject(db, projectId, { logoUrl: url })
     const old = uploadedKey(projectId, before.logoUrl)
     if (old && old !== uploadedKey(projectId, url)) await storage.delete(old).catch(() => {})
     if (!updated) throw notFound("project_not_found", "Project not found")
@@ -50,14 +49,11 @@ export function projectLogoModule(deps: AppDeps) {
         if (!uploads.consume(params.id)) throw tooManyRequests()
         const logoId = `${newId()}.${IMAGE_EXTENSIONS[body.contentType]}`
         // The previous upload was never confirmed: it goes, unless it somehow became the logo in use.
-        const [previous] = await db.select().from(pendingProjectLogo).where(eq(pendingProjectLogo.projectId, params.id)).limit(1)
+        const previous = await findPendingProjectLogo(db, params.id)
         if (previous && (await current(params.id)).logoUrl !== logoUrl(params.id, previous.logoId)) {
           await storage.delete(projectLogoKeyFor(params.id, previous.logoId)).catch(() => {})
         }
-        await db
-          .insert(pendingProjectLogo)
-          .values({ projectId: params.id, logoId })
-          .onConflictDoUpdate({ target: pendingProjectLogo.projectId, set: { logoId, createdAt: new Date() } })
+        await setPendingProjectLogo(db, params.id, logoId)
         const upload = await storage.createUploadTarget(projectLogoKeyFor(params.id, logoId), {
           contentType: body.contentType,
           maxBytes: body.size,
@@ -79,7 +75,7 @@ export function projectLogoModule(deps: AppDeps) {
         if (verdict === "missing") throw notFound("logo_not_found", "Logo not found")
         if (verdict === "too_large") throw payloadTooLarge("Logos can be up to 2 MB")
         if (verdict === "invalid") throw unprocessable("invalid_image", "Use a PNG or JPG logo")
-        await db.delete(pendingProjectLogo).where(eq(pendingProjectLogo.projectId, params.id))
+        await deletePendingProjectLogo(db, params.id)
         return setLogo(params.id, logoUrl(params.id, params.logoId))
       },
       { auth: true },

@@ -31,8 +31,6 @@ const PENDING = new Set<string>([
   "modules/integrations/resolve.ts",
   "modules/notifiers/deliver.ts",
   "modules/onboarding/progress.ts",
-  "modules/projects/index.ts",
-  "modules/projects/logo.ts",
   "modules/reports/agent-uploads.ts",
   "modules/reports/detail.ts",
   "modules/reports/index.ts",
