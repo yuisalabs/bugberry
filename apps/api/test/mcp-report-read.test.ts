@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js"
-import { comment } from "../src/db/schema"
+import { eq } from "drizzle-orm"
+import { comment, project, workspace } from "../src/db/schema"
 import { newId } from "../src/lib/ids"
 import { nextSteps } from "../src/mcp/tools/report-read"
 import type { LocalStorageDriver } from "../src/storage/local"
@@ -73,6 +74,31 @@ describe("getReport", () => {
     expect(text).not.toContain("Comments:")
     expect(text).toContain("read-only")
     expect(structured).toMatchObject({ access: "viewer" })
+  })
+
+  test("a member gets the project slug and the workspace", async () => {
+    const report = await sampleReport()
+    const [own] = await ctx.db.select({ slug: project.slug }).from(project).where(eq(project.id, report.projectId ?? ""))
+    const [space] = await ctx.db.select({ slug: workspace.slug }).from(workspace).where(eq(workspace.id, report.workspaceId))
+    const { text, structured } = await callTool(client, "getReport", { report: `BB-${report.number}` })
+    expect(structured).toMatchObject({ projectSlug: own?.slug, workspace: space?.slug })
+    expect(text).toContain(`Project slug: ${own?.slug}`)
+  })
+
+  test("a share viewer gets no project slug or workspace", async () => {
+    const report = await sampleReport({ visibility: "public" })
+    const outsider = await createUserWithToken(ctx.db, { workspaceId: null, email: "eve@kantor.test" })
+    const viewer = await mcpClient(ctx.app, outsider.headers)
+    const { text, structured } = await callTool(viewer, "getReport", { report: `http://localhost:3000/s/${report.shareSlug}` })
+    expect(structured).toMatchObject({ projectSlug: null, workspace: null })
+    expect(text).not.toContain("Project slug:")
+  })
+
+  test("no project gives null", async () => {
+    const report = await sampleReport({ projectId: null })
+    const [space] = await ctx.db.select({ slug: workspace.slug }).from(workspace).where(eq(workspace.id, report.workspaceId))
+    const { structured } = await callTool(client, "getReport", { report: `BB-${report.number}` })
+    expect(structured).toMatchObject({ projectSlug: null, workspace: space?.slug })
   })
 
   test("works without debugger data", async () => {

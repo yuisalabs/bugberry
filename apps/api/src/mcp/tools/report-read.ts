@@ -2,7 +2,7 @@ import type { CaptureType, DebuggerSummary } from "@bugberry/shared"
 import { consoleEntries, environmentRows } from "@bugberry/debugger-view"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { count, eq } from "drizzle-orm"
-import { comment, project, report, reportExternalLink } from "../../db/schema"
+import { comment, project, report, reportExternalLink, workspace } from "../../db/schema"
 import { loadReportDetail } from "../../modules/reports/detail"
 import { createCommentsService } from "../../modules/comments/service"
 import { renderMentions } from "../../modules/comments/mentions"
@@ -39,8 +39,14 @@ export async function reportSummary(ctx: McpContext, resolved: ResolvedReport) {
   const data = await loadDebuggerData(ctx, resolved)
   const view = data === "unreadable" ? null : data
   const [projectRow] = detail.projectId
-    ? await deps.db.select({ name: project.name }).from(project).where(eq(project.id, detail.projectId)).limit(1)
+    ? await deps.db.select({ name: project.name, slug: project.slug }).from(project).where(eq(project.id, detail.projectId)).limit(1)
     : []
+  // Where a member files a follow-up (a fix proof) for this report; a share viewer can't file there, so isn't told.
+  const [workspaceRow] = member
+    ? await deps.db.select({ slug: workspace.slug }).from(workspace).where(eq(workspace.id, resolved.workspaceId)).limit(1)
+    : []
+  const projectSlug = member ? (projectRow?.slug ?? null) : null
+  const workspaceSlug = workspaceRow?.slug ?? null
   const trackers = member
     ? await deps.db
         .select({ url: reportExternalLink.externalUrl, error: reportExternalLink.error })
@@ -66,6 +72,7 @@ export async function reportSummary(ctx: McpContext, resolved: ResolvedReport) {
     `Status: ${detail.status} · Priority: ${detail.priority} · Project: ${projectRow?.name ?? "none"}`,
     `Reporter: ${detail.reporter.name}${detail.reporterEmail ? ` <${detail.reporterEmail}>` : ""} · Assignee: ${detail.assignee?.name ?? "nobody"}`,
     `Created: ${detail.createdAt.toISOString()} · Link: ${url}`,
+    ...(member ? [`Project slug: ${projectSlug ?? "none"} · Workspace: ${workspaceSlug ?? "none"}`] : []),
     ...(member ? [] : ["Access: read-only through the report's share link (comments and changes need workspace membership)."]),
     "",
     `Page: ${detail.pageTitle ? `${detail.pageTitle} · ` : ""}${detail.pageUrl}`,
@@ -102,6 +109,8 @@ export async function reportSummary(ctx: McpContext, resolved: ResolvedReport) {
     status: detail.status,
     priority: detail.priority,
     project: projectRow?.name ?? null,
+    projectSlug,
+    workspace: workspaceSlug,
     access: resolved.access,
     url,
     pageUrl: detail.pageUrl,
