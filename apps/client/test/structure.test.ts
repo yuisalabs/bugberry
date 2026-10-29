@@ -30,8 +30,6 @@ const PENDING = new Set<string>([
   "components/ReportsBrowser.tsx",
   "components/ReportsView.tsx",
   "components/VideoOverlay.tsx",
-  "components/ai/AiWritingSettings.tsx",
-  "components/ai/TemplatesList.tsx",
   "components/comments/ActivityLine.tsx",
   "components/comments/CommentItem.tsx",
   "components/comments/CommentThread.tsx",
@@ -64,7 +62,6 @@ const PENDING = new Set<string>([
   "pages/JoinPage.tsx",
   "pages/ReportPage.tsx",
   "pages/SharePage.tsx",
-  "pages/settings/AiAgentsPage.tsx",
   "pages/settings/MembersPage.tsx",
   "pages/settings/WorkspaceSettingsPage.tsx",
 ])

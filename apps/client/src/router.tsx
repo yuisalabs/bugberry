@@ -166,7 +166,7 @@ const membersRoute = createRoute({ getParentRoute: () => authedRoute, path: "/ap
 const aiAgentsRoute = createRoute({
   getParentRoute: () => authedRoute,
   path: "/app/settings/ai",
-  component: lazyRouteComponent(() => import("./pages/settings/AiAgentsPage"), "AiAgentsPage"),
+  component: lazyRouteComponent(() => import("./features/ai/AiAgentsPage"), "AiAgentsPage"),
 })
 
 /** Anyone signed in: their own name, photo and sign-in methods. */

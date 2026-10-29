@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, mock, test } from "bun:test"
 import { act, fireEvent, render, screen, within } from "@testing-library/react"
-import { AGENT_PROMPT, AiAgentsView, connectSnippets, recorderSnippets, reportLinkForms } from "../src/pages/settings/AiAgentsPage"
+import { AiAgentsView } from "../src/features/ai/AiAgentsView"
+import { AGENT_PROMPT, connectSnippets, recorderSnippets, reportLinkForms } from "../src/features/ai/snippets"
 
 const ORIGIN = "https://bugberry.kantor.test"
 const base = {

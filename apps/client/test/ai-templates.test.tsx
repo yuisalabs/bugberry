@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test"
 import { act, fireEvent, render, screen, within } from "@testing-library/react"
-import { TemplatesListView } from "../src/components/ai/TemplatesList"
+import { TemplatesListView } from "../src/features/ai/TemplatesList"
 
 const templates = [
   { id: "t1", name: "Steps to reproduce", skeleton: "## Steps to reproduce\n## Expected", instructions: "", updatedAt: new Date(0) },

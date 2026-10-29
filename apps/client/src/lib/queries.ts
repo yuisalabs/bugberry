@@ -76,5 +76,4 @@ export const queries = {
     queryOptions({ queryKey: ["activity", reportId], queryFn: () => api.activity(reportId), refetchOnWindowFocus: true }),
   reportTrackers: (reportId: string) =>
     queryOptions({ queryKey: ["report-trackers", reportId], queryFn: () => api.reportTrackers(reportId) }),
-  ai: (workspaceId: string) => queryOptions({ queryKey: ["ai", workspaceId], queryFn: () => api.aiSetup(workspaceId) }),
 }

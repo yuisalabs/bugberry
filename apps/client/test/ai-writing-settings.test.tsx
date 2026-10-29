@@ -1,8 +1,8 @@
 import { describe, expect, mock, test } from "bun:test"
 import { act, fireEvent, render, screen } from "@testing-library/react"
-import { AiWritingSettingsView } from "../src/components/ai/AiWritingSettings"
-import type { AiSetup } from "../src/lib/api"
+import { AiWritingSettingsView } from "../src/features/ai/AiWritingSettings"
 import { choose } from "./fields"
+import type { AiSetup } from "../src/features/ai/queries"
 
 const templates = [
   { id: "t1", name: "Steps to reproduce", skeleton: "## Steps to reproduce", instructions: "", updatedAt: new Date(0) },

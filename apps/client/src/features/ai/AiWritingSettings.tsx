@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { type FormEvent, type ReactNode, useState } from "react"
 import { Button } from "@bugberry/ui/button"
 import { Description, Label } from "@bugberry/ui/field"
@@ -7,15 +7,14 @@ import { Radio, RadioField, RadioGroup } from "@bugberry/ui/radio"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@bugberry/ui/select"
 import { Switch, SwitchField } from "@bugberry/ui/switch"
 import { TextField } from "@bugberry/ui/text-field"
-import type { AiProviderInput, AiSettingsPatch, AiSetup } from "../../lib/api"
-import { api } from "../../lib/client"
 import { useCurrentWorkspace } from "../../lib/workspace"
-import { SettingsRowsSkeleton } from "../Skeletons"
-import { ErrorState } from "../ui"
+import { SettingsRowsSkeleton } from "../../components/Skeletons"
+import { ErrorState } from "../../components/ui"
 import { TemplatesList } from "./TemplatesList"
-import { queries } from "../../lib/queries"
+import { qk } from "../../lib/query/keys"
 import { errorMessage } from "../../lib/query/unwrap"
-import { projectQueries } from "../../features/projects/queries"
+import { projectQueries } from "../projects/queries"
+import { type AiProviderInput, aiQueries, type AiSettingsPatch, type AiSetup, removeAiProvider, saveAiProvider, useUpdateAiSettings } from "./queries"
 
 const card = "flex flex-col gap-5 rounded-2xl border border-border bg-background p-6 shadow-xs sm:p-8"
 const cardTitle = "font-heading text-lg font-semibold text-foreground"
@@ -224,10 +223,10 @@ export function AiWritingSettings() {
   const queryClient = useQueryClient()
   const { workspace } = useCurrentWorkspace()
   const workspaceId = workspace?.id ?? ""
-  const setup = useQuery({ ...queries.ai(workspaceId), enabled: Boolean(workspace) })
+  const setup = useQuery({ ...aiQueries.ai(workspaceId), enabled: Boolean(workspace) })
   const projects = useQuery({ ...projectQueries.projects(workspaceId), enabled: Boolean(workspace) })
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ["ai", workspaceId] })
-  const settings = useMutation({ mutationFn: (patch: AiSettingsPatch) => api.updateAiSettings(workspaceId, patch), onSettled: refresh })
+  const refresh = () => queryClient.invalidateQueries({ queryKey: qk.ai(workspaceId) })
+  const settings = useUpdateAiSettings(workspaceId)
 
   if (setup.isPending) return <SettingsRowsSkeleton />
   if (setup.isError) return <ErrorState error={setup.error} onRetry={() => void setup.refetch()} />
@@ -236,11 +235,11 @@ export function AiWritingSettings() {
       setup={setup.data}
       projects={(projects.data ?? []).map((entry) => ({ id: entry.id, name: entry.name }))}
       onSaveProvider={async (input) => {
-        await api.saveAiProvider(workspaceId, input)
+        await saveAiProvider(workspaceId, input)
         await refresh()
       }}
       onRemoveProvider={async () => {
-        await api.removeAiProvider(workspaceId)
+        await removeAiProvider(workspaceId)
         await refresh()
       }}
       onChangeSettings={async (patch) => {

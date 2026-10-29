@@ -8,10 +8,10 @@ import { Description, Label } from "@bugberry/ui/field"
 import { Input } from "@bugberry/ui/input"
 import { Textarea } from "@bugberry/ui/textarea"
 import { TextField } from "@bugberry/ui/text-field"
-import type { AiSetup, AiTemplateInput } from "../../lib/api"
-import { api } from "../../lib/client"
-import { Badge } from "../ui"
+import { qk } from "../../lib/query/keys"
+import { Badge } from "../../components/ui"
 import { errorMessage } from "../../lib/query/unwrap"
+import { type AiSetup, type AiTemplateInput, createAiTemplate, deleteAiTemplate, updateAiTemplate } from "./queries"
 
 type Template = AiSetup["templates"][number]
 
@@ -173,22 +173,22 @@ export function TemplatesListView({
 /** The list wired to the workspace's templates. */
 export function TemplatesList({ workspaceId, setup }: { workspaceId: string; setup: AiSetup }) {
   const queryClient = useQueryClient()
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ["ai", workspaceId] })
+  const refresh = () => queryClient.invalidateQueries({ queryKey: qk.ai(workspaceId) })
   return (
     <TemplatesListView
       templates={setup.templates}
       defaultTemplateId={setup.defaultTemplateId}
       usedByProjects={setup.projectDefaults.flatMap((entry) => (entry.templateId ? [entry.templateId] : []))}
       onCreate={async (input) => {
-        await api.createAiTemplate(workspaceId, input)
+        await createAiTemplate(workspaceId, input)
         await refresh()
       }}
       onUpdate={async (id, input) => {
-        await api.updateAiTemplate(workspaceId, id, input)
+        await updateAiTemplate(workspaceId, id, input)
         await refresh()
       }}
       onDelete={async (id) => {
-        await api.deleteAiTemplate(workspaceId, id)
+        await deleteAiTemplate(workspaceId, id)
         await refresh()
       }}
     />

@@ -1,34 +1,15 @@
-import {
-  RiBookOpenLine,
-  RiChat3Line,
-  RiCursorLine,
-  RiKey2Line,
-  RiMessage2Line,
-  RiPlugLine,
-  RiProgress4Line,
-  RiRobot2Line,
-  RiServerLine,
-  RiSparkling2Line,
-  RiTerminalBoxLine,
-  RiTerminalLine,
-  type RemixiconComponentType,
-} from "@remixicon/react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { RiBookOpenLine, RiChat3Line, RiKey2Line, RiPlugLine, RiServerLine } from "@remixicon/react"
 import { type ReactNode, useState } from "react"
-import { Tab, TabList, TabPanel, Tabs } from "react-aria-components"
 import { Button, buttonStyles } from "@bugberry/ui/button"
 import { Input } from "@bugberry/ui/input"
 import { TextField } from "@bugberry/ui/text-field"
-import { AiWritingSettings } from "../../components/ai/AiWritingSettings"
 import { BrandedHeader } from "../../components/BrandedHeader"
-import { SettingsTabs } from "../../components/SettingsTabs"
-import { SettingsPageSkeleton } from "../../components/Skeletons"
-import { CopyButton, ErrorState } from "../../components/ui"
-import { api } from "../../lib/client"
+import { CopyButton } from "../../components/ui"
 import { DOCS_URL } from "../../lib/docs-url"
 import { formatDateTime } from "../../lib/format"
 import { useConfirm } from "@bugberry/ui/confirm-dialog"
-import { errorMessage } from "../../lib/query/unwrap"
+import { SnippetTabs } from "./SnippetTabs"
+import { AGENT_CAN, AGENT_PROMPT, connectSnippets, RECORDER_PORT, recorderSnippets, reportLinkForms } from "./snippets"
 
 export interface TokenRow {
   id: string
@@ -46,135 +27,10 @@ export interface ConnectedApp {
   lastUsedAt: Date | string | null
 }
 
-/** How to add the server in each AI app: what to paste, and where. */
-export function connectSnippets(url: string): Array<{ id: string; label: string; where: string; code: string }> {
-  const json = (value: unknown) => JSON.stringify(value, null, 2)
-  return [
-    { id: "claude-code", label: "Claude Code", where: "Run in a terminal, then sign in when Claude Code asks.", code: `claude mcp add --transport http bugberry ${url}` },
-    { id: "claude-ai", label: "Claude.ai", where: "Settings → Connectors → Add custom connector, then paste this URL.", code: url },
-    {
-      id: "codex",
-      label: "Codex",
-      where: "Run both in a terminal; the second signs you in.",
-      code: [`codex mcp add bugberry --url ${url}`, "codex mcp login bugberry"].join("\n"),
-    },
-    { id: "cursor", label: "Cursor", where: "Add to ~/.cursor/mcp.json (or .cursor/mcp.json in a project).", code: json({ mcpServers: { bugberry: { url } } }) },
-    { id: "vscode", label: "VS Code", where: "Add to .vscode/mcp.json, or run “MCP: Add Server” and choose HTTP.", code: json({ servers: { bugberry: { type: "http", url } } }) },
-    { id: "windsurf", label: "Windsurf", where: "Add to ~/.codeium/windsurf/mcp_config.json.", code: json({ mcpServers: { bugberry: { serverUrl: url } } }) },
-    { id: "chatgpt", label: "ChatGPT", where: "Settings → Connectors → Create, then paste this URL.", code: url },
-  ]
-}
-
-/** Where the agent recorder's Chromium listens, as @bugberry/recorder starts it without --port. */
-export const RECORDER_PORT = 9555
-
-/** How to add the agent recorder and its browser in each coding agent: two local servers beside the MCP one. */
-export function recorderSnippets(serverUrl: string, port: number): Array<{ id: string; label: string; where: string; code: string }> {
-  const json = (value: unknown) => JSON.stringify(value, null, 2)
-  const recorder = { command: "npx", args: ["-y", "@bugberry/recorder", "--server", serverUrl] }
-  const browser = { command: "npx", args: ["@playwright/mcp@latest", "--cdp-endpoint", `http://127.0.0.1:${port}`] }
-  const servers = { "bugberry-recorder": recorder, "bugberry-browser": browser }
-  return [
-    {
-      id: "claude-code",
-      label: "Claude Code",
-      where: "Run both in a terminal.",
-      code: [
-        `claude mcp add bugberry-recorder -- ${[recorder.command, ...recorder.args].join(" ")}`,
-        `claude mcp add bugberry-browser -- ${[browser.command, ...browser.args].join(" ")}`,
-      ].join("\n"),
-    },
-    {
-      id: "codex",
-      label: "Codex",
-      where: "Run both in a terminal.",
-      code: [
-        `codex mcp add bugberry-recorder -- ${[recorder.command, ...recorder.args].join(" ")}`,
-        `codex mcp add bugberry-browser -- ${[browser.command, ...browser.args].join(" ")}`,
-      ].join("\n"),
-    },
-    { id: "cursor", label: "Cursor", where: "Add to ~/.cursor/mcp.json, beside bugberry.", code: json({ mcpServers: servers }) },
-    {
-      id: "vscode",
-      label: "VS Code",
-      where: "Add to .vscode/mcp.json, beside bugberry.",
-      code: json({ servers: Object.fromEntries(Object.entries(servers).map(([name, entry]) => [name, { type: "stdio", ...entry }])) }),
-    },
-    { id: "windsurf", label: "Windsurf", where: "Add to ~/.codeium/windsurf/mcp_config.json.", code: json({ mcpServers: servers }) },
-  ]
-}
-
-/** One tab per AI app, each with where to paste its setup and a copy button. */
-function SnippetTabs({ label, snippets }: { label: string; snippets: ReturnType<typeof connectSnippets> }) {
-  return (
-    <Tabs defaultSelectedKey="claude-code" className="flex flex-col gap-3">
-      <TabList aria-label={label} className="grid grid-cols-3 gap-1 rounded-xl bg-muted p-1 sm:grid-cols-6">
-        {snippets.map((item) => (
-          <Tab
-            key={item.id}
-            id={item.id}
-            className="rounded-lg px-2 py-2 text-center text-sm whitespace-nowrap text-muted-foreground outline-hidden transition hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring selected:bg-background selected:font-medium selected:text-foreground selected:shadow-xs"
-          >
-            {item.label}
-          </Tab>
-        ))}
-      </TabList>
-      {snippets.map((item) => (
-        <TabPanel key={item.id} id={item.id} className="flex flex-col gap-3 outline-hidden">
-          <p className="flex items-start gap-2 text-sm text-foreground">
-            <RiTerminalBoxLine aria-hidden className="mt-0.5 size-4 shrink-0 text-primary" />
-            {item.where}
-          </p>
-          <div className={codeBlock}>
-            <pre className="overflow-x-auto break-words whitespace-pre-wrap">
-              {item.id === "claude-code" && (
-                <span aria-hidden className="mr-3 text-primary select-none">
-                  $
-                </span>
-              )}
-              <code>{item.code}</code>
-            </pre>
-            <CopyButton
-              text={item.code}
-              label="Copy"
-              className="absolute top-3 right-3 border-background/15 bg-background/10 text-background hover:bg-background/20"
-            />
-          </div>
-        </TabPanel>
-      ))}
-    </Tabs>
-  )
-}
-
 const when = (value: Date | string | null) => (value ? formatDateTime(value) : "never")
-
-/** The prompt step 3 offers to copy; the person adds their report's link after it. */
-export const AGENT_PROMPT = "Fix this bug: "
-
-/**
- * The report links an agent can be given on this server, as the MCP server reads them (parseReportRef): the
- * report page's address and a share link. Both need this server's full origin.
- */
-export function reportLinkForms(origin: string): Array<{ link: string; what: string }> {
-  return [
-    { link: `${origin}/app/r/…`, what: "the report's page" },
-    { link: `${origin}/s/…`, what: "a share link" },
-  ]
-}
 
 const card = "flex flex-col gap-5 rounded-3xl border border-border bg-background p-6"
 const cardTitle = "font-heading text-lg font-semibold text-foreground"
-
-/** What an agent can do with a report once it is connected, as the side card lists it. */
-const AGENT_CAN: Array<{ icon: RemixiconComponentType; title: string; text: string }> = [
-  { icon: RiTerminalLine, title: "Read console & network logs", text: "Errors, failed requests and stack traces" },
-  { icon: RiCursorLine, title: "Replay user steps", text: "Every click and keystroke before the bug" },
-  { icon: RiMessage2Line, title: "Comment on reports", text: "Post findings and fixes back to your team" },
-  { icon: RiProgress4Line, title: "Update status & priority", text: "Move a report to In review when a fix is ready" },
-]
-// A terminal look (the theme's ink as the background), so a command reads as something to paste.
-// On phones Copy sits above the command (pt-14) so the command has the whole width; wider, it sits beside it.
-const codeBlock = "relative rounded-xl bg-foreground p-4 pt-14 font-mono text-sm leading-6 text-background sm:pt-4 sm:pr-28"
 
 function Step({ number, title, children }: { number: number; title: string; children: ReactNode }) {
   return (
@@ -456,71 +312,6 @@ export function AiAgentsView({
         </div>
       </div>
       {dialog}
-    </section>
-  )
-}
-
-/** Connect AI apps to the MCP server, see which are connected, and manage personal tokens. */
-function McpAgents() {
-  const queryClient = useQueryClient()
-  const tokens = useQuery({ queryKey: ["mcp-tokens"], queryFn: () => api.mcpTokens() })
-  const apps = useQuery({ queryKey: ["oauth-apps"], queryFn: () => api.oauthApps() })
-  const [newToken, setNewToken] = useState<string | null>(null)
-  const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: ["mcp-tokens"] }), queryClient.invalidateQueries({ queryKey: ["oauth-apps"] })])
-
-  const create = useMutation({
-    mutationFn: (label: string) => api.createMcpToken(label),
-    onSuccess: async (created) => {
-      setNewToken(created.token)
-      await refresh()
-    },
-  })
-  const revokeToken = useMutation({ mutationFn: (id: string) => api.revokeMcpToken(id), onSuccess: refresh })
-  const revokeApp = useMutation({ mutationFn: (clientId: string) => api.revokeOAuthApp(clientId), onSuccess: refresh })
-
-  if (tokens.isPending || apps.isPending) return <SettingsPageSkeleton />
-  if (tokens.isError || apps.isError) {
-    return (
-      <ErrorState
-        error={tokens.error ?? apps.error}
-        onRetry={() => {
-          void tokens.refetch()
-          void apps.refetch()
-        }}
-      />
-    )
-  }
-  const failed = create.error ?? revokeToken.error ?? revokeApp.error
-  return (
-    <AiAgentsView
-      origin={window.location.origin}
-      tokens={tokens.data}
-      apps={apps.data}
-      newToken={newToken}
-      busy={create.isPending || revokeToken.isPending || revokeApp.isPending}
-      error={failed ? errorMessage(failed) : null}
-      onCreateToken={(label) => create.mutate(label)}
-      onRevokeToken={(id) => revokeToken.mutate(id)}
-      onRevokeApp={(clientId) => revokeApp.mutate(clientId)}
-      onDismissToken={() => setNewToken(null)}
-      header={false}
-    />
-  )
-}
-
-/** `/app/settings/ai`: AI agents through MCP, and Write with AI (the workspace's own key and templates) at #write. */
-export function AiAgentsPage() {
-  return (
-    <section className="flex flex-col gap-8">
-      <BrandedHeader title="AI" description="Draft reports with your own AI key, and let AI apps like Claude Code or Cursor read and work on them." />
-      <SettingsTabs
-        label="AI settings"
-        sections={[
-          // MCP stays first: the top bar's AI Agents link and every older link mean it. Write with AI is #write.
-          { id: "agents", label: "AI agents (MCP)", icon: RiRobot2Line, panel: <McpAgents /> },
-          { id: "write", label: "Write with AI", icon: RiSparkling2Line, panel: <AiWritingSettings /> },
-        ]}
-      />
     </section>
   )
 }

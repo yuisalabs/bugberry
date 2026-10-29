@@ -34,27 +34,6 @@ export interface ReportsQuery {
   perPage: number
 }
 
-export interface AiProviderInput {
-  preset: "openai" | "custom"
-  baseUrl?: string
-  model: string
-  /** Left out to keep the saved key. */
-  apiKey?: string
-}
-
-export interface AiTemplateInput {
-  name: string
-  /** The description's sections, as Markdown headings. */
-  skeleton: string
-  instructions: string
-}
-
-export interface AiSettingsPatch {
-  sendResponseBodies?: boolean
-  defaultTemplateId?: string | null
-  projectDefaults?: Array<{ projectId: string; templateId: string | null }>
-}
-
 export function createApi(origin: string = window.location.origin, fetcher: typeof fetch = fetch) {
   const { api } = treaty<App>(origin, { fetcher })
   return {
@@ -118,23 +97,9 @@ export function createApi(origin: string = window.location.origin, fetcher: type
     activity: (reportId: string) => unwrap(api.reports({ id: reportId }).activity.get()),
     /** "Book your demo" on the public site. */
     requestDemo: (input: DemoRequestInput) => unwrap(api["demo-requests"].post(input)),
-    mcpTokens: () => unwrap(api.me.tokens.get()),
-    createMcpToken: (label: string) => unwrap(api.me.tokens.post({ label })),
-    revokeMcpToken: (id: string) => unwrap(api.me.tokens({ id }).delete()),
-    oauthApps: () => unwrap(api.me["oauth-apps"].get()),
-    revokeOAuthApp: (clientId: string) => unwrap(api.me["oauth-apps"]({ clientId }).delete()),
     reportTrackers: (reportId: string) => unwrap(api.reports({ id: reportId }).trackers.get()),
     sendToTracker: (reportId: string, integrationId: string) =>
       unwrap(api.reports({ id: reportId }).trackers({ integrationId }).send.post()),
-    /** Write with AI: the team key (details for admins only), the switch, the defaults and the shared templates. */
-    aiSetup: (workspaceId: string) => unwrap(api.workspaces({ id: workspaceId }).ai.get()),
-    saveAiProvider: (workspaceId: string, body: AiProviderInput) => unwrap(api.workspaces({ id: workspaceId }).ai.provider.put(body)),
-    removeAiProvider: (workspaceId: string) => unwrap(api.workspaces({ id: workspaceId }).ai.provider.delete()),
-    updateAiSettings: (workspaceId: string, patch: AiSettingsPatch) => unwrap(api.workspaces({ id: workspaceId }).ai.settings.patch(patch)),
-    createAiTemplate: (workspaceId: string, body: AiTemplateInput) => unwrap(api.workspaces({ id: workspaceId }).ai.templates.post(body)),
-    updateAiTemplate: (workspaceId: string, id: string, body: Partial<AiTemplateInput>) =>
-      unwrap(api.workspaces({ id: workspaceId }).ai.templates({ templateId: id }).patch(body)),
-    deleteAiTemplate: (workspaceId: string, id: string) => unwrap(api.workspaces({ id: workspaceId }).ai.templates({ templateId: id }).delete()),
   }
 }
 
@@ -146,7 +111,6 @@ export type MyInvitation = Awaited<ReturnType<Api["myInvitations"]>>[number]
 export type JoinPreview = Awaited<ReturnType<Api["joinPreview"]>>
 export type WorkspaceAccess = Awaited<ReturnType<Api["workspaceAccess"]>>
 export type WorkspaceLimits = Awaited<ReturnType<Api["workspaceLimits"]>>
-export type AiSetup = Awaited<ReturnType<Api["aiSetup"]>>
 export type JoinRequest = Awaited<ReturnType<Api["joinRequests"]>>[number]
 export type InviteResult = Awaited<ReturnType<Api["invite"]>>[number]
 export type InvitationInfo = Awaited<ReturnType<Api["invitation"]>>
