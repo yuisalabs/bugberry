@@ -58,6 +58,21 @@ describe("createUpload", () => {
     expect(row).toMatchObject({ uploadStatus: "uploading", viaAgent: "AI agent", captureType: "video", title: "Pay fails", durationMs: 6000 })
   })
 
+  test("priority is stored on the report", async () => {
+    const result = await create({ priority: "high" })
+    expect((await rowOf((result.structured as { reportId: string }).reportId)).priority).toBe("high")
+  })
+
+  test("priority left out is none", async () => {
+    const result = await create()
+    expect((await rowOf((result.structured as { reportId: string }).reportId)).priority).toBe("none")
+  })
+
+  test("unknown priority is refused", async () => {
+    const result = await create({ priority: "urgent" })
+    expect(result.isError).toBe(true)
+  })
+
   test("project comes from URL patterns when not given", async () => {
     const shop = await createProject(ctx.db, { name: "Shop", urlPatterns: ["shop.kantor.test/*"] })
     await createProject(ctx.db, { name: "Admin", urlPatterns: ["admin.kantor.test/*"] })

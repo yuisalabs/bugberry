@@ -1,4 +1,4 @@
-import { MAX_THUMBNAIL_BYTES, matchProject } from "@bugberry/shared"
+import { MAX_THUMBNAIL_BYTES, matchProject, PRIORITIES } from "@bugberry/shared"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { and, eq, or } from "drizzle-orm"
 import { z } from "zod"
@@ -48,6 +48,13 @@ export function registerUploadTools(server: McpServer, ctx: McpContext): void {
         description: z.string().max(5000).describe("What you did, what happened, and what you expected."),
         project: z.string().min(1).max(200).optional().describe("Project id or slug; left out, the page URL picks it."),
         workspace: z.string().max(200).optional().describe("Workspace id or slug; left out, your current workspace."),
+        priority: z
+          .enum(PRIORITIES)
+          .optional()
+          .describe(
+            "How bad it is: critical when the flow can't be finished, high for errors and failed requests, medium for " +
+              "broken UI, low for typos, unclear text, slowness. Left out, none.",
+          ),
         recording: recordingArg,
       },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
@@ -82,6 +89,7 @@ export function registerUploadTools(server: McpServer, ctx: McpContext): void {
             projectId,
             title: args.title,
             description: args.description,
+            priority: args.priority,
             captureType: "video",
             multipart: true,
             mediaSize: recording.mediaSize,
