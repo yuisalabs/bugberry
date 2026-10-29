@@ -94,7 +94,7 @@ describe("HomeView", () => {
   test("the webhook sample uses the fields BugBerry really sends", () => {
     render(<HomeView signedIn={false} installUrl={null} />)
     const sample = screen.getByTestId("webhook-sample").textContent ?? ""
-    const sent = readFileSync(join(import.meta.dir, "..", "..", "api", "src", "lib", "notifiers", "channels.ts"), "utf8")
+    const sent = readFileSync(join(import.meta.dir, "..", "..", "api", "src", "modules", "notifiers", "channels.ts"), "utf8")
     const body = sent.slice(sent.indexOf("function webhookClient"), sent.indexOf("x-bugberry-event"))
     const keys = [...sample.matchAll(/"(\w+)":/g)].map((match) => match[1]!)
     expect(keys.length).toBeGreaterThan(5)
