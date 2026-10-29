@@ -97,4 +97,21 @@ describe("recorder MCP server", () => {
     expect(textOf(again)).toContain("Already sent")
     expect(textOf(again)).toContain("https://bugs.test/app/r/1")
   })
+  test("lists the test-page prompt", async () => {
+    const { prompts } = await (await connect(fakeSession())).listPrompts()
+    expect(prompts.map((prompt) => prompt.name)).toEqual(["test-page"])
+    const args = Object.fromEntries((prompts[0]?.arguments ?? []).map((arg) => [arg.name, arg.required ?? false]))
+    expect(args).toEqual({ url: true, flow: false })
+  })
+
+  test("test-page returns the instructions for the url", async () => {
+    const result = await (await connect(fakeSession())).getPrompt({ name: "test-page", arguments: { url: "https://shop.test/" } })
+    expect(result.messages).toHaveLength(1)
+    expect(result.messages[0]?.role).toBe("user")
+    expect((result.messages[0]?.content as { text: string }).text).toContain("Stay on https://shop.test")
+  })
+
+  test("instructions point to test-page", async () => {
+    expect((await connect(fakeSession())).getInstructions()).toContain("test-page")
+  })
 })

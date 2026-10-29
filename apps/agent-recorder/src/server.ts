@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js"
 import { z } from "zod"
 import packageJson from "../package.json"
+import { registerRecorderPrompts } from "./prompts"
 import type { RecorderSession, StoredRecording } from "./session"
 
 export type Submit = (recording: StoredRecording, uploadLink: string) => Promise<{ reportUrl: string }>
@@ -10,7 +11,8 @@ const INSTRUCTIONS =
   "Records a bug in a browser you drive, and files it in BugBerry with video, console, network and your actions. " +
   "Call startRecording, then use the bugberry-browser tools in the recorded tab only, then stopRecording. Write a title " +
   "and description, call createUpload on the BugBerry server with the recording object, then submitRecording here with " +
-  "the uploadLink it returns."
+  "the uploadLink it returns. To test a page and file every bug found, use the test-page prompt, or follow it when " +
+  "asked to test a page."
 
 const text = (body: string, structured?: Record<string, unknown>): CallToolResult => ({
   content: [{ type: "text", text: body }],
@@ -126,5 +128,6 @@ export function createRecorderServer(session: RecorderSession, submit: Submit): 
       }),
   )
 
+  registerRecorderPrompts(server)
   return server
 }

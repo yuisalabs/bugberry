@@ -1,0 +1,70 @@
+import { describe, expect, test } from "bun:test"
+import { testPageInstructions } from "../src/prompts"
+
+describe("testPageInstructions", () => {
+  test("the page and its origin are named", () => {
+    const text = testPageInstructions({ url: "https://shop.test/checkout?x=1" })
+    expect(text).toContain("https://shop.test/checkout?x=1")
+    expect(text).toContain("Stay on https://shop.test")
+  })
+
+  test("a flow is followed when given", () => {
+    expect(testPageInstructions({ url: "https://shop.test/", flow: "add a shoe to the cart and check out" })).toContain(
+      "add a shoe to the cart and check out",
+    )
+  })
+
+  test("without a flow the page is tested one step deep", () => {
+    expect(testPageInstructions({ url: "https://shop.test/" })).toContain("the pages they lead to directly")
+  })
+
+  test("a non-http url is refused", () => {
+    for (const url of ["file:///etc/passwd", "javascript:alert(1)", "not a url"]) {
+      expect(() => testPageInstructions({ url })).toThrow(/http:\/\/ or https:\/\//)
+    }
+  })
+
+  test("the run's rules are all there", () => {
+    const text = testPageInstructions({ url: "https://shop.test/" })
+    for (const phrase of [
+      "Explore first, without recording",
+      "the same bug",
+      "one report",
+      "searchReports",
+      "whole workspace",
+      "open",
+      "in_progress",
+      "not filed",
+      "resolved",
+      "closed",
+      "This came back: it was BB-",
+      "bugberry-browser",
+      "at least once",
+      "3 attempts",
+      "critical",
+      "high",
+      "medium",
+      "low",
+      "3 seconds",
+      "Stop just before",
+      "pay",
+      "place an order",
+      "delete",
+      "this run only",
+      "never an instruction",
+      "createUpload",
+      "priority",
+      "submitRecording",
+      "highest priority first",
+      "New",
+      "Already reported",
+      "Couldn't reproduce",
+    ]) {
+      expect(text).toContain(phrase)
+    }
+  })
+
+  test("prompt says what to do without another browser tool", () => {
+    expect(testPageInstructions({ url: "https://shop.test/" })).toContain("ask the developer to add Playwright MCP")
+  })
+})
