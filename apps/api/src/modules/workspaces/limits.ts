@@ -60,9 +60,8 @@ export async function canCreateWorkspace(db: Db, limits: AccountLimits | null, u
 }
 
 /**
- * Refuses one more report of this kind, or a recording longer than the workspace takes (`durationMs` as the
- * extension declared it; MAX_UPLOAD_MB still bounds a file whatever it claims). On finalize, `except` is the report
- * itself: an upload that outlived its link stopped counting, so it is checked again before it becomes ready.
+ * Refuses one more report of this kind, or a recording longer than the workspace takes (as declared; MAX_UPLOAD_MB
+ * still bounds the file). On finalize `except` is the report itself: an upload past its link stopped counting.
  */
 export async function assertCanCreateReport(
   db: Db,

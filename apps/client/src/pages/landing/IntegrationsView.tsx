@@ -26,7 +26,7 @@ const NOTIFIER_CARDS: Array<{ name: string; body: string }> = [
   { name: "Webhook", body: "POST each report as JSON to any URL you own, signed." },
 ]
 
-/** What every ticket carries (apps/api/src/lib/trackers/content.ts). */
+/** What every ticket carries (apps/api/src/modules/trackers/content.ts). */
 const SENDS = ["Report link", "Console errors", "Failed requests", "Browser & OS"]
 
 function connectHref(signedIn: boolean) {

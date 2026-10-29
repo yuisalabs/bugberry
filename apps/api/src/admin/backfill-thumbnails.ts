@@ -22,10 +22,8 @@ export function screenshotThumbnail(image: Uint8Array): Promise<Uint8Array> {
 }
 
 /**
- * Makes previews for screenshots sent before the extension uploaded one. Until then the report list shows the
- * full screenshot, often several megabytes, on every card. A dry run only lists them; with `apply` each one
- * gets a thumbnail like the extension's. One report failing never stops the others, and a second run finds only
- * what is still left. Older videos are left out: a frame needs a video decoder the server doesn't have.
+ * Makes previews for screenshots sent before the extension uploaded one, so cards stop loading the full image.
+ * A dry run lists them; one failure never stops the rest, and a rerun finds only what is left. Videos are skipped.
  */
 export async function backfillThumbnails(
   deps: { db: Db; storage: StorageDriver },

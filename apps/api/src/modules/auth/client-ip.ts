@@ -2,9 +2,8 @@ import type { Server } from "bun"
 import { clientIp } from "../share"
 
 /**
- * Better Auth rate-limits by X-Forwarded-For only when it holds exactly one address; behind Caddy and
- * nginx it holds more, which would put every visitor in one shared bucket. Hands it the single address
- * our own hop counting trusts, or none when the connection address is unknown.
+ * Better Auth rate-limits by X-Forwarded-For only when it holds one address, which behind Caddy or nginx it doesn't.
+ * Hands it the single address our hop counting trusts, or none when the connection address is unknown.
  */
 export function withClientIp(request: Request, server: Server<unknown> | null, proxyHops: number): Request {
   const headers = new Headers(request.headers)

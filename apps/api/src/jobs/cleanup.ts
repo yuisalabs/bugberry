@@ -3,9 +3,8 @@ import { deleteExpiredAgentUploads, deleteReport, listStaleUploads } from "../mo
 import { thumbnailKeyFor } from "../storage/keys"
 
 /**
- * Deletes reports that never became visible — still `uploading`, or `failed` — created before
- * `olderThan`, including any uploaded files, and aborts uploads in parts started before then, whose
- * parts take up room in the storage without showing as objects. Agent upload links that expired before then go too.
+ * Deletes reports still `uploading` or `failed` from before `olderThan`, with their files; aborts uploads in parts
+ * started before then (their parts use storage without showing as objects) and drops expired agent upload links.
  */
 export async function cleanupStaleUploads({ db, storage }: Pick<AppDeps, "db" | "storage">, olderThan: Date) {
   const stale = await listStaleUploads(db, olderThan)

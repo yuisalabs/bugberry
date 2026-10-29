@@ -38,9 +38,8 @@ export function mentionsOf(body: string, names: Map<string, string>): Array<{ id
 }
 
 /**
- * Notifies the workspace members a comment mentions, except its author. A person already mentioned in
- * this comment is skipped, so editing never notifies anyone twice; one who only had a reply notification for
- * it gets the mention instead. Returns the ids notified just now.
+ * Notifies the members a comment mentions, except its author, and returns who was notified now. Someone already
+ * mentioned in it is skipped, so edits never notify twice; one with only a reply notification gets the mention.
  */
 export async function notifyMentions(
   db: Db,

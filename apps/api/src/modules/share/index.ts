@@ -24,9 +24,8 @@ export function clientIpSource(proxyHops: number): string {
 }
 
 /**
- * The address to rate-limit by. Each trusted proxy appends the address it received the request from,
- * so the entry `proxyHops` from the right was written by the outermost trusted proxy; anything to its
- * left was written by the client. Fewer entries than hops means every entry came from a trusted proxy.
+ * The address to rate-limit by. Each trusted proxy appends its sender, so the entry `proxyHops` from the right came
+ * from the outermost one and everything left of it from the client; with fewer entries than hops, all are trusted.
  */
 export function clientIp(request: Request, server: Server<unknown> | null, proxyHops: number): string {
   if (proxyHops > 0) {

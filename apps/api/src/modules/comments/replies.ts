@@ -2,9 +2,8 @@ import type { Db } from "../../db/client"
 import { insertReplyNotifications, listThreadAuthors, workspaceMembersAmong } from "./repository"
 
 /**
- * Tells a thread about a reply: the thread's first author ("replied to your comment") and everyone who replied
- * before ("replied in a thread you're in"). Not the replier, nobody who left the workspace, and nobody already
- * notified about this comment, so a mention made in the reply stays a mention. Bell only, no email.
+ * Tells a thread's first author and earlier repliers about a reply, in the bell only: never the replier, someone
+ * who left, or anyone already notified about this comment (so a mention in the reply stays a mention).
  */
 export async function notifyReplies(
   db: Db,

@@ -1,6 +1,6 @@
 /**
  * What a webhook receives for a new report: the same fields as webhookClient in
- * apps/api/src/lib/notifiers/channels.ts (a test keeps them in step).
+ * apps/api/src/modules/notifiers/channels.ts (a test keeps them in step).
  */
 const LINES: Array<[string, string]> = [
   ['"event": "report.created",', "event"],

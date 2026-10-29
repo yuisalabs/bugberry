@@ -2,10 +2,8 @@
 const MAX_ENTRIES = 10_000
 
 /**
- * Hands out the same signed read link for an object for a quarter of the link's lifetime. A list refreshed
- * every few minutes then shows the same preview URLs, so the browser keeps the images it already downloaded
- * and decoded instead of fetching every one again. Each link handed out still has at least three quarters
- * of its lifetime left.
+ * Reuses an object's signed read link for a quarter of its lifetime, so a refreshed list keeps its preview URLs and
+ * the browser its cached images; every link handed out has at least three quarters of its lifetime left.
  */
 export class ReadUrlCache {
   private readonly entries = new Map<string, { url: string; reuseUntil: number }>()

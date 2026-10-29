@@ -215,9 +215,8 @@ export async function countOwnedWorkspaces(db: Db, userId: string): Promise<numb
 }
 
 /**
- * The reports a workspace keeps: ready ones, and uploads started within the upload link's lifetime. An older
- * unfinished upload can't be seen or deleted, so it stops counting once its link expires. `except` leaves one
- * report out: the one being finalized.
+ * Reports the workspace keeps: ready ones, and uploads still within their link's lifetime (an older unfinished one
+ * can't be seen or deleted, so it stops counting). `except` leaves out the report being finalized.
  */
 export async function countKeptReports(
   db: Db,

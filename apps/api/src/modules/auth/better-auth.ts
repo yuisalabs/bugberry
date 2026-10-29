@@ -40,9 +40,8 @@ const ACCESS_TOKEN_SECONDS = 60 * 60
 const CODES_PER_ADDRESS = 5
 
 /**
- * Endpoints the OAuth plugins add that BugBerry never uses. Closed so nothing can manage clients or
- * consents behind the dashboard's back: Better Auth's delete-consent, for one, keeps refresh tokens
- * that would work again after a new consent. People revoke apps through /api/me/oauth-apps.
+ * OAuth plugin endpoints BugBerry never uses, closed so nothing manages clients or consents behind the dashboard's
+ * back (delete-consent keeps refresh tokens alive). People revoke apps through /api/me/oauth-apps.
  */
 const CLOSED_PATHS = new Set([
   "/token",
@@ -131,9 +130,8 @@ export function createAuth(config: Config, db: Db, options: { email?: EmailSende
       },
     },
     hooks: {
-      // Refused requests stop here, before Better Auth stores a new code: a stored code would replace the
-      // one already emailed (locking the person out) and give an attacker five fresh guesses. The answer
-      // is the same success either way, so the form cannot tell who may sign in.
+      // Refused before Better Auth stores a code: a new one would replace the emailed code and give an attacker fresh
+      // guesses. The answer is the same success either way, so the form can't tell who may sign in.
       before: createAuthMiddleware(async (ctx) => {
         // Name and photo change through /api/me, which checks them; Better Auth's own route would take any image URL.
         if (ctx.path === "/update-user") throw new APIError("FORBIDDEN", { message: "Change your profile in Account settings" })

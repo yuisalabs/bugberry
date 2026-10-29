@@ -184,9 +184,8 @@ async function failUpload({ db, storage }: Deps, row: ReportRow, message: string
 }
 
 /**
- * Joins media sent in parts into one object, which the size checks of finalize then treat like any upload. The
- * report row stays locked while the storage joins the parts: a second finalize at the same time (a retry after a
- * timeout) waits for the first, then finds the parts joined and doesn't join them again.
+ * Joins media sent in parts into one object with the report row locked: a second finalize (a retry after a
+ * timeout) waits, then finds the parts joined and doesn't join them again.
  */
 async function joinMediaParts(deps: Deps, row: ReportRow): Promise<void> {
   const { db, storage } = deps
@@ -207,9 +206,8 @@ async function joinMediaParts(deps: Deps, row: ReportRow): Promise<void> {
     await multipart.abort(row.mediaKey, joined.uploadId).catch(() => undefined)
     await failUpload(deps, row, "An uploaded part did not match its declared size")
   }
-  // "gone" changes nothing here: the parts were joined by a finalize whose server stopped before it saved that, and
-  // the object is there; or the storage dropped them, and the missing object answers upload_incomplete below.
-  // Never failed and deleted on this alone.
+  // "gone" changes nothing: a finalize joined them but stopped before saving (the object is there), or the storage
+  // dropped them (upload_incomplete below says so). Never failed and deleted on this alone.
 }
 
 /**

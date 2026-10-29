@@ -15,9 +15,8 @@ export interface RepairSummary {
 }
 
 /**
- * Finds video recordings that Safari cannot play because fix-webm-duration rewrote their sizes (see
- * planWebmRepair) and, with `apply`, writes each one back repaired. A dry run only reads the start of each
- * file. One recording failing never stops the others.
+ * Finds recordings Safari can't play because fix-webm-duration rewrote their sizes (see planWebmRepair) and, with
+ * `apply`, repairs them. A dry run only reads each file's start; one failure never stops the others.
  */
 export async function repairWebmRecordings(
   deps: { db: Db; storage: StorageDriver },

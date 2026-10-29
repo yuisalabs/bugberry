@@ -57,7 +57,7 @@ export function createUserResolver({ db, betterAuth }: Pick<AppDeps, "db" | "bet
 
 /**
  * Adds the `auth: true` route option, which puts the signed-in `user` on the context. What they may
- * do inside a workspace is checked per route (workspaces/access.ts).
+ * do inside a workspace is checked per route (modules/workspaces/access.ts).
  */
 export function authPlugin(deps: Pick<AppDeps, "db" | "betterAuth" | "config">) {
   const resolveUser = createUserResolver(deps)

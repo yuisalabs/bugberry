@@ -10,7 +10,7 @@ export interface IntegrationInfo {
   short: string
 }
 
-/** BugBerry's ten integrations (apps/api/src/lib/trackers and lib/notifiers): six trackers, four notifications. */
+/** BugBerry's ten integrations (apps/api/src/modules/trackers and modules/notifiers): six trackers, four notifications. */
 export const TRACKERS: IntegrationInfo[] = [
   { name: "GitHub", kind: "Issues", short: "Open issues with the errors and a link to the replay" },
   { name: "GitLab", kind: "Issues", short: "Open issues with a link to the full report" },

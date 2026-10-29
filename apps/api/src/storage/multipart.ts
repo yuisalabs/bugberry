@@ -1,7 +1,6 @@
 /**
- * Size of each part of a file sent in parts: far under Cloudflare's 100 MB body limit, and a failed part costs little
- * to send again. S3 wants at least 5 MiB for every part but the last. Finalize expects the sizes this gives, so
- * changing it fails the uploads still in progress when the new server starts.
+ * Part size for uploads in parts: far under Cloudflare's 100 MB body limit and above S3's 5 MiB minimum. Finalize
+ * expects these sizes, so changing it fails the uploads still in progress when the new server starts.
  */
 export const PART_BYTES = 16 * 1024 * 1024
 

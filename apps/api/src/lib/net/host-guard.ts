@@ -86,9 +86,8 @@ export function isPrivateAddress(address: string): boolean {
 }
 
 /**
- * Refuses addresses on private networks unless the server's operator allows them (ALLOW_PRIVATE_INTEGRATION_HOSTS).
- * A hostname is looked up first, so a public-looking name that points inside is refused too. Checked before every
- * request and every redirect hop; the connection itself is not pinned to the checked address.
+ * Refuses private-network addresses unless ALLOW_PRIVATE_INTEGRATION_HOSTS; hostnames are resolved first. Checked
+ * before every request and redirect hop, but the connection is not pinned to the checked address.
  */
 export function createHostGuard(opts: { allowPrivate: boolean; lookup?: (host: string) => Promise<string[]> }): HostGuard {
   const lookup =

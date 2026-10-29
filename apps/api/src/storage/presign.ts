@@ -35,9 +35,8 @@ const hmac = (key: string | Buffer, data: string) => createHmac("sha256", key).u
 const sha256Hex = (data: string) => createHash("sha256").update(data).digest("hex")
 
 /**
- * Presigned URL with AWS Signature Version 4 (query-string authentication), as S3, R2, MinIO and
- * RustFS accept it. Bun's presign signs only the host, so a PUT could carry any size or type; signing
- * content-length and content-type here makes the storage itself refuse anything but the declared file.
+ * SigV4 presigned URL (query-string auth) for S3, R2, MinIO and RustFS. Unlike Bun's presign, which signs only the
+ * host, it signs content-length and content-type, so the storage refuses anything but the declared file.
  */
 export function presignUrl(input: PresignInput): string {
   const endpoint = new URL(input.endpoint)

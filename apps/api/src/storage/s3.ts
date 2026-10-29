@@ -17,9 +17,8 @@ export interface S3StorageOptions {
 }
 
 /**
- * Works with AWS S3, MinIO, RustFS and Cloudflare R2 (R2: endpoint https://<account_id>.r2.cloudflarestorage.com,
- * region "auto"). Upload links sign the exact content-length and content-type, so the storage refuses any other
- * file; finalize still compares the stored size as a second check.
+ * For AWS S3, MinIO, RustFS and Cloudflare R2 (endpoint https://<account_id>.r2.cloudflarestorage.com, region
+ * "auto"). Upload links sign the exact size and type; finalize still compares the stored size.
  */
 export class S3StorageDriver implements StorageDriver {
   private readonly client: S3Client
