@@ -1,12 +1,12 @@
 import { and, eq, inArray, lt } from "drizzle-orm"
 import type { AppDeps } from "../app"
-import { report } from "../db/schema"
+import { agentUpload, report } from "../db/schema"
 import { thumbnailKeyFor } from "../storage/keys"
 
 /**
  * Deletes reports that never became visible — still `uploading`, or `failed` — created before
  * `olderThan`, including any uploaded files, and aborts uploads in parts started before then, whose
- * parts take up room in the storage without showing as objects.
+ * parts take up room in the storage without showing as objects. Agent upload links that expired before then go too.
  */
 export async function cleanupStaleUploads({ db, storage }: Pick<AppDeps, "db" | "storage">, olderThan: Date) {
   const stale = await db
@@ -22,6 +22,8 @@ export async function cleanupStaleUploads({ db, storage }: Pick<AppDeps, "db" | 
     )
     await db.delete(report).where(eq(report.id, row.id))
   }
+  // Agent upload links are worthless once expired; a report's links also go with the report.
+  await db.delete(agentUpload).where(lt(agentUpload.expiresAt, olderThan))
   // Also catches uploads whose report is gone or was never saved. One that finished is no longer listed.
   await storage.multipart
     ?.abortStale(olderThan)

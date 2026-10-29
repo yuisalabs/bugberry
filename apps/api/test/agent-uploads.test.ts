@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { eq } from "drizzle-orm"
 import type { CurrentUser } from "../src/auth/plugin"
-import { report } from "../src/db/schema"
+import { agentUpload, report } from "../src/db/schema"
 import { AGENT_UPLOAD_TTL_MS, issueAgentUpload } from "../src/modules/reports/agent-uploads"
 import { createReportUpload } from "../src/modules/reports/upload-flow"
 import { createProject, createUserWithToken, putUpload, setupTestApp, uploadBody } from "./helpers"
@@ -113,5 +113,38 @@ describe("agent upload links", () => {
     await sendFiles(first.token)
     await linkFinalize(first.token)
     expect(await statusOf(second.reportId)).toBe("uploading")
+  })
+  test("GET gives no targets once the report is no longer waiting for files", async () => {
+    const { reportId, token } = await ticket()
+    await ctx.db.update(report).set({ uploadStatus: "ready" }).where(eq(report.id, reportId))
+    const ready = await linkGet(token)
+    expect(ready.status).toBe(410)
+    expect(((await ready.json()) as { code: string }).code).toBe("upload_link_used")
+
+    await ctx.db.update(report).set({ uploadStatus: "failed", uploadError: "sizes differ" }).where(eq(report.id, reportId))
+    const failed = await linkGet(token)
+    expect(failed.status).toBe(422)
+    const body = (await failed.json()) as { code: string; message: string }
+    expect(body.code).toBe("upload_failed")
+    expect(body.message).toContain("Call createUpload again")
+  })
+
+  test("finalize still works after the link expired, while its upload targets could still be used", async () => {
+    const { reportId, token } = await ticket()
+    await sendFiles(token)
+    await ctx.db.update(agentUpload).set({ expiresAt: new Date(Date.now() - 60_000) }).where(eq(agentUpload.reportId, reportId))
+    const response = await linkFinalize(token)
+    expect(response.status).toBe(200)
+    expect(await statusOf(reportId)).toBe("ready")
+  })
+
+  test("finalize is refused once the targets the link gave have expired too", async () => {
+    const { reportId, token } = await ticket()
+    await sendFiles(token)
+    const pastTargets = Date.now() - ctx.config.uploadUrlTtlSeconds * 1000 - 60_000
+    await ctx.db.update(agentUpload).set({ expiresAt: new Date(pastTargets) }).where(eq(agentUpload.reportId, reportId))
+    const response = await linkFinalize(token)
+    expect(response.status).toBe(410)
+    expect(((await response.json()) as { code: string }).code).toBe("upload_link_expired")
   })
 })

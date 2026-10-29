@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test"
 import { eq } from "drizzle-orm"
-import { report } from "../src/db/schema"
+import { agentUpload, report } from "../src/db/schema"
 import { cleanupStaleUploads, startCleanupSchedule } from "../src/jobs/cleanup"
+import { issueAgentUpload } from "../src/modules/reports/agent-uploads"
 import { LocalStorageDriver } from "../src/storage/local"
 import { createProject, createReadyReport, createUser, setupTestApp } from "./helpers"
 
@@ -88,6 +89,18 @@ describe("cleanupStaleUploads", () => {
     expect(await cleanupStaleUploads(ctx, new Date(Date.now() - 24 * hour))).toBe(1)
     const titles = (await ctx.db.select({ title: report.title }).from(report)).map((row) => row.title)
     expect(titles).toEqual(["recent failed"])
+  })
+  test("removes agent upload links that expired before the cutoff", async () => {
+    const reporter = await createUser(ctx.db)
+    const { id: projectId } = await createProject(ctx.db)
+    const hour = 60 * 60 * 1000
+    const sent = await createReadyReport(ctx.db, { projectId, reporterId: reporter.id, title: "sent" })
+    await issueAgentUpload(ctx.db, sent.id, reporter.id, new Date(Date.now() - 25 * hour))
+    const recent = await issueAgentUpload(ctx.db, sent.id, reporter.id, new Date(Date.now() - hour))
+
+    await cleanupStaleUploads(ctx, new Date(Date.now() - 24 * hour))
+    const left = await ctx.db.select({ expiresAt: agentUpload.expiresAt }).from(agentUpload)
+    expect(left.map((row) => row.expiresAt.getTime())).toEqual([recent.expiresAt.getTime()])
   })
 })
 

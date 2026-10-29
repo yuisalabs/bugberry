@@ -4,7 +4,7 @@ import type { AppDeps } from "../../app"
 import type { Db } from "../../db/client"
 import { agentUpload, report } from "../../db/schema"
 import { hashToken } from "../../lib/api-token"
-import { gone, notFound } from "../../lib/errors"
+import { gone, notFound, unprocessable } from "../../lib/errors"
 import { newId } from "../../lib/ids"
 import { createDispatcher } from "../../lib/trackers/dispatch"
 import { trackerFactoryFor } from "../../lib/trackers/default"
@@ -37,6 +37,12 @@ export function agentUploadsModule(deps: AppDeps) {
     return ticket
   }
   const expired = (ticket: { expiresAt: Date }) => ticket.expiresAt.getTime() <= Date.now()
+  /**
+   * Targets signed just before the link expired still work for the storage's upload lifetime, so a slow upload
+   * that started in time can still be finalized; finalize only checks the files that arrived.
+   */
+  const pastFinalize = (ticket: { expiresAt: Date }) =>
+    ticket.expiresAt.getTime() + deps.config.uploadUrlTtlSeconds * 1000 <= Date.now()
   const expiredError = () => gone("upload_link_expired", "This upload link expired. Call createUpload again.")
 
   return new Elysia()
@@ -46,12 +52,17 @@ export function agentUploadsModule(deps: AppDeps) {
       if (expired(ticket)) throw expiredError()
       const [row] = await db.select().from(report).where(eq(report.id, ticket.reportId)).limit(1)
       if (!row) throw notFound("report_not_found", "Report not found")
+      // Only a report still waiting for its files gets targets: one sent another way, or failed, takes none.
+      if (row.uploadStatus === "ready") throw gone("upload_link_used", "This recording was already sent with this link.")
+      if (row.uploadStatus === "failed") {
+        throw unprocessable("upload_failed", `This report's upload failed (${row.uploadError ?? "unknown error"}). Call createUpload again.`)
+      }
       return { reportId: row.id, number: row.number, ...(await uploadTargetsFor(deps, row)) }
     })
     .post("/agent-uploads/:token/finalize", async ({ params }) => {
       const ticket = await ticketFor(params.token)
       // A retry after a finalize that worked answers ready again; finalizeReportUpload sends nothing twice.
-      if (!ticket.finalizedAt && expired(ticket)) throw expiredError()
+      if (!ticket.finalizedAt && pastFinalize(ticket)) throw expiredError()
       const result = await finalizeReportUpload(deps, dispatcher, ticket.reportId)
       if (!ticket.finalizedAt) await db.update(agentUpload).set({ finalizedAt: new Date() }).where(eq(agentUpload.id, ticket.id))
       return result
