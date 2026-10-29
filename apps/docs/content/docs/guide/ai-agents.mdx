@@ -3,13 +3,20 @@ title: AI agents (MCP)
 description: Let Claude, Cursor, VS Code, ChatGPT, and other AI apps read and work on reports.
 ---
 
-BugBerry has an MCP server, so AI apps can read reports and work on them. It works with Claude Code, Claude.ai, Cursor, VS Code, Windsurf, and ChatGPT.
+BugBerry has an MCP server, so AI apps can read reports and work on them. It works with Claude Code, Claude.ai, Codex, Cursor, VS Code, Windsurf, and ChatGPT.
 
 ## Set it up
 
 Open **AI Agents** in the dashboard's top bar. The page has copy-paste setup for each app. The MCP address is `<your BugBerry address>/api/mcp`.
 
 <Screenshot src="/screenshots/ai-agents/mcp.png" alt="The AI Agents (MCP) page: Connect an app in three steps, with tabs for Claude Code, Claude.ai, Cursor, VS Code, Windsurf and ChatGPT; Personal tokens and Connected apps on the right" />
+
+For Codex, run both lines in a terminal; the second opens BugBerry in your browser to sign in:
+
+```bash
+codex mcp add bugberry --url https://bugberry.example.com/api/mcp
+codex mcp login bugberry
+```
 
 Most apps sign in with OAuth: the app opens a BugBerry page where you approve it. For apps without OAuth, create a **personal token** on the same page; the app sends it as `Authorization: Bearer <token>`.
 
@@ -41,8 +48,9 @@ Apps that can't run commands, such as ChatGPT or Claude.ai, still get the record
 
 ### Let the agent record
 
-A coding agent can also make recordings: it drives a browser, records the bug, and files the report. See
-[Agent recordings](/guide/agent-recordings).
+A coding agent can also make recordings: it drives a browser, records the bug, and files the report. It can even test
+a page by itself and file each bug it finds. See [Agent recordings](/guide/agent-recordings) and
+[Testing a page](/guide/agent-recordings#testing-a-page).
 
 ## What an agent can't do
 

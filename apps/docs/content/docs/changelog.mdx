@@ -14,8 +14,15 @@ release with no extension change still gets its own entry, and the entry says th
   agent's name, and nothing new is needed in the browser: identity comes from your BugBerry MCP connection. A recording
   follows one tab, and the recorder warns the agent when it opens another or goes to one already open. Setup for Claude Code, Cursor, VS Code, and
   Windsurf is under **AI Agents → Let agents record bugs**. See [Agent recordings](/guide/agent-recordings).
-- **New MCP tool `createUpload`** creates the report for a recording, and gives the recorder a link to send it through
-  that works for 15 minutes. An upload that started in time can still finish after that. When the recorder closes,
+- **Agents can test a page.** The recorder's `test-page` prompt has the agent go through a page or a flow first, then
+  record each new bug it found and file it with a priority: critical when the flow can't be finished, down to low for
+  typos and slowness. Bugs already open in BugBerry aren't filed again; resolved ones that came back are, marked as
+  such. A bug that doesn't show again in 3 attempts isn't filed. The agent stops before paying, ordering, or deleting
+  unless you allow it, and ends with what it filed, what was already reported, and what it couldn't reproduce. See
+  [Testing a page](/guide/agent-recordings#testing-a-page).
+- **Codex** setup is on the AI Agents page, for the BugBerry MCP server and for the recorder.
+- **New MCP tool `createUpload`** creates the report for a recording, with an optional priority, and gives the recorder
+  a link to send it through that works for 15 minutes. An upload that started in time can still finish after that. When the recorder closes,
   recordings it never sent are deleted from your computer.
 - **Self-hosting:** update the server; a migration adds the agent upload links and a column on reports when it starts.
   Set `--server` to your address in the recorder. The extension stays at 0.9.0.

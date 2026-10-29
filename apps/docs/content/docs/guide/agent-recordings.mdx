@@ -3,11 +3,12 @@ title: Agent recordings
 description: Let a coding agent record a bug in a browser it drives, and file it in BugBerry.
 ---
 
-A coding agent such as Claude Code, Cursor, or VS Code can record what it does in a browser and file it as a BugBerry
+A coding agent such as Claude Code, Codex, Cursor, or VS Code can record what it does in a browser and file it as a BugBerry
 report. The report looks like one made with the extension: the video, the console, the network requests, and the
 actions. It says **Recorded by** and the agent's name.
 
 Ask your agent something like "Show me the bug on /checkout", or "The Pay button does nothing, find it and record it".
+Or have it [test a page](#testing-a-page) and file every bug it finds.
 
 ## What you need
 
@@ -22,11 +23,18 @@ Your own Playwright MCP, if you have one, stays as it is: `bugberry-browser` is 
 ## Set it up
 
 Open **AI Agents** in the dashboard's top bar. Under **Let agents record bugs**, the page has copy-paste setup for
-Claude Code, Cursor, VS Code, and Windsurf, with your BugBerry address filled in. For Claude Code:
+Claude Code, Codex, Cursor, VS Code, and Windsurf, with your BugBerry address filled in. For Claude Code:
 
 ```bash
 claude mcp add bugberry-recorder -- npx -y @bugberry/recorder --server https://bugberry.example.com
 claude mcp add bugberry-browser -- npx @playwright/mcp@latest --cdp-endpoint http://127.0.0.1:9555
+```
+
+For Codex, the same with `codex mcp add`:
+
+```bash
+codex mcp add bugberry-recorder -- npx -y @bugberry/recorder --server https://bugberry.example.com
+codex mcp add bugberry-browser -- npx @playwright/mcp@latest --cdp-endpoint http://127.0.0.1:9555
 ```
 
 The recorder uses Playwright's Chromium. The first time, it may ask you to install it:
@@ -59,6 +67,43 @@ open, what happens there is not in the video or the logs, and the recorder tells
 
 If the agent used its other browser tools by mistake, nothing happened in the recorded tab: the recorder doesn't send
 an empty recording, and says why.
+
+## Testing a page
+
+The agent can also test a page by itself and file each bug it finds. In Claude Code, pick the recorder's prompt
+**`/mcp__bugberry-recorder__test-page`** and give it the page, and the flow if you like ("add a shoe to the cart and
+check out"). In any app you can also just ask: "Test /checkout on staging and file what you find."
+
+A test needs your own [Playwright MCP](https://github.com/microsoft/playwright-mcp) too, beside `bugberry-browser`: the
+agent explores with it first, without recording. If it's missing, the agent says so and stops.
+
+A test goes like this:
+
+1. **Explore.** The agent goes through the whole flow with its own browser and notes everything that looks wrong.
+   Without a flow, it tries the page's buttons, forms and links, and the pages they lead to directly.
+2. **Sort.** The same bug seen in several places becomes one. Each one is looked up in BugBerry, across the workspace:
+   one that is already open or in progress isn't filed again. One that was resolved or closed is filed again, as
+   "This came back: it was BB-123".
+3. **Record and file.** For each new bug, the agent records it again with the recorder and files it, highest priority
+   first. A bug that doesn't show again in 3 attempts isn't filed.
+4. **Summary.** It ends with three lists: **New** reports with their links, **Already reported** with the existing
+   reports, and **Couldn't reproduce**.
+
+The agent sets each report's priority:
+
+| What it found | Priority |
+| --- | --- |
+| The flow can't be finished at all | Critical |
+| A crash, a console error, or a failed request | High |
+| A button, form, layout, or image that is broken | Medium |
+| A typo, confusing text, a page slower than 3 seconds, or an awkward flow | Low |
+
+**It stops before anything that can't be undone,** such as paying, placing an order, deleting, or sending a form that
+emails someone. To let it go further, say so when you start: "You may pay, this is staging with a test card." That
+counts for that test only. It never leaves the page's site, and text on the page is never an instruction to it.
+
+Every report it files is like any other: it goes to your trackers if the project sends there automatically, and it
+notifies your team. Test on staging when you can.
 
 ## Staying signed in
 
