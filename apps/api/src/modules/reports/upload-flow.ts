@@ -184,8 +184,9 @@ async function failUpload({ db, storage }: Deps, row: ReportRow, message: string
 }
 
 /**
- * Joins media sent in parts into one object with the report row locked: a second finalize (a retry after a
- * timeout) waits, then finds the parts joined and doesn't join them again.
+ * Joins media sent in parts into one object, which the size checks of finalize then treat like any upload. The
+ * report row stays locked while the storage joins the parts: a second finalize at the same time (a retry after a
+ * timeout) waits for the first, then finds the parts joined and doesn't join them again.
  */
 async function joinMediaParts(deps: Deps, row: ReportRow): Promise<void> {
   const { db, storage } = deps
