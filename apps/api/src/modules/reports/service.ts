@@ -1,14 +1,28 @@
 import { FREE_EMAIL_DOMAINS, REPORT_STATUSES, type ReportStatus, THUMBNAIL_CONTENT_TYPE } from "@bugberry/shared"
 import type { AppDeps } from "../../deps"
 import type { CurrentUser } from "../../plugins/auth"
-import { badRequest, forbidden, notFound, unprocessable } from "../../lib/errors"
+import { AppError, badRequest, forbidden, notFound, unprocessable } from "../../lib/errors"
 import { newShareSlug } from "../../lib/ids"
-import { memberRole, requireReportMember, resolveWorkspace } from "../workspaces/access"
+import { thumbnailKeyFor } from "../../storage/keys"
+import { memberRole, requireMember, requireReportMember, resolveWorkspace } from "../workspaces/access"
 import { recordActivity } from "../activity/repository"
 import { projectInWorkspace } from "../projects/repository"
+import { reportAccess } from "./access"
+import { nearestCity } from "./cities"
 import { loadReportDetail, type ReportDetail } from "./detail"
 import type { updateReportBody } from "./model"
-import { countListByStatus, findLoggedFields, type ListReportsInput, listPage, updateReadyReport } from "./repository"
+import {
+  countListByStatus,
+  deleteReport,
+  findLoggedFields,
+  findReadyReportVisibility,
+  findReportFiles,
+  type ListReportsInput,
+  listPage,
+  replaceShareSlug,
+  updateReport as setReportFields,
+  updateReadyReport,
+} from "./repository"
 
 const DEFAULT_PER_PAGE = 20
 
@@ -107,4 +121,51 @@ export async function updateReport(
   const detail = await loadReportDetail(deps, { id: reportId }, { forMember: true })
   if (!detail) throw reportNotFound()
   return detail
+}
+
+/** The report page for a member; someone outside the workspace who may still read it is sent to its share link. */
+export async function openReport(deps: Deps, caller: CurrentUser, reportId: string): Promise<ReportDetail> {
+  const { db } = deps
+  await requireReportMember(db, caller.id, reportId).catch(async (error: unknown) => {
+    const row = await findReadyReportVisibility(db, { id: reportId })
+    if (row && reportAccess(row, { email: caller.email, isMember: false })) {
+      throw new AppError(403, "use_share_link", "Open this report through its share link", { shareSlug: row.shareSlug })
+    }
+    throw error
+  })
+  const detail = await loadReportDetail(deps, { id: reportId }, { forMember: true })
+  if (!detail) throw reportNotFound()
+  return detail
+}
+
+/** The reporter's city: the coordinates live only in this request, and the report keeps the city name, nothing finer. */
+export async function setReportLocation(db: Deps["db"], caller: CurrentUser, reportId: string, latitude: number, longitude: number) {
+  const target = await requireReportMember(db, caller.id, reportId)
+  if (target.reporterId !== caller.id) throw forbidden("Only the reporter can add their location")
+  const location = nearestCity(latitude, longitude)
+  await setReportFields(db, reportId, { location })
+  return { location }
+}
+
+/** A new share link; the old one stops working. The reporter's call, or an admin's. */
+export async function regenerateShareLink(db: Deps["db"], appUrl: string, caller: CurrentUser, reportId: string) {
+  const target = await requireReportMember(db, caller.id, reportId)
+  if (target.reporterId !== caller.id && target.role !== "admin") {
+    throw forbidden("Only the reporter or an admin can reset this link")
+  }
+  const shareSlug = await replaceShareSlug(db, reportId, newShareSlug())
+  if (!shareSlug) throw reportNotFound()
+  return { shareSlug, shareUrl: `${appUrl}/s/${shareSlug}` }
+}
+
+/** Deletes a report and its files; admins only, and outsiders get "not found". */
+export async function removeReport({ db, storage }: Deps, caller: CurrentUser, reportId: string) {
+  const row = await findReportFiles(db, reportId)
+  if (!row || !(await memberRole(db, caller.id, row.workspaceId))) throw reportNotFound()
+  await requireMember(db, caller.id, row.workspaceId, "admin")
+  // The thumbnail key is always tried: one that arrived after finalize dropped it has no reference.
+  const keys = [row.mediaKey, row.debuggerKey, thumbnailKeyFor(reportId)].filter((key): key is string => key !== null)
+  await Promise.all(keys.map((key) => storage.delete(key)))
+  await deleteReport(db, reportId)
+  return { ok: true }
 }
