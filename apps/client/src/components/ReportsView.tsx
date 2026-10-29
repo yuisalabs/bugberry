@@ -1,7 +1,7 @@
 import { RiResetLeftLine, RiUserAddLine } from "@remixicon/react"
 import type { ReactNode } from "react"
 import { Button } from "@bugberry/ui/button"
-import type { Member, Project, ReportCounts, ReportListItem } from "../lib/api"
+import type { Member, ReportCounts, ReportListItem } from "../lib/api"
 import type { ReportFeed } from "../lib/report-feed"
 import type { ReportLayout } from "../lib/report-layout"
 import { CLEARED_FILTERS, hasFilters, type ReportSearch } from "../lib/report-search"
@@ -14,6 +14,7 @@ import { ReportTable } from "./ReportTable"
 import { LoadingSkeleton, ReportListSkeleton } from "./Skeletons"
 import { BugBerryLogo } from "./BugBerryLogo"
 import { ErrorState } from "./ui"
+import type { Project } from "../features/projects/queries"
 
 export type ReportListState = ReportFeed | "loading" | { error: unknown; retry: () => void }
 

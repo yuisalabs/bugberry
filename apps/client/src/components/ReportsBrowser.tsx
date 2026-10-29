@@ -13,6 +13,7 @@ import { ReportsView } from "./ReportsView"
 import { installHref } from "../pages/landing/site-links"
 import { authQueries } from "../features/auth/queries"
 import { queries } from "../lib/queries"
+import { projectQueries } from "../features/projects/queries"
 
 export type SearchUpdater = (update: (prev: ReportSearch) => ReportSearch) => void
 
@@ -43,7 +44,7 @@ export function ReportsBrowser({
   const workspaceId = workspace?.id ?? ""
   const members = useQuery({ ...queries.members(workspaceId), enabled: Boolean(workspace) })
   // The project filter needs them on the all-reports page; the list view names projects on every page.
-  const projects = useQuery({ ...queries.projects(workspaceId), enabled: Boolean(workspace) })
+  const projects = useQuery({ ...projectQueries.projects(workspaceId), enabled: Boolean(workspace) })
   const reports = useInfiniteQuery({ ...queries.reportFeed(workspaceId, toReportsQuery(scope, search)), enabled: Boolean(workspace) })
   const config = useQuery(authQueries.clientConfig())
   // The server's own install link, else BugBerry's Chrome Web Store page.

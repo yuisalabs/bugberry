@@ -1,15 +1,11 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
-import { ProjectForm, UrlPatternsForm } from "../src/components/projects/ProjectDialogs"
+import { ProjectForm, UrlPatternsForm } from "../src/features/projects/ProjectDialogs"
 import { formatAgo } from "../src/lib/format"
-import { cleanPatterns, patternExamples, patternForPage, savePatternsLabel, testProjects, testUrl } from "../src/lib/url-patterns"
-import {
-  integrationsText,
-  pageMeta,
-  ProjectCardView,
-  TestUrlCard,
-  UnmatchedPagesCard,
-} from "../src/pages/settings/ProjectsSettingsPage"
+import { cleanPatterns, patternExamples, patternForPage, savePatternsLabel, testProjects, testUrl } from "../src/features/projects/url-patterns"
+import { integrationsText, ProjectCardView } from "../src/features/projects/ProjectCard"
+import { TestUrlCard } from "../src/features/projects/TestUrlCard"
+import { pageMeta, UnmatchedPagesCard } from "../src/features/projects/UnmatchedPagesCard"
 
 const project = { id: "p1", workspaceId: "w1", name: "Quinella AI", slug: "quinella-ai", urlPatterns: [] as string[], logoUrl: null, createdAt: new Date("2026-10-01T00:00:00Z") }
 

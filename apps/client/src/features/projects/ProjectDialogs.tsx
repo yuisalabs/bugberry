@@ -6,13 +6,13 @@ import { Dialog, DialogBody, DialogDescription, DialogFooter, DialogHeader, Dial
 import { Description, Label } from "@bugberry/ui/field"
 import { Input, InputGroup } from "@bugberry/ui/input"
 import { TextField } from "@bugberry/ui/text-field"
-import type { Project, ProjectInput } from "../../lib/api"
-import { api } from "../../lib/client"
-import { slugify } from "../../lib/slug"
-import { LOGO_RULE, LogoPicker } from "../LogoPicker"
-import { cleanPatterns, MAX_PATTERN_LENGTH, MAX_PATTERNS, patternExamples, savePatternsLabel, testUrl } from "../../lib/url-patterns"
+import { slugify } from "./slug"
+import { LOGO_RULE, LogoPicker } from "../../components/LogoPicker"
+import { cleanPatterns, MAX_PATTERN_LENGTH, MAX_PATTERNS, patternExamples, savePatternsLabel, testUrl } from "./url-patterns"
 import { useCurrentWorkspace, workspaceColor } from "../../lib/workspace"
 import { errorMessage } from "../../lib/query/unwrap"
+import { qk } from "../../lib/query/keys"
+import { confirmProjectLogo, createProject, type Project, type ProjectInput, projectLogoUploadTarget, removeProjectLogo, updateProject } from "./queries"
 
 const sectionLabel = "text-sm font-medium text-foreground"
 
@@ -141,9 +141,9 @@ export function UrlPatternsDialog({ project, adding, onClose }: { project: Proje
   const queryClient = useQueryClient()
   const save = useMutation({
     mutationFn: (urlPatterns: string[]) =>
-      api.updateProject(project?.id ?? "", { name: project?.name ?? "", slug: project?.slug ?? "", urlPatterns }),
+      updateProject(project?.id ?? "", { name: project?.name ?? "", slug: project?.slug ?? "", urlPatterns }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["projects"] })
+      await queryClient.invalidateQueries({ queryKey: qk.projects.all })
       onClose()
     },
   })
@@ -289,10 +289,10 @@ export function ProjectForm({
 
 /** Puts a project's new logo in storage and makes it the one in use. */
 async function uploadProjectLogo(projectId: string, file: File) {
-  const { upload, logoId } = await api.projectLogoUploadTarget(projectId, file.type as "image/png" | "image/jpeg", file.size)
+  const { upload, logoId } = await projectLogoUploadTarget(projectId, file.type as "image/png" | "image/jpeg", file.size)
   const response = await fetch(upload.url, { method: upload.method, headers: upload.headers, body: file })
   if (!response.ok) throw new Error("The logo didn't upload. Try again.")
-  await api.confirmProjectLogo(projectId, logoId)
+  await confirmProjectLogo(projectId, logoId)
 }
 
 /**
@@ -304,12 +304,12 @@ export function ProjectDialog({ project, isOpen, onClose }: { project?: Project;
   const { workspace } = useCurrentWorkspace()
   const save = useMutation({
     mutationFn: async ({ logo, removeLogo, ...input }: ProjectInput & Pick<ProjectFormValues, "logo" | "removeLogo">) => {
-      const saved = project ? await api.updateProject(project.id, input) : await api.createProject(workspace?.id ?? "", input)
+      const saved = project ? await updateProject(project.id, input) : await createProject(workspace?.id ?? "", input)
       if (logo) await uploadProjectLogo(saved.id, logo)
-      else if (removeLogo) await api.removeProjectLogo(saved.id)
+      else if (removeLogo) await removeProjectLogo(saved.id)
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["projects"] })
+      await queryClient.invalidateQueries({ queryKey: qk.projects.all })
       onClose()
     },
   })

@@ -15,14 +15,8 @@ export const REPORT_LIST_REFRESH_MS = 5 * 60_000
  */
 export const REPORT_LIST_STALE_MS = 60_000
 
-
 export const queries = {
   workspaces: () => queryOptions({ queryKey: ["workspaces"], queryFn: () => api.workspaces(), staleTime: 60_000 }),
-  projects: (workspaceId: string) =>
-    queryOptions({ queryKey: ["projects", workspaceId], queryFn: () => api.projects(workspaceId) }),
-  /** Admins: each project's report counts and the pages no URL pattern catches. Refreshed with the projects. */
-  projectsOverview: (workspaceId: string) =>
-    queryOptions({ queryKey: ["projects", workspaceId, "overview"], queryFn: () => api.projectsOverview(workspaceId) }),
   members: (workspaceId: string) =>
     queryOptions({ queryKey: ["members", workspaceId], queryFn: () => api.members(workspaceId) }),
   invitations: (workspaceId: string) =>

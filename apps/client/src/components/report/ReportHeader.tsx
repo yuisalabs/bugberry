@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router"
 import type { ReactNode } from "react"
 import type { backLink } from "../../lib/report-page"
 import { BugBerryLogo } from "../BugBerryLogo"
-import { ProjectTile } from "../ProjectTile"
+import { ProjectTile } from "../../features/projects/ProjectTile"
 
 const navLink = "flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm whitespace-nowrap text-muted-foreground hover:bg-muted hover:text-foreground"
 

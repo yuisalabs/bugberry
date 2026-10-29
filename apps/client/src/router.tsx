@@ -135,7 +135,7 @@ const adminRoute = createRoute({
 const projectsSettingsRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "/app/settings/projects",
-  component: lazyRouteComponent(() => import("./pages/settings/ProjectsSettingsPage"), "ProjectsSettingsPage"),
+  component: lazyRouteComponent(() => import("./features/projects/ProjectsSettingsPage"), "ProjectsSettingsPage"),
 })
 
 /** The workspace's connections: admins connect accounts and channels once, for every project. */

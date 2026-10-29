@@ -15,6 +15,7 @@ import { ErrorState } from "../ui"
 import { TemplatesList } from "./TemplatesList"
 import { queries } from "../../lib/queries"
 import { errorMessage } from "../../lib/query/unwrap"
+import { projectQueries } from "../../features/projects/queries"
 
 const card = "flex flex-col gap-5 rounded-2xl border border-border bg-background p-6 shadow-xs sm:p-8"
 const cardTitle = "font-heading text-lg font-semibold text-foreground"
@@ -224,7 +225,7 @@ export function AiWritingSettings() {
   const { workspace } = useCurrentWorkspace()
   const workspaceId = workspace?.id ?? ""
   const setup = useQuery({ ...queries.ai(workspaceId), enabled: Boolean(workspace) })
-  const projects = useQuery({ ...queries.projects(workspaceId), enabled: Boolean(workspace) })
+  const projects = useQuery({ ...projectQueries.projects(workspaceId), enabled: Boolean(workspace) })
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["ai", workspaceId] })
   const settings = useMutation({ mutationFn: (patch: AiSettingsPatch) => api.updateAiSettings(workspaceId, patch), onSettled: refresh })
 

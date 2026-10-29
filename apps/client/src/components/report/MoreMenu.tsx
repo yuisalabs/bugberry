@@ -36,6 +36,7 @@ import { toast } from "../../lib/toast"
 import { roleIn } from "../../lib/workspace"
 import { useReportTrackers } from "./useReportTrackers"
 import { errorMessage } from "../../lib/query/unwrap"
+import { projectQueries } from "../../features/projects/queries"
 
 const NO_PROJECT = "none"
 const NEW_PROJECT = "new"
@@ -289,7 +290,7 @@ export function MoreMenu({ report }: { report: ReportDetail }) {
   const reportsFrom = useLocation({ select: (location) => location.state.reportsFrom })
   const { confirm, dialog } = useConfirm()
   const workspaces = useQuery(queries.workspaces())
-  const projects = useQuery(queries.projects(report.workspaceId))
+  const projects = useQuery(projectQueries.projects(report.workspaceId))
   const trackers = useReportTrackers(report)
   const reportKey = queries.report(report.id).queryKey
   const trackersKey = queries.reportTrackers(report.id).queryKey

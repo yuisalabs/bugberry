@@ -8,11 +8,12 @@ import { Menu, MenuItem, MenuTrigger } from "@bugberry/ui/menu"
 import { Popover, PopoverTrigger } from "@bugberry/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@bugberry/ui/select"
 import { ToggleGroup, ToggleGroupItem } from "@bugberry/ui/toggle-group"
-import type { Member, Project } from "../lib/api"
+import type { Member } from "../lib/api"
 import { CAPTURE_LABELS, PRIORITY_LABELS, STATUS_LABELS } from "../lib/labels"
 import type { ReportLayout } from "../lib/report-layout"
 import { CLEARED_FILTERS, hasFilters, NO_PROJECT, type ReportSearch, toggleValue } from "../lib/report-search"
 import { ActiveIcon } from "./ActiveIcon"
+import type { Project } from "../features/projects/queries"
 
 const ALL = "__all"
 

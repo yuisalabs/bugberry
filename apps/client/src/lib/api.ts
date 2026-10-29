@@ -5,7 +5,6 @@ import type {
   ConnectionSettings,
   DemoRequestInput,
   IntegrationProvider,
-  OnboardingEvent,
   Priority,
   ReportStatus,
   UseTarget,
@@ -13,13 +12,6 @@ import type {
   WorkspaceRole,
 } from "@bugberry/shared"
 import { unwrap } from "./query/unwrap"
-
-
-export interface ProjectInput {
-  name: string
-  slug: string
-  urlPatterns: string[]
-}
 
 export interface ReportPatch {
   title?: string
@@ -142,15 +134,6 @@ export function createApi(origin: string = window.location.origin, fetcher: type
       unwrap(api.workspaces({ id: workspaceId })["join-requests"]({ userId }).approve.post()),
     declineJoinRequest: (workspaceId: string, userId: string) =>
       unwrap(api.workspaces({ id: workspaceId })["join-requests"]({ userId }).delete()),
-    projects: (workspaceId: string) => unwrap(api.projects.get({ query: { workspaceId } })),
-    createProject: (workspaceId: string, body: ProjectInput) => unwrap(api.projects.post({ workspaceId, ...body })),
-    updateProject: (id: string, body: ProjectInput) => unwrap(api.projects({ id }).patch(body)),
-    deleteProject: (id: string) => unwrap(api.projects({ id }).delete()),
-    projectLogoUploadTarget: (projectId: string, contentType: "image/png" | "image/jpeg", size: number) =>
-      unwrap(api.projects({ id: projectId }).logo.post({ contentType, size })),
-    confirmProjectLogo: (projectId: string, logoId: string) => unwrap(api.projects({ id: projectId }).logo({ logoId }).post()),
-    removeProjectLogo: (projectId: string) => unwrap(api.projects({ id: projectId }).logo.delete()),
-    projectsOverview: (workspaceId: string) => unwrap(api.projects.overview.get({ query: { workspaceId } })),
     reports: (workspaceId: string, query: ReportsQuery) => unwrap(api.reports.get({ query: { workspaceId, ...query } })),
     reportCounts: (workspaceId: string, query: Omit<ReportsQuery, "page" | "perPage">) =>
       unwrap(api.reports.counts.get({ query: { workspaceId, ...query } })),
@@ -215,7 +198,6 @@ export function createApi(origin: string = window.location.origin, fetcher: type
 }
 
 export type Api = ReturnType<typeof createApi>
-export type Project = Awaited<ReturnType<Api["projects"]>>[number]
 export type Member = Awaited<ReturnType<Api["members"]>>[number]
 export type Workspace = Awaited<ReturnType<Api["workspaces"]>>[number]
 export type PendingInvitation = Awaited<ReturnType<Api["invitations"]>>[number]

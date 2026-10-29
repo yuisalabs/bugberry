@@ -7,7 +7,7 @@ import { Input, InputGroup } from "@bugberry/ui/input"
 import { MenuItem, MenuLabel, MenuSection, MenuSeparator, menuStyles } from "@bugberry/ui/menu"
 import { Popover } from "@bugberry/ui/popover"
 import { SearchField } from "@bugberry/ui/search-field"
-import { ActiveIcon } from "./ActiveIcon"
+import { ActiveIcon } from "../../components/ActiveIcon"
 import { ProjectTile } from "./ProjectTile"
 
 interface MenuProject {

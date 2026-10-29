@@ -6,7 +6,7 @@ import { ReportsBrowser } from "../components/ReportsBrowser"
 import { ReportsPageSkeleton } from "../components/Skeletons"
 import { EmptyState, ErrorState } from "../components/ui"
 import { useCurrentWorkspace } from "../lib/workspace"
-import { queries } from "../lib/queries"
+import { projectQueries } from "../features/projects/queries"
 
 const routeApi = getRouteApi("/_authed/app/p/$projectSlug")
 
@@ -15,7 +15,7 @@ export function ProjectReportsPage() {
   const search = routeApi.useSearch()
   const navigate = useNavigate({ from: "/app/p/$projectSlug" })
   const { workspace } = useCurrentWorkspace()
-  const projects = useQuery({ ...queries.projects(workspace?.id ?? ""), enabled: Boolean(workspace) })
+  const projects = useQuery({ ...projectQueries.projects(workspace?.id ?? ""), enabled: Boolean(workspace) })
   const project = projects.data?.find((item) => item.slug === projectSlug)
   const isAdmin = workspace?.role === "admin"
 

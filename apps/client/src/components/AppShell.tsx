@@ -39,13 +39,14 @@ import { NewReportButton } from "./NewReportButton"
 import { NotificationBell } from "../features/notifications/NotificationBell"
 import { OnboardingWidget } from "../features/onboarding/OnboardingChecklist"
 import { OnboardingProvider } from "../features/onboarding/OnboardingProvider"
-import { ProjectsMenu } from "./ProjectsMenu"
-import { ProjectTile } from "./ProjectTile"
+import { ProjectsMenu } from "../features/projects/ProjectsMenu"
+import { ProjectTile } from "../features/projects/ProjectTile"
 import { ReportDetailSkeleton, ReportsPageSkeleton } from "./Skeletons"
 import { WorkspaceMenu } from "./WorkspaceMenu"
 import { installHref } from "../pages/landing/site-links"
 import { authQueries } from "../features/auth/queries"
 import { accountQueries } from "../features/account/queries"
+import { projectQueries } from "../features/projects/queries"
 
 const sectionTitle = "px-2 pb-1 text-xs font-medium text-muted-foreground"
 const pill =
@@ -82,7 +83,7 @@ export function AppShell() {
   const { workspace, workspaces, isPending, switchTo } = useCurrentWorkspace()
   // The report page takes the whole window; its "All reports" link leads back to the top bar.
   const fullWidth = Boolean(matchRoute({ to: "/app/r/$reportId" }))
-  const projects = useQuery({ ...queries.projects(workspace?.id ?? ""), enabled: Boolean(workspace) })
+  const projects = useQuery({ ...projectQueries.projects(workspace?.id ?? ""), enabled: Boolean(workspace) })
   const waiting = useQuery({ ...queries.joinRequests(workspace?.id ?? ""), enabled: workspace?.role === "admin" })
   const waitingCount = waiting.data?.length ?? 0
   const myLimits = useQuery(accountQueries.myLimits())

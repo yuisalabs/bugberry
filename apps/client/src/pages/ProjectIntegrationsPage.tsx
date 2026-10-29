@@ -29,6 +29,7 @@ import { INITIAL_INTEGRATIONS_UI, integrationsUi, type TestResult } from "../lib
 import { queries } from "../lib/queries"
 import { useCurrentWorkspace } from "../lib/workspace"
 import { errorMessage } from "../lib/query/unwrap"
+import { projectQueries } from "../features/projects/queries"
 
 const routeApi = getRouteApi("/_authed/app/p/$projectSlug/integrations")
 const legacyRouteApi = getRouteApi("/_authed/_admin/app/settings/projects/$projectId/integrations")
@@ -208,7 +209,7 @@ export function ProjectIntegrationsPage() {
   const queryClient = useQueryClient()
   const { workspace } = useCurrentWorkspace()
   const workspaceId = workspace?.id ?? ""
-  const projects = useQuery({ ...queries.projects(workspaceId), enabled: Boolean(workspace) })
+  const projects = useQuery({ ...projectQueries.projects(workspaceId), enabled: Boolean(workspace) })
   const project = projects.data?.find((item) => item.slug === projectSlug)
   const projectId = project?.id ?? ""
   const integrations = useQuery({ ...queries.integrations(projectId), enabled: Boolean(project) })
@@ -382,7 +383,7 @@ export function ProjectIntegrationsPage() {
 export function LegacyProjectIntegrations() {
   const { projectId } = legacyRouteApi.useParams()
   const { workspace } = useCurrentWorkspace()
-  const projects = useQuery({ ...queries.projects(workspace?.id ?? ""), enabled: Boolean(workspace) })
+  const projects = useQuery({ ...projectQueries.projects(workspace?.id ?? ""), enabled: Boolean(workspace) })
   const project = projects.data?.find((item) => item.id === projectId)
   if (projects.isPending) return <SettingsRowsSkeleton />
   if (!project) return <EmptyState title="Project not found">This project no longer exists.</EmptyState>

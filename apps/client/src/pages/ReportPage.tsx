@@ -19,6 +19,7 @@ import { backLink, sentIssues, withPatch } from "../lib/report-page"
 import { toast } from "../lib/toast"
 import { useCurrentWorkspace } from "../lib/workspace"
 import { ApiError, errorMessage } from "../lib/query/unwrap"
+import { projectQueries } from "../features/projects/queries"
 
 const routeApi = getRouteApi("/_authed/app/r/$reportId")
 
@@ -36,7 +37,7 @@ export function ReportPage() {
   const queryClient = useQueryClient()
   const report = useQuery({ ...queries.report(reportId), retry: false })
   const workspaceId = report.data?.workspaceId ?? ""
-  const projects = useQuery({ ...queries.projects(workspaceId), enabled: Boolean(report.data) })
+  const projects = useQuery({ ...projectQueries.projects(workspaceId), enabled: Boolean(report.data) })
   const members = useQuery({ ...queries.members(workspaceId), enabled: Boolean(report.data) })
   const trackers = useQuery({ ...queries.reportTrackers(reportId), enabled: Boolean(report.data) })
   const { workspace, workspaces, switchTo } = useCurrentWorkspace()

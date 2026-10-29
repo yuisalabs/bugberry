@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { createApi } from "../src/lib/api"
 import { me as fetchMe } from "../src/features/account/queries"
+import { createProject } from "../src/features/projects/queries"
 import { shouldRetry } from "../src/lib/query/client"
 import { maintenanceOf } from "../src/lib/status"
 import { fakeFetch, restoreFetch } from "./support/fake-fetch"
@@ -45,9 +46,7 @@ describe("createApi", () => {
     fakeFetch(() =>
       Response.json({ code: "slug_taken", message: "Slug is already used by another project" }, { status: 409 }),
     )
-    const error = await createApi()
-      .createProject("w1", { name: "Web", slug: "web", urlPatterns: [] })
-      .catch((caught) => caught)
+    const error = await createProject("w1", { name: "Web", slug: "web", urlPatterns: [] }).catch((caught) => caught)
     expect(error).toBeInstanceOf(ApiError)
     expect(error).toMatchObject({ status: 409, code: "slug_taken" })
   })

@@ -1,5 +1,5 @@
 import { RiNotification3Line } from "@remixicon/react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { useState } from "react"
 import { Button as AriaButton, Dialog, DialogTrigger } from "react-aria-components"
@@ -91,7 +91,6 @@ export function NotificationBellView({
  * the bell the list lines up with: its right edge by default, its left where the bell sits on the left of the page.
  */
 export function NotificationBell({ placement = "bottom end" }: { placement?: "bottom start" | "bottom end" }) {
-  const queryClient = useQueryClient()
   const navigate = useNavigate()
   const now = useNow()
   const [open, setOpen] = useState(false)

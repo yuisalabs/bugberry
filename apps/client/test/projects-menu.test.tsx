@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
-import { ProjectsMenuPanel } from "../src/components/ProjectsMenu"
+import { ProjectsMenuPanel } from "../src/features/projects/ProjectsMenu"
 
 const projects = [
   { id: "p1", name: "Quinella AI", slug: "quinella-ai" },

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { slugify } from "../src/lib/slug"
+import { slugify } from "../src/features/projects/slug"
 
 describe("slugify", () => {
   test("makes a URL-safe slug the server accepts", () => {

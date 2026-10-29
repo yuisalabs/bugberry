@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url"
 const SRC = fileURLToPath(new URL("../src", import.meta.url))
 
 const INLINE_KEY = /queryKey:\s*\[|(?:setQueryData|getQueryData)\(\s*\[/
-const OLD_DATA_LAYER = /from\s+"(?:\.\.?\/)+(?:lib\/)?(?:api|client|queries)"/
+const OLD_DATA_LAYER = /from\s+"(?:\.\.?\/)+lib\/(?:api|client|queries)"/
 
 /** Whether a file still writes a query key inline or reaches the old data layer; keys live in lib/query/keys.ts. */
 function breaksRules(file: string, text: string): boolean {
@@ -42,22 +42,14 @@ const PENDING = new Set<string>([
   "components/debugger/DebuggerPanel.tsx",
   "components/debugger/DebuggerTabs.tsx",
   "components/debugger/InfoTab.tsx",
-  "components/projects/ProjectDialogs.tsx",
   "components/report/CopyLinkButton.tsx",
   "components/report/MoreMenu.tsx",
   "components/report/ReportFields.tsx",
   "components/report/ReportMeta.tsx",
   "components/report/TrackerButton.tsx",
   "components/report/useReportTrackers.ts",
-  "features/account/AccountSettingsPage.tsx",
-  "features/auth/LoginPage.tsx",
-  "features/auth/LoginView.tsx",
-  "features/auth/OAuthConsentPage.tsx",
   "features/auth/admin-guard.ts",
-  "features/notifications/NotificationBell.tsx",
-  "features/onboarding/OnboardingChecklist.tsx",
-  "features/onboarding/OnboardingProvider.tsx",
-  "features/onboarding/onboarding.ts",
+  "features/projects/ProjectCard.tsx",
   "lib/api.ts",
   "lib/client.ts",
   "lib/comment-feed.ts",
@@ -74,13 +66,11 @@ const PENDING = new Set<string>([
   "pages/InvitePage.tsx",
   "pages/JoinPage.tsx",
   "pages/ProjectIntegrationsPage.tsx",
-  "pages/ProjectReportsPage.tsx",
   "pages/ReportPage.tsx",
   "pages/SharePage.tsx",
   "pages/settings/AiAgentsPage.tsx",
   "pages/settings/ConnectionsPage.tsx",
   "pages/settings/MembersPage.tsx",
-  "pages/settings/ProjectsSettingsPage.tsx",
   "pages/settings/WorkspaceSettingsPage.tsx",
 ])
 
@@ -110,6 +100,8 @@ describe("structure", () => {
     expect(breaksRules("components/X.tsx", 'import { queries } from "../lib/queries"')).toBe(true)
     expect(breaksRules("lib/workspace.ts", 'import { api } from "./client"')).toBe(true)
     expect(breaksRules("features/x/Page.tsx", "useQuery(xQueries.me())")).toBe(false)
+    expect(breaksRules("features/x/Page.tsx", 'import { xQueries } from "./queries"')).toBe(false)
+    expect(breaksRules("features/x/Page.tsx", 'import { yQueries } from "../y/queries"')).toBe(false)
     expect(breaksRules("lib/query/client.ts", 'import { ApiError } from "./unwrap"')).toBe(false)
     expect(breaksRules("lib/query/keys.ts", 'me: ["me"] as const, queryKey: ["x"]')).toBe(false)
   })

@@ -5,11 +5,12 @@ import { Avatar } from "@bugberry/ui/avatar"
 import { Button } from "@bugberry/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@bugberry/ui/select"
 import { Sheet } from "@bugberry/ui/sheet"
-import type { Member, Project, ReportCounts } from "../lib/api"
+import type { Member, ReportCounts } from "../lib/api"
 import { CAPTURE_LABELS, PRIORITY_ICON_STYLES, PRIORITY_LABELS, STATUS_LABELS } from "../lib/labels"
 import { initialsOf } from "../lib/people"
 import { CLEARED_FILTERS, NO_PROJECT, type ReportSearch, toggleValue } from "../lib/report-search"
 import { workspaceColor } from "../lib/workspace"
+import type { Project } from "../features/projects/queries"
 
 const ALL = "__all"
 const CAPTURE_ICONS: Record<CaptureType, typeof RiCameraLine> = { video: RiVideoOnLine, screenshot: RiCameraLine }
