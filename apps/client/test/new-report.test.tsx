@@ -2,7 +2,7 @@ import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { InstallExtensionButton, NewReportButton, NewReportGuide } from "../src/components/NewReportButton"
 import { ReportsEmpty } from "../src/components/ReportsView"
-import type { ExtensionAnswer } from "../src/lib/extension-bridge"
+import type { ExtensionAnswer } from "../src/features/onboarding/extension-bridge"
 import { readLayout, saveLayout } from "../src/lib/report-layout"
 
 describe("New report", () => {

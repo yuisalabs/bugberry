@@ -1,6 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query"
-import type { Me } from "../../lib/api"
-import { queries } from "../../lib/queries"
+import { accountQueries, type Me } from "../account/queries"
 
 /** Who was signed in when the session ended, for the 401 page's ticket. Kept in memory only, never in the URL. */
 export interface SessionEnd {
@@ -25,10 +24,10 @@ export function sessionEndTarget(
   at = new Date(),
 ): { to: "/session-ended" | "/login"; search: { next: string } } | null {
   if (location.pathname === "/login" || location.pathname === "/session-ended") return null
-  const me = queryClient.getQueryData<Me>(queries.me().queryKey)
+  const me = queryClient.getQueryData<Me>(accountQueries.me().queryKey)
   if (!me) return { to: "/login", search: { next: location.href } }
   last = { name: me.name || null, email: me.email || null, at }
   // The old session's answer goes, so the dashboard asks again after the next sign-in.
-  queryClient.removeQueries({ queryKey: queries.me().queryKey })
+  queryClient.removeQueries({ queryKey: accountQueries.me().queryKey })
   return { to: "/session-ended", search: { next: location.href } }
 }

@@ -3,9 +3,9 @@ import { useQuery } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 import { Button as AriaButton } from "react-aria-components"
 import { Link } from "@bugberry/ui/link"
-import { askExtension, type ExtensionAnswer, useServerInExtension } from "../lib/extension-bridge"
-import { installHref } from "../pages/landing/site-links"
-import { authQueries } from "../features/auth/queries"
+import { askExtension, type ExtensionAnswer, useServerInExtension } from "./extension-bridge"
+import { installHref } from "../../pages/landing/site-links"
+import { authQueries } from "../auth/queries"
 
 /** The extension's state at the bottom of the sidebar: installed, sending elsewhere, or missing. */
 export function ExtensionCardView({

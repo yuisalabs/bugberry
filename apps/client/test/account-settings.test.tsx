@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
-import { AccountSettingsView } from "../src/pages/settings/AccountSettingsPage"
+import { AccountSettingsView } from "../src/features/account/AccountSettingsPage"
 import { fileInput } from "./fields"
 
 const me = { id: "u1", name: "Budi", email: "budi@kantor.test", image: null }

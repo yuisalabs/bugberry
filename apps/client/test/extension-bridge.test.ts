@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { BRIDGE_HELLO, BRIDGE_OPEN_POPUP, BRIDGE_POPUP, BRIDGE_STATUS, BRIDGE_USE_SERVER } from "@bugberry/shared"
-import { askExtension, type BridgeWindow, openExtensionPopup, useServerInExtension } from "../src/lib/extension-bridge"
+import { askExtension, type BridgeWindow, openExtensionPopup, useServerInExtension } from "../src/features/onboarding/extension-bridge"
 
 function fakeWindow() {
   const listeners = new Set<(event: MessageEvent) => void>()

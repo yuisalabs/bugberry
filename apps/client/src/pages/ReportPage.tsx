@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { getRouteApi, useLocation, useNavigate } from "@tanstack/react-router"
 import { useEffect } from "react"
-import { NotificationBell } from "../components/NotificationBell"
+import { NotificationBell } from "../features/notifications/NotificationBell"
 import { CopyLinkButton } from "../components/report/CopyLinkButton"
 import { MoreMenu } from "../components/report/MoreMenu"
 import { TrackerButton } from "../components/report/TrackerButton"
@@ -12,12 +12,13 @@ import { ReportComments } from "../components/ReportComments"
 import { ReportView } from "../components/ReportView"
 import { ReportDetailSkeleton } from "../components/Skeletons"
 import { ErrorPage } from "../components/status/ErrorPage"
-import { ApiError, errorMessage, type ReportPatch } from "../lib/api"
+import type { ReportPatch } from "../lib/api"
 import { api } from "../lib/client"
 import { queries } from "../lib/queries"
 import { backLink, sentIssues, withPatch } from "../lib/report-page"
 import { toast } from "../lib/toast"
 import { useCurrentWorkspace } from "../lib/workspace"
+import { ApiError, errorMessage } from "../lib/query/unwrap"
 
 const routeApi = getRouteApi("/_authed/app/r/$reportId")
 

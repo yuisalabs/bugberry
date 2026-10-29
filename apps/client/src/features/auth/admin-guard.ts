@@ -1,7 +1,8 @@
 import type { QueryClient } from "@tanstack/react-query"
-import { ApiError } from "../../lib/api"
 import { queries } from "../../lib/queries"
 import { pickWorkspace } from "../../lib/workspace"
+import { ApiError } from "../../lib/query/unwrap"
+import { accountQueries } from "../account/queries"
 
 /**
  * For workspace settings. Asks the server every time (staleTime 0) instead of trusting the cached
@@ -9,8 +10,8 @@ import { pickWorkspace } from "../../lib/workspace"
  */
 export async function requireWorkspaceAdmin(
   queryClient: QueryClient,
-  options: { me: ReturnType<typeof queries.me>; workspaces: ReturnType<typeof queries.workspaces> } = {
-    me: queries.me(),
+  options: { me: ReturnType<typeof accountQueries.me>; workspaces: ReturnType<typeof queries.workspaces> } = {
+    me: accountQueries.me(),
     workspaces: queries.workspaces(),
   },
 ): Promise<void> {

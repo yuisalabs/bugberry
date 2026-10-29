@@ -23,13 +23,15 @@ import { InviteForm, type InviteRole } from "../../components/InviteDialog"
 import { SettingsRowsSkeleton } from "../../components/Skeletons"
 import { Badge, CopyButton, dangerText, ErrorState } from "../../components/ui"
 import { useNow } from "../../hooks/useNow"
-import { errorMessage, type InviteResult, type JoinRequest, type Member, type PendingInvitation } from "../../lib/api"
+import type { InviteResult, JoinRequest, Member, PendingInvitation } from "../../lib/api"
 import { api } from "../../lib/client"
 import { formatAgo, formatDate } from "../../lib/format"
 import { initialsOf } from "../../lib/people"
 import { queries } from "../../lib/queries"
 import { invitesAllowed } from "../../lib/usage"
 import { roleLabel, useCurrentWorkspace, workspaceColor } from "../../lib/workspace"
+import { errorMessage } from "../../lib/query/unwrap"
+import { accountQueries } from "../../features/account/queries"
 
 const card = "rounded-3xl border border-border bg-background"
 const cardTitle = "font-heading text-xl font-semibold text-foreground"
@@ -330,7 +332,7 @@ export function MembersView({
 export function MembersPage() {
   const queryClient = useQueryClient()
   const now = useNow()
-  const me = useQuery(queries.me())
+  const me = useQuery(accountQueries.me())
   const { workspace } = useCurrentWorkspace()
   const workspaceId = workspace?.id ?? ""
   const isAdmin = workspace?.role === "admin"

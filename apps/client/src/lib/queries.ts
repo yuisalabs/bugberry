@@ -15,16 +15,8 @@ export const REPORT_LIST_REFRESH_MS = 5 * 60_000
  */
 export const REPORT_LIST_STALE_MS = 60_000
 
-/** How often the bell asks for new mentions; it also asks when the window regains focus. */
-export const NOTIFICATIONS_REFRESH_MS = 30_000
 
 export const queries = {
-  me: () => queryOptions({ queryKey: ["me"], queryFn: () => api.me(), staleTime: 60_000 }),
-  /** Whether "Create workspace" is offered (ACCOUNT_LIMITS). */
-  myLimits: () => queryOptions({ queryKey: ["my-limits"], queryFn: () => api.myLimits(), staleTime: 60_000 }),
-  /** Refreshed when the tab is back in front: a capture sent from the extension ticks its step. */
-  onboarding: (workspaceId: string) =>
-    queryOptions({ queryKey: ["onboarding", workspaceId], queryFn: () => api.onboarding(workspaceId), refetchOnWindowFocus: true }),
   workspaces: () => queryOptions({ queryKey: ["workspaces"], queryFn: () => api.workspaces(), staleTime: 60_000 }),
   projects: (workspaceId: string) =>
     queryOptions({ queryKey: ["projects", workspaceId], queryFn: () => api.projects(workspaceId) }),
@@ -83,13 +75,6 @@ export const queries = {
     }),
   report: (id: string) => queryOptions({ queryKey: ["report", id], queryFn: () => api.report(id) }),
   share: (slug: string) => queryOptions({ queryKey: ["share", slug], queryFn: () => api.share(slug), retry: false }),
-  notifications: () =>
-    queryOptions({
-      queryKey: ["notifications"],
-      queryFn: () => api.notifications(),
-      refetchInterval: NOTIFICATIONS_REFRESH_MS,
-      refetchOnWindowFocus: true,
-    }),
   /** Teammates reply while the page sits in another tab, so coming back to it fetches the discussion again. */
   comments: (reportId: string) =>
     queryOptions({ queryKey: ["comments", reportId], queryFn: () => api.comments(reportId), refetchOnWindowFocus: true }),

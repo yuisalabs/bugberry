@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import type { Workspace } from "./api"
 import { api } from "./client"
 import { queries } from "./queries"
+import { accountQueries } from "../features/account/queries"
 
 /** The workspace the dashboard shows: the last one used while still a member, else the first by name. */
 export function pickWorkspace<T extends { id: string; name: string }>(workspaces: readonly T[], lastWorkspaceId: string | null): T | null {
@@ -38,7 +39,7 @@ export function useCurrentWorkspace(): {
   switchTo(id: string): Promise<void>
 } {
   const queryClient = useQueryClient()
-  const me = useQuery(queries.me())
+  const me = useQuery(accountQueries.me())
   const workspaces = useQuery(queries.workspaces())
   const list = workspaces.data ?? []
   return {

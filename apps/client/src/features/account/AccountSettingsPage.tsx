@@ -7,7 +7,7 @@ import { FileTrigger } from "@bugberry/ui/file-trigger"
 import { Input } from "@bugberry/ui/input"
 import { TextField } from "@bugberry/ui/text-field"
 import { BrandedHeader } from "../../components/BrandedHeader"
-import { GithubIcon, GitlabIcon, GoogleIcon } from "../../features/auth/LoginView"
+import { GithubIcon, GitlabIcon, GoogleIcon } from "../auth/LoginView"
 import { Badge, dangerText, ErrorState } from "../../components/ui"
 import {
   SettingRow,
@@ -18,11 +18,10 @@ import {
 } from "../../components/SettingsCard"
 import { SettingsTabs } from "../../components/SettingsTabs"
 import { SettingsPageSkeleton } from "../../components/Skeletons"
-import { errorMessage } from "../../lib/api"
-import type { SignInMethod } from "../../features/auth/queries"
-import { api } from "../../lib/client"
+import type { SignInMethod } from "../auth/queries"
 import { initialsOf } from "../../lib/people"
-import { queries } from "../../lib/queries"
+import { errorMessage } from "../../lib/query/unwrap"
+import { accountQueries, avatarUploadTarget, confirmAvatar, refreshPeople, useRemoveAvatar, useUpdateName } from "./queries"
 
 const MAX_PHOTO_BYTES = 2 * 1024 * 1024
 const PHOTO_TYPES = ["image/png", "image/jpeg"]
@@ -176,24 +175,19 @@ export function AccountSettingsView({
 /** Anyone signed in: their display name, photo and how they sign in. */
 export function AccountSettingsPage() {
   const queryClient = useQueryClient()
-  const me = useQuery(queries.me())
-  const methods = useQuery({ queryKey: ["sign-in-methods"], queryFn: () => api.signInMethods() })
-  // Names and photos show in the menu, members, comments and cards.
-  const refresh = () =>
-    queryClient.invalidateQueries({
-      predicate: (query) => ["me", "members", "workspaces", "reports", "comments"].includes(String(query.queryKey[0])),
-    })
-  const saveName = useMutation({ mutationFn: (name: string) => api.updateName(name), onSuccess: refresh })
+  const me = useQuery(accountQueries.me())
+  const methods = useQuery(accountQueries.signInMethods())
+  const saveName = useUpdateName()
   const upload = useMutation({
     mutationFn: async (file: File) => {
-      const { upload: target, avatarId } = await api.avatarUploadTarget(file.type as "image/png" | "image/jpeg", file.size)
+      const { upload: target, avatarId } = await avatarUploadTarget(file.type as "image/png" | "image/jpeg", file.size)
       const response = await fetch(target.url, { method: target.method, headers: target.headers, body: file })
       if (!response.ok) throw new Error("The photo didn't upload. Try again.")
-      return api.confirmAvatar(avatarId)
+      return confirmAvatar(avatarId)
     },
-    onSuccess: refresh,
+    onSuccess: () => refreshPeople(queryClient),
   })
-  const remove = useMutation({ mutationFn: () => api.removeAvatar(), onSuccess: refresh })
+  const remove = useRemoveAvatar()
 
   if (me.isPending) return <SettingsPageSkeleton />
   if (me.isError) return <ErrorState error={me.error} onRetry={() => void me.refetch()} />

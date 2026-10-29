@@ -22,12 +22,13 @@ import { SettingsRowsSkeleton } from "../components/Skeletons"
 import { Badge, dangerText, EmptyState, ErrorState } from "../components/ui"
 import { EditIntegrationSteps, type LoadOptions, UseConnectionModal, usedUp } from "../components/UseConnectionDialog"
 import { useNow } from "../hooks/useNow"
-import { type Connection, errorMessage, type Integration, type IntegrationInput, type OptionList } from "../lib/api"
+import type { Connection, Integration, IntegrationInput, OptionList } from "../lib/api"
 import { api } from "../lib/client"
 import { formatRelative } from "../lib/format"
 import { INITIAL_INTEGRATIONS_UI, integrationsUi, type TestResult } from "../lib/integrations-ui"
 import { queries } from "../lib/queries"
 import { useCurrentWorkspace } from "../lib/workspace"
+import { errorMessage } from "../lib/query/unwrap"
 
 const routeApi = getRouteApi("/_authed/app/p/$projectSlug/integrations")
 const legacyRouteApi = getRouteApi("/_authed/_admin/app/settings/projects/$projectId/integrations")

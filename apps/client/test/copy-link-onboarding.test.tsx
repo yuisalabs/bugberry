@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { type OnboardingContext, OnboardingTestProvider } from "../src/components/onboarding/OnboardingProvider"
+import { type OnboardingContext, OnboardingTestProvider } from "../src/features/onboarding/OnboardingProvider"
 import { CopyLinkButton } from "../src/components/report/CopyLinkButton"
 import { reportFixture } from "./fixtures"
 

@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test"
 import type { DemoRequestInput } from "@bugberry/shared"
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
-import { ApiError } from "../src/lib/api"
 import { DemoView } from "../src/pages/landing/DemoView"
 import { choose } from "./fields"
 import { CHROME_WEB_STORE_URL } from "../src/pages/landing/site-links"
+import { ApiError } from "../src/lib/query/unwrap"
 
 function fill() {
   fireEvent.change(screen.getByLabelText("First name"), { target: { value: " Hannan " } })

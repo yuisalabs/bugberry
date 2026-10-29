@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import { ApiError, createApi, errorMessage } from "../src/lib/api"
+import { createApi } from "../src/lib/api"
+import { me as fetchMe } from "../src/features/account/queries"
 import { shouldRetry } from "../src/lib/query/client"
 import { maintenanceOf } from "../src/lib/status"
 import { fakeFetch, restoreFetch } from "./support/fake-fetch"
+import { ApiError, errorMessage } from "../src/lib/query/unwrap"
 
 const ORIGIN = window.location.origin
 
@@ -13,7 +15,7 @@ describe("createApi", () => {
     const { requests } = fakeFetch(() =>
       Response.json({ id: "u1", email: "ana@kantor.test", name: "Ana", image: null, lastWorkspaceId: "w1" }),
     )
-    const me = await createApi().me()
+    const me = await fetchMe()
     expect(me.name).toBe("Ana")
     expect(requests[0]?.url).toBe(`${ORIGIN}/api/me`)
   })
@@ -68,7 +70,7 @@ describe("createApi", () => {
     fakeFetch(() => {
       throw new TypeError("Failed to fetch")
     })
-    const error = await createApi().me().catch((caught) => caught)
+    const error = await fetchMe().catch((caught) => caught)
     expect(error).toMatchObject({ status: 0, code: "network" })
   })
 
@@ -77,7 +79,7 @@ describe("createApi", () => {
       await Bun.sleep(30)
       return new Response("<html>504 Gateway Time-out</html>", { status: 504, headers: { "content-type": "text/html" } })
     })
-    const error = await createApi().me().catch((caught) => caught)
+    const error = await fetchMe().catch((caught) => caught)
     expect(error).toMatchObject({ status: 504 })
     expect(error.waitedMs).toBeGreaterThanOrEqual(25)
   })
@@ -85,7 +87,7 @@ describe("createApi", () => {
   test("nginx's maintenance notice keeps its message and time", async () => {
     const notice = { code: "maintenance", message: "Upgrading the database", until: "2026-10-24T14:30:00Z" }
     fakeFetch(() => Response.json(notice, { status: 503 }))
-    const error = await createApi().me().catch((caught) => caught)
+    const error = await fetchMe().catch((caught) => caught)
     expect(error).toMatchObject({ status: 503, code: "maintenance" })
     // Eden reads the ISO time as a Date; maintenanceOf takes either.
     expect(maintenanceOf(error)).toEqual({ message: "Upgrading the database", until: new Date("2026-10-24T14:30:00Z") })

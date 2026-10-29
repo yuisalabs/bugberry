@@ -11,9 +11,10 @@ import { Radio, RadioField, RadioGroup } from "@bugberry/ui/radio"
 import { SearchField } from "@bugberry/ui/search-field"
 import { Switch, SwitchField } from "@bugberry/ui/switch"
 import { TextField } from "@bugberry/ui/text-field"
-import { type Connection, errorMessage, type Integration, type IntegrationInput, type OptionList } from "../lib/api"
+import type { Connection, Integration, IntegrationInput, OptionList } from "../lib/api"
 import { validateChatId } from "../lib/integrations"
 import { PROVIDER_GROUPS, ProviderMark } from "./IntegrationForm"
+import { errorMessage } from "../lib/query/unwrap"
 
 export interface Option {
   value: string

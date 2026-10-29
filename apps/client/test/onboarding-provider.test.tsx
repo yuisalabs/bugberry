@@ -2,8 +2,8 @@ import { describe, expect, mock, test } from "bun:test"
 import { ONBOARDING_STEPS } from "@bugberry/shared"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { OnboardingProvider, useOnboarding } from "../src/components/onboarding/OnboardingProvider"
-import type { OnboardingProgress } from "../src/lib/api"
+import { OnboardingProvider, useOnboarding } from "../src/features/onboarding/OnboardingProvider"
+import type { OnboardingProgress } from "../src/features/onboarding/queries"
 
 const PROGRESS: OnboardingProgress = {
   phase: "required",

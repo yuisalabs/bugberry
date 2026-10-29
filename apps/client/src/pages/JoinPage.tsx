@@ -5,9 +5,10 @@ import { BugBerryLogo } from "../components/BugBerryLogo"
 import { Loading } from "../components/ui"
 import { WorkspaceTile } from "../components/WorkspaceMenu"
 import { buttonStyles, Button } from "@bugberry/ui/button"
-import { errorMessage, type JoinPreview } from "../lib/api"
+import type { JoinPreview } from "../lib/api"
 import { api } from "../lib/client"
-import { queries } from "../lib/queries"
+import { errorMessage } from "../lib/query/unwrap"
+import { accountQueries } from "../features/account/queries"
 
 const routeApi = getRouteApi("/join/$code")
 const primaryLink = `${buttonStyles({ intent: "primary", size: "sm" })}`
@@ -76,7 +77,7 @@ export function JoinPage() {
   const { code } = routeApi.useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const me = useQuery({ ...queries.me(), retry: false, meta: { signedOutIsFine: true } })
+  const me = useQuery({ ...accountQueries.me(), retry: false, meta: { signedOutIsFine: true } })
   const preview = useQuery({
     queryKey: ["shared-invite", code],
     queryFn: () => api.sharedPreview(code),

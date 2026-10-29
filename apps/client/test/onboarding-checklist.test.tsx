@@ -1,8 +1,8 @@
 import { describe, expect, mock, test } from "bun:test"
 import { ONBOARDING_STEPS } from "@bugberry/shared"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { OnboardingChecklistView } from "../src/components/onboarding/OnboardingChecklist"
-import type { OnboardingProgress } from "../src/lib/api"
+import { OnboardingChecklistView } from "../src/features/onboarding/OnboardingChecklist"
+import type { OnboardingProgress } from "../src/features/onboarding/queries"
 
 const required = (doneIds: string[], extra: Partial<OnboardingProgress> = {}): OnboardingProgress => ({
   phase: "required",
@@ -87,8 +87,8 @@ describe("OnboardingChecklistView", () => {
 describe("OnboardingWidget", () => {
   async function widget(props: { startAsPill?: boolean; aboveBottomBar?: boolean } = {}) {
     const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query")
-    const { OnboardingWidget } = await import("../src/components/onboarding/OnboardingChecklist")
-    const { OnboardingTestProvider } = await import("../src/components/onboarding/OnboardingProvider")
+    const { OnboardingWidget } = await import("../src/features/onboarding/OnboardingChecklist")
+    const { OnboardingTestProvider } = await import("../src/features/onboarding/OnboardingProvider")
     const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
     client.setQueryData(["me"], { id: "me", lastWorkspaceId: null })
     client.setQueryData(["workspaces"], [])

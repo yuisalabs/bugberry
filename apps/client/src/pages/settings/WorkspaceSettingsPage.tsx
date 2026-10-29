@@ -16,12 +16,14 @@ import {
   settingsCard,
   settingsPadding,
 } from "../../components/SettingsCard"
-import { errorMessage, type WorkspaceAccess } from "../../lib/api"
+import type { WorkspaceAccess } from "../../lib/api"
 import { api } from "../../lib/client"
 import { queries } from "../../lib/queries"
 import { toast } from "../../lib/toast"
 import { useCurrentWorkspace } from "../../lib/workspace"
 import { type SlugAnswer, useSlugCheck } from "../../lib/workspace-slug"
+import { errorMessage } from "../../lib/query/unwrap"
+import { accountQueries } from "../../features/account/queries"
 
 type Settings = { id: string; name: string; slug: string; logoUrl: string | null }
 
@@ -280,7 +282,7 @@ export function WorkspaceAccessView({
 /** The access settings wired to the API. */
 function WorkspaceAccessSection({ workspaceId }: { workspaceId: string }) {
   const queryClient = useQueryClient()
-  const me = useQuery(queries.me())
+  const me = useQuery(accountQueries.me())
   const access = useQuery(queries.workspaceAccess(workspaceId))
   const limits = useQuery(queries.workspaceLimits(workspaceId))
   const update = useMutation({

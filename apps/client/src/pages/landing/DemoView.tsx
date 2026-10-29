@@ -20,10 +20,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from "@bugberry/ui/s
 import { TextField } from "@bugberry/ui/text-field"
 import { Textarea } from "@bugberry/ui/textarea"
 import { ToggleGroup, ToggleGroupItem } from "@bugberry/ui/toggle-group"
-import { ApiError, errorMessage } from "../../lib/api"
 import { Reveal } from "./Reveal"
 import { SiteChrome } from "./SiteChrome"
 import { installHref, siteContainer } from "./site-links"
+import { ApiError, errorMessage } from "../../lib/query/unwrap"
 
 const POINTS: Array<{ icon: RemixiconComponentType; title: string; body: string }> = [
   {

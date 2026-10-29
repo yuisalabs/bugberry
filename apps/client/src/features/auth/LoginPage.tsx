@@ -9,14 +9,14 @@ import { loginErrorMessage } from "./login"
 import { loginTarget, oauthResumeUrl } from "./oauth"
 import { safeNext } from "../../lib/urls"
 import { authQueries } from "./queries"
-import { queries } from "../../lib/queries"
+import { accountQueries } from "../account/queries"
 
 const routeApi = getRouteApi("/login")
 
 export function LoginPage() {
   const router = useRouter()
   const { next, error, error_description: errorDescription } = routeApi.useSearch()
-  const me = useQuery({ ...queries.me(), retry: false })
+  const me = useQuery({ ...accountQueries.me(), retry: false })
   const methods = useQuery(authQueries.authMethods())
   const [startError, setStartError] = useState<string | null>(null)
   // An AI app's sign-in arrives with its signed request in the URL; after signing in it continues there.

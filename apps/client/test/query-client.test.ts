@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test"
-import { ApiError } from "../src/lib/api"
 import { createQueryClient } from "../src/lib/query/client"
+import { ApiError } from "../src/lib/query/unwrap"
 
 const unauthorized = () => Promise.reject(new ApiError(401, "unauthorized", "Unauthorized"))
 

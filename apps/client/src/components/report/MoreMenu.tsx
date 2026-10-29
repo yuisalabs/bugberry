@@ -27,7 +27,7 @@ import {
   MenuSubMenu,
   MenuTrigger,
 } from "@bugberry/ui/menu"
-import { errorMessage, type ReportDetail } from "../../lib/api"
+import type { ReportDetail } from "../../lib/api"
 import { api } from "../../lib/client"
 import { copyForAiText, type TrackerItem } from "../../lib/more-menu"
 import { queries } from "../../lib/queries"
@@ -35,6 +35,7 @@ import { backTarget } from "../../lib/report-page"
 import { toast } from "../../lib/toast"
 import { roleIn } from "../../lib/workspace"
 import { useReportTrackers } from "./useReportTrackers"
+import { errorMessage } from "../../lib/query/unwrap"
 
 const NO_PROJECT = "none"
 const NEW_PROJECT = "new"

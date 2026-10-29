@@ -7,9 +7,9 @@ import { ReportTitle } from "../components/report/ReportTitle"
 import { ReportView } from "../components/ReportView"
 import { ErrorPage } from "../components/status/ErrorPage"
 import { PageLoading } from "../components/ui"
-import { ApiError } from "../lib/api"
 import { queries } from "../lib/queries"
 import { sharePageTarget } from "../lib/report-page"
+import { ApiError } from "../lib/query/unwrap"
 
 const routeApi = getRouteApi("/s/$slug")
 

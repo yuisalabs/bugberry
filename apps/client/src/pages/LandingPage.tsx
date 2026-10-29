@@ -3,11 +3,11 @@ import { HomeView } from "./landing/HomeView"
 import { SiteNavigation } from "./landing/SiteNavigation"
 import { usePageMeta } from "./landing/usePageMeta"
 import { authQueries } from "../features/auth/queries"
-import { queries } from "../lib/queries"
+import { accountQueries } from "../features/account/queries"
 
 /** `/`: the public home page. A signed-in visitor is offered the dashboard instead of sign-up. */
 export function LandingPage() {
-  const me = useQuery({ ...queries.me(), retry: false, meta: { signedOutIsFine: true } })
+  const me = useQuery({ ...accountQueries.me(), retry: false, meta: { signedOutIsFine: true } })
   const config = useQuery(authQueries.clientConfig())
   usePageMeta(
     "BugBerry · Bug reporting for teams, and the agents that fix them",

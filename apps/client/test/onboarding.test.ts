@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { ONBOARDING_MISSIONS, ONBOARDING_STEPS } from "@bugberry/shared"
-import type { OnboardingProgress } from "../src/lib/api"
-import { doneCount, nextStep, ONBOARDING_COPY } from "../src/lib/onboarding"
+import { doneCount, nextStep, ONBOARDING_COPY } from "../src/features/onboarding/onboarding"
+import type { OnboardingProgress } from "../src/features/onboarding/queries"
 
 const progress = (done: boolean[]): OnboardingProgress => ({
   phase: "required",

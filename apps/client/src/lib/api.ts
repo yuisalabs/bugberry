@@ -14,7 +14,6 @@ import type {
 } from "@bugberry/shared"
 import { unwrap } from "./query/unwrap"
 
-export { ApiError, errorMessage, unwrap } from "./query/unwrap"
 
 export interface ProjectInput {
   name: string
@@ -101,11 +100,6 @@ export interface AiSettingsPatch {
 export function createApi(origin: string = window.location.origin, fetcher: typeof fetch = fetch) {
   const { api } = treaty<App>(origin, { fetcher })
   return {
-    me: () => unwrap(api.me.get()),
-    myLimits: () => unwrap(api.me.limits.get()),
-    /** The Getting started checklist in this workspace; null when there is none to show. */
-    onboarding: async (workspaceId: string) => (await unwrap(api.me.onboarding.get({ query: { workspaceId } }))).progress,
-    recordOnboarding: (change: { event: OnboardingEvent } | { collapsed: boolean }) => unwrap(api.me.onboarding.post(change)),
     switchWorkspace: (workspaceId: string) => unwrap(api.me.workspace.put({ workspaceId })),
     workspaces: () => unwrap(api.workspaces.get()),
     createWorkspace: (name: string, slug?: string) => unwrap(api.workspaces.post(slug === undefined ? { name } : { name, slug })),
@@ -173,16 +167,8 @@ export function createApi(origin: string = window.location.origin, fetcher: type
     /** Adds the caller's emoji to a comment, or takes it off; returns the comment's reactions. */
     react: (commentId: string, emoji: string) => unwrap(api.comments({ id: commentId }).reactions.post({ emoji })),
     activity: (reportId: string) => unwrap(api.reports({ id: reportId }).activity.get()),
-    updateName: (name: string) => unwrap(api.me.patch({ name })),
-    avatarUploadTarget: (contentType: "image/png" | "image/jpeg", size: number) => unwrap(api.me.avatar.post({ contentType, size })),
-    confirmAvatar: (avatarId: string) => unwrap(api.me.avatar({ avatarId }).post()),
-    removeAvatar: () => unwrap(api.me.avatar.delete()),
-    signInMethods: () => unwrap(api.me["sign-in-methods"].get()),
     /** "Book your demo" on the public site. */
     requestDemo: (input: DemoRequestInput) => unwrap(api["demo-requests"].post(input)),
-    notifications: () => unwrap(api.notifications.get()),
-    readNotification: (id: string) => unwrap(api.notifications({ id }).read.post()),
-    readAllNotifications: () => unwrap(api.notifications["read-all"].post()),
     mcpTokens: () => unwrap(api.me.tokens.get()),
     createMcpToken: (label: string) => unwrap(api.me.tokens.post({ label })),
     revokeMcpToken: (id: string) => unwrap(api.me.tokens({ id }).delete()),
@@ -229,7 +215,6 @@ export function createApi(origin: string = window.location.origin, fetcher: type
 }
 
 export type Api = ReturnType<typeof createApi>
-export type Me = Awaited<ReturnType<Api["me"]>>
 export type Project = Awaited<ReturnType<Api["projects"]>>[number]
 export type Member = Awaited<ReturnType<Api["members"]>>[number]
 export type Workspace = Awaited<ReturnType<Api["workspaces"]>>[number]
@@ -238,9 +223,7 @@ export type MyInvitation = Awaited<ReturnType<Api["myInvitations"]>>[number]
 export type JoinPreview = Awaited<ReturnType<Api["joinPreview"]>>
 export type WorkspaceAccess = Awaited<ReturnType<Api["workspaceAccess"]>>
 export type WorkspaceLimits = Awaited<ReturnType<Api["workspaceLimits"]>>
-export type MyLimits = Awaited<ReturnType<Api["myLimits"]>>
 export type AiSetup = Awaited<ReturnType<Api["aiSetup"]>>
-export type OnboardingProgress = NonNullable<Awaited<ReturnType<Api["onboarding"]>>>
 export type JoinRequest = Awaited<ReturnType<Api["joinRequests"]>>[number]
 export type InviteResult = Awaited<ReturnType<Api["invite"]>>[number]
 export type InvitationInfo = Awaited<ReturnType<Api["invitation"]>>
@@ -254,7 +237,6 @@ export type CommentThread = Awaited<ReturnType<Api["comments"]>>[number]
 export type Comment = CommentThread["replies"][number]
 export type Reaction = Comment["reactions"][number]
 export type Activity = Awaited<ReturnType<Api["activity"]>>[number]
-export type Notifications = Awaited<ReturnType<Api["notifications"]>>
 export type ReportTrackers = Awaited<ReturnType<Api["reportTrackers"]>>
 export type TrackerLink = ReportTrackers["links"][number]
 export type Integration = Awaited<ReturnType<Api["integrations"]>>[number]

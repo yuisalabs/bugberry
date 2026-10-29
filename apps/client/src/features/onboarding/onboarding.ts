@@ -1,5 +1,5 @@
 import type { OnboardingItemId } from "@bugberry/shared"
-import type { OnboardingProgress } from "./api"
+import type { OnboardingProgress } from "./queries"
 
 export interface OnboardingCopy {
   title: string

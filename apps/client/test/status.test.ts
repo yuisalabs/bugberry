@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import { QueryClient } from "@tanstack/react-query"
-import { ApiError } from "../src/lib/api"
 import { lastSessionEnd, sessionEndTarget } from "../src/features/auth/session-end"
 import { maintenanceOf, statusKind } from "../src/lib/status"
+import { ApiError } from "../src/lib/query/unwrap"
 
 describe("statusKind", () => {
   test("names the page for each answer the server can give", () => {

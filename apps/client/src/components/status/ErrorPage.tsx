@@ -1,7 +1,7 @@
 import { useState } from "react"
-import { ApiError } from "../../lib/api"
 import { maintenanceOf, statusKind } from "../../lib/status"
 import { type MarkedRequest, StatusPage } from "./StatusPage"
+import { ApiError } from "../../lib/query/unwrap"
 
 /** The fields a 422 refused (`details`), as a marked-up request; null when the answer names none. */
 function refusedRequest(error: unknown): MarkedRequest | null {

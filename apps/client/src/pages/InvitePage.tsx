@@ -4,11 +4,13 @@ import { Link } from "@bugberry/ui/link"
 import { BugBerryLogo } from "../components/BugBerryLogo"
 import { Loading } from "../components/ui"
 import { buttonStyles, Button } from "@bugberry/ui/button"
-import { ApiError, errorMessage, type InvitationInfo } from "../lib/api"
+import type { InvitationInfo } from "../lib/api"
 import { signOut } from "../features/auth/auth"
 import { api } from "../lib/client"
 import { inviteView } from "../lib/invite"
 import { queries } from "../lib/queries"
+import { ApiError, errorMessage } from "../lib/query/unwrap"
+import { accountQueries } from "../features/account/queries"
 
 const routeApi = getRouteApi("/invite/$token")
 const primaryLink = `${buttonStyles({ intent: "primary", size: "sm" })}`
@@ -76,7 +78,7 @@ export function InvitePage() {
   const { token } = routeApi.useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const me = useQuery({ ...queries.me(), retry: false, meta: { signedOutIsFine: true } })
+  const me = useQuery({ ...accountQueries.me(), retry: false, meta: { signedOutIsFine: true } })
   const invite = useQuery(queries.invitation(token))
   const join = useMutation({
     mutationFn: () => api.acceptInvitation(token),

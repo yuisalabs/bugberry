@@ -4,16 +4,18 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Dialog, DialogTrigger } from "react-aria-components"
 import { Button } from "@bugberry/ui/button"
 import { Popover } from "@bugberry/ui/popover"
-import { errorMessage, type ReportDetail } from "../../lib/api"
+import type { ReportDetail } from "../../lib/api"
 import { api } from "../../lib/client"
 import { queries } from "../../lib/queries"
 import { copiedDescription, sharePopoverState } from "../../lib/share-access"
 import { toast } from "../../lib/toast"
 import { shareUrl } from "../../lib/urls"
 import { roleIn } from "../../lib/workspace"
-import { isUndone } from "../../lib/onboarding"
-import { useOnboarding } from "../onboarding/OnboardingProvider"
+import { isUndone } from "../../features/onboarding/onboarding"
+import { useOnboarding } from "../../features/onboarding/OnboardingProvider"
 import { SharePopoverView } from "./SharePopover"
+import { errorMessage } from "../../lib/query/unwrap"
+import { accountQueries } from "../../features/account/queries"
 
 /**
  * The one share link of a report. The main part copies it as it is; the arrow opens the Share popover,
@@ -31,7 +33,7 @@ export function CopyLinkButton({
   bar?: boolean
 }) {
   const queryClient = useQueryClient()
-  const me = useQuery({ ...queries.me(), enabled: settings })
+  const me = useQuery({ ...accountQueries.me(), enabled: settings })
   const workspaces = useQuery({ ...queries.workspaces(), enabled: settings })
   const editable = roleIn(workspaces.data ?? [], report.workspaceId) === "admin" || me.data?.id === report.reporter.id
   const reportKey = queries.report(report.id).queryKey

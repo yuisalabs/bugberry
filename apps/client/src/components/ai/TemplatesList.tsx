@@ -8,9 +8,10 @@ import { Description, Label } from "@bugberry/ui/field"
 import { Input } from "@bugberry/ui/input"
 import { Textarea } from "@bugberry/ui/textarea"
 import { TextField } from "@bugberry/ui/text-field"
-import { type AiSetup, type AiTemplateInput, errorMessage } from "../../lib/api"
+import type { AiSetup, AiTemplateInput } from "../../lib/api"
 import { api } from "../../lib/client"
 import { Badge } from "../ui"
+import { errorMessage } from "../../lib/query/unwrap"
 
 type Template = AiSetup["templates"][number]
 

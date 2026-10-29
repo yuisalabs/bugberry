@@ -1,13 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useLocation } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
-import { errorMessage } from "../lib/api"
 import { api } from "../lib/client"
 import { queries } from "../lib/queries"
 import { roleIn } from "../lib/workspace"
 import { CommentsSection } from "./comments/CommentsSection"
 import { PeopleRowsSkeleton } from "./Skeletons"
 import { ErrorState } from "./ui"
+import { errorMessage } from "../lib/query/unwrap"
+import { accountQueries } from "../features/account/queries"
 
 /** This browser remembers whether the feed shows All activity; Comments only is the default. */
 const TAB_KEY = "bugberry.commentsTab"
@@ -31,7 +32,7 @@ function saveShowActivity(on: boolean): void {
 export function ReportComments({ reportId, workspaceId }: { reportId: string; workspaceId: string }) {
   const queryClient = useQueryClient()
   const [showActivity, setShowActivity] = useState(readShowActivity)
-  const me = useQuery(queries.me())
+  const me = useQuery(accountQueries.me())
   const workspaces = useQuery(queries.workspaces())
   const comments = useQuery(queries.comments(reportId))
   const activity = useQuery({ ...queries.activity(reportId), enabled: showActivity })

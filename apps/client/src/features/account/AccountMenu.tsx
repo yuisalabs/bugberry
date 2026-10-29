@@ -5,9 +5,9 @@ import { Menu as MenuPrimitive } from "react-aria-components/Menu"
 import { Avatar } from "@bugberry/ui/avatar"
 import { MenuItem, MenuLabel, MenuSection, MenuSeparator, menuStyles } from "@bugberry/ui/menu"
 import { Popover } from "@bugberry/ui/popover"
-import { DOCS_URL } from "../lib/docs-url"
-import type { ExtensionAnswer } from "../lib/extension-bridge"
-import { initialsOf } from "../lib/people"
+import { DOCS_URL } from "../../lib/docs-url"
+import type { ExtensionAnswer } from "../onboarding/extension-bridge"
+import { initialsOf } from "../../lib/people"
 
 interface PanelProps {
   me: { name: string; email: string; image: string | null }

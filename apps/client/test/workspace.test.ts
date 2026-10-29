@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test"
 import { QueryClient, queryOptions } from "@tanstack/react-query"
 import { requireWorkspaceAdmin } from "../src/features/auth/admin-guard"
-import { ApiError, type Me, type Workspace } from "../src/lib/api"
+import type { Workspace } from "../src/lib/api"
 import { pickWorkspace, roleIn, roleLabel } from "../src/lib/workspace"
+import { ApiError } from "../src/lib/query/unwrap"
+import type { Me } from "../src/features/account/queries"
 
 const alpha = { id: "w1", name: "Alpha", role: "admin" as const, owner: false, slug: "alpha", logoUrl: null }
 const beta = { id: "w2", name: "Beta", role: "member" as const, owner: false, slug: "beta", logoUrl: null }

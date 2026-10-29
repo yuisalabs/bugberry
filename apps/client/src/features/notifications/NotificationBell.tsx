@@ -5,12 +5,10 @@ import { useState } from "react"
 import { Button as AriaButton, Dialog, DialogTrigger } from "react-aria-components"
 import { Button } from "@bugberry/ui/button"
 import { Popover } from "@bugberry/ui/popover"
-import { useNow } from "../hooks/useNow"
-import type { Notifications } from "../lib/api"
-import { api } from "../lib/client"
-import { formatRelative } from "../lib/format"
-import { queries } from "../lib/queries"
-import { PeopleRowsSkeleton } from "./Skeletons"
+import { useNow } from "../../hooks/useNow"
+import { formatRelative } from "../../lib/format"
+import { PeopleRowsSkeleton } from "../../components/Skeletons"
+import { notificationQueries, type Notifications, useReadAllNotifications, useReadNotification } from "./queries"
 
 type Item = Notifications["items"][number]
 
@@ -97,10 +95,9 @@ export function NotificationBell({ placement = "bottom end" }: { placement?: "bo
   const navigate = useNavigate()
   const now = useNow()
   const [open, setOpen] = useState(false)
-  const notifications = useQuery(queries.notifications())
-  const refresh = () => queryClient.invalidateQueries({ queryKey: queries.notifications().queryKey })
-  const read = useMutation({ mutationFn: (id: string) => api.readNotification(id), onSettled: refresh })
-  const readAll = useMutation({ mutationFn: () => api.readAllNotifications(), onSettled: refresh })
+  const notifications = useQuery(notificationQueries.notifications())
+  const read = useReadNotification()
+  const readAll = useReadAllNotifications()
   const count = notifications.data?.unreadCount ?? 0
 
   const openItem = (item: Item) => {

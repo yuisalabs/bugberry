@@ -22,29 +22,30 @@ import { Sheet } from "@bugberry/ui/sheet"
 import { usePageDrawer } from "../hooks/usePageDrawer"
 import { APP_MAIN_ID } from "../lib/app-scroll"
 import { signOut } from "../features/auth/auth"
-import { useServerInExtension } from "../lib/extension-bridge"
+import { useServerInExtension } from "../features/onboarding/extension-bridge"
 import { queries } from "../lib/queries"
 import { toast } from "../lib/toast"
 import { invitesAllowed } from "../lib/usage"
 import { useCurrentWorkspace } from "../lib/workspace"
 import { WorkspaceHome } from "../pages/WorkspaceHome"
-import { AccountMenu } from "./AccountMenu"
+import { AccountMenu } from "../features/account/AccountMenu"
 import { ActiveIcon } from "./ActiveIcon"
 import { BugBerryLogo } from "./BugBerryLogo"
 import { CreateWorkspaceDialog } from "./CreateWorkspaceDialog"
-import { useExtensionAnswer } from "./ExtensionCard"
+import { useExtensionAnswer } from "../features/onboarding/ExtensionCard"
 import { InviteDialog } from "./InviteDialog"
 import { JoinWorkspaceDialog } from "./JoinWorkspaceDialog"
 import { NewReportButton } from "./NewReportButton"
-import { NotificationBell } from "./NotificationBell"
-import { OnboardingWidget } from "./onboarding/OnboardingChecklist"
-import { OnboardingProvider } from "./onboarding/OnboardingProvider"
+import { NotificationBell } from "../features/notifications/NotificationBell"
+import { OnboardingWidget } from "../features/onboarding/OnboardingChecklist"
+import { OnboardingProvider } from "../features/onboarding/OnboardingProvider"
 import { ProjectsMenu } from "./ProjectsMenu"
 import { ProjectTile } from "./ProjectTile"
 import { ReportDetailSkeleton, ReportsPageSkeleton } from "./Skeletons"
 import { WorkspaceMenu } from "./WorkspaceMenu"
 import { installHref } from "../pages/landing/site-links"
 import { authQueries } from "../features/auth/queries"
+import { accountQueries } from "../features/account/queries"
 
 const sectionTitle = "px-2 pb-1 text-xs font-medium text-muted-foreground"
 const pill =
@@ -77,14 +78,14 @@ export function AppShell() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const matchRoute = useMatchRoute()
-  const me = useQuery(queries.me())
+  const me = useQuery(accountQueries.me())
   const { workspace, workspaces, isPending, switchTo } = useCurrentWorkspace()
   // The report page takes the whole window; its "All reports" link leads back to the top bar.
   const fullWidth = Boolean(matchRoute({ to: "/app/r/$reportId" }))
   const projects = useQuery({ ...queries.projects(workspace?.id ?? ""), enabled: Boolean(workspace) })
   const waiting = useQuery({ ...queries.joinRequests(workspace?.id ?? ""), enabled: workspace?.role === "admin" })
   const waitingCount = waiting.data?.length ?? 0
-  const myLimits = useQuery(queries.myLimits())
+  const myLimits = useQuery(accountQueries.myLimits())
   const limits = useQuery({ ...queries.workspaceLimits(workspace?.id ?? ""), enabled: workspace?.role === "admin" })
   const config = useQuery(authQueries.clientConfig())
   // The server's own install link, else BugBerry's Chrome Web Store page, as on the public site.

@@ -1,7 +1,7 @@
 import { QueryClientContext } from "@tanstack/react-query"
 import { type ReactNode, useContext, useEffect } from "react"
-import { queries } from "../../lib/queries"
 import { BugBerryLogo } from "../BugBerryLogo"
+import { accountQueries } from "../../features/account/queries"
 
 /** The soft dots behind every status page: [size, left %, top %, colour], placed as in the designs. */
 const SPOTS: Array<[number, number, number, string]> = [
@@ -21,7 +21,7 @@ const SPOTS: Array<[number, number, number, string]> = [
 /** Whether someone is signed in, from what the app already knows; a status page never asks the server. */
 export function useSignedIn(): boolean {
   const client = useContext(QueryClientContext)
-  return Boolean(client?.getQueryData(queries.me().queryKey))
+  return Boolean(client?.getQueryData(accountQueries.me().queryKey))
 }
 
 /** Signed in: the dashboard. Otherwise the home page, which a self-hosted server sends on to sign-in. */

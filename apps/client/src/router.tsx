@@ -13,12 +13,10 @@ import { AppShell } from "./components/AppShell"
 import { ErrorPage } from "./components/status/ErrorPage"
 import { StatusPage } from "./components/status/StatusPage"
 import { requireWorkspaceAdmin } from "./features/auth/admin-guard"
-import { ApiError } from "./lib/api"
 import { legacyAppPath } from "./lib/legacy-paths"
 import { publicSiteGate } from "./lib/public-site"
 import { startSecondsFrom } from "./lib/urls"
 import { validateLoginSearch } from "./features/auth/login"
-import { queries } from "./lib/queries"
 import { validateProjectReportSearch, validateReportSearch } from "./lib/report-search"
 // The report lists load with the app; the report page (debugger, media), sharing, sign-in and the
 // settings pages are split off so the first load stays small.
@@ -59,7 +57,7 @@ const authedRoute = createRoute({
   id: "_authed",
   beforeLoad: async ({ context, location }) => {
     try {
-      return { me: await context.queryClient.ensureQueryData(queries.me()) }
+      return { me: await context.queryClient.ensureQueryData(accountQueries.me()) }
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
         throw redirect({ to: "/login", search: { next: location.href } })
@@ -175,7 +173,7 @@ const aiAgentsRoute = createRoute({
 const accountRoute = createRoute({
   getParentRoute: () => authedRoute,
   path: "/app/settings/account",
-  component: lazyRouteComponent(() => import("./pages/settings/AccountSettingsPage"), "AccountSettingsPage"),
+  component: lazyRouteComponent(() => import("./features/account/AccountSettingsPage"), "AccountSettingsPage"),
 })
 
 const workspaceSettingsRoute = createRoute({
@@ -244,6 +242,8 @@ export function createAppRouter(queryClient: QueryClient) {
 }
 
 import type { ReportsFrom } from "./lib/report-page"
+import { ApiError } from "./lib/query/unwrap"
+import { accountQueries } from "./features/account/queries"
 
 declare module "@tanstack/react-router" {
   interface Register {

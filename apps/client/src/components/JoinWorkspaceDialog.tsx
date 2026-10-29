@@ -7,11 +7,13 @@ import { Button } from "@bugberry/ui/button"
 import { Label } from "@bugberry/ui/field"
 import { Input, InputGroup } from "@bugberry/ui/input"
 import { TextField } from "@bugberry/ui/text-field"
-import { ApiError, errorMessage, type JoinPreview, type MyInvitation } from "../lib/api"
+import type { JoinPreview, MyInvitation } from "../lib/api"
 import { api } from "../lib/client"
 import { plausibleJoinValue } from "../lib/join-value"
 import { queries } from "../lib/queries"
 import { WorkspaceTile } from "./WorkspaceMenu"
+import { ApiError, errorMessage } from "../lib/query/unwrap"
+import { accountQueries } from "../features/account/queries"
 
 export type PreviewState = { status: "idle" | "checking" | "invalid" } | { status: "found"; data: JoinPreview }
 export type DomainWorkspace = {
@@ -151,7 +153,7 @@ const PREVIEW_DEBOUNCE_MS = 400
 export function JoinWorkspacePanel({ onJoined }: { onJoined(): void }) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
-  const me = useQuery(queries.me())
+  const me = useQuery(accountQueries.me())
   const invitations = useQuery(queries.myInvitations())
   const domainWorkspaces = useQuery(queries.domainWorkspaces())
   const [value, setValue] = useState("")

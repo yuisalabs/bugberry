@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
-import { ExtensionCardView } from "../src/components/ExtensionCard"
+import { ExtensionCardView } from "../src/features/onboarding/ExtensionCard"
 
 describe("ExtensionCardView", () => {
   test("the extension card in each state", () => {

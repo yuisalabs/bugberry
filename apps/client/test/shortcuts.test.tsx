@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test"
 import { render, screen } from "@testing-library/react"
-import { ExtensionCardView } from "../src/components/ExtensionCard"
+import { ExtensionCardView } from "../src/features/onboarding/ExtensionCard"
 import { NewReportGuide } from "../src/components/NewReportButton"
 import { ReportSearchBox } from "../src/components/ReportSearchBox"
 import { isMacPlatform, searchShortcut } from "../src/lib/shortcuts"

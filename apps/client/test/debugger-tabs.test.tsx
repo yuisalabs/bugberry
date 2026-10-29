@@ -9,7 +9,7 @@ import { normalizePayload } from "@bugberry/debugger-view"
 import { networkRows } from "@bugberry/debugger-view"
 import { reportFixture } from "./fixtures"
 import { choose } from "./fields"
-import { type OnboardingContext, OnboardingTestProvider } from "../src/components/onboarding/OnboardingProvider"
+import { type OnboardingContext, OnboardingTestProvider } from "../src/features/onboarding/OnboardingProvider"
 
 const HOSTILE = "<img src=x onerror=alert(1)>"
 

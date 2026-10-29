@@ -1,12 +1,11 @@
 import type { OnboardingEvent, OnboardingItemId } from "@bugberry/shared"
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createContext, type ReactNode, useContext, useEffect, useMemo } from "react"
-import type { OnboardingProgress } from "../../lib/api"
-import { api } from "../../lib/client"
-import { nextStep } from "../../lib/onboarding"
-import { queries } from "../../lib/queries"
+import { nextStep } from "./onboarding"
 import { useCurrentWorkspace } from "../../lib/workspace"
-import { useExtensionAnswer } from "../ExtensionCard"
+import { useExtensionAnswer } from "./ExtensionCard"
+import { onboarding, type OnboardingProgress, onboardingQueries, recordOnboarding } from "./queries"
+import { qk } from "../../lib/query/keys"
 
 export interface OnboardingContext {
   progress: OnboardingProgress
@@ -29,8 +28,8 @@ export function OnboardingTestProvider({ value, children }: { value: OnboardingC
 
 export function OnboardingProvider({
   children,
-  load = api.onboarding,
-  send = api.recordOnboarding,
+  load = onboarding,
+  send = recordOnboarding,
 }: {
   children: ReactNode
   /** The API by default; tests pass their own. */
@@ -41,18 +40,18 @@ export function OnboardingProvider({
   const { workspace } = useCurrentWorkspace()
   const workspaceId = workspace?.id ?? ""
   const query = useQuery({
-    ...queries.onboarding(workspaceId),
+    ...onboardingQueries.onboarding(workspaceId),
     queryFn: () => load(workspaceId),
     enabled: Boolean(workspace),
     // Switching workspace keeps the checklist on screen while the new one's progress loads.
     placeholderData: keepPreviousData,
   })
   const progress = query.data ?? null
-  const key = queries.onboarding(workspaceId).queryKey
+  const key = qk.onboarding.of(workspaceId)
 
   const event = useMutation({
     mutationFn: (name: OnboardingEvent) => send({ event: name }),
-    onSettled: () => void queryClient.invalidateQueries({ queryKey: ["onboarding"] }),
+    onSettled: () => void queryClient.invalidateQueries({ queryKey: qk.onboarding.all }),
   })
   const collapse = useMutation({
     mutationFn: (collapsed: boolean) => send({ collapsed }),

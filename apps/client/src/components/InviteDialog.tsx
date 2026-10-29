@@ -5,12 +5,13 @@ import { type FormEvent, type ReactNode, useState } from "react"
 import { Button } from "@bugberry/ui/button"
 import { Dialog, DialogBody, DialogDescription, DialogTitle } from "@bugberry/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@bugberry/ui/select"
-import { errorMessage, type InviteResult } from "../lib/api"
+import type { InviteResult } from "../lib/api"
 import { api } from "../lib/client"
 import { queries } from "../lib/queries"
 import { useCurrentWorkspace } from "../lib/workspace"
 import { EmailChips } from "./EmailChips"
 import { CopyButton } from "./ui"
+import { errorMessage } from "../lib/query/unwrap"
 
 export const RESULT_LABELS: Record<InviteResult["status"], string> = {
   sent: "Invited",

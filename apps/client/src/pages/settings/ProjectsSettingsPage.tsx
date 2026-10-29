@@ -24,13 +24,14 @@ import { ProjectTile } from "../../components/ProjectTile"
 import { SettingsRowsSkeleton } from "../../components/Skeletons"
 import { EmptyState, ErrorState } from "../../components/ui"
 import { useNow } from "../../hooks/useNow"
-import { errorMessage, type Project } from "../../lib/api"
+import type { Project } from "../../lib/api"
 import { api } from "../../lib/client"
 import { formatAgo } from "../../lib/format"
 import { queries } from "../../lib/queries"
 import { patternForPage, testProjects } from "../../lib/url-patterns"
 import { useCurrentWorkspace } from "../../lib/workspace"
 import { useConfirm } from "@bugberry/ui/confirm-dialog"
+import { errorMessage } from "../../lib/query/unwrap"
 
 /** A project's reports as the overview counts them; null while they load. */
 export interface ProjectStats {

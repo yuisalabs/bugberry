@@ -24,11 +24,11 @@ import { BrandedHeader } from "../../components/BrandedHeader"
 import { SettingsTabs } from "../../components/SettingsTabs"
 import { SettingsPageSkeleton } from "../../components/Skeletons"
 import { CopyButton, ErrorState } from "../../components/ui"
-import { errorMessage } from "../../lib/api"
 import { api } from "../../lib/client"
 import { DOCS_URL } from "../../lib/docs-url"
 import { formatDateTime } from "../../lib/format"
 import { useConfirm } from "@bugberry/ui/confirm-dialog"
+import { errorMessage } from "../../lib/query/unwrap"
 
 export interface TokenRow {
   id: string

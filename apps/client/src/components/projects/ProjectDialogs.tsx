@@ -6,12 +6,13 @@ import { Dialog, DialogBody, DialogDescription, DialogFooter, DialogHeader, Dial
 import { Description, Label } from "@bugberry/ui/field"
 import { Input, InputGroup } from "@bugberry/ui/input"
 import { TextField } from "@bugberry/ui/text-field"
-import { errorMessage, type Project, type ProjectInput } from "../../lib/api"
+import type { Project, ProjectInput } from "../../lib/api"
 import { api } from "../../lib/client"
 import { slugify } from "../../lib/slug"
 import { LOGO_RULE, LogoPicker } from "../LogoPicker"
 import { cleanPatterns, MAX_PATTERN_LENGTH, MAX_PATTERNS, patternExamples, savePatternsLabel, testUrl } from "../../lib/url-patterns"
 import { useCurrentWorkspace, workspaceColor } from "../../lib/workspace"
+import { errorMessage } from "../../lib/query/unwrap"
 
 const sectionLabel = "text-sm font-medium text-foreground"
 

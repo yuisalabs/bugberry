@@ -1,11 +1,12 @@
 import { PROVIDER_LABELS } from "@bugberry/shared"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { errorMessage, type ReportDetail } from "../../lib/api"
+import type { ReportDetail } from "../../lib/api"
 import { api } from "../../lib/client"
 import { sendOutcome, trackerItems } from "../../lib/more-menu"
 import { queries } from "../../lib/queries"
 import { toast } from "../../lib/toast"
 import { trackersRefetchInterval } from "../../lib/tracker-links"
+import { errorMessage } from "../../lib/query/unwrap"
 
 /**
  * A report's trackers as the green button's menu and the phone's ⋯ sheet show them, and the send to one of them.

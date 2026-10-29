@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen, within } from "@testing-library/react"
-import { AccountMenuPanel } from "../src/components/AccountMenu"
+import { AccountMenuPanel } from "../src/features/account/AccountMenu"
 import { JoinWorkspaceBody } from "../src/components/JoinWorkspaceDialog"
 import { WorkspaceMenuPanel } from "../src/components/WorkspaceMenu"
 import { workspaceColor } from "../src/lib/workspace"

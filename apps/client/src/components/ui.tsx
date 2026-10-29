@@ -2,7 +2,7 @@ import { RiCheckLine, RiFileCopyLine } from "@remixicon/react"
 import { type ReactNode, useState } from "react"
 import { Button } from "@bugberry/ui/button"
 import { Loader } from "@bugberry/ui/loader"
-import { errorMessage } from "../lib/api"
+import { errorMessage } from "../lib/query/unwrap"
 
 /**
  * A plain button for a destructive action (Remove, Revoke, Delete): red text and a red icon. Intent's button colours

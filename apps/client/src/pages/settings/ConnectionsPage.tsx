@@ -19,12 +19,13 @@ import { PROVIDER_GROUPS, ProviderMark } from "../../components/IntegrationForm"
 import { SettingsRowsSkeleton } from "../../components/Skeletons"
 import { dangerText, ErrorState } from "../../components/ui"
 import { useNow } from "../../hooks/useNow"
-import { type Connection, errorMessage } from "../../lib/api"
+import type { Connection } from "../../lib/api"
 import { api } from "../../lib/client"
 import { formatRelative } from "../../lib/format"
 import { INITIAL_INTEGRATIONS_UI, integrationsUi, type TestResult } from "../../lib/integrations-ui"
 import { queries } from "../../lib/queries"
 import { useCurrentWorkspace } from "../../lib/workspace"
+import { errorMessage } from "../../lib/query/unwrap"
 
 const projects = (count: number) => `${count} ${count === 1 ? "project" : "projects"}`
 

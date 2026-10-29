@@ -6,13 +6,14 @@ import { Button } from "@bugberry/ui/button"
 import { Label } from "@bugberry/ui/field"
 import { Input } from "@bugberry/ui/input"
 import { TextField } from "@bugberry/ui/text-field"
-import { errorMessage, type InviteResult } from "../lib/api"
+import type { InviteResult } from "../lib/api"
 import { api } from "../lib/client"
-import { queries } from "../lib/queries"
 import { type SlugAnswer, type SlugStatus, useSlugCheck } from "../lib/workspace-slug"
 import { EmailChips } from "./EmailChips"
 import { RESULT_LABELS } from "./InviteDialog"
 import { LogoPicker } from "./LogoPicker"
+import { errorMessage } from "../lib/query/unwrap"
+import { accountQueries } from "../features/account/queries"
 
 export interface NewWorkspace {
   name: string
@@ -194,7 +195,7 @@ export function CreateWorkspaceDialog({ isOpen, onOpenChange }: { isOpen: boolea
   const queryClient = useQueryClient()
   const [done, setDone] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
-  const myLimits = useQuery(queries.myLimits())
+  const myLimits = useQuery(accountQueries.myLimits())
   const close = () => {
     onOpenChange(false)
     setDone(false)

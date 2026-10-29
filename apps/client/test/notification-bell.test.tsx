@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
-import { NotificationBadge, NotificationBellView } from "../src/components/NotificationBell"
-import type { Notifications } from "../src/lib/api"
+import { NotificationBadge, NotificationBellView } from "../src/features/notifications/NotificationBell"
+import type { Notifications } from "../src/features/notifications/queries"
 
 const NOW = new Date("2026-10-18T10:00:00Z").getTime()
 
