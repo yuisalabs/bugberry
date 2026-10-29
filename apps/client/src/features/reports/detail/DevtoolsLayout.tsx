@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react"
 import { Toggle } from "@bugberry/ui/toggle"
 import { Tooltip, TooltipTrigger } from "@bugberry/ui/tooltip"
 import { startHorizontalDrag } from "./drag"
-import { ActiveIcon } from "../../../components/ActiveIcon"
+import { ActiveIcon } from "../../../components/layout/ActiveIcon"
 
 const KEY_STEP = 32
 

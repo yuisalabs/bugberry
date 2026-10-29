@@ -10,7 +10,7 @@ import {
 import { Button } from "@bugberry/ui/button"
 import { integrationCard as card, StatusChip } from "./IntegrationsLayout"
 import { ProviderMark } from "./IntegrationForm"
-import { dangerText } from "../../components/ui"
+import { dangerText } from "../../components/ui/danger-text"
 import { useNow } from "../../hooks/useNow"
 import { formatRelative } from "../../lib/format"
 import type { TestResult } from "./integrations-ui"

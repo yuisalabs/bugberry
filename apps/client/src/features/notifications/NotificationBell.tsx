@@ -7,7 +7,7 @@ import { Button } from "@bugberry/ui/button"
 import { Popover } from "@bugberry/ui/popover"
 import { useNow } from "../../hooks/useNow"
 import { formatRelative } from "../../lib/format"
-import { PeopleRowsSkeleton } from "../../components/Skeletons"
+import { PeopleRowsSkeleton } from "../../components/layout/Skeletons"
 import { notificationQueries, type Notifications, useReadAllNotifications, useReadNotification } from "./queries"
 
 type Item = Notifications["items"][number]

@@ -9,9 +9,9 @@ import {
   Outlet,
   redirect,
 } from "@tanstack/react-router"
-import { AppShell } from "./components/AppShell"
-import { ErrorPage } from "./components/status/ErrorPage"
-import { StatusPage } from "./components/status/StatusPage"
+import { AppShell } from "./components/layout/AppShell"
+import { ErrorPage } from "./components/layout/ErrorPage"
+import { StatusPage } from "./components/layout/StatusPage"
 import { requireWorkspaceAdmin } from "./features/auth/admin-guard"
 import { legacyAppPath } from "./lib/legacy-paths"
 import { publicSiteGate } from "./features/landing/public-site"

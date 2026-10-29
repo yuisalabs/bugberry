@@ -1,7 +1,7 @@
 import { RiArrowRightSLine, RiCloseLine } from "@remixicon/react"
 import { useEffect, useRef, useState } from "react"
 import { Link } from "@bugberry/ui/link"
-import { BugBerryLogo } from "../../components/BugBerryLogo"
+import { BugBerryLogo } from "../../components/layout/BugBerryLogo"
 import { PRODUCT_MENU } from "./ProductMenu"
 import { SITE_PAGES, siteButton, siteContainer, siteOutlineButton } from "./site-links"
 

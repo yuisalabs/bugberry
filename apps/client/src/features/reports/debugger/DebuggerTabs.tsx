@@ -13,7 +13,7 @@ import { type DebuggerView, eventBase, onPage, type VisitedUrl } from "@bugberry
 import type { Playback } from "./timeline"
 import { isUndone } from "../../onboarding/onboarding"
 import { useOnboarding } from "../../onboarding/OnboardingProvider"
-import { EventRowsSkeleton } from "../../../components/Skeletons"
+import { EventRowsSkeleton } from "../../../components/layout/Skeletons"
 import { ActionsTab } from "./ActionsTab"
 import { ConsoleTab } from "./ConsoleTab"
 import { InfoTab } from "./InfoTab"

@@ -1,6 +1,6 @@
 import { getRouteApi } from "@tanstack/react-router"
 import { useState } from "react"
-import { StatusPage } from "../../components/status/StatusPage"
+import { StatusPage } from "../../components/layout/StatusPage"
 import { lastSessionEnd } from "./session-end"
 import { safeNext } from "../../lib/urls"
 

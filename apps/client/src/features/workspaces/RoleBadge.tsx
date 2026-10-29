@@ -1,6 +1,6 @@
 import type { WorkspaceRole } from "@bugberry/shared"
 import { RiShieldUserLine, RiUserLine, RiVipCrown2Line } from "@remixicon/react"
-import { Badge } from "../../components/ui"
+import { Badge } from "../../components/ui/badge"
 import { roleLabel } from "./workspace"
 
 export function RoleBadge({ member }: { member: { role: WorkspaceRole; owner: boolean } }) {

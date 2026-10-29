@@ -7,7 +7,7 @@ import { Dialog, DialogBody, DialogDescription, DialogTitle } from "@bugberry/ui
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@bugberry/ui/select"
 import { useCurrentWorkspace } from "./workspace"
 import { EmailChips } from "./EmailChips"
-import { CopyButton } from "../../components/ui"
+import { CopyButton } from "../../components/ui/copy-button"
 import { errorMessage } from "../../lib/query/unwrap"
 import { invite, type InviteResult, useUpdateWorkspaceAccess, workspaceQueries } from "./queries"
 import { qk } from "../../lib/query/keys"

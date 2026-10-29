@@ -3,7 +3,8 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import { Button } from "@bugberry/ui/button"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { EmptyState, Loading, PageLoading } from "../src/components/ui"
+import { EmptyState } from "../src/components/ui/empty-state"
+import { Loading, PageLoading } from "../src/components/ui/loading"
 
 describe("ui wrappers", () => {
   test("an Intent Button submits its form and honours isDisabled", () => {

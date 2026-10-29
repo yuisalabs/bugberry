@@ -11,7 +11,7 @@ import { ToggleGroup, ToggleGroupItem } from "@bugberry/ui/toggle-group"
 import { CAPTURE_LABELS, PRIORITY_LABELS, STATUS_LABELS } from "./labels"
 import type { ReportLayout } from "./report-layout"
 import { CLEARED_FILTERS, hasFilters, NO_PROJECT, type ReportSearch, toggleValue } from "./report-search"
-import { ActiveIcon } from "../../../components/ActiveIcon"
+import { ActiveIcon } from "../../../components/layout/ActiveIcon"
 import type { Project } from "../../projects/queries"
 import type { Member } from "../../workspaces/queries"
 

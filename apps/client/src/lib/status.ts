@@ -1,6 +1,6 @@
 import { ApiError } from "./query/unwrap"
 
-/** The status pages (components/status): one per kind of failure a whole page can run into. */
+/** The status pages (components/layout/StatusPage): one per kind of failure a whole page can run into. */
 export type StatusKind = "400" | "401" | "403" | "404" | "500" | "503" | "504" | "maintenance"
 
 /**

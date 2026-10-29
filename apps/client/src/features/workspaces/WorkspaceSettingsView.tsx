@@ -3,7 +3,7 @@ import { Button } from "@bugberry/ui/button"
 import { Input } from "@bugberry/ui/input"
 import { TextField } from "@bugberry/ui/text-field"
 import { LOGO_RULE, LogoPicker } from "./LogoPicker"
-import { SettingRow, SettingsCardHeader, SettingsSaveBar, settingsCard } from "../../components/SettingsCard"
+import { SettingRow, SettingsCardHeader, SettingsSaveBar, settingsCard } from "../../components/layout/SettingsCard"
 import { type SlugAnswer, useSlugCheck } from "./workspace-slug"
 
 type Settings = { id: string; name: string; slug: string; logoUrl: string | null }

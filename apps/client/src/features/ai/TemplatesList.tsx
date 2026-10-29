@@ -9,7 +9,7 @@ import { Input } from "@bugberry/ui/input"
 import { Textarea } from "@bugberry/ui/textarea"
 import { TextField } from "@bugberry/ui/text-field"
 import { qk } from "../../lib/query/keys"
-import { Badge } from "../../components/ui"
+import { Badge } from "../../components/ui/badge"
 import { errorMessage } from "../../lib/query/unwrap"
 import { type AiSetup, type AiTemplateInput, createAiTemplate, deleteAiTemplate, updateAiTemplate } from "./queries"
 

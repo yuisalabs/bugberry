@@ -10,7 +10,7 @@ import {
 } from "@remixicon/react"
 import { render, screen } from "@testing-library/react"
 import { renderToStaticMarkup } from "react-dom/server"
-import { ActiveIcon } from "../src/components/ActiveIcon"
+import { ActiveIcon } from "../src/components/layout/ActiveIcon"
 import { DevtoolsToggle } from "../src/features/reports/detail/DevtoolsLayout"
 import { LayoutToggle, ReportFilters } from "../src/features/reports/list/ReportFilters"
 

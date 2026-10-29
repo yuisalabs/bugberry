@@ -1,7 +1,7 @@
 import { RiRobot2Line, RiSparkling2Line } from "@remixicon/react"
 import { AiWritingSettings } from "./AiWritingSettings"
-import { BrandedHeader } from "../../components/BrandedHeader"
-import { SettingsTabs } from "../../components/SettingsTabs"
+import { BrandedHeader } from "../../components/layout/BrandedHeader"
+import { SettingsTabs } from "../../components/layout/SettingsTabs"
 import { McpAgents } from "./McpAgents"
 
 /** `/app/settings/ai`: AI agents through MCP, and Write with AI (the workspace's own key and templates) at #write. */

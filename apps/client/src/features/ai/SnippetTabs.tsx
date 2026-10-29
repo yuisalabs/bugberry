@@ -1,6 +1,6 @@
 import { RiTerminalBoxLine } from "@remixicon/react"
 import { Tab, TabList, TabPanel, Tabs } from "react-aria-components"
-import { CopyButton } from "../../components/ui"
+import { CopyButton } from "../../components/ui/copy-button"
 import { connectSnippets } from "./snippets"
 
 // A terminal look (the theme's ink as the background), so a command reads as something to paste.

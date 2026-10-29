@@ -6,18 +6,20 @@ import { Button } from "@bugberry/ui/button"
 import { FileTrigger } from "@bugberry/ui/file-trigger"
 import { Input } from "@bugberry/ui/input"
 import { TextField } from "@bugberry/ui/text-field"
-import { BrandedHeader } from "../../components/BrandedHeader"
+import { BrandedHeader } from "../../components/layout/BrandedHeader"
 import { GithubIcon, GitlabIcon, GoogleIcon } from "../auth/LoginView"
-import { Badge, dangerText, ErrorState } from "../../components/ui"
+import { Badge } from "../../components/ui/badge"
+import { dangerText } from "../../components/ui/danger-text"
+import { ErrorState } from "../../components/ui/error-state"
 import {
   SettingRow,
   SettingsCardHeader,
   SettingsSaveBar,
   settingsCard,
   settingsPadding,
-} from "../../components/SettingsCard"
-import { SettingsTabs } from "../../components/SettingsTabs"
-import { SettingsPageSkeleton } from "../../components/Skeletons"
+} from "../../components/layout/SettingsCard"
+import { SettingsTabs } from "../../components/layout/SettingsTabs"
+import { SettingsPageSkeleton } from "../../components/layout/Skeletons"
 import type { SignInMethod } from "../auth/queries"
 import { initialsOf } from "../../lib/people"
 import { errorMessage } from "../../lib/query/unwrap"

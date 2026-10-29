@@ -1,6 +1,6 @@
 import { QueryClientContext } from "@tanstack/react-query"
 import { type ReactNode, useContext, useEffect } from "react"
-import { BugBerryLogo } from "../BugBerryLogo"
+import { BugBerryLogo } from "./BugBerryLogo"
 import { accountQueries } from "../../features/account/queries"
 
 /** The soft dots behind every status page: [size, left %, top %, colour], placed as in the designs. */

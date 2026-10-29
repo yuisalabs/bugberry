@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { getRouteApi, Navigate } from "@tanstack/react-router"
-import { SettingsRowsSkeleton } from "../../components/Skeletons"
-import { EmptyState } from "../../components/ui"
+import { SettingsRowsSkeleton } from "../../components/layout/Skeletons"
+import { EmptyState } from "../../components/ui/empty-state"
 import { useCurrentWorkspace } from "../workspaces/workspace"
 import { projectQueries } from "../projects/queries"
 

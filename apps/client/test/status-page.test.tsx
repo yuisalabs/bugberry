@@ -2,8 +2,8 @@ import { describe, expect, mock, test } from "bun:test"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { fireEvent, render, screen, within } from "@testing-library/react"
 import type { ReactNode } from "react"
-import { ErrorPage } from "../src/components/status/ErrorPage"
-import { StatusPage, type StatusPageProps } from "../src/components/status/StatusPage"
+import { ErrorPage } from "../src/components/layout/ErrorPage"
+import { StatusPage, type StatusPageProps } from "../src/components/layout/StatusPage"
 import { ApiError } from "../src/lib/query/unwrap"
 
 function withClient(children: ReactNode, signedIn = false) {

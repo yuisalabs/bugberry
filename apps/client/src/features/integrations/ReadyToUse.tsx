@@ -4,7 +4,7 @@ import type { ReactNode } from "react"
 import { Button } from "@bugberry/ui/button"
 import { ProviderMark } from "./IntegrationForm"
 import { GroupTitle, integrationCard, softButton } from "./IntegrationsLayout"
-import { Badge } from "../../components/ui"
+import { Badge } from "../../components/ui/badge"
 import { usedUp } from "./UseConnectionDialog"
 import type { Connection, Integration } from "./queries"
 

@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
 import { render, screen } from "@testing-library/react"
-import { BugBerryLogo } from "../src/components/BugBerryLogo"
+import { BugBerryLogo } from "../src/components/layout/BugBerryLogo"
 import { ReportHeader } from "../src/features/reports/detail/ReportHeader"
 
 const APP = join(import.meta.dir, "..")

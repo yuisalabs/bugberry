@@ -15,8 +15,8 @@ const OWN_SVG = new Set([
   "components/ui/popover.tsx",
   "components/ui/tooltip.tsx",
   "components/ui/table.tsx",
-  "components/status/StatusFrame.tsx",
-  "components/status/StatusPage.tsx",
+  "components/layout/StatusFrame.tsx",
+  "components/layout/StatusPage.tsx",
 ])
 
 function sources(dir: string): string[] {
