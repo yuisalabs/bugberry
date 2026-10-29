@@ -3,7 +3,7 @@ import { isEmailAllowed } from "../modules/auth/policy"
 import type { Config } from "../config"
 import type { Db } from "../db/client"
 import { apiToken, user } from "../db/schema"
-import { generateApiToken, hashToken } from "../lib/api-token"
+import { generateApiToken, hashToken } from "../modules/tokens/token"
 import { newId } from "../lib/ids"
 import { provisionNewUser } from "../modules/workspaces/provision"
 

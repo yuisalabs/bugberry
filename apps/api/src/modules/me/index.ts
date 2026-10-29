@@ -4,7 +4,7 @@ import { Elysia, t } from "elysia"
 import type { AppDeps } from "../../deps"
 import { authPlugin } from "../../plugins/auth"
 import { user } from "../../db/schema"
-import { onboardingProgress, recordOnboarding } from "../../onboarding/progress"
+import { onboardingProgress, recordOnboarding } from "../onboarding/progress"
 import { requireMember } from "../workspaces/access"
 import { canCreateWorkspace, isAccountLimited } from "../workspaces/limits"
 

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { eq } from "drizzle-orm"
 import { apiToken } from "../src/db/schema"
-import { generateApiToken, hashToken } from "../src/lib/api-token"
+import { generateApiToken, hashToken } from "../src/modules/tokens/token"
 import { newId } from "../src/lib/ids"
 import { createProject, createReadyReport, createUserWithToken, sessionHeaders, setupTestApp } from "./helpers"
 

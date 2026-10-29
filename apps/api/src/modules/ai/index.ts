@@ -11,7 +11,7 @@ import {
 import { and, asc, eq, inArray } from "drizzle-orm"
 import { Elysia, t } from "elysia"
 import type { AppDeps } from "../../deps"
-import { ensureTemplates, listTemplates } from "../../ai/setup"
+import { ensureTemplates, listTemplates } from "./setup"
 import { authPlugin } from "../../plugins/auth"
 import { project, reportTemplate, workspace, workspaceAiProvider } from "../../db/schema"
 import { AppError, conflict, notFound, tooManyRequests, unprocessable } from "../../lib/errors"

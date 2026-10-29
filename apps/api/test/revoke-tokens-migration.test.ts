@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { eq, sql } from "drizzle-orm"
 import { apiToken } from "../src/db/schema"
-import { generateApiToken, hashToken } from "../src/lib/api-token"
+import { generateApiToken, hashToken } from "../src/modules/tokens/token"
 import { newId } from "../src/lib/ids"
 import { createUser, setupTestApp } from "./helpers"
 

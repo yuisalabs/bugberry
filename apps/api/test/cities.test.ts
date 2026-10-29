@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { nearestCity } from "../src/lib/cities"
+import { nearestCity } from "../src/modules/reports/cities"
 
 describe("nearestCity", () => {
   test("names the closest city with its country", () => {

@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, test } from "bun:test"
 import type { DemoRequestInput } from "@bugberry/shared"
-import { demoRequestEmail } from "../src/email/demo-request-email"
-import type { EmailMessage } from "../src/email/sender"
+import { demoRequestEmail } from "../src/modules/demo-requests/demo-request-email"
+import type { EmailMessage } from "../src/lib/email/sender"
 import { demoRequest } from "../src/db/schema"
 import { setupTestApp } from "./helpers"
 

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { eq } from "drizzle-orm"
 import { user, workspaceMember } from "../src/db/schema"
-import type { EmailMessage } from "../src/email/sender"
+import type { EmailMessage } from "../src/lib/email/sender"
 import { setupTestApp } from "./helpers"
 
 async function appWith(allowedEmailDomains: string[]) {

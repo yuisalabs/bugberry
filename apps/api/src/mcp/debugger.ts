@@ -1,5 +1,5 @@
 import { type DebuggerView, normalizePayload } from "@bugberry/debugger-view"
-import { gunzipLimited } from "../lib/trackers/debugger-errors"
+import { gunzipLimited } from "../modules/trackers/debugger-errors"
 import { type McpContext, McpToolError } from "./context"
 import type { ResolvedReport } from "./refs"
 

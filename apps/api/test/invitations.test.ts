@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { and, eq } from "drizzle-orm"
 import { workspaceInvitation, workspaceMember } from "../src/db/schema"
-import type { EmailMessage } from "../src/email/sender"
-import { inviteEmail } from "../src/email/invite-email"
+import type { EmailMessage } from "../src/lib/email/sender"
+import { inviteEmail } from "../src/modules/invitations/invite-email"
 import { createUser, createUserWithToken, setupTestApp } from "./helpers"
 
 let ctx: Awaited<ReturnType<typeof setupTestApp>>

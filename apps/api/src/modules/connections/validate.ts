@@ -1,8 +1,8 @@
 import type { ConnectionSettings, IntegrationProvider, UseTarget } from "@bugberry/shared"
 import { PROVIDER_LABELS } from "@bugberry/shared"
 import { t } from "elysia"
-import { unprocessable } from "../errors"
-import { type HostGuard, HostGuardError, PRIVATE_HOST_MESSAGE } from "../net/host-guard"
+import { unprocessable } from "../../lib/errors"
+import { type HostGuard, HostGuardError, PRIVATE_HOST_MESSAGE } from "../../lib/net/host-guard"
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"])
 /** Where each chat service's incoming webhooks live; any other host is refused. */

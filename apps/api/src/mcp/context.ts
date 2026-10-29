@@ -3,7 +3,7 @@ import type { AppDeps } from "../deps"
 import type { CurrentUser } from "../plugins/auth"
 import { AppError } from "../lib/errors"
 import type { RateLimiter } from "../lib/rate-limit"
-import type { createDispatcher } from "../lib/trackers/dispatch"
+import type { createDispatcher } from "../modules/trackers/dispatch"
 import type { DebuggerCache } from "./debugger"
 
 export type McpScope = "bugberry:read" | "bugberry:write"

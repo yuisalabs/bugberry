@@ -5,14 +5,14 @@ import type { AppDeps } from "../deps"
 import { type CurrentUser, createUserResolver } from "../plugins/auth"
 import { isEmailAllowed } from "../modules/auth/policy"
 import { user as userTable } from "../db/schema"
-import { TOKEN_PREFIX } from "../lib/api-token"
+import { TOKEN_PREFIX } from "../modules/tokens/token"
 import { createRateLimiter, type RateLimiter } from "../lib/rate-limit"
-import { createDispatcher } from "../lib/trackers/dispatch"
+import { createDispatcher } from "../modules/trackers/dispatch"
 import { type McpCaller, type McpContext, RATE_LIMITED } from "./context"
 import { createDebuggerCache } from "./debugger"
 import { createKeyCache, verifyOAuthAccessToken } from "./oauth"
 import { createMcpServer } from "./server"
-import { trackerFactoryFor } from "../lib/trackers/default"
+import { trackerFactoryFor } from "../modules/trackers/default"
 
 const CALLS_PER_MINUTE = 120
 const SCREENSHOTS_PER_MINUTE = 20

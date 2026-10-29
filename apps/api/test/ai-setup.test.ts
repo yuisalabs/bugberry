@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { eq } from "drizzle-orm"
-import { templateFor } from "../src/ai/setup"
+import { templateFor } from "../src/modules/ai/setup"
 import { project, reportTemplate, workspaceAiProvider } from "../src/db/schema"
 import { createSecretBox } from "../src/lib/secret-box"
 import { createProject, createUserWithToken, setupTestApp, TEST_ENCRYPTION_KEY } from "./helpers"

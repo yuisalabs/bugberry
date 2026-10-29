@@ -5,7 +5,7 @@ import { agentLabel, type McpContext, McpToolError, requireWrite, runTool } from
 import { textResult } from "../format"
 import { requireMemberAccess, resolveReportRef } from "../refs"
 import { reportArgs } from "./args"
-import { usesOfProject } from "../../lib/integrations/resolve"
+import { usesOfProject } from "../../modules/integrations/resolve"
 
 export const NO_PROJECT_TRACKERS =
   "This report has no project, so no trackers are set up. Move it to a project with updateReport first."

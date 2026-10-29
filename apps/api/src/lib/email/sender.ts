@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer"
-import type { EmailConfig } from "../config"
+import type { EmailConfig } from "../../config"
 
 export interface EmailMessage {
   to: string

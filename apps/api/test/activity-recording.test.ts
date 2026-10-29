@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { asc, eq } from "drizzle-orm"
 import { integration, reportActivity } from "../src/db/schema"
-import { createDispatcher } from "../src/lib/trackers/dispatch"
-import { TrackerError } from "../src/lib/trackers/providers"
+import { createDispatcher } from "../src/modules/trackers/dispatch"
+import { TrackerError } from "../src/modules/trackers/providers"
 import {
   createIntegration,
   createProject,

@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"
-import { mentionEmail } from "../src/email/mention-email"
-import type { EmailMessage } from "../src/email/sender"
+import { mentionEmail } from "../src/modules/comments/mention-email"
+import type { EmailMessage } from "../src/lib/email/sender"
 import { createProject, createReadyReport, createUserWithToken, setupTestApp } from "./helpers"
 
 let ctx: Awaited<ReturnType<typeof setupTestApp>>

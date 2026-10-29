@@ -1,7 +1,7 @@
 import { ONBOARDING_STEPS, TRACKER_PROVIDERS, type OnboardingEvent, type OnboardingItemId, type OnboardingMissionId } from "@bugberry/shared"
 import { and, desc, eq, inArray, isNull, type SQL, sql } from "drizzle-orm"
 import type { PgTable } from "drizzle-orm/pg-core"
-import type { Db } from "../db/client"
+import type { Db } from "../../db/client"
 import {
   apiToken,
   comment,
@@ -14,8 +14,8 @@ import {
   reportActivity,
   user,
   workspaceInvitation,
-} from "../db/schema"
-import { memberRole } from "../modules/workspaces/access"
+} from "../../db/schema"
+import { memberRole } from "../workspaces/access"
 
 export type OnboardingPhase = "required" | "celebrate" | "bonus"
 

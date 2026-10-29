@@ -1,9 +1,9 @@
 import type { Config } from "./config"
 import type { Db } from "./db/client"
-import type { EmailSender } from "./email/sender"
-import type { AccountFactory } from "./lib/integrations/accounts"
-import type { NotifierFactory } from "./lib/notifiers/channels"
-import type { TrackerFactory } from "./lib/trackers/providers"
+import type { EmailSender } from "./lib/email/sender"
+import type { AccountFactory } from "./modules/connections/accounts"
+import type { NotifierFactory } from "./modules/notifiers/channels"
+import type { TrackerFactory } from "./modules/trackers/providers"
 import type { Auth } from "./modules/auth/better-auth"
 import type { StorageDriver } from "./storage/types"
 

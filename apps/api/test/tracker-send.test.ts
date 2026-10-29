@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, setSystemTime, test } from "bun:test"
 import { and, eq } from "drizzle-orm"
 import { connection, integration, reportExternalLink } from "../src/db/schema"
-import { TrackerError } from "../src/lib/trackers/providers"
+import { TrackerError } from "../src/modules/trackers/providers"
 import { LocalStorageDriver } from "../src/storage/local"
 import {
   createProject,

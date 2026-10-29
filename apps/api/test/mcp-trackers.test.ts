@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from "bun:test"
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { eq } from "drizzle-orm"
 import { report } from "../src/db/schema"
-import { TrackerError } from "../src/lib/trackers/providers"
+import { TrackerError } from "../src/modules/trackers/providers"
 import {
   createIntegration,
   createProject,

@@ -9,7 +9,7 @@ import type {
   TrackerProvider,
 } from "@bugberry/shared"
 import { type IssueContent, renderAtlassianDocument, renderHtml, renderMarkdown } from "./content"
-import { type HostGuard, HostGuardError, NO_GUARD } from "../net/host-guard"
+import { type HostGuard, HostGuardError, NO_GUARD } from "../../lib/net/host-guard"
 
 /** A failure whose message is safe to show to people (never contains the token). */
 export class TrackerError extends Error {

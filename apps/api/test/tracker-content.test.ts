@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import { buildIssueContent, renderAtlassianDocument, renderHtml, renderMarkdown } from "../src/lib/trackers/content"
-import { gunzipLimited, topErrors } from "../src/lib/trackers/debugger-errors"
+import { buildIssueContent, renderAtlassianDocument, renderHtml, renderMarkdown } from "../src/modules/trackers/content"
+import { gunzipLimited, topErrors } from "../src/modules/trackers/debugger-errors"
 
 const HOSTILE_TITLE = "@octocat [x](https://evil.test) ![i](https://evil.test/p.png) a`b"
 const report = {

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { eq } from "drizzle-orm"
 import { user, workspace, workspaceInvitation, workspaceMember } from "../src/db/schema"
-import type { EmailMessage } from "../src/email/sender"
+import type { EmailMessage } from "../src/lib/email/sender"
 import { newId } from "../src/lib/ids"
 import { defaultWorkspaceName, provisionNewUser } from "../src/modules/workspaces/provision"
 import { createUser, setupTestApp } from "./helpers"

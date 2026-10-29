@@ -1,7 +1,7 @@
 import type { ConnectionSettings, IntegrationProvider } from "@bugberry/shared"
 import { PROVIDER_LABELS } from "@bugberry/shared"
 import type { AppDeps } from "../../deps"
-import { createHostGuard, type HostGuard } from "../net/host-guard"
+import { createHostGuard, type HostGuard } from "../../lib/net/host-guard"
 import { DEFAULT_TIMEOUT_MS, guardedSend, type Http, TrackerError } from "../trackers/providers"
 
 export type OptionList = "targets" | "labels" | "issueTypes" | "taskLists"

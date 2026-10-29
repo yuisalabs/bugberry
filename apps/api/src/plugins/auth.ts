@@ -2,7 +2,7 @@ import { and, eq, isNull } from "drizzle-orm"
 import { Elysia } from "elysia"
 import type { AppDeps } from "../deps"
 import { apiToken, user } from "../db/schema"
-import { hashToken, TOKEN_PREFIX } from "../lib/api-token"
+import { hashToken, TOKEN_PREFIX } from "../modules/tokens/token"
 import { forbidden, unauthorized } from "../lib/errors"
 import { isEmailAllowed } from "../modules/auth/policy"
 

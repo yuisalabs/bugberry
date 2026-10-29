@@ -3,7 +3,7 @@ import { Elysia, t } from "elysia"
 import type { AppDeps } from "../../deps"
 import { authPlugin } from "../../plugins/auth"
 import { apiToken } from "../../db/schema"
-import { generateApiToken, hashToken } from "../../lib/api-token"
+import { generateApiToken, hashToken } from "./token"
 import { conflict, forbidden, notFound } from "../../lib/errors"
 import { newId } from "../../lib/ids"
 

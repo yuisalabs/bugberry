@@ -1,8 +1,8 @@
 import { BUILT_IN_TEMPLATES } from "@bugberry/ai-write"
 import { and, asc, eq, isNull } from "drizzle-orm"
-import type { Db } from "../db/client"
-import { reportTemplate, workspace } from "../db/schema"
-import { newId } from "../lib/ids"
+import type { Db } from "../../db/client"
+import { reportTemplate, workspace } from "../../db/schema"
+import { newId } from "../../lib/ids"
 
 export interface TemplateRow {
   id: string

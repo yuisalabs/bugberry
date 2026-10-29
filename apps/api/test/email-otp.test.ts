@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { eq } from "drizzle-orm"
 import { user, verification } from "../src/db/schema"
-import type { EmailMessage, EmailSender } from "../src/email/sender"
+import type { EmailMessage, EmailSender } from "../src/lib/email/sender"
 import { createUser, setupTestApp } from "./helpers"
 
 let ctx: Awaited<ReturnType<typeof setupTestApp>>

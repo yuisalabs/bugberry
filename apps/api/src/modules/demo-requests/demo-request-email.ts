@@ -1,5 +1,5 @@
 import type { DemoRequestInput } from "@bugberry/shared"
-import { escapeHtml } from "./escape"
+import { escapeHtml } from "../../lib/email/escape"
 
 const BERRY = "#D61F69"
 const INK = "#1C1022"

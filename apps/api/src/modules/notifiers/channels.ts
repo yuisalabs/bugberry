@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto"
 import type { NotifierConfig, NotifierProvider, TelegramConfig, WebhookConfig } from "@bugberry/shared"
-import { type HostGuard, NO_GUARD } from "../net/host-guard"
+import { type HostGuard, NO_GUARD } from "../../lib/net/host-guard"
 import { DEFAULT_TIMEOUT_MS, guardedSend, type Http, TrackerError } from "../trackers/providers"
 import { messageHeading, messageLines, type NewReportMessage } from "./message"
 

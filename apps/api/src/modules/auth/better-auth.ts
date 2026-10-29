@@ -21,7 +21,7 @@ import {
 } from "../../db/schema"
 import { createRateLimiter } from "../../lib/rate-limit"
 import { otpEmail } from "./otp-email"
-import { createEmailSender, type EmailSender } from "../../email/sender"
+import { createEmailSender, type EmailSender } from "../../lib/email/sender"
 import { githubUserInfo, gitlabUserInfo } from "./identity"
 import { provisionNewUser } from "../workspaces/provision"
 import { MCP_SCOPES, mcpResource } from "./mcp-oauth"

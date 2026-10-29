@@ -11,7 +11,7 @@ export interface City {
 /** A city further away than this is not where the reporter is (open sea, poles). */
 const MAX_DISTANCE_KM = 100
 const EARTH_RADIUS_KM = 6371
-const CITIES_FILE = fileURLToPath(new URL("../../geo/cities.tsv", import.meta.url))
+const CITIES_FILE = fileURLToPath(new URL("../../../geo/cities.tsv", import.meta.url))
 
 let bundled: City[] | null = null
 

@@ -2,10 +2,10 @@ import { beforeEach, describe, expect, test } from "bun:test"
 import type { NotifierConfig, NotifierProvider } from "@bugberry/shared"
 import { eq } from "drizzle-orm"
 import { integration } from "../src/db/schema"
-import type { NotifierFactory } from "../src/lib/notifiers/channels"
-import { notifyNewReport } from "../src/lib/notifiers/deliver"
-import type { NewReportMessage } from "../src/lib/notifiers/message"
-import { TrackerError } from "../src/lib/trackers/providers"
+import type { NotifierFactory } from "../src/modules/notifiers/channels"
+import { notifyNewReport } from "../src/modules/notifiers/deliver"
+import type { NewReportMessage } from "../src/modules/notifiers/message"
+import { TrackerError } from "../src/modules/trackers/providers"
 import {
   createIntegration,
   createProject,

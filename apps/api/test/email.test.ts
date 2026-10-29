@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { otpEmail } from "../src/modules/auth/otp-email"
-import { createEmailSender } from "../src/email/sender"
+import { createEmailSender } from "../src/lib/email/sender"
 
 describe("otpEmail", () => {
   test("the OTP email carries the code, its lifetime and a way out", () => {

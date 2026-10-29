@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { eq } from "drizzle-orm"
 import { integration, reportExternalLink } from "../src/db/schema"
-import type { NotifierFactory } from "../src/lib/notifiers/channels"
+import type { NotifierFactory } from "../src/modules/notifiers/channels"
 import {
   createIntegration,
   createProject,

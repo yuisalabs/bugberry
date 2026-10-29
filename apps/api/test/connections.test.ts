@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { eq } from "drizzle-orm"
 import { integration, reportExternalLink } from "../src/db/schema"
-import type { NotifierFactory } from "../src/lib/notifiers/channels"
-import type { NewReportMessage } from "../src/lib/notifiers/message"
-import type { AccountFactory } from "../src/lib/integrations/accounts"
-import { TrackerError } from "../src/lib/trackers/providers"
+import type { NotifierFactory } from "../src/modules/notifiers/channels"
+import type { NewReportMessage } from "../src/modules/notifiers/message"
+import type { AccountFactory } from "../src/modules/connections/accounts"
+import { TrackerError } from "../src/modules/trackers/providers"
 import {
   createIntegration,
   createProject,

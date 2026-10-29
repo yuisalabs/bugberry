@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { and, eq } from "drizzle-orm"
 import { workspace, workspaceInvitation, workspaceMember } from "../src/db/schema"
-import type { EmailMessage } from "../src/email/sender"
+import type { EmailMessage } from "../src/lib/email/sender"
 import { newJoinCode, normalizeCode, parseJoinValue } from "../src/modules/join/join-codes"
 import { createUserWithToken, setupTestApp } from "./helpers"
 

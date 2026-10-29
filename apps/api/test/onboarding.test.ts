@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from "bun:test"
 import { ONBOARDING_STEPS } from "@bugberry/shared"
 import { eq, sql } from "drizzle-orm"
 import { apiToken, comment, type OnboardingState, report, user } from "../src/db/schema"
-import { hashToken } from "../src/lib/api-token"
+import { hashToken } from "../src/modules/tokens/token"
 import { newId } from "../src/lib/ids"
 import { createIntegration, createProject, createReadyReport, createUserWithToken, createWorkspaceRow, setupTestApp } from "./helpers"
 

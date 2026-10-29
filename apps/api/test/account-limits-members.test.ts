@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { and, eq } from "drizzle-orm"
 import { joinRequest, user, workspace, workspaceInvitation, workspaceMember } from "../src/db/schema"
-import type { EmailMessage } from "../src/email/sender"
+import type { EmailMessage } from "../src/lib/email/sender"
 import { createUserWithToken, setupTestApp } from "./helpers"
 
 const LIMITS = { screenshots: 5, recordings: 5, ownedWorkspaces: 1, recordingMs: 120_000 }

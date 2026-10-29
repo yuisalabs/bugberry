@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
-import type { IssueContent } from "../src/lib/trackers/content"
+import type { IssueContent } from "../src/modules/trackers/content"
 import { HostGuardError, PRIVATE_HOST_MESSAGE } from "../src/lib/net/host-guard"
-import { createTrackerFactory, TrackerError } from "../src/lib/trackers/providers"
+import { createTrackerFactory, TrackerError } from "../src/modules/trackers/providers"
 
 const content: IssueContent = {
   title: "Pay button fails",

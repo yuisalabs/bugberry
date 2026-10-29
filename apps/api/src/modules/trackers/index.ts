@@ -4,11 +4,11 @@ import { Elysia } from "elysia"
 import type { AppDeps } from "../../deps"
 import { authPlugin } from "../../plugins/auth"
 import { report } from "../../db/schema"
-import { usesOfProject } from "../../lib/integrations/resolve"
+import { usesOfProject } from "../integrations/resolve"
 import { notFound } from "../../lib/errors"
-import { createDispatcher } from "../../lib/trackers/dispatch"
+import { createDispatcher } from "./dispatch"
 import { requireReportMember } from "../workspaces/access"
-import { trackerFactoryFor } from "../../lib/trackers/default"
+import { trackerFactoryFor } from "./default"
 
 export function trackersModule(deps: AppDeps) {
   const { db } = deps

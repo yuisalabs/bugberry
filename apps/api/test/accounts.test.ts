@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { createAccountFactory } from "../src/lib/integrations/accounts"
+import { createAccountFactory } from "../src/modules/connections/accounts"
 import { HostGuardError, NO_GUARD, PRIVATE_HOST_MESSAGE } from "../src/lib/net/host-guard"
 
 function fakeFetch(respond: (request: Request) => Response | Promise<Response>) {

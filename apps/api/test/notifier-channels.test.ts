@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { createHmac } from "node:crypto"
-import { createNotifierFactory } from "../src/lib/notifiers/channels"
-import type { NewReportMessage } from "../src/lib/notifiers/message"
+import { createNotifierFactory } from "../src/modules/notifiers/channels"
+import type { NewReportMessage } from "../src/modules/notifiers/message"
 
 const message: NewReportMessage = {
   reportId: "r1",
