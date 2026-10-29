@@ -32,7 +32,7 @@ function fakeSession(overrides: Partial<RecorderSession> = {}): RecorderSession 
 
 async function connect(session: RecorderSession, submit: Submit = async () => ({ reportUrl: "https://bugs.test/app/r/1" })) {
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair()
-  await createRecorderServer(session, submit).connect(serverSide)
+  await createRecorderServer(session, submit, "https://bugs.test").connect(serverSide)
   const client = new Client({ name: "test", version: "1.0.0" })
   await client.connect(clientSide)
   return client

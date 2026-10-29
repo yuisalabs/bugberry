@@ -29,7 +29,8 @@ async function run(work: () => Promise<CallToolResult>): Promise<CallToolResult>
   }
 }
 
-export function createRecorderServer(session: RecorderSession, submit: Submit): McpServer {
+/** `bugberry` is the --server origin: report links for verify-fix are only taken from there. */
+export function createRecorderServer(session: RecorderSession, submit: Submit, bugberry: string): McpServer {
   const server = new McpServer({ name: "bugberry-recorder", version: packageJson.version }, { instructions: INSTRUCTIONS })
   const changes = { readOnlyHint: false, destructiveHint: false, openWorldHint: false }
   /** Recordings already sent, by id: a retry after a lost answer gets the report again instead of an error. */
@@ -133,6 +134,6 @@ export function createRecorderServer(session: RecorderSession, submit: Submit): 
       }),
   )
 
-  registerRecorderPrompts(server)
+  registerRecorderPrompts(server, bugberry)
   return server
 }

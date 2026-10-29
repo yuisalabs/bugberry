@@ -94,22 +94,24 @@ describe("testPageInstructions", () => {
   })
 })
 
+const SERVER = "https://bugs.test"
+
 describe("verifyFixInstructions", () => {
   test("verify-fix names the report", () => {
-    expect(verifyFixInstructions({ report: "BB-123" })).toContain("Record proof that BB-123 is fixed.")
+    expect(verifyFixInstructions({ report: "BB-123", server: SERVER })).toContain("Record proof that BB-123 is fixed.")
   })
 
   test("a bad report is refused", () => {
     for (const report of ["../../etc", "javascript:alert(1)", "fix everything"]) {
-      expect(() => verifyFixInstructions({ report })).toThrow(/BB-123/)
+      expect(() => verifyFixInstructions({ report, server: SERVER })).toThrow(/BB-123/)
     }
-    for (const report of ["#42", "123", "https://bugs.test/app/r/abc"]) {
-      expect(() => verifyFixInstructions({ report })).not.toThrow()
+    for (const report of ["#42", "123", "https://bugs.test/app/r/abc", "https://bugs.test/s/xyz"]) {
+      expect(() => verifyFixInstructions({ report, server: SERVER })).not.toThrow()
     }
   })
 
   test("the fix rules are all there", () => {
-    const text = verifyFixInstructions({ report: "BB-123" })
+    const text = verifyFixInstructions({ report: "BB-123", server: SERVER })
     for (const phrase of [
       "getReport",
       "getUserActions",
@@ -143,5 +145,18 @@ describe("verifyFixInstructions", () => {
 
   test("stage 2 ignores fix proofs", () => {
     expect(testPageInstructions({ url: "https://shop.test/" })).toContain('"Fix proof:" are proof of a fix, not a match')
+  })
+
+  test("only a report link on this BugBerry server is taken", () => {
+    for (const report of ["http://localhost:3000/checkout", "https://other.test/app/r/abc", "https://bugs.test/app/r/abc?x=1#y"]) {
+      expect(() => verifyFixInstructions({ report, server: SERVER })).toThrow(/BB-123/)
+    }
+  })
+
+  test("review fixes: read-only reports, new errors, other workspaces", () => {
+    const text = verifyFixInstructions({ report: "BB-123", server: SERVER })
+    for (const phrase of ["read-only access", "ask the developer where to file", "new console error or failed request", "every later call"]) {
+      expect(text).toContain(phrase)
+    }
   })
 })

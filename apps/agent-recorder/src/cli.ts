@@ -44,7 +44,11 @@ const session = createRecorderSession<Page>({
   frontTab: (browser) => frontTab(sessionOf(browser)),
 })
 
-const server = createRecorderServer(session, (recording, uploadLink) => submitRecording(recording, uploadLink, { server: options.server }))
+const server = createRecorderServer(
+  session,
+  (recording, uploadLink) => submitRecording(recording, uploadLink, { server: options.server }),
+  options.server,
+)
 // The agent's app closed the connection, or stopped the recorder: Chromium goes with it, never left running.
 let stopping = false
 const shutdown = async () => {
