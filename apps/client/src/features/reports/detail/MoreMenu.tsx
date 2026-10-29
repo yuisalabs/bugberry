@@ -16,7 +16,7 @@ import { type ReactNode, useState } from "react"
 import { Button } from "@bugberry/ui/button"
 import { useConfirm } from "@bugberry/ui/confirm-dialog"
 import { Sheet } from "@bugberry/ui/sheet"
-import { PHONE_QUERY, useMediaQuery } from "../../hooks/useMediaQuery"
+import { PHONE_QUERY, useMediaQuery } from "../../../hooks/useMediaQuery"
 import {
   Menu,
   MenuDescription,
@@ -27,18 +27,16 @@ import {
   MenuSubMenu,
   MenuTrigger,
 } from "@bugberry/ui/menu"
-import type { ReportDetail } from "../../lib/api"
-import { api } from "../../lib/client"
-import { copyForAiText, type TrackerItem } from "../../lib/more-menu"
-import { queries } from "../../lib/queries"
-import { backTarget } from "../../lib/report-page"
-import { toast } from "../../lib/toast"
-import { roleIn } from "../../features/workspaces/workspace"
+import { copyForAiText, type TrackerItem } from "./more-menu"
+import { backTarget } from "./report-page"
+import { toast } from "../../../lib/toast"
+import { roleIn } from "../../workspaces/workspace"
 import { useReportTrackers } from "./useReportTrackers"
-import { errorMessage } from "../../lib/query/unwrap"
-import { projectQueries } from "../../features/projects/queries"
-import { workspaceQueries } from "../../features/workspaces/queries"
-import { qk } from "../../lib/query/keys"
+import { errorMessage } from "../../../lib/query/unwrap"
+import { projectQueries } from "../../projects/queries"
+import { workspaceQueries } from "../../workspaces/queries"
+import { qk } from "../../../lib/query/keys"
+import { deleteReport, type ReportDetail, reportQueries, updateReport } from "../queries"
 
 const NO_PROJECT = "none"
 const NEW_PROJECT = "new"
@@ -294,8 +292,8 @@ export function MoreMenu({ report }: { report: ReportDetail }) {
   const workspaces = useQuery(workspaceQueries.workspaces())
   const projects = useQuery(projectQueries.projects(report.workspaceId))
   const trackers = useReportTrackers(report)
-  const reportKey = queries.report(report.id).queryKey
-  const trackersKey = queries.reportTrackers(report.id).queryKey
+  const reportKey = reportQueries.report(report.id).queryKey
+  const trackersKey = reportQueries.reportTrackers(report.id).queryKey
   const failed = (error: unknown) => toast({ title: errorMessage(error), tone: "error" })
   // The menu closes on the click, so a toast says whether the copy worked.
   const copyForAi = async () => {
@@ -308,21 +306,21 @@ export function MoreMenu({ report }: { report: ReportDetail }) {
   }
 
   const move = useMutation({
-    mutationFn: (projectId: string | null) => api.updateReport(report.id, { projectId }),
+    mutationFn: (projectId: string | null) => updateReport(report.id, { projectId }),
     onSuccess: (detail) => {
       queryClient.setQueryData(reportKey, detail)
-      void queryClient.invalidateQueries({ queryKey: ["reports"] })
+      void queryClient.invalidateQueries({ queryKey: qk.reports.all })
       // Which trackers a report can go to depends on its project.
       void queryClient.invalidateQueries({ queryKey: trackersKey })
     },
     onError: failed,
   })
   const remove = useMutation({
-    mutationFn: () => api.deleteReport(report.id),
+    mutationFn: () => deleteReport(report.id),
     onSuccess: async () => {
       await navigate(backTarget(report, projects.data ?? [], reportsFrom))
       queryClient.removeQueries({ queryKey: reportKey })
-      void queryClient.invalidateQueries({ queryKey: ["reports"] })
+      void queryClient.invalidateQueries({ queryKey: qk.reports.all })
       // A deleted report frees a slot under ACCOUNT_LIMITS.
       void queryClient.invalidateQueries({ queryKey: qk.workspaceLimits.all })
     },

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { copyForAiText } from "../src/lib/more-menu"
+import { copyForAiText } from "../src/features/reports/detail/more-menu"
 
 describe("Copy for AI", () => {
   test("the text points the agent at this report", () => {

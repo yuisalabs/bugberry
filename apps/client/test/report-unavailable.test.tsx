@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { fireEvent, render, screen } from "@testing-library/react"
-import { ReportUnavailable } from "../src/pages/ReportPage"
+import { ReportUnavailable } from "../src/features/reports/detail/ReportPage"
 import { ApiError } from "../src/lib/query/unwrap"
 
 function show(error: unknown, onRetry = () => {}) {

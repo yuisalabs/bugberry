@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { VideoReporter, VideoShareActions } from "../src/components/VideoOverlay"
+import { VideoReporter, VideoShareActions } from "../src/features/reports/detail/VideoOverlay"
 import { startSecondsFrom } from "../src/lib/urls"
 
 describe("VideoReporter", () => {

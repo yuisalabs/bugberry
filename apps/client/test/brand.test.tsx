@@ -3,7 +3,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
 import { render, screen } from "@testing-library/react"
 import { BugBerryLogo } from "../src/components/BugBerryLogo"
-import { ReportHeader } from "../src/components/report/ReportHeader"
+import { ReportHeader } from "../src/features/reports/detail/ReportHeader"
 
 const APP = join(import.meta.dir, "..")
 const LOGO = "/assets/bugberry_logo_small.webp"

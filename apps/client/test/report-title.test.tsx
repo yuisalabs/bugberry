@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
-import { ReportTitle } from "../src/components/report/ReportTitle"
+import { ReportTitle } from "../src/features/reports/detail/ReportTitle"
 
 const edit = () => fireEvent.click(screen.getByRole("button", { name: "Pay button fails" }))
 const input = () => screen.getByRole("textbox", { name: "Title" }) as HTMLInputElement

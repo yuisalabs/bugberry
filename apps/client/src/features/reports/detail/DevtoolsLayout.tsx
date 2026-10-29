@@ -2,8 +2,8 @@ import { RiLayoutRightFill, RiLayoutRightLine } from "@remixicon/react"
 import { useEffect, useRef } from "react"
 import { Toggle } from "@bugberry/ui/toggle"
 import { Tooltip, TooltipTrigger } from "@bugberry/ui/tooltip"
-import { startHorizontalDrag } from "../lib/drag"
-import { ActiveIcon } from "./ActiveIcon"
+import { startHorizontalDrag } from "./drag"
+import { ActiveIcon } from "../../../components/ActiveIcon"
 
 const KEY_STEP = 32
 

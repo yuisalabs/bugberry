@@ -7,7 +7,7 @@ import { shouldRetry } from "../src/lib/query/client"
 import { maintenanceOf } from "../src/lib/status"
 import { fakeFetch, restoreFetch } from "./support/fake-fetch"
 import { ApiError, errorMessage } from "../src/lib/query/unwrap"
-import { reports } from "../src/features/reports/queries"
+import { reports, sendToTracker } from "../src/features/reports/queries"
 
 const ORIGIN = window.location.origin
 
@@ -57,7 +57,7 @@ describe("createApi", () => {
     const { requests } = fakeFetch(() => Response.json({ ok: true }))
     const client = createApi()
     await client.addComment("r1", "Hello")
-    await client.sendToTracker("r1", "i1")
+    await sendToTracker("r1", "i1")
     await testIntegration("p1", "i1")
     expect(requests.map((request) => `${request.method} ${new URL(request.url).pathname}`)).toEqual([
       "POST /api/reports/r1/comments",

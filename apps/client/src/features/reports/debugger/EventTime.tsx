@@ -1,6 +1,6 @@
 import type { MouseEvent } from "react"
 import { Button as AriaButton } from "react-aria-components"
-import { formatClock, formatOffset } from "../../lib/format"
+import { formatClock, formatOffset } from "../../../lib/format"
 
 const timeClass = "w-16 shrink-0 font-mono text-xs"
 

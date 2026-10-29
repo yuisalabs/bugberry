@@ -1,7 +1,12 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
-import { NetworkTab } from "../src/components/debugger/NetworkTab"
-import { clampDetailHeight, DEFAULT_DETAIL_HEIGHT, readDetailHeight, saveDetailHeight } from "../src/lib/network-detail"
+import { NetworkTab } from "../src/features/reports/debugger/NetworkTab"
+import {
+  clampDetailHeight,
+  DEFAULT_DETAIL_HEIGHT,
+  readDetailHeight,
+  saveDetailHeight,
+} from "../src/features/reports/debugger/network-detail"
 import { normalizePayload } from "@bugberry/debugger-view"
 
 afterEach(() => window.localStorage.clear())

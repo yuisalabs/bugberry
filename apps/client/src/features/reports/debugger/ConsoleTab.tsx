@@ -8,7 +8,7 @@ import { SearchField } from "@bugberry/ui/search-field"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@bugberry/ui/select"
 import { type ConsoleOptions, type ConsoleRow, consoleCounts, consoleRows, navigationText } from "@bugberry/debugger-view"
 import type { ViewEvent } from "@bugberry/debugger-view"
-import { type Playback, useActiveRow } from "../../lib/timeline"
+import { type Playback, useActiveRow } from "./timeline"
 import { EventTime, seekOnRowClick } from "./EventTime"
 import { ACTIVE_ROW, FOLLOW_STICKY_ATTRIBUTE, useVirtualRows } from "./useVirtualRows"
 

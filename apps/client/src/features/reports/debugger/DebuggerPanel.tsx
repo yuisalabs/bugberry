@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query"
 import { memo, useRef } from "react"
-import type { ReportDetail } from "../../lib/api"
-import { loadDebuggerWithRefresh } from "../../lib/debugger"
-import type { Playback } from "../../lib/timeline"
+import { loadDebuggerWithRefresh } from "./debugger"
+import type { Playback } from "./timeline"
 import { type DebuggerFocus, type DebuggerState, DebuggerTabs } from "./DebuggerTabs"
+import type { ReportDetail } from "../queries"
+import { qk } from "../../../lib/query/keys"
 
 /**
  * Downloads debugger.json.gz once per report. The query key leaves out the signed URL (it changes on
@@ -14,7 +15,7 @@ export function useDebuggerView(report: ReportDetail, refreshReport: () => Promi
   urlRef.current = report.debuggerUrl
 
   const query = useQuery({
-    queryKey: ["debugger", report.id],
+    queryKey: qk.debugger(report.id),
     queryFn: () =>
       loadDebuggerWithRefresh(urlRef.current ?? "", async () => (await refreshReport())?.debuggerUrl ?? null),
     enabled: report.debuggerUrl !== null,

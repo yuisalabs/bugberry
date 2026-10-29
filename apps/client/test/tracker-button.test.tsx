@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
-import { TrackerButtonView } from "../src/components/report/TrackerButton"
-import type { TrackerItem } from "../src/lib/more-menu"
+import { TrackerButtonView } from "../src/features/reports/detail/TrackerButton"
+import type { TrackerItem } from "../src/features/reports/detail/more-menu"
 
 const github: TrackerItem = { integrationId: "gh", label: "Send to GitHub · kantor/web", action: "send", href: null, note: null }
 const activecollab: TrackerItem = { integrationId: "ac", label: "Send to ActiveCollab · Project #12", action: "send", href: null, note: null }

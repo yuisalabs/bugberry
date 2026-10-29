@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { RequestDetail } from "../src/components/debugger/RequestDetail"
+import { RequestDetail } from "../src/features/reports/debugger/RequestDetail"
 import { normalizePayload } from "@bugberry/debugger-view"
 import { networkRows, prettyBody } from "@bugberry/debugger-view"
 

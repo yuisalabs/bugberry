@@ -1,26 +1,25 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { getRouteApi, useLocation, useNavigate } from "@tanstack/react-router"
 import { useEffect } from "react"
-import { NotificationBell } from "../features/notifications/NotificationBell"
-import { CopyLinkButton } from "../features/reports/share/CopyLinkButton"
-import { MoreMenu } from "../components/report/MoreMenu"
-import { TrackerButton } from "../components/report/TrackerButton"
-import { ReportFields } from "../components/report/ReportFields"
-import { ReportHeader } from "../components/report/ReportHeader"
-import { ReportTitle } from "../components/report/ReportTitle"
-import { ReportComments } from "../components/ReportComments"
-import { ReportView } from "../components/ReportView"
-import { ReportDetailSkeleton } from "../components/Skeletons"
-import { ErrorPage } from "../components/status/ErrorPage"
-import type { ReportPatch } from "../lib/api"
-import { api } from "../lib/client"
-import { queries } from "../lib/queries"
-import { backLink, sentIssues, withPatch } from "../lib/report-page"
-import { toast } from "../lib/toast"
-import { useCurrentWorkspace } from "../features/workspaces/workspace"
-import { ApiError, errorMessage } from "../lib/query/unwrap"
-import { projectQueries } from "../features/projects/queries"
-import { workspaceQueries } from "../features/workspaces/queries"
+import { NotificationBell } from "../../notifications/NotificationBell"
+import { CopyLinkButton } from "../share/CopyLinkButton"
+import { MoreMenu } from "./MoreMenu"
+import { TrackerButton } from "./TrackerButton"
+import { ReportFields } from "./ReportFields"
+import { ReportHeader } from "./ReportHeader"
+import { ReportTitle } from "./ReportTitle"
+import { ReportComments } from "../../../components/ReportComments"
+import { ReportView } from "./ReportView"
+import { ReportDetailSkeleton } from "../../../components/Skeletons"
+import { ErrorPage } from "../../../components/status/ErrorPage"
+import { backLink, sentIssues, withPatch } from "./report-page"
+import { toast } from "../../../lib/toast"
+import { useCurrentWorkspace } from "../../workspaces/workspace"
+import { ApiError, errorMessage } from "../../../lib/query/unwrap"
+import { projectQueries } from "../../projects/queries"
+import { workspaceQueries } from "../../workspaces/queries"
+import { type ReportPatch, reportQueries, updateReport } from "../queries"
+import { qk } from "../../../lib/query/keys"
 
 const routeApi = getRouteApi("/_authed/app/r/$reportId")
 
@@ -36,19 +35,19 @@ export function ReportPage() {
   const reportsFrom = useLocation({ select: (location) => location.state.reportsFrom })
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const report = useQuery({ ...queries.report(reportId), retry: false })
+  const report = useQuery({ ...reportQueries.report(reportId), retry: false })
   const workspaceId = report.data?.workspaceId ?? ""
   const projects = useQuery({ ...projectQueries.projects(workspaceId), enabled: Boolean(report.data) })
   const members = useQuery({ ...workspaceQueries.members(workspaceId), enabled: Boolean(report.data) })
-  const trackers = useQuery({ ...queries.reportTrackers(reportId), enabled: Boolean(report.data) })
+  const trackers = useQuery({ ...reportQueries.reportTrackers(reportId), enabled: Boolean(report.data) })
   const { workspace, workspaces, switchTo } = useCurrentWorkspace()
 
-  const reportKey = queries.report(reportId).queryKey
+  const reportKey = reportQueries.report(reportId).queryKey
   const updateKey = ["update-report", reportId]
   // A change shows at once and the fields stay usable while it saves, so nothing dims or jumps back.
   const update = useMutation({
     mutationKey: updateKey,
-    mutationFn: (patch: ReportPatch) => api.updateReport(reportId, patch),
+    mutationFn: (patch: ReportPatch) => updateReport(reportId, patch),
     onMutate: async (patch) => {
       await queryClient.cancelQueries({ queryKey: reportKey })
       const before = queryClient.getQueryData(reportKey)
@@ -58,8 +57,8 @@ export function ReportPage() {
     onSuccess: (detail) => {
       // Two quick changes: only the last answer is the whole truth; an earlier one would undo the later change.
       if (queryClient.isMutating({ mutationKey: updateKey }) === 1) queryClient.setQueryData(reportKey, detail)
-      void queryClient.invalidateQueries({ queryKey: ["reports"] })
-      void queryClient.invalidateQueries({ queryKey: queries.activity(reportId).queryKey })
+      void queryClient.invalidateQueries({ queryKey: qk.reports.all })
+      void queryClient.invalidateQueries({ queryKey: qk.activity(reportId) })
     },
     onError: (error, _patch, context) => {
       if (context?.before) queryClient.setQueryData(reportKey, context.before)

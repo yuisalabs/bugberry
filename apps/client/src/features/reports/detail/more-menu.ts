@@ -1,7 +1,7 @@
 import { issueReference, PROVIDER_LABELS } from "@bugberry/shared"
-import type { ReportTrackers, TrackerLink } from "./api"
 import { linkState } from "./tracker-links"
-import { safeHttpUrl } from "./urls"
+import { safeHttpUrl } from "../../../lib/urls"
+import type { ReportTrackers, TrackerLink } from "../queries"
 
 /** What a person pastes into their AI agent to have it debug this report through the MCP server. */
 export function copyForAiText(origin: string, reportId: string): string {

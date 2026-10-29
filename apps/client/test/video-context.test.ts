@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test"
-import { playAt } from "../src/components/report/video-context"
+import { playAt } from "../src/features/reports/detail/video-context"
 
 describe("playAt", () => {
   test("seeks the video, plays it and brings it into view", () => {

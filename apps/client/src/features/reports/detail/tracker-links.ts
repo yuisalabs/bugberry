@@ -1,4 +1,4 @@
-import type { ReportTrackers, TrackerLink } from "./api"
+import type { ReportTrackers, TrackerLink } from "../queries"
 
 /** The server lets another send take over a link that has been "being sent" for this long. */
 const STALE_SEND_MS = 2 * 60 * 1000

@@ -4,10 +4,10 @@ import { Button } from "@bugberry/ui/button"
 import { Tab, TabList, Tabs } from "@bugberry/ui/tabs"
 import { Tooltip, TooltipTrigger } from "@bugberry/ui/tooltip"
 import type { ViewNetwork, ViewTiming } from "@bugberry/debugger-view"
-import { formatDuration, formatOffset } from "../../lib/format"
+import { formatDuration, formatOffset } from "../../../lib/format"
 import { curlFor, type NetworkRow, prettyBody, requestPath, requestState, sizeLabel, statusLabel } from "@bugberry/debugger-view"
-import type { Playback } from "../../lib/timeline"
-import { toast } from "../../lib/toast"
+import type { Playback } from "./timeline"
+import { toast } from "../../../lib/toast"
 
 type Section = "headers" | "payload" | "response" | "timing"
 

@@ -4,9 +4,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Dialog, DialogTrigger } from "react-aria-components"
 import { Button } from "@bugberry/ui/button"
 import { Popover } from "@bugberry/ui/popover"
-import type { ReportDetail } from "../../../lib/api"
-import { api } from "../../../lib/client"
-import { queries } from "../../../lib/queries"
 import { copiedDescription, sharePopoverState } from "./share-access"
 import { toast } from "../../../lib/toast"
 import { shareUrl } from "../../../lib/urls"
@@ -17,7 +14,7 @@ import { SharePopoverView } from "./SharePopover"
 import { errorMessage } from "../../../lib/query/unwrap"
 import { accountQueries } from "../../account/queries"
 import { workspaceQueries } from "../../workspaces/queries"
-import { regenerateShare } from "../queries"
+import { regenerateShare, type ReportDetail, reportQueries, updateReport } from "../queries"
 import { qk } from "../../../lib/query/keys"
 
 /**
@@ -39,7 +36,7 @@ export function CopyLinkButton({
   const me = useQuery({ ...accountQueries.me(), enabled: settings })
   const workspaces = useQuery({ ...workspaceQueries.workspaces(), enabled: settings })
   const editable = roleIn(workspaces.data ?? [], report.workspaceId) === "admin" || me.data?.id === report.reporter.id
-  const reportKey = queries.report(report.id).queryKey
+  const reportKey = reportQueries.report(report.id).queryKey
   // Getting started: while "Share a report" is next, Copy link asks to be pressed.
   const onboarding = useOnboarding()
   const guide = settings && onboarding?.next === "shared"
@@ -56,7 +53,7 @@ export function CopyLinkButton({
   }
 
   const access = useMutation({
-    mutationFn: (visibility: Visibility) => api.updateReport(report.id, { visibility }),
+    mutationFn: (visibility: Visibility) => updateReport(report.id, { visibility }),
     onSuccess: (detail) => {
       const retired = report.visibility === "public" && detail.visibility !== "public"
       queryClient.setQueryData(reportKey, detail)

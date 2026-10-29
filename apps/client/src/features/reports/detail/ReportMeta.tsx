@@ -2,12 +2,12 @@ import { issueReference, PROVIDER_LABELS } from "@bugberry/shared"
 import { RiComputerLine, RiGlobalLine, RiMacbookLine } from "@remixicon/react"
 import { Avatar } from "@bugberry/ui/avatar"
 import { Link } from "@bugberry/ui/link"
-import { useNow } from "../../hooks/useNow"
-import type { ReportDetail } from "../../lib/api"
-import { formatRelative } from "../../lib/format"
-import { initialsOf } from "../../lib/people"
-import type { SentIssue } from "../../lib/report-page"
-import { safeHttpUrl } from "../../lib/urls"
+import { useNow } from "../../../hooks/useNow"
+import { formatRelative } from "../../../lib/format"
+import { initialsOf } from "../../../lib/people"
+import type { SentIssue } from "./report-page"
+import { safeHttpUrl } from "../../../lib/urls"
+import type { ReportDetail } from "../queries"
 
 /** "Firefox extension" from the report's "Firefox 131"; a browser the extension couldn't name stays generic. */
 export function reportedVia(browser: string): string {

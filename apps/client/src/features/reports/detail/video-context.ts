@@ -1,5 +1,5 @@
 import { createContext } from "react"
-import { seekSeconds } from "../../lib/timeline"
+import { seekSeconds } from "../debugger/timeline"
 
 /**
  * The report's video, for parts of the page outside the player: a "0:52" in a comment seeks it there. Null on a

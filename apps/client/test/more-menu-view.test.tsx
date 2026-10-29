@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
-import { MoreMenuView } from "../src/components/report/MoreMenu"
+import { MoreMenuView } from "../src/features/reports/detail/MoreMenu"
 
 const projects = [
   { id: "p1", name: "Checkout Web" },

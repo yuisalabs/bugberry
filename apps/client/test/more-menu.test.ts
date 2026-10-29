@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import type { ReportTrackers } from "../src/lib/api"
-import { sendOutcome, trackerItems } from "../src/lib/more-menu"
+import { sendOutcome, trackerItems } from "../src/features/reports/detail/more-menu"
+import type { ReportTrackers } from "../src/features/reports/queries"
 
 const now = new Date("2026-10-16T08:00:00Z")
 const integrations = [

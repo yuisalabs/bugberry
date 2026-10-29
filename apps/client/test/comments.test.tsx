@@ -2,7 +2,7 @@ import { describe, expect, mock, test } from "bun:test"
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import type { ComponentProps } from "react"
 import { CommentsSection } from "../src/components/comments/CommentsSection"
-import { ReportVideoContext } from "../src/components/report/video-context"
+import { ReportVideoContext } from "../src/features/reports/detail/video-context"
 import type { CommentThread } from "../src/lib/api"
 import { activityFixture, commentFixture, threadFixture } from "./fixtures"
 

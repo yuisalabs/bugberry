@@ -1,5 +1,5 @@
 import type { IntegrationProvider } from "@bugberry/shared"
-import type { ReportPatch, ReportTrackers } from "./api"
+import type { ReportPatch, ReportTrackers } from "../queries"
 
 /** A member who opened a share link belongs on the full report page; anyone else stays. */
 export function sharePageTarget(share: {

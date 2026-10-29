@@ -1,12 +1,11 @@
 import { PROVIDER_LABELS } from "@bugberry/shared"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import type { ReportDetail } from "../../lib/api"
-import { api } from "../../lib/client"
-import { sendOutcome, trackerItems } from "../../lib/more-menu"
-import { queries } from "../../lib/queries"
-import { toast } from "../../lib/toast"
-import { trackersRefetchInterval } from "../../lib/tracker-links"
-import { errorMessage } from "../../lib/query/unwrap"
+import { sendOutcome, trackerItems } from "./more-menu"
+import { toast } from "../../../lib/toast"
+import { trackersRefetchInterval } from "./tracker-links"
+import { errorMessage } from "../../../lib/query/unwrap"
+import { type ReportDetail, reportQueries, sendToTracker } from "../queries"
+import { qk } from "../../../lib/query/keys"
 
 /**
  * A report's trackers as the green button's menu and the phone's ⋯ sheet show them, and the send to one of them.
@@ -15,12 +14,12 @@ import { errorMessage } from "../../lib/query/unwrap"
 export function useReportTrackers(report: ReportDetail) {
   const queryClient = useQueryClient()
   const trackers = useQuery({
-    ...queries.reportTrackers(report.id),
+    ...reportQueries.reportTrackers(report.id),
     refetchInterval: (query) => trackersRefetchInterval(query.state.data, Date.now()),
   })
-  const trackersKey = queries.reportTrackers(report.id).queryKey
+  const trackersKey = reportQueries.reportTrackers(report.id).queryKey
   const send = useMutation({
-    mutationFn: (integrationId: string) => api.sendToTracker(report.id, integrationId),
+    mutationFn: (integrationId: string) => sendToTracker(report.id, integrationId),
     onSuccess: (link) => {
       const outcome = sendOutcome(link)
       const href = outcome.href
@@ -37,7 +36,7 @@ export function useReportTrackers(report: ReportDetail) {
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: trackersKey })
-      void queryClient.invalidateQueries({ queryKey: ["activity", report.id] })
+      void queryClient.invalidateQueries({ queryKey: qk.activity(report.id) })
     },
   })
 

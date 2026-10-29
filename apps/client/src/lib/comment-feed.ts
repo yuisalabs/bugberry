@@ -1,5 +1,5 @@
 import { type IntegrationProvider, issueReference, PROVIDER_LABELS, type Priority, type ReportStatus } from "@bugberry/shared"
-import { reportedVia } from "../components/report/ReportMeta"
+import { reportedVia } from "../features/reports/detail/ReportMeta"
 import type { Activity, CommentThread } from "./api"
 import { PRIORITY_LABELS, STATUS_LABELS } from "../features/reports/list/labels"
 

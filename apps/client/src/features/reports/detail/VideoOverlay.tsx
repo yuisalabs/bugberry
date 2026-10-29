@@ -4,9 +4,9 @@ import { useState } from "react"
 import { Button as AriaButton } from "react-aria-components"
 import { Avatar } from "@bugberry/ui/avatar"
 import { Link } from "@bugberry/ui/link"
-import type { ReportDetail } from "../lib/api"
-import { initialsOf } from "../lib/people"
-import { shareUrlAt } from "../lib/urls"
+import { initialsOf } from "../../../lib/people"
+import { shareUrlAt } from "../../../lib/urls"
+import type { ReportDetail } from "../queries"
 
 /** Styled by the player's theme (`bb-pill`): Video.js resets buttons inside the player. */
 const glass = "bb-pill"

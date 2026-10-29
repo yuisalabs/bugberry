@@ -2,7 +2,7 @@ import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen, within } from "@testing-library/react"
 import type { VideoPlayerProps } from "@bugberry/player"
 import { createRef } from "react"
-import { MediaViewer } from "../src/components/MediaViewer"
+import { MediaViewer } from "../src/features/reports/detail/MediaViewer"
 
 /** Stands in for the Video.js player: a plain <video> wired the way the real one reports events. */
 const players: VideoPlayerProps[] = []

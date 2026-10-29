@@ -1,4 +1,4 @@
-import type { CaptureType, Priority, ReportStatus } from "@bugberry/shared"
+import type { CaptureType, Priority, ReportStatus, Visibility } from "@bugberry/shared"
 import { infiniteQueryOptions, keepPreviousData, queryOptions } from "@tanstack/react-query"
 import { eden } from "../../lib/query/eden"
 import { qk } from "../../lib/query/keys"
@@ -31,15 +31,34 @@ export interface ReportsQuery {
   perPage: number
 }
 
+export interface ReportPatch {
+  title?: string
+  status?: ReportStatus
+  priority?: Priority
+  visibility?: Visibility
+  assigneeId?: string | null
+  /** Null takes the report out of its project. */
+  projectId?: string | null
+}
+
 export const reports = (workspaceId: string, query: ReportsQuery) => unwrap(eden.api.reports.get({ query: { workspaceId, ...query } }))
 export const reportCounts = (workspaceId: string, query: Omit<ReportsQuery, "page" | "perPage">) =>
   unwrap(eden.api.reports.counts.get({ query: { workspaceId, ...query } }))
+export const report = (id: string) => unwrap(eden.api.reports({ id }).get())
+export const updateReport = (id: string, patch: ReportPatch) => unwrap(eden.api.reports({ id }).patch(patch))
+export const deleteReport = (id: string) => unwrap(eden.api.reports({ id }).delete())
+export const reportTrackers = (reportId: string) => unwrap(eden.api.reports({ id: reportId }).trackers.get())
+export const sendToTracker = (reportId: string, integrationId: string) =>
+  unwrap(eden.api.reports({ id: reportId }).trackers({ integrationId }).send.post())
 export const regenerateShare = (id: string) => unwrap(eden.api.reports({ id }).share.regenerate.post())
 export const share = (slug: string) => unwrap(eden.api.share({ slug }).get())
 
 export type ReportList = Awaited<ReturnType<typeof reports>>
 export type ReportCounts = Awaited<ReturnType<typeof reportCounts>>
 export type ReportListItem = ReportList["items"][number]
+export type ReportDetail = Awaited<ReturnType<typeof report>>
+export type ReportTrackers = Awaited<ReturnType<typeof reportTrackers>>
+export type TrackerLink = ReportTrackers["links"][number]
 
 export const reportQueries = {
   /** A report list fetched a part at a time as it scrolls; a refresh fetches again every part already shown. */
@@ -71,5 +90,7 @@ export const reportQueries = {
       staleTime: REPORT_LIST_STALE_MS,
       placeholderData: keepPreviousData,
     }),
+  report: (id: string) => queryOptions({ queryKey: qk.report(id), queryFn: () => report(id) }),
+  reportTrackers: (reportId: string) => queryOptions({ queryKey: qk.reportTrackers(reportId), queryFn: () => reportTrackers(reportId) }),
   share: (slug: string) => queryOptions({ queryKey: qk.share(slug), queryFn: () => share(slug), retry: false }),
 }

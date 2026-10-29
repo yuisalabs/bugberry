@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, mock, spyOn, test } from "bun:test"
 import { render, waitFor } from "@testing-library/react"
-import { ActionsTab } from "../src/components/debugger/ActionsTab"
-import { FOLLOW_SCROLL_ATTRIBUTE } from "../src/components/debugger/useVirtualRows"
+import { ActionsTab } from "../src/features/reports/debugger/ActionsTab"
+import { FOLLOW_SCROLL_ATTRIBUTE } from "../src/features/reports/debugger/useVirtualRows"
 import { normalizePayload } from "@bugberry/debugger-view"
 
 const realScrollTo = HTMLElement.prototype.scrollTo

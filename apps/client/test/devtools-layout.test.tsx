@@ -2,8 +2,8 @@ import { afterEach, describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
-import { DevtoolsResizer, DevtoolsToggle } from "../src/components/DevtoolsLayout"
-import { clampDevtoolsWidth, devtoolsColumn, readDevtools, saveDevtools } from "../src/lib/devtools-layout"
+import { DevtoolsResizer, DevtoolsToggle } from "../src/features/reports/detail/DevtoolsLayout"
+import { clampDevtoolsWidth, devtoolsColumn, readDevtools, saveDevtools } from "../src/features/reports/detail/devtools-layout"
 
 afterEach(() => window.localStorage.clear())
 
@@ -103,7 +103,7 @@ describe("DevtoolsResizer", () => {
 describe("the DevTools edge", () => {
   // The panel's own layers: sticky headers, column and detail edges. All of them live in the aside's stacking
   // context, where an equal or higher z would paint over the edge's line.
-  const DEBUGGER = join(import.meta.dir, "..", "src", "components", "debugger")
+  const DEBUGGER = join(import.meta.dir, "..", "src", "features", "reports", "debugger")
   const zOf = (text: string) => [...text.matchAll(/\bz-(\d+)\b/g)].map((match) => Number(match[1]))
 
   test("sits above every layer inside the panel, so no header covers its line", () => {

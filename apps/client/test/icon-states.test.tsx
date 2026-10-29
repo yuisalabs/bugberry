@@ -11,7 +11,7 @@ import {
 import { render, screen } from "@testing-library/react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { ActiveIcon } from "../src/components/ActiveIcon"
-import { DevtoolsToggle } from "../src/components/DevtoolsLayout"
+import { DevtoolsToggle } from "../src/features/reports/detail/DevtoolsLayout"
 import { LayoutToggle, ReportFilters } from "../src/features/reports/list/ReportFilters"
 
 /** The shape an icon draws, to tell its line and fill variants apart. */

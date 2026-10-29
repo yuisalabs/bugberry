@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
-import { NetworkTab } from "../src/components/debugger/NetworkTab"
-import { clampColumnWidth, DEFAULT_COLUMN_WIDTHS, NETWORK_COLUMNS, readColumnWidths, saveColumnWidths } from "../src/lib/network-columns"
+import { NetworkTab } from "../src/features/reports/debugger/NetworkTab"
+import {
+  clampColumnWidth,
+  DEFAULT_COLUMN_WIDTHS,
+  NETWORK_COLUMNS,
+  readColumnWidths,
+  saveColumnWidths,
+} from "../src/features/reports/debugger/network-columns"
 import { normalizePayload } from "@bugberry/debugger-view"
 
 afterEach(() => window.localStorage.clear())

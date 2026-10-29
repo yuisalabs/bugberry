@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { activeIndex, activeRow, seekSeconds } from "../src/lib/timeline"
+import { activeIndex, activeRow, seekSeconds } from "../src/features/reports/debugger/timeline"
 
 describe("activeIndex", () => {
   const offsets = [-500, 2000, 4000]

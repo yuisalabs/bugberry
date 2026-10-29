@@ -122,7 +122,7 @@ const reportRoute = createRoute({
   getParentRoute: () => authedRoute,
   path: "/app/r/$reportId",
   validateSearch: (search: Record<string, unknown>): { t?: number } => ({ t: startSecondsFrom(search) }),
-  component: lazyRouteComponent(() => import("./pages/ReportPage"), "ReportPage"),
+  component: lazyRouteComponent(() => import("./features/reports/detail/ReportPage"), "ReportPage"),
 })
 
 /** Admin-only pages; the role is checked with the server on every visit. */
@@ -241,7 +241,7 @@ export function createAppRouter(queryClient: QueryClient) {
   })
 }
 
-import type { ReportsFrom } from "./lib/report-page"
+import type { ReportsFrom } from "./features/reports/detail/report-page"
 import { ApiError } from "./lib/query/unwrap"
 import { accountQueries } from "./features/account/queries"
 

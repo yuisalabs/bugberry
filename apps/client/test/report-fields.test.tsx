@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test"
 import { render, screen } from "@testing-library/react"
-import { ReportFields } from "../src/components/report/ReportFields"
+import { ReportFields } from "../src/features/reports/detail/ReportFields"
 import { choose } from "./fields"
 import type { Member } from "../src/features/workspaces/queries"
 

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import type { ReportTrackers, TrackerLink } from "../src/lib/api"
-import { linkState, trackersRefetchInterval } from "../src/lib/tracker-links"
+import { linkState, trackersRefetchInterval } from "../src/features/reports/detail/tracker-links"
+import type { ReportTrackers, TrackerLink } from "../src/features/reports/queries"
 
 const NOW = new Date("2026-10-16T08:10:00Z").getTime()
 const link = (overrides: Partial<TrackerLink>): TrackerLink => ({

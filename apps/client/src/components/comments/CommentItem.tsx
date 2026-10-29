@@ -13,7 +13,7 @@ import { commentParts, type Mentionable, type Picked, toEditable, toStored } fro
 import { initialsOf } from "../../lib/people"
 import { workspaceColor } from "../../features/workspaces/workspace"
 import { MentionTextarea } from "../MentionTextarea"
-import { ReportVideoContext } from "../report/video-context"
+import { ReportVideoContext } from "../../features/reports/detail/video-context"
 import { addPicked } from "./CommentComposer"
 import { ReactionBar } from "./ReactionBar"
 

@@ -2,8 +2,8 @@ import type { VideoPlayerProps } from "@bugberry/player"
 import { type ComponentType, lazy, memo, type Ref, Suspense, useState } from "react"
 import { Button as AriaButton } from "react-aria-components"
 import { Button } from "@bugberry/ui/button"
-import type { ReportDetail } from "../lib/api"
 import { ImageViewer } from "./ImageViewer"
+import type { ReportDetail } from "../queries"
 
 type MediaReport = Pick<ReportDetail, "id" | "captureType" | "mediaUrl"> & { durationMs?: number | null }
 

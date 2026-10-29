@@ -9,17 +9,17 @@ import {
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@bugberry/ui/button"
 import { Tab, TabList, TabPanel, Tabs } from "@bugberry/ui/tabs"
-import type { ReportDetail } from "../../lib/api"
 import { type DebuggerView, eventBase, onPage, type VisitedUrl } from "@bugberry/debugger-view"
-import type { Playback } from "../../lib/timeline"
-import { isUndone } from "../../features/onboarding/onboarding"
-import { useOnboarding } from "../../features/onboarding/OnboardingProvider"
-import { EventRowsSkeleton } from "../Skeletons"
+import type { Playback } from "./timeline"
+import { isUndone } from "../../onboarding/onboarding"
+import { useOnboarding } from "../../onboarding/OnboardingProvider"
+import { EventRowsSkeleton } from "../../../components/Skeletons"
 import { ActionsTab } from "./ActionsTab"
 import { ConsoleTab } from "./ConsoleTab"
 import { InfoTab } from "./InfoTab"
 import { NetworkTab } from "./NetworkTab"
 import { FOLLOW_SCROLL_ATTRIBUTE } from "./useVirtualRows"
+import type { ReportDetail } from "../queries"
 
 export type DebuggerState =
   | { status: "none" }

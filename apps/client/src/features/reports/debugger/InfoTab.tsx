@@ -1,11 +1,11 @@
 import type { ReactNode } from "react"
 import { Button as AriaButton } from "react-aria-components"
-import type { ReportDetail } from "../../lib/api"
 import type { DebuggerView, VisitedUrl } from "@bugberry/debugger-view"
-import { formatOffset, formatTimestamp } from "../../lib/format"
+import { formatOffset, formatTimestamp } from "../../../lib/format"
 import { environmentRows, maskedCount, visitedUrls } from "@bugberry/debugger-view"
-import type { Playback } from "../../lib/timeline"
+import type { Playback } from "./timeline"
 import { VisitedUrls } from "./VisitedUrls"
+import type { ReportDetail } from "../queries"
 
 const INCOMPLETE_LABELS: Record<string, string> = {
   "not-injected":

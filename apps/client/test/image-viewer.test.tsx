@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
-import { ImageViewer } from "../src/components/ImageViewer"
+import { ImageViewer } from "../src/features/reports/detail/ImageViewer"
 
 describe("ImageViewer toolbar", () => {
   test("every toolbar icon stays white on the dark backdrop, also while zoomed in or hovered", () => {

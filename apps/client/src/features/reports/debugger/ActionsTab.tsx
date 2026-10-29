@@ -2,7 +2,7 @@ import { memo, useMemo, useState } from "react"
 import { ToggleGroup, ToggleGroupItem } from "@bugberry/ui/toggle-group"
 import { type ActionFilter, actionCounts, actionSentence, matchesActionFilter } from "@bugberry/debugger-view"
 import type { ViewAction, ViewEvent } from "@bugberry/debugger-view"
-import { type Playback, useActiveRow } from "../../lib/timeline"
+import { type Playback, useActiveRow } from "./timeline"
 import { EventTime, seekOnRowClick } from "./EventTime"
 import { ACTIVE_ROW, FOLLOW_STICKY_ATTRIBUTE, useVirtualRows } from "./useVirtualRows"
 

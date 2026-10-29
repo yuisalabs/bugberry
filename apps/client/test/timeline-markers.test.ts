@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { DebuggerView, ViewEvent } from "@bugberry/debugger-view"
-import { timelineMarkers } from "../src/lib/timeline-markers"
+import { timelineMarkers } from "../src/features/reports/detail/timeline-markers"
 import { shareUrlAt } from "../src/lib/urls"
 
 const network = (t: number, changes: Partial<Extract<ViewEvent, { kind: "network" }>> = {}): ViewEvent => ({

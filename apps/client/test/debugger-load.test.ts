@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { type DebuggerPayload, encodeDebuggerPayload } from "@bugberry/capture"
-import { loadDebugger, loadDebuggerWithRefresh } from "../src/lib/debugger"
+import { loadDebugger, loadDebuggerWithRefresh } from "../src/features/reports/debugger/debugger"
 
 const payload: DebuggerPayload = {
   version: 1,

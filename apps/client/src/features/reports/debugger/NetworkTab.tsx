@@ -7,9 +7,9 @@ import { Sheet } from "@bugberry/ui/sheet"
 import { Switch, SwitchField } from "@bugberry/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@bugberry/ui/toggle-group"
 import type { ViewEvent } from "@bugberry/debugger-view"
-import { PHONE_QUERY, useMediaQuery } from "../../hooks/useMediaQuery"
-import { startHorizontalDrag, startVerticalDrag } from "../../lib/drag"
-import { formatDuration } from "../../lib/format"
+import { PHONE_QUERY, useMediaQuery } from "../../../hooks/useMediaQuery"
+import { startHorizontalDrag, startVerticalDrag } from "../detail/drag"
+import { formatDuration } from "../../../lib/format"
 import {
   formatBytes,
   matchesFilter,
@@ -35,9 +35,9 @@ import {
   type SizedColumn,
   saveColumnWidths,
   WATERFALL_MIN_WIDTH,
-} from "../../lib/network-columns"
-import { clampDetailHeight, DEFAULT_DETAIL_HEIGHT, readDetailHeight, saveDetailHeight } from "../../lib/network-detail"
-import { type Playback, useActiveRow } from "../../lib/timeline"
+} from "./network-columns"
+import { clampDetailHeight, DEFAULT_DETAIL_HEIGHT, readDetailHeight, saveDetailHeight } from "./network-detail"
+import { type Playback, useActiveRow } from "./timeline"
 import { RequestDetail } from "./RequestDetail"
 import { ACTIVE_ROW, FOLLOW_SCROLL_ATTRIBUTE, FOLLOW_STICKY_ATTRIBUTE, useVirtualRows } from "./useVirtualRows"
 

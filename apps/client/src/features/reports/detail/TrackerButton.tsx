@@ -2,9 +2,9 @@ import { RiArrowDownSLine, RiExternalLinkLine, RiPlugLine, RiShareForwardLine } 
 import { useRef, useState } from "react"
 import { Button } from "@bugberry/ui/button"
 import { Menu, MenuDescription, MenuItem, MenuLabel } from "@bugberry/ui/menu"
-import type { ReportDetail } from "../../lib/api"
-import type { TrackerItem } from "../../lib/more-menu"
+import type { TrackerItem } from "./more-menu"
 import { useReportTrackers } from "./useReportTrackers"
+import type { ReportDetail } from "../queries"
 
 /** The green of the "bug" in the wordmark, in place of the primary pink; text and icons in white. */
 const LEAF =

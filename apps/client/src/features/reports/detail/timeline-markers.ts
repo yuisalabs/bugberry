@@ -1,6 +1,6 @@
 import type { TimelineMarker } from "@bugberry/player"
 import { type DebuggerView, eventBase, isFailedRequest } from "@bugberry/debugger-view"
-import { formatOffset } from "./format"
+import { formatOffset } from "../../../lib/format"
 
 /** The address without its host, which is the same for every request on a page. */
 function shortUrl(url: string): string {

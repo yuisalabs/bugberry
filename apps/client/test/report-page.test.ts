@@ -1,6 +1,6 @@
 import type { Priority, ReportStatus } from "@bugberry/shared"
 import { describe, expect, test } from "bun:test"
-import { backLink, backTarget, sentIssues, sharePageTarget, withPatch } from "../src/lib/report-page"
+import { backLink, backTarget, sentIssues, sharePageTarget, withPatch } from "../src/features/reports/detail/report-page"
 
 describe("sharePageTarget", () => {
   test("a member goes on to the full report", () => {

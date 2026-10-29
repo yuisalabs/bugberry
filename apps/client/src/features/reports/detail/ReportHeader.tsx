@@ -1,9 +1,9 @@
 import { RiArrowLeftLine, RiLayoutGridLine } from "@remixicon/react"
 import { Link } from "@tanstack/react-router"
 import type { ReactNode } from "react"
-import type { backLink } from "../../lib/report-page"
-import { BugBerryLogo } from "../BugBerryLogo"
-import { ProjectTile } from "../../features/projects/ProjectTile"
+import type { backLink } from "./report-page"
+import { BugBerryLogo } from "../../../components/BugBerryLogo"
+import { ProjectTile } from "../../projects/ProjectTile"
 
 const navLink = "flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm whitespace-nowrap text-muted-foreground hover:bg-muted hover:text-foreground"
 

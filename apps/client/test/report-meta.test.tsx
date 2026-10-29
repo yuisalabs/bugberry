@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { render, screen } from "@testing-library/react"
-import { ReportMeta, reportedVia } from "../src/components/report/ReportMeta"
+import { ReportMeta, reportedVia } from "../src/features/reports/detail/ReportMeta"
 import { reportFixture } from "./fixtures"
 
 describe("ReportMeta", () => {

@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
-import { VisitedUrls } from "../src/components/debugger/VisitedUrls"
+import { VisitedUrls } from "../src/features/reports/debugger/VisitedUrls"
 import type { VisitedUrl } from "@bugberry/debugger-view"
 
 const page = (atMs: number, url: string, extra: Partial<VisitedUrl> = {}): VisitedUrl => ({
