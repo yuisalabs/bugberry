@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
-import { DOCS_URL } from "../src/lib/docs-url"
-import { PRODUCT_MENU } from "../src/pages/landing/ProductMenu"
+import { DOCS_URL } from "../src/features/landing/docs-url"
+import { PRODUCT_MENU } from "../src/features/landing/ProductMenu"
 
 const DOCS = join(import.meta.dir, "..", "..", "docs", "content", "docs")
 

@@ -2,10 +2,10 @@ import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { fireEvent, render, screen, within } from "@testing-library/react"
-import { DOCS_URL } from "../src/lib/docs-url"
-import { FinalCta } from "../src/pages/landing/FinalCta"
-import { SiteChrome } from "../src/pages/landing/SiteChrome"
-import { PRODUCT_MENU } from "../src/pages/landing/ProductMenu"
+import { DOCS_URL } from "../src/features/landing/docs-url"
+import { FinalCta } from "../src/features/landing/FinalCta"
+import { SiteChrome } from "../src/features/landing/SiteChrome"
+import { PRODUCT_MENU } from "../src/features/landing/ProductMenu"
 import {
   CHANGELOG,
   CHROME_WEB_STORE_URL,
@@ -15,7 +15,7 @@ import {
   RECORDING_DOCS,
   REPORT_PAGE_DOCS,
   SCREENSHOT_DOCS,
-} from "../src/pages/landing/site-links"
+} from "../src/features/landing/site-links"
 
 const STORE = "https://chromewebstore.google.com/detail/x"
 const PUBLIC_ROUTES = ["/", "/login", "/app", "/pricing", "/integrations", "/ai-agents", "/demo", "/privacy"]

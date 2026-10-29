@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { fireEvent, render, screen, within } from "@testing-library/react"
-import { PricingView } from "../src/pages/landing/PricingView"
+import { PricingView } from "../src/features/landing/PricingView"
 
 const text = () => document.body.textContent ?? ""
 const plan = (name: string) => screen.getByRole("region", { name: `${name} plan` })

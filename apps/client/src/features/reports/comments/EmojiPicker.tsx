@@ -3,7 +3,7 @@ import { type ReactNode, useState } from "react"
 import { Dialog, DialogTrigger } from "react-aria-components"
 import { Button } from "@bugberry/ui/button"
 import { Popover } from "@bugberry/ui/popover"
-import { readRecentEmoji, rememberEmoji, saveRecentEmoji } from "../../lib/recent-emoji"
+import { readRecentEmoji, rememberEmoji, saveRecentEmoji } from "./recent-emoji"
 
 /**
  * A button that opens every emoji, searchable, with this browser's recently used ones first. Picking one calls

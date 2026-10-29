@@ -7,10 +7,10 @@ import {
   RiShareForwardLine,
   RiUserLine,
 } from "@remixicon/react"
-import { useNow } from "../../hooks/useNow"
-import type { Activity } from "../../lib/api"
-import { activitySentence } from "../../lib/comment-feed"
-import { formatDateTime, formatRelative } from "../../lib/format"
+import { useNow } from "../../../hooks/useNow"
+import { activitySentence } from "./comment-feed"
+import { formatDateTime, formatRelative } from "../../../lib/format"
+import type { Activity } from "../queries"
 
 const ICONS = {
   status: RiCheckboxCircleLine,

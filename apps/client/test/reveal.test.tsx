@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { act, render, screen, waitFor } from "@testing-library/react"
-import { HomeView } from "../src/pages/landing/HomeView"
-import { type RevealOptions, useReveal } from "../src/pages/landing/useReveal"
+import { HomeView } from "../src/features/landing/HomeView"
+import { type RevealOptions, useReveal } from "../src/features/landing/useReveal"
 
 /** Stands in for the browser's IntersectionObserver; `scrollIntoView()` says the newest target came into view. */
 class FakeObserver {

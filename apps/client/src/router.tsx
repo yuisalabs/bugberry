@@ -14,14 +14,14 @@ import { ErrorPage } from "./components/status/ErrorPage"
 import { StatusPage } from "./components/status/StatusPage"
 import { requireWorkspaceAdmin } from "./features/auth/admin-guard"
 import { legacyAppPath } from "./lib/legacy-paths"
-import { publicSiteGate } from "./lib/public-site"
+import { publicSiteGate } from "./features/landing/public-site"
 import { startSecondsFrom } from "./lib/urls"
 import { validateLoginSearch } from "./features/auth/login"
 import { validateProjectReportSearch, validateReportSearch } from "./features/reports/list/report-search"
 // The report lists load with the app; the report page (debugger, media), sharing, sign-in and the
 // settings pages are split off so the first load stays small.
 import { AllReportsPage } from "./features/reports/list/AllReportsPage"
-import { LandingPage } from "./pages/LandingPage"
+import { LandingPage } from "./features/landing/LandingPage"
 import { ProjectReportsPage } from "./features/reports/list/ProjectReportsPage"
 
 /** Any address no page answers, at the top level or inside the dashboard. */
@@ -104,7 +104,7 @@ const sessionEndedRoute = createRoute({
 })
 
 /** Public: the privacy policy the browser extension stores link to. */
-const privacyRoute = createRoute({ getParentRoute: () => rootRoute, path: "/privacy", component: lazyRouteComponent(() => import("./pages/PrivacyPage"), "PrivacyPage") })
+const privacyRoute = createRoute({ getParentRoute: () => rootRoute, path: "/privacy", component: lazyRouteComponent(() => import("./features/landing/PrivacyPage"), "PrivacyPage") })
 
 /** Public: a workspace's shared invite link; works signed out so the person can sign in first. */
 const joinRoute = createRoute({ getParentRoute: () => rootRoute, path: "/join/$code", component: lazyRouteComponent(() => import("./features/workspaces/JoinPage"), "JoinPage") })
@@ -186,10 +186,10 @@ const workspaceSettingsRoute = createRoute({
 const landingRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", beforeLoad: publicSiteGate, component: LandingPage })
 const publicPage = (path: string, component: () => Promise<Record<string, unknown>>, name: string) =>
   createRoute({ getParentRoute: () => rootRoute, path, beforeLoad: publicSiteGate, component: lazyRouteComponent(component, name) })
-const pricingRoute = publicPage("/pricing", () => import("./pages/PricingPage"), "PricingPage")
-const integrationsPublicRoute = publicPage("/integrations", () => import("./pages/IntegrationsPage"), "IntegrationsPage")
-const aiAgentsPublicRoute = publicPage("/ai-agents", () => import("./pages/AiAgentsPublicPage"), "AiAgentsPublicPage")
-const demoRoute = publicPage("/demo", () => import("./pages/DemoPage"), "DemoPage")
+const pricingRoute = publicPage("/pricing", () => import("./features/landing/PricingPage"), "PricingPage")
+const integrationsPublicRoute = publicPage("/integrations", () => import("./features/landing/IntegrationsPage"), "IntegrationsPage")
+const aiAgentsPublicRoute = publicPage("/ai-agents", () => import("./features/landing/AiAgentsPublicPage"), "AiAgentsPublicPage")
+const demoRoute = publicPage("/demo", () => import("./features/landing/DemoPage"), "DemoPage")
 
 /** Old dashboard addresses (before /app) redirect, keeping their query and hash. */
 const legacyRedirect = ({ location }: { location: ParsedLocation }) => {

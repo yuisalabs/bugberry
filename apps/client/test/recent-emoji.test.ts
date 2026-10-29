@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import { readRecentEmoji, rememberEmoji, saveRecentEmoji } from "../src/lib/recent-emoji"
+import { readRecentEmoji, rememberEmoji, saveRecentEmoji } from "../src/features/reports/comments/recent-emoji"
 
 afterEach(() => localStorage.clear())
 

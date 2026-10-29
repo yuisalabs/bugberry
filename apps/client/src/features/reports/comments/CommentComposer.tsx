@@ -2,9 +2,9 @@ import { RiAtLine, RiEmotionLine, RiSendPlane2Line } from "@remixicon/react"
 import { type FormEvent, useRef, useState } from "react"
 import { Avatar } from "@bugberry/ui/avatar"
 import { Button } from "@bugberry/ui/button"
-import { type Mentionable, type Picked, toStored } from "../../lib/mentions"
-import { initialsOf } from "../../lib/people"
-import { MentionTextarea, type MentionTextareaHandle } from "../MentionTextarea"
+import { type Mentionable, type Picked, toStored } from "./mentions"
+import { initialsOf } from "../../../lib/people"
+import { MentionTextarea, type MentionTextareaHandle } from "./MentionTextarea"
 import { EmojiPicker } from "./EmojiPicker"
 
 /** Picked people, once each. */

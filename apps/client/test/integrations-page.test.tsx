@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { render, screen, within } from "@testing-library/react"
-import { IntegrationsView } from "../src/pages/landing/IntegrationsView"
-import { INTEGRATION_DOCS, WEBHOOK_DOCS } from "../src/pages/landing/site-links"
+import { IntegrationsView } from "../src/features/landing/IntegrationsView"
+import { INTEGRATION_DOCS, WEBHOOK_DOCS } from "../src/features/landing/site-links"
 
 const card = (name: string) => screen.getByRole("article", { name })
 const NAMES = ["GitHub", "GitLab", "Jira", "Linear", "ActiveCollab", "Plane", "Slack", "Discord", "Telegram", "Webhook"]

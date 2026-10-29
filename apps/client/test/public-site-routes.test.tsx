@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { QueryClient } from "@tanstack/react-query"
 import { isRedirect } from "@tanstack/react-router"
-import { publicSiteGate } from "../src/lib/public-site"
+import { publicSiteGate } from "../src/features/landing/public-site"
 import { createQueryClient } from "../src/lib/query/client"
 import { createAppRouter } from "../src/router"
 import { fakeFetch, restoreFetch } from "./support/fake-fetch"

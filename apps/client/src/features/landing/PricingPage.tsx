@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query"
-import { PricingView } from "./landing/PricingView"
-import { SiteNavigation } from "./landing/SiteNavigation"
-import { usePageMeta } from "./landing/usePageMeta"
-import { authQueries } from "../features/auth/queries"
-import { accountQueries } from "../features/account/queries"
+import { PricingView } from "./PricingView"
+import { SiteNavigation } from "./SiteNavigation"
+import { usePageMeta } from "./usePageMeta"
+import { authQueries } from "../auth/queries"
+import { accountQueries } from "../account/queries"
 
 /** `/pricing` on BugBerry cloud. */
 export function PricingPage() {

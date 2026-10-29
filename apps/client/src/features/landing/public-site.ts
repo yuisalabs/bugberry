@@ -1,6 +1,6 @@
 import { redirect } from "@tanstack/react-router"
-import type { RouterContext } from "../router"
-import { authQueries } from "../features/auth/queries"
+import type { RouterContext } from "../../router"
+import { authQueries } from "../auth/queries"
 
 /** How long a public page waits for the server's settings before showing anyway. */
 const SETTINGS_WAIT_MS = 1500

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { openSiteLink } from "../src/pages/landing/SiteNavigation"
+import { openSiteLink } from "../src/features/landing/SiteNavigation"
 
 const ORIGIN = "https://bugberry.yuisalabs.com"
 

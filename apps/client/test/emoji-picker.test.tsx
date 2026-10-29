@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
-import { EmojiPicker } from "../src/components/comments/EmojiPicker"
-import { readRecentEmoji, saveRecentEmoji } from "../src/lib/recent-emoji"
+import { EmojiPicker } from "../src/features/reports/comments/EmojiPicker"
+import { readRecentEmoji, saveRecentEmoji } from "../src/features/reports/comments/recent-emoji"
 
 const realFetch = globalThis.fetch
 

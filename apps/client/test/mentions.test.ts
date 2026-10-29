@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { commentParts, type Mentionable, mentionLabel, mentionQuery, suggestions, toEditable, toStored } from "../src/lib/mentions"
+import { commentParts, type Mentionable, mentionLabel, mentionQuery, suggestions, toEditable, toStored } from "../src/features/reports/comments/mentions"
 
 const ana: Mentionable = { id: "u1", name: "Ana", email: "ana@kantor.test" }
 const budi: Mentionable = { id: "u2", name: "Budi Santoso", email: "budi@kantor.test" }

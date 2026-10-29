@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query"
-import { HomeView } from "./landing/HomeView"
-import { SiteNavigation } from "./landing/SiteNavigation"
-import { usePageMeta } from "./landing/usePageMeta"
-import { authQueries } from "../features/auth/queries"
-import { accountQueries } from "../features/account/queries"
+import { HomeView } from "./HomeView"
+import { SiteNavigation } from "./SiteNavigation"
+import { usePageMeta } from "./usePageMeta"
+import { authQueries } from "../auth/queries"
+import { accountQueries } from "../account/queries"
 
 /** `/`: the public home page. A signed-in visitor is offered the dashboard instead of sign-up. */
 export function LandingPage() {

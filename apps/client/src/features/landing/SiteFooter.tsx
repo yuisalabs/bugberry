@@ -1,8 +1,8 @@
 import { RiChromeFill } from "@remixicon/react"
 import { Link } from "@bugberry/ui/link"
 import { BugBerryLogo } from "../../components/BugBerryLogo"
-import { GithubIcon } from "../../features/auth/LoginView"
-import { DOCS_URL } from "../../lib/docs-url"
+import { GithubIcon } from "../auth/LoginView"
+import { DOCS_URL } from "./docs-url"
 import {
   CHANGELOG,
   COMMENTS_DOCS,

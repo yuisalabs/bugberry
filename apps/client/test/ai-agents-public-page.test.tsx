@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { render, screen } from "@testing-library/react"
-import { AiAgentsView } from "../src/pages/landing/AiAgentsView"
-import { MCP_GUIDE } from "../src/pages/landing/site-links"
+import { AiAgentsView } from "../src/features/landing/AiAgentsView"
+import { MCP_GUIDE } from "../src/features/landing/site-links"
 
 const ORIGIN = "https://bugberry.yuisalabs.com"
 const text = () => document.body.textContent ?? ""

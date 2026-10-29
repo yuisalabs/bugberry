@@ -1,10 +1,10 @@
 import { describe, expect, mock, test } from "bun:test"
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import type { ComponentProps } from "react"
-import { CommentsSection } from "../src/components/comments/CommentsSection"
+import { CommentsSection } from "../src/features/reports/comments/CommentsSection"
 import { ReportVideoContext } from "../src/features/reports/detail/video-context"
-import type { CommentThread } from "../src/lib/api"
 import { activityFixture, commentFixture, threadFixture } from "./fixtures"
+import type { CommentThread } from "../src/features/reports/queries"
 
 const ana = { id: "u1", name: "Ana", image: null }
 const budi = { id: "u2", name: "Budi", image: null }

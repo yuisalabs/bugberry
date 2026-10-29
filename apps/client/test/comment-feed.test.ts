@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { activitySentence, commentCount, mergeFeed, videoTimes } from "../src/lib/comment-feed"
+import { activitySentence, commentCount, mergeFeed, videoTimes } from "../src/features/reports/comments/comment-feed"
 import { activityFixture, commentFixture, threadFixture } from "./fixtures"
 
 const at = (time: string) => new Date(`2026-10-16T${time}:00Z`)

@@ -1,8 +1,8 @@
 import { RiEmotionLine } from "@remixicon/react"
 import { useEffect, useRef, useState } from "react"
 import { Tooltip, TooltipTrigger } from "@bugberry/ui/tooltip"
-import type { Reaction } from "../../lib/api"
 import { EmojiPicker } from "./EmojiPicker"
+import type { Reaction } from "../queries"
 
 /** How long a press on a phone takes to show who reacted, instead of toggling the reaction. */
 const LONG_PRESS_MS = 500

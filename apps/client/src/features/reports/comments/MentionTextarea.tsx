@@ -1,6 +1,6 @@
 import { type KeyboardEvent, type Ref, useId, useImperativeHandle, useLayoutEffect, useRef, useState } from "react"
 import { Textarea } from "@bugberry/ui/textarea"
-import { type Mentionable, mentionLabel, mentionQuery, suggestions } from "../lib/mentions"
+import { type Mentionable, mentionLabel, mentionQuery, suggestions } from "./mentions"
 
 interface Props {
   value: string

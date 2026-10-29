@@ -1,10 +1,10 @@
 import type { WorkspaceRole } from "@bugberry/shared"
-import type { Activity, CommentThread as Thread } from "../../lib/api"
-import { commentCount, mergeFeed } from "../../lib/comment-feed"
-import type { Mentionable } from "../../lib/mentions"
+import { commentCount, mergeFeed } from "./comment-feed"
+import type { Mentionable } from "./mentions"
 import { ActivityLine } from "./ActivityLine"
 import { CommentComposer } from "./CommentComposer"
 import { CommentThread } from "./CommentThread"
+import type { Activity, CommentThread as Thread } from "../queries"
 
 /**
  * The report's discussion: the heading with its count and the Comments only / All activity switch, the comment

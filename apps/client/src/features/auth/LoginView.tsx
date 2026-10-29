@@ -16,7 +16,7 @@ import { Input, InputGroup } from "@bugberry/ui/input"
 import { TextField } from "@bugberry/ui/text-field"
 import type { AuthMethods } from "./queries"
 import type { SocialProvider } from "./auth"
-import { DOCS_URL } from "../../lib/docs-url"
+import { DOCS_URL } from "../landing/docs-url"
 
 const RESEND_AFTER_SECONDS = 30
 

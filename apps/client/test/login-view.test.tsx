@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { LoginView } from "../src/features/auth/LoginView"
-import { DOCS_URL } from "../src/lib/docs-url"
+import { DOCS_URL } from "../src/features/landing/docs-url"
 
 const all = { github: true, gitlab: true, google: true, emailOtp: true }
 const handlers = () => ({ onProvider: mock(), onSendCode: mock(async () => {}), onVerifyCode: mock(async () => {}) })

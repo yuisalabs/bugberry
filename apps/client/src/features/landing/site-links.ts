@@ -1,4 +1,4 @@
-import { DOCS_URL } from "../../lib/docs-url"
+import { DOCS_URL } from "./docs-url"
 
 /** Docs pages the public site links to; each one exists in apps/docs/content/docs. */
 export const QUICK_START = `${DOCS_URL}/quick-start`

@@ -5,7 +5,7 @@ import { Menu as MenuPrimitive } from "react-aria-components/Menu"
 import { Avatar } from "@bugberry/ui/avatar"
 import { MenuItem, MenuLabel, MenuSection, MenuSeparator, menuStyles } from "@bugberry/ui/menu"
 import { Popover } from "@bugberry/ui/popover"
-import { DOCS_URL } from "../../lib/docs-url"
+import { DOCS_URL } from "../landing/docs-url"
 import type { ExtensionAnswer } from "../onboarding/extension-bridge"
 import { initialsOf } from "../../lib/people"
 

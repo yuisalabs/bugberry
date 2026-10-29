@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { QueryClient } from "@tanstack/react-query"
 import { render, screen } from "@testing-library/react"
-import { PrivacyPolicy, PrivacyView } from "../src/pages/PrivacyPage"
+import { PrivacyPolicy, PrivacyView } from "../src/features/landing/PrivacyPage"
 import { createAppRouter } from "../src/router"
 
 describe("privacy policy", () => {

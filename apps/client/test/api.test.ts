@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import { createApi } from "../src/lib/api"
 import { me as fetchMe } from "../src/features/account/queries"
 import { createProject } from "../src/features/projects/queries"
 import { testIntegration } from "../src/features/integrations/queries"
@@ -7,13 +6,13 @@ import { shouldRetry } from "../src/lib/query/client"
 import { maintenanceOf } from "../src/lib/status"
 import { fakeFetch, restoreFetch } from "./support/fake-fetch"
 import { ApiError, errorMessage } from "../src/lib/query/unwrap"
-import { reports, sendToTracker } from "../src/features/reports/queries"
+import { addComment, reports, sendToTracker } from "../src/features/reports/queries"
 
 const ORIGIN = window.location.origin
 
 afterEach(restoreFetch)
 
-describe("createApi", () => {
+describe("API requests", () => {
   test("calls the API on the page's origin", async () => {
     const { requests } = fakeFetch(() =>
       Response.json({ id: "u1", email: "ana@kantor.test", name: "Ana", image: null, lastWorkspaceId: "w1" }),
@@ -55,8 +54,7 @@ describe("createApi", () => {
 
   test("calls the comment and tracker endpoints", async () => {
     const { requests } = fakeFetch(() => Response.json({ ok: true }))
-    const client = createApi()
-    await client.addComment("r1", "Hello")
+    await addComment("r1", "Hello")
     await sendToTracker("r1", "i1")
     await testIntegration("p1", "i1")
     expect(requests.map((request) => `${request.method} ${new URL(request.url).pathname}`)).toEqual([

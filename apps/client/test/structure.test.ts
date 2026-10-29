@@ -14,21 +14,6 @@ function breaksRules(file: string, text: string): boolean {
   return INLINE_KEY.test(text) || oldLayer.test(text) || file === "lib/api.ts" || file === "lib/client.ts" || file === "lib/queries.ts"
 }
 
-/** Files still on the old layer; each feature task removes its own. Empty when the refactor is done. */
-const PENDING = new Set<string>([
-  "components/ReportComments.tsx",
-  "components/comments/ActivityLine.tsx",
-  "components/comments/CommentItem.tsx",
-  "components/comments/CommentThread.tsx",
-  "components/comments/CommentsSection.tsx",
-  "components/comments/ReactionBar.tsx",
-  "lib/api.ts",
-  "lib/client.ts",
-  "lib/comment-feed.ts",
-  "lib/queries.ts",
-  "pages/DemoPage.tsx",
-])
-
 async function violators(): Promise<string[]> {
   const found: string[] = []
   for (const path of new Bun.Glob("**/*.{ts,tsx}").scanSync(SRC)) {
@@ -40,12 +25,7 @@ async function violators(): Promise<string[]> {
 
 describe("structure", () => {
   test("query keys and data access go through lib/query and the features", async () => {
-    expect((await violators()).filter((path) => !PENDING.has(path))).toEqual([])
-  })
-
-  test("PENDING lists only files that still break the rules", async () => {
-    const found = await violators()
-    expect([...PENDING].filter((path) => !found.includes(path))).toEqual([])
+    expect(await violators()).toEqual([])
   })
 
   test("the rules catch what they are for", () => {

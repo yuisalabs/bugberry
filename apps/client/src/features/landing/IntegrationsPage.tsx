@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query"
-import { IntegrationsView } from "./landing/IntegrationsView"
-import { SiteNavigation } from "./landing/SiteNavigation"
-import { usePageMeta } from "./landing/usePageMeta"
-import { authQueries } from "../features/auth/queries"
-import { accountQueries } from "../features/account/queries"
+import { IntegrationsView } from "./IntegrationsView"
+import { SiteNavigation } from "./SiteNavigation"
+import { usePageMeta } from "./usePageMeta"
+import { authQueries } from "../auth/queries"
+import { accountQueries } from "../account/queries"
 
 /** `/integrations` on BugBerry cloud. */
 export function IntegrationsPage() {

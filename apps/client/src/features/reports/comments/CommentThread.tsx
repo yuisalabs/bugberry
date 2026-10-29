@@ -1,9 +1,9 @@
 import type { WorkspaceRole } from "@bugberry/shared"
 import { useState } from "react"
-import type { Comment, CommentThread as Thread } from "../../lib/api"
-import { type Mentionable, mentionLabel } from "../../lib/mentions"
+import { type Mentionable, mentionLabel } from "./mentions"
 import { CommentComposer } from "./CommentComposer"
 import { CommentItem } from "./CommentItem"
+import type { Comment, CommentThread as Thread } from "../queries"
 
 /**
  * A thread: its first comment, the replies under it (oldest first), and a reply box at the bottom while someone

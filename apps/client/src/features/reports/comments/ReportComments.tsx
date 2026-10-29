@@ -1,15 +1,14 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { useLocation } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
-import { api } from "../lib/client"
-import { queries } from "../lib/queries"
-import { roleIn } from "../features/workspaces/workspace"
-import { CommentsSection } from "./comments/CommentsSection"
-import { PeopleRowsSkeleton } from "./Skeletons"
-import { ErrorState } from "./ui"
-import { errorMessage } from "../lib/query/unwrap"
-import { accountQueries } from "../features/account/queries"
-import { workspaceQueries } from "../features/workspaces/queries"
+import { reportQueries, useAddComment, useDeleteComment, useEditComment, useReact } from "../queries"
+import { roleIn } from "../../workspaces/workspace"
+import { CommentsSection } from "./CommentsSection"
+import { PeopleRowsSkeleton } from "../../../components/Skeletons"
+import { ErrorState } from "../../../components/ui"
+import { errorMessage } from "../../../lib/query/unwrap"
+import { accountQueries } from "../../account/queries"
+import { workspaceQueries } from "../../workspaces/queries"
 
 /** This browser remembers whether the feed shows All activity; Comments only is the default. */
 const TAB_KEY = "bugberry.commentsTab"
@@ -31,12 +30,11 @@ function saveShowActivity(on: boolean): void {
 }
 
 export function ReportComments({ reportId, workspaceId }: { reportId: string; workspaceId: string }) {
-  const queryClient = useQueryClient()
   const [showActivity, setShowActivity] = useState(readShowActivity)
   const me = useQuery(accountQueries.me())
   const workspaces = useQuery(workspaceQueries.workspaces())
-  const comments = useQuery(queries.comments(reportId))
-  const activity = useQuery({ ...queries.activity(reportId), enabled: showActivity })
+  const comments = useQuery(reportQueries.comments(reportId))
+  const activity = useQuery({ ...reportQueries.activity(reportId), enabled: showActivity })
   const members = useQuery(workspaceQueries.members(workspaceId))
   const hash = useLocation({ select: (location) => location.hash })
   const loaded = comments.isSuccess
@@ -45,20 +43,10 @@ export function ReportComments({ reportId, workspaceId }: { reportId: string; wo
     if (!loaded || !hash.startsWith("comment-")) return
     document.getElementById(hash)?.scrollIntoView({ block: "center", behavior: "smooth" })
   }, [loaded, hash])
-  const refresh = () => queryClient.invalidateQueries({ queryKey: queries.comments(reportId).queryKey })
-  const add = useMutation({
-    mutationFn: ({ body, replyTo }: { body: string; replyTo?: string }) => api.addComment(reportId, body, replyTo),
-    onSuccess: refresh,
-  })
-  const edit = useMutation({
-    mutationFn: ({ id, body }: { id: string; body: string }) => api.editComment(id, body),
-    onSuccess: refresh,
-  })
-  const remove = useMutation({ mutationFn: (id: string) => api.deleteComment(id), onSuccess: refresh })
-  const react = useMutation({
-    mutationFn: ({ commentId, emoji }: { commentId: string; emoji: string }) => api.react(commentId, emoji),
-    onSuccess: refresh,
-  })
+  const add = useAddComment(reportId)
+  const edit = useEditComment(reportId)
+  const remove = useDeleteComment(reportId)
+  const react = useReact(reportId)
 
   if (comments.isPending || me.isPending) return <PeopleRowsSkeleton label="Loading comments…" />
   if (comments.isError) return <ErrorState error={comments.error} onRetry={() => void comments.refetch()} />
