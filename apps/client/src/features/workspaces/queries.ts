@@ -82,7 +82,6 @@ export const workspaceQueries = {
   sharedInvite: (code: string) => queryOptions({ queryKey: qk.sharedInvite(code), queryFn: () => sharedPreview(code), retry: false }),
 }
 
-/** What a change on the Members page can touch: the members, the invitations, the workspace list and the requests. */
 export const refreshMembers = async (queryClient: QueryClient, workspaceId: string) => {
   await queryClient.invalidateQueries({ queryKey: qk.members(workspaceId) })
   await queryClient.invalidateQueries({ queryKey: qk.invitations(workspaceId) })
