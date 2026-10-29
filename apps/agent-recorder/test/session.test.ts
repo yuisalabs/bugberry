@@ -242,6 +242,17 @@ describe("recorder session", () => {
     expect((await recorder.status()).recording).toBe(false)
   })
 
+  test("discard after stop drops that stopped recording, which was never sent", async () => {
+    const recorder = session()
+    await recorder.start("https://shop.test/checkout")
+    await recorder.stop()
+    expect(await recorder.discard()).toBe("stopped")
+    expect(recorder.take("rec-1")).toBeNull()
+    expect(existsSync(join(tempDir, "rec-1"))).toBe(false)
+    expect(calls).toContain("delete draft-1")
+    expect(await recorder.discard()).toBeNull()
+  })
+
   test("close shuts the browser it launched", async () => {
     let closed = 0
     const recorder = session({ launch: async () => ({ context, isOpen: () => closed === 0, close: async () => void closed++ }) })

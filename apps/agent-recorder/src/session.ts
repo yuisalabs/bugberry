@@ -71,7 +71,8 @@ export interface RecorderSession {
   start(url: string): Promise<StartResult>
   status(): Promise<{ recording: boolean; seconds: number; warning: string | null }>
   stop(): Promise<StopResult>
-  discard(): Promise<void>
+  /** Drops the running recording, or else the last stopped one not yet sent; says which, or null for neither. */
+  discard(): Promise<"running" | "stopped" | null>
   take(recordingId: string): StoredRecording | null
   /** Drops a submitted recording: its files, and the draft in the extension. */
   forget(recordingId: string): Promise<void>
@@ -135,6 +136,8 @@ export function createRecorderSession<P extends PageLike>(deps: SessionDeps<P>):
   /** `stopped` once the extension stopped it: a stop whose reading failed then only reads again. */
   let running: { draftId: string; tabId: number; startedAt: number; maxMs: number; stopped: boolean } | null = null
   const stored = new Map<string, StoredRecording>()
+  /** The last stopped recording, which a discard drops when nothing runs: a retry that didn't show the bug. */
+  let lastStopped: string | null = null
 
   const ensureBrowser = async (): Promise<RecorderBrowser<P>> => {
     if (browser?.isOpen()) return browser
@@ -231,6 +234,7 @@ export function createRecorderSession<P extends PageLike>(deps: SessionDeps<P>):
         thumbnailPath: meta.sizes.thumbnail === null ? null : join(dir, "thumbnail.jpg"),
       }
       stored.set(recordingId, kept)
+      lastStopped = recordingId
       return {
         recordingId,
         summary: summaryOf(meta),
@@ -250,11 +254,18 @@ export function createRecorderSession<P extends PageLike>(deps: SessionDeps<P>):
     },
 
     async discard() {
-      if (!running || !browser) return
-      const { draftId } = running
-      running = null
-      await deps.stop(browser).catch(() => {})
-      await deps.remove(browser, draftId)
+      if (running && browser) {
+        const { draftId } = running
+        running = null
+        await deps.stop(browser).catch(() => {})
+        await deps.remove(browser, draftId)
+        return "running"
+      }
+      const last = lastStopped
+      lastStopped = null
+      if (!last || !stored.has(last)) return null
+      await this.forget(last)
+      return "stopped"
     },
 
     take: (recordingId) => stored.get(recordingId) ?? null,

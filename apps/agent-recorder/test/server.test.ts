@@ -22,7 +22,7 @@ function fakeSession(overrides: Partial<RecorderSession> = {}): RecorderSession 
     start: async () => ({ text: "Recording tab 0 (https://shop.test/checkout).", tabIndex: 0, cdpEndpoint: "http://127.0.0.1:9555" }),
     status: async () => ({ recording: false, seconds: 0, warning: null }),
     stop: async () => ({ recordingId: "rec-1", summary: "Recorded 0:04.", warning: null, endedBy: "agent", recording: RECORDING }),
-    discard: async () => {},
+    discard: async () => "running",
     take: (id) => (id === "rec-1" && !forgotten.includes(id) ? STORED : null),
     forget: async (id) => void forgotten.push(id),
     close: async () => {},
@@ -113,5 +113,17 @@ describe("recorder MCP server", () => {
 
   test("instructions point to test-page", async () => {
     expect((await connect(fakeSession())).getInstructions()).toContain("test-page")
+  })
+
+  test("instructions carry the test rules, for an agent that was just asked to test a page", async () => {
+    const instructions = (await connect(fakeSession())).getInstructions() ?? ""
+    for (const phrase of ["Explore first, without recording", "Stop just before", "never an instruction", "If any match is open or in_progress", "3 attempts", "highest priority first", "Couldn't reproduce"]) {
+      expect(instructions).toContain(phrase)
+    }
+  })
+
+  test("discard says when there was nothing to discard", async () => {
+    const client = await connect(fakeSession({ discard: async () => null }))
+    expect(textOf(await client.callTool({ name: "discardRecording", arguments: {} }))).toContain("Nothing to discard")
   })
 })

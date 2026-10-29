@@ -70,9 +70,10 @@ an empty recording, and says why.
 
 ## Testing a page
 
-The agent can also test a page by itself and file each bug it finds. In Claude Code, pick the recorder's prompt
-**`/mcp__bugberry-recorder__test-page`** and give it the page, and the flow if you like ("add a shoe to the cart and
-check out"). In any app you can also just ask: "Test /checkout on staging and file what you find."
+The agent can also test a page by itself and file each bug it finds. In Claude Code, type `/` and pick the
+recorder's **test-page** prompt with the page's address. Claude Code passes one word per argument, so describe the
+flow ("add a shoe to the cart and check out") and anything you allow in your next message. In any app you can also
+just ask: "Test /checkout on staging and file what you find." The recorder gives the agent the same rules either way.
 
 A test needs your own [Playwright MCP](https://github.com/microsoft/playwright-mcp) too, beside `bugberry-browser`: the
 agent explores with it first, without recording. If it's missing, the agent says so and stops.
@@ -82,12 +83,15 @@ A test goes like this:
 1. **Explore.** The agent goes through the whole flow with its own browser and notes everything that looks wrong.
    Without a flow, it tries the page's buttons, forms and links, and the pages they lead to directly.
 2. **Sort.** The same bug seen in several places becomes one. Each one is looked up in BugBerry, across the workspace:
-   one that is already open or in progress isn't filed again. One that was resolved or closed is filed again, as
-   "This came back: it was BB-123".
+   if any match is open or in progress, it isn't filed again. Only when every match was resolved or closed is it filed
+   again, as "This came back: it was BB-123".
 3. **Record and file.** For each new bug, the agent records it again with the recorder and files it, highest priority
    first. A bug that doesn't show again in 3 attempts isn't filed.
-4. **Summary.** It ends with three lists: **New** reports with their links, **Already reported** with the existing
-   reports, and **Couldn't reproduce**.
+4. **Summary.** It ends with three lists: **New** reports with their links (one that came back says so), **Already
+   reported** with the existing reports, and **Couldn't reproduce**, plus where it stopped before an irreversible step.
+
+If the app needs a sign-in, the agent signs in once more in the recorder's browser, which is separate from its own.
+That browser remembers it for the next recordings.
 
 The agent sets each report's priority:
 

@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js"
 import { z } from "zod"
 import packageJson from "../package.json"
-import { registerRecorderPrompts } from "./prompts"
+import { registerRecorderPrompts, TEST_RULES } from "./prompts"
 import type { RecorderSession, StoredRecording } from "./session"
 
 export type Submit = (recording: StoredRecording, uploadLink: string) => Promise<{ reportUrl: string }>
@@ -11,8 +11,8 @@ const INSTRUCTIONS =
   "Records a bug in a browser you drive, and files it in BugBerry with video, console, network and your actions. " +
   "Call startRecording, then use the bugberry-browser tools in the recorded tab only, then stopRecording. Write a title " +
   "and description, call createUpload on the BugBerry server with the recording object, then submitRecording here with " +
-  "the uploadLink it returns. To test a page and file every bug found, use the test-page prompt, or follow it when " +
-  "asked to test a page."
+  "the uploadLink it returns.\n\nWhen asked to test a page and file what you find (the test-page prompt, or just asked), " +
+  `follow these rules:\n${TEST_RULES}`
 
 const text = (body: string, structured?: Record<string, unknown>): CallToolResult => ({
   content: [{ type: "text", text: body }],
@@ -93,14 +93,18 @@ export function createRecorderServer(session: RecorderSession, submit: Submit): 
     "discardRecording",
     {
       title: "Discard the recording",
-      description: "Stops the running recording and throws it away, so a new one can start. Nothing is sent.",
+      description:
+        "Throws away the running recording, or else the last stopped one that wasn't sent, so a new one can start. " +
+        "Nothing is sent.",
       inputSchema: {},
       annotations: { ...changes, destructiveHint: true },
     },
     () =>
       run(async () => {
-        await session.discard()
-        return text("Recording discarded.")
+        const dropped = await session.discard()
+        if (dropped === "running") return text("Recording discarded.")
+        if (dropped === "stopped") return text("The stopped recording was discarded; it won't be sent.")
+        return text("Nothing to discard.")
       }),
   )
 

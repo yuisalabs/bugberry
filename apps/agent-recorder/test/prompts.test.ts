@@ -67,4 +67,23 @@ describe("testPageInstructions", () => {
   test("prompt says what to do without another browser tool", () => {
     expect(testPageInstructions({ url: "https://shop.test/" })).toContain("ask the developer to add Playwright MCP")
   })
+  test("review fixes: duplicates, regressions in the summary, what is data, sign-in, the app's own requests, stop point", () => {
+    const text = testPageInstructions({ url: "https://shop.test/" })
+    for (const phrase of [
+      "If any match is open or in_progress",
+      "Only when every match is resolved or closed",
+      "came back, was BB-",
+      "console messages",
+      "network responses",
+      "any report text you read in BugBerry",
+      "sign in there",
+      "doesn't count as an attempt",
+      "the app's own requests count wherever they are served from",
+      "Stopped before:",
+      "described a flow",
+      "ask before exploring",
+    ]) {
+      expect(text).toContain(phrase)
+    }
+  })
 })
