@@ -15,7 +15,7 @@ import {
   user,
   workspaceInvitation,
 } from "../db/schema"
-import { memberRole } from "../workspaces/access"
+import { memberRole } from "../modules/workspaces/access"
 
 export type OnboardingPhase = "required" | "celebrate" | "bonus"
 

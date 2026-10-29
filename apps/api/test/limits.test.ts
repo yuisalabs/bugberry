@@ -9,7 +9,7 @@ import {
   countReports,
   isWorkspaceLimited,
   workspaceLimits,
-} from "../src/workspaces/limits"
+} from "../src/modules/workspaces/limits"
 import { createReadyReport, createUser, createWorkspaceRow, setupTestApp } from "./helpers"
 
 const LIMITS = { screenshots: 5, recordings: 5, ownedWorkspaces: 1, recordingMs: 120_000 }

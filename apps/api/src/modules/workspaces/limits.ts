@@ -1,9 +1,9 @@
 import { type CaptureType, clockLabel, tooLong } from "@bugberry/shared"
 import { and, count, eq, gt, ne, or } from "drizzle-orm"
-import type { AccountLimits, Config } from "../config"
-import type { Db } from "../db/client"
-import { report, user, workspace } from "../db/schema"
-import { AppError } from "../lib/errors"
+import type { AccountLimits, Config } from "../../config"
+import type { Db } from "../../db/client"
+import { report, user, workspace } from "../../db/schema"
+import { AppError } from "../../lib/errors"
 
 /** Works with the database and with a transaction. */
 type Reader = Pick<Db, "select">

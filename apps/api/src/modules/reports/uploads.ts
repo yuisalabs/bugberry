@@ -8,7 +8,7 @@ import { createRateLimiter } from "../../lib/rate-limit"
 import { createDispatcher } from "../../lib/trackers/dispatch"
 import { trackerFactoryFor } from "../../lib/trackers/default"
 import { PART_BYTES, partSizes } from "../../storage/multipart"
-import { requireReportMember } from "../../workspaces/access"
+import { requireReportMember } from "../workspaces/access"
 import { createUploadBody } from "./model"
 import { createReportUpload, finalizeReportUpload } from "./upload-flow"
 

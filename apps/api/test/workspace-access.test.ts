@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { AppError } from "../src/lib/errors"
-import { memberRole, requireMember, resolveWorkspace } from "../src/workspaces/access"
+import { memberRole, requireMember, resolveWorkspace } from "../src/modules/workspaces/access"
 import { addMember, createUser, createWorkspaceRow, setupTestApp } from "./helpers"
 
 let ctx: Awaited<ReturnType<typeof setupTestApp>>

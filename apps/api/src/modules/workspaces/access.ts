@@ -1,8 +1,8 @@
 import type { Visibility, WorkspaceRole } from "@bugberry/shared"
 import { and, asc, eq } from "drizzle-orm"
-import type { Db } from "../db/client"
-import { project, report, workspaceMember } from "../db/schema"
-import { conflict, forbidden, notFound } from "../lib/errors"
+import type { Db } from "../../db/client"
+import { project, report, workspaceMember } from "../../db/schema"
+import { conflict, forbidden, notFound } from "../../lib/errors"
 
 /** The person's role in the workspace, or null when they are not a member. */
 export async function memberRole(db: Db, userId: string, workspaceId: string): Promise<WorkspaceRole | null> {

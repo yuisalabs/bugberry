@@ -8,8 +8,8 @@ import { report } from "../../db/schema"
 import { notFound, tooManyRequests, unauthorized } from "../../lib/errors"
 import { createRateLimiter } from "../../lib/rate-limit"
 import { loadReportDetail } from "../reports/detail"
-import { memberRole } from "../../workspaces/access"
-import { reportAccess } from "../../workspaces/report-access"
+import { memberRole } from "../workspaces/access"
+import { reportAccess } from "../reports/access"
 
 const SHARE_VIEWS_PER_MINUTE = 60
 /**

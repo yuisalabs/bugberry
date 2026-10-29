@@ -1,7 +1,7 @@
 import { RESERVED_WORKSPACE_SLUGS, WORKSPACE_SLUG_PATTERN } from "@bugberry/shared"
 import { and, asc, eq, isNull, like, ne, or } from "drizzle-orm"
-import type { Db } from "../db/client"
-import { workspace } from "../db/schema"
+import type { Db } from "../../db/client"
+import { workspace } from "../../db/schema"
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0]
 

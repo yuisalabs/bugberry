@@ -13,7 +13,7 @@ import { notifierFactoryFor } from "../../lib/notifiers/deliver"
 import { testMessage } from "../../lib/notifiers/message"
 import { createSecretBox, SECRET_UNREADABLE, SecretError } from "../../lib/secret-box"
 import { TrackerError } from "../../lib/trackers/providers"
-import { requireMember } from "../../workspaces/access"
+import { requireMember } from "../workspaces/access"
 
 const name = t.String({ minLength: 1, maxLength: 80 })
 const secret = t.String({ minLength: 1, maxLength: 500 })

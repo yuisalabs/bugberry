@@ -5,7 +5,7 @@ import type { Db } from "../../db/client"
 import { type ActivityKind, report, reportActivity, user } from "../../db/schema"
 import { notFound } from "../../lib/errors"
 import { newId } from "../../lib/ids"
-import { requireReportMember } from "../../workspaces/access"
+import { requireReportMember } from "../workspaces/access"
 import type { PersonSummary } from "../reports/detail"
 
 /** Who did it: a person, with the AI agent they used when it came through MCP; no person for automatic sends. */

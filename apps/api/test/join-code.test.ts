@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from "bun:test"
 import { and, eq } from "drizzle-orm"
 import { workspace, workspaceInvitation, workspaceMember } from "../src/db/schema"
 import type { EmailMessage } from "../src/email/sender"
-import { newJoinCode, normalizeCode, parseJoinValue } from "../src/workspaces/join-codes"
+import { newJoinCode, normalizeCode, parseJoinValue } from "../src/modules/join/join-codes"
 import { createUserWithToken, setupTestApp } from "./helpers"
 
 let ctx: Awaited<ReturnType<typeof setupTestApp>>

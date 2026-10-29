@@ -8,14 +8,14 @@ import type { AccountLimits } from "../../config"
 import type { Db } from "../../db/client"
 import { joinRequest, user, workspace, workspaceInvitation, workspaceMember } from "../../db/schema"
 import { inviteEmail } from "../../email/invite-email"
-import { hashCode, newJoinCode } from "../../workspaces/join-codes"
+import { hashCode, newJoinCode } from "../join/join-codes"
 import { createEmailSender, type EmailSender } from "../../email/sender"
 import { AppError, conflict, notFound, tooManyRequests } from "../../lib/errors"
 import { newId } from "../../lib/ids"
 import { createRateLimiter } from "../../lib/rate-limit"
-import { requireMember } from "../../workspaces/access"
-import { assertCanAddMembers, isWorkspaceLimited } from "../../workspaces/limits"
-import { hashInviteToken, INVITE_TTL_MS, invitationStatus, inviteUrl, newInviteToken } from "../../workspaces/invitations"
+import { requireMember } from "../workspaces/access"
+import { assertCanAddMembers, isWorkspaceLimited } from "../workspaces/limits"
+import { hashInviteToken, INVITE_TTL_MS, invitationStatus, inviteUrl, newInviteToken } from "./service"
 
 const INVITES_PER_WORKSPACE_PER_HOUR = 50
 /** Sign-up is open, so one person with many workspaces must not be able to send more than this. */

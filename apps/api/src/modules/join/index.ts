@@ -9,11 +9,11 @@ import { joinRequest, user, workspace, workspaceInvitation, workspaceMember } fr
 import { notFound, tooManyRequests, unprocessable } from "../../lib/errors"
 import { createRateLimiter } from "../../lib/rate-limit"
 import { oneOf } from "../../lib/schema"
-import { hashInviteToken } from "../../workspaces/invitations"
-import { requireMember } from "../../workspaces/access"
-import { assertCanAddMembers, isWorkspaceLimited } from "../../workspaces/limits"
-import { hashCode, newJoinCode, parseJoinValue } from "../../workspaces/join-codes"
-import { isUniqueViolation } from "../../workspaces/slug"
+import { hashInviteToken } from "../invitations/service"
+import { requireMember } from "../workspaces/access"
+import { assertCanAddMembers, isWorkspaceLimited } from "../workspaces/limits"
+import { hashCode, newJoinCode, parseJoinValue } from "./join-codes"
+import { isUniqueViolation } from "../workspaces/slug"
 import { accept } from "../invitations"
 
 /** Codes are short, so looking them up is capped per person to stop guessing. */

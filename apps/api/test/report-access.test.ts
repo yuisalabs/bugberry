@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import type { Visibility } from "@bugberry/shared"
-import { reportAccess } from "../src/workspaces/report-access"
+import { reportAccess } from "../src/modules/reports/access"
 import { createReadyReport, createUserWithToken, createWorkspaceRow, setupTestApp } from "./helpers"
 
 const report = (visibility: Visibility, reporterDomain: string | null = "ptmaju.com") => ({

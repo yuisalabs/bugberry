@@ -21,7 +21,7 @@ import { testMessage } from "../../lib/notifiers/message"
 import { createSecretBox, SECRET_UNREADABLE, SecretError } from "../../lib/secret-box"
 import { trackerFactoryFor } from "../../lib/trackers/default"
 import { TrackerError } from "../../lib/trackers/providers"
-import { requireProjectRole } from "../../workspaces/access"
+import { requireProjectRole } from "../workspaces/access"
 
 const createBody = t.Object({
   connectionId: t.String({ minLength: 1 }),

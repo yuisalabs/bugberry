@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { eq } from "drizzle-orm"
 import { user, workspace, workspaceInvitation } from "../src/db/schema"
 import { newId } from "../src/lib/ids"
-import { provisionNewUser } from "../src/workspaces/provision"
+import { provisionNewUser } from "../src/modules/workspaces/provision"
 import { createUser, createUserWithToken, setupTestApp } from "./helpers"
 
 const LIMITS = { screenshots: 5, recordings: 5, ownedWorkspaces: 1, recordingMs: 120_000 }

@@ -7,7 +7,7 @@ import { report } from "../../db/schema"
 import { usesOfProject } from "../../lib/integrations/resolve"
 import { notFound } from "../../lib/errors"
 import { createDispatcher } from "../../lib/trackers/dispatch"
-import { requireReportMember } from "../../workspaces/access"
+import { requireReportMember } from "../workspaces/access"
 import { trackerFactoryFor } from "../../lib/trackers/default"
 
 export function trackersModule(deps: AppDeps) {

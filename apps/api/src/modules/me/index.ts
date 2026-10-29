@@ -5,8 +5,8 @@ import type { AppDeps } from "../../deps"
 import { authPlugin } from "../../plugins/auth"
 import { user } from "../../db/schema"
 import { onboardingProgress, recordOnboarding } from "../../onboarding/progress"
-import { requireMember } from "../../workspaces/access"
-import { canCreateWorkspace, isAccountLimited } from "../../workspaces/limits"
+import { requireMember } from "../workspaces/access"
+import { canCreateWorkspace, isAccountLimited } from "../workspaces/limits"
 
 export function meModule(deps: AppDeps) {
   const { db } = deps

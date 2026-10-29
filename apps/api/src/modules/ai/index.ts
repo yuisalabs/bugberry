@@ -19,7 +19,7 @@ import { newId } from "../../lib/ids"
 import { createHostGuard, HostGuardError } from "../../lib/net/host-guard"
 import { createRateLimiter } from "../../lib/rate-limit"
 import { createSecretBox, SECRET_UNREADABLE, SecretError } from "../../lib/secret-box"
-import { requireMember } from "../../workspaces/access"
+import { requireMember } from "../workspaces/access"
 
 const preset = t.Union([t.Literal("openai"), t.Literal("custom")])
 const providerBody = t.Object({

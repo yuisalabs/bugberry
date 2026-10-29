@@ -23,7 +23,7 @@ import { createRateLimiter } from "../../lib/rate-limit"
 import { otpEmail } from "./otp-email"
 import { createEmailSender, type EmailSender } from "../../email/sender"
 import { githubUserInfo, gitlabUserInfo } from "./identity"
-import { provisionNewUser } from "../../workspaces/provision"
+import { provisionNewUser } from "../workspaces/provision"
 import { MCP_SCOPES, mcpResource } from "./mcp-oauth"
 import { isEmailAllowed } from "./policy"
 

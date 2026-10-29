@@ -1,8 +1,8 @@
 import { and, eq, or } from "drizzle-orm"
 import { report, workspace } from "../db/schema"
 import { notFound } from "../lib/errors"
-import { memberRole, requireMember, resolveWorkspace } from "../workspaces/access"
-import { reportAccess } from "../workspaces/report-access"
+import { memberRole, requireMember, resolveWorkspace } from "../modules/workspaces/access"
+import { reportAccess } from "../modules/reports/access"
 import { type McpContext, McpToolError } from "./context"
 
 export type ParsedRef = { kind: "id"; id: string } | { kind: "slug"; slug: string } | { kind: "number"; number: number }

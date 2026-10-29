@@ -8,7 +8,7 @@ import { newId } from "../../lib/ids"
 import { checkUploadedImage, IMAGE_EXTENSIONS, imageIdType, MAX_IMAGE_BYTES } from "../../lib/image-upload"
 import { createRateLimiter } from "../../lib/rate-limit"
 import { projectLogoKeyFor } from "../../storage/keys"
-import { requireProjectRole } from "../../workspaces/access"
+import { requireProjectRole } from "../workspaces/access"
 
 /** Each upload target lets an admin put up to 2 MB in storage, so they are capped per project. */
 const UPLOADS_PER_PROJECT_PER_HOUR = 20

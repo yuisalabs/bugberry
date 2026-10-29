@@ -7,7 +7,7 @@ import { badRequest, conflict, notFound } from "../../lib/errors"
 import { newId } from "../../lib/ids"
 import { imageIdType } from "../../lib/image-upload"
 import { projectLogoKeyFor } from "../../storage/keys"
-import { requireMember, requireProjectRole, resolveWorkspace } from "../../workspaces/access"
+import { requireMember, requireProjectRole, resolveWorkspace } from "../workspaces/access"
 import { unmatchedPages } from "./unmatched"
 
 const projectFields = {

@@ -5,7 +5,7 @@ import type { Db } from "../db/client"
 import { apiToken, user } from "../db/schema"
 import { generateApiToken, hashToken } from "../lib/api-token"
 import { newId } from "../lib/ids"
-import { provisionNewUser } from "../workspaces/provision"
+import { provisionNewUser } from "../modules/workspaces/provision"
 
 export interface IssueTokenInput {
   email: string

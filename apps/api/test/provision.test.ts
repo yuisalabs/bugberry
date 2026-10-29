@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm"
 import { user, workspace, workspaceInvitation, workspaceMember } from "../src/db/schema"
 import type { EmailMessage } from "../src/email/sender"
 import { newId } from "../src/lib/ids"
-import { defaultWorkspaceName, provisionNewUser } from "../src/workspaces/provision"
+import { defaultWorkspaceName, provisionNewUser } from "../src/modules/workspaces/provision"
 import { createUser, setupTestApp } from "./helpers"
 
 let ctx: Awaited<ReturnType<typeof setupTestApp>>

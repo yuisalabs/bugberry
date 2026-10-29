@@ -8,10 +8,10 @@ import { report, user, workspace, workspaceMember } from "../../db/schema"
 import { conflict, forbidden, notFound, tooManyRequests, unprocessable } from "../../lib/errors"
 import { createRateLimiter } from "../../lib/rate-limit"
 import { oneOf } from "../../lib/schema"
-import { requireMember } from "../../workspaces/access"
-import { assertCanCreateWorkspace, workspaceLimits } from "../../workspaces/limits"
-import { createWorkspace } from "../../workspaces/provision"
-import { freeSlug, isUniqueViolation, slugProblem, slugTaken } from "../../workspaces/slug"
+import { requireMember } from "./access"
+import { assertCanCreateWorkspace, workspaceLimits } from "./limits"
+import { createWorkspace } from "./provision"
+import { freeSlug, isUniqueViolation, slugProblem, slugTaken } from "./slug"
 
 const name = t.String({ minLength: 1, maxLength: 80 })
 const slug = t.String({ minLength: 1, maxLength: 60 })

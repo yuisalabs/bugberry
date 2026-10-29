@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, test } from "bun:test"
 import { eq, inArray } from "drizzle-orm"
 import { workspace } from "../src/db/schema"
 import { newId } from "../src/lib/ids"
-import { provisionNewUser } from "../src/workspaces/provision"
-import { ensureWorkspaceSlugs, RESERVED_SLUGS, SLUG_PATTERN, slugify, slugProblem } from "../src/workspaces/slug"
+import { provisionNewUser } from "../src/modules/workspaces/provision"
+import { ensureWorkspaceSlugs, RESERVED_SLUGS, SLUG_PATTERN, slugify, slugProblem } from "../src/modules/workspaces/slug"
 import { createUser, createUserWithToken, setupTestApp } from "./helpers"
 
 let ctx: Awaited<ReturnType<typeof setupTestApp>>
