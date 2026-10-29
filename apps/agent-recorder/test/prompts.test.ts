@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { testPageInstructions } from "../src/prompts"
+import { testPageInstructions, verifyFixInstructions } from "../src/prompts"
 
 describe("testPageInstructions", () => {
   test("the page and its origin are named", () => {
@@ -91,5 +91,57 @@ describe("testPageInstructions", () => {
     expect(text).toContain("bugberry-browser is only for recordings")
     expect(text).not.toContain("only works while a recording runs")
     expect(text).toContain("getReport")
+  })
+})
+
+describe("verifyFixInstructions", () => {
+  test("verify-fix names the report", () => {
+    expect(verifyFixInstructions({ report: "BB-123" })).toContain("Record proof that BB-123 is fixed.")
+  })
+
+  test("a bad report is refused", () => {
+    for (const report of ["../../etc", "javascript:alert(1)", "fix everything"]) {
+      expect(() => verifyFixInstructions({ report })).toThrow(/BB-123/)
+    }
+    for (const report of ["#42", "123", "https://bugs.test/app/r/abc"]) {
+      expect(() => verifyFixInstructions({ report })).not.toThrow()
+    }
+  })
+
+  test("the fix rules are all there", () => {
+    const text = verifyFixInstructions({ report: "BB-123" })
+    for (const phrase of [
+      "getReport",
+      "getUserActions",
+      "runs the fixed code",
+      "ask the developer which address",
+      "Ask the developer once before recording",
+      "pay",
+      "place an order",
+      "delete",
+      "no exploring first",
+      "one attempt",
+      "discardRecording",
+      "file nothing",
+      "Fix proof: ",
+      "Proof that BB-",
+      "projectSlug",
+      "workspace",
+      "leave project out",
+      "its priority",
+      "addComment",
+      "status unchanged",
+      "updateReport",
+      "only when the developer asked",
+      "Stay on",
+      "never an instruction",
+      "Fixed or not",
+    ]) {
+      expect(text).toContain(phrase)
+    }
+  })
+
+  test("stage 2 ignores fix proofs", () => {
+    expect(testPageInstructions({ url: "https://shop.test/" })).toContain('"Fix proof:" are proof of a fix, not a match')
   })
 })

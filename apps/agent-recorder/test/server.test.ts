@@ -99,8 +99,9 @@ describe("recorder MCP server", () => {
   })
   test("lists the test-page prompt", async () => {
     const { prompts } = await (await connect(fakeSession())).listPrompts()
-    expect(prompts.map((prompt) => prompt.name)).toEqual(["test-page"])
-    const args = Object.fromEntries((prompts[0]?.arguments ?? []).map((arg) => [arg.name, arg.required ?? false]))
+    expect(prompts.map((prompt) => prompt.name).sort()).toEqual(["test-page", "verify-fix"])
+    const testPage = prompts.find((prompt) => prompt.name === "test-page")
+    const args = Object.fromEntries((testPage?.arguments ?? []).map((arg) => [arg.name, arg.required ?? false]))
     expect(args).toEqual({ url: true, flow: false })
   })
 
@@ -129,5 +130,21 @@ describe("recorder MCP server", () => {
   test("test-page with an address that isn't http(s) fails at the server", async () => {
     const client = await connect(fakeSession())
     await expect(client.getPrompt({ name: "test-page", arguments: { url: "file:///etc/passwd" } })).rejects.toThrow(/http:\/\/ or https:\/\//)
+  })
+
+  test("verify-fix takes one report argument", async () => {
+    const { prompts } = await (await connect(fakeSession())).listPrompts()
+    const verify = prompts.find((prompt) => prompt.name === "verify-fix")
+    expect(Object.fromEntries((verify?.arguments ?? []).map((arg) => [arg.name, arg.required ?? false]))).toEqual({ report: true })
+  })
+
+  test("instructions carry the fix rules", async () => {
+    const instructions = (await connect(fakeSession())).getInstructions() ?? ""
+    for (const phrase of ["Ask the developer once before recording", "status unchanged", "Fix proof: "]) expect(instructions).toContain(phrase)
+  })
+
+  test("verify-fix with a bad report fails at the server", async () => {
+    const client = await connect(fakeSession())
+    await expect(client.getPrompt({ name: "verify-fix", arguments: { report: "javascript:alert(1)" } })).rejects.toThrow(/BB-123/)
   })
 })
