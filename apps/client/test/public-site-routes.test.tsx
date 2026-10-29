@@ -3,7 +3,7 @@ import { QueryClient } from "@tanstack/react-query"
 import { isRedirect } from "@tanstack/react-router"
 import { api } from "../src/lib/client"
 import { publicSiteGate } from "../src/lib/public-site"
-import { createQueryClient } from "../src/lib/query-client"
+import { createQueryClient } from "../src/lib/query/client"
 import { createAppRouter } from "../src/router"
 
 const PUBLIC_PAGES = ["/", "/pricing", "/integrations", "/ai-agents", "/demo"]

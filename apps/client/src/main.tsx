@@ -4,7 +4,7 @@ import { RouterProvider } from "@tanstack/react-router"
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import { Toast } from "@bugberry/ui/toast"
-import { createQueryClient } from "./lib/query-client"
+import { createQueryClient } from "./lib/query/client"
 import { sessionEndTarget } from "./lib/session-end"
 import { createAppRouter } from "./router"
 

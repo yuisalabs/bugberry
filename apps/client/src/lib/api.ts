@@ -12,55 +12,9 @@ import type {
   Visibility,
   WorkspaceRole,
 } from "@bugberry/shared"
+import { unwrap } from "./query/unwrap"
 
-export class ApiError extends Error {
-  constructor(
-    readonly status: number,
-    readonly code: string,
-    message: string,
-    /** The whole error body, for answers that carry more than code and message (use_share_link). */
-    readonly body: Record<string, unknown> = {},
-  ) {
-    super(message)
-    this.name = "ApiError"
-  }
-
-  /** How long the request waited for this answer (the 504 page shows it). */
-  waitedMs: number | null = null
-}
-
-interface EdenResult<T> {
-  data: T | null
-  error: { status: unknown; value: unknown } | null
-}
-
-const NETWORK_MESSAGE = "BugBerry can't be reached. Check your connection and try again."
-
-/** Resolves an Eden call to its data, or throws an ApiError carrying the server's `{ code, message }`. */
-export async function unwrap<T>(request: Promise<EdenResult<T>>): Promise<NonNullable<T>> {
-  const started = Date.now()
-  let result: EdenResult<T>
-  try {
-    result = await request
-  } catch {
-    throw new ApiError(0, "network", NETWORK_MESSAGE)
-  }
-  if (result.error) {
-    // Eden reports a failed fetch as status 503 carrying the thrown Error, not a server response.
-    if (result.error.value instanceof Error) throw new ApiError(0, "network", NETWORK_MESSAGE)
-    const body = (result.error.value ?? {}) as { code?: unknown; message?: unknown }
-    const error = new ApiError(
-      Number(result.error.status) || 0,
-      typeof body.code === "string" ? body.code : "error",
-      typeof body.message === "string" ? body.message : "The request failed. Try again.",
-      typeof body === "object" ? (body as Record<string, unknown>) : {},
-    )
-    error.waitedMs = Date.now() - started
-    throw error
-  }
-  if (result.data === null || result.data === undefined) throw new ApiError(0, "empty", "The server sent an empty response")
-  return result.data as NonNullable<T>
-}
+export { ApiError, errorMessage, unwrap } from "./query/unwrap"
 
 /** Which sign-in methods the server enables (GET /api/auth-methods). */
 export type SignInMethod = "google" | "github" | "gitlab" | "email"
@@ -329,42 +283,4 @@ export type Integration = Awaited<ReturnType<Api["integrations"]>>[number]
 export type Connection = Awaited<ReturnType<Api["connections"]>>[number] & {
   settings?: ConnectionSettings
   usedBy?: Array<{ projectId: string; projectName: string }>
-}
-
-const MESSAGES: Record<string, string> = {
-  network: NETWORK_MESSAGE,
-  unauthorized: "Sign in first",
-  forbidden: "You don't have access to this",
-  validation: "Some fields are invalid",
-  rate_limited: "Too many requests. Try again in a moment.",
-  internal: "Something went wrong on the server",
-  maintenance: "BugBerry is down for maintenance. Try again later.",
-  slug_taken: "Another project already uses this slug",
-  project_has_reports: "This project still has reports. Delete them first.",
-  project_not_found: "Project not found",
-  report_not_found: "Report not found",
-  comment_not_found: "Comment not found",
-  invalid_emoji: "Pick an emoji to react with",
-  empty_comment: "A comment can't be empty",
-  integration_not_found: "Integration not found",
-  invalid_config: "The integration settings are invalid",
-  invalid_base_url: "The ActiveCollab address must start with https://",
-  send_in_progress: "This report is being sent. Wait a moment, then reload.",
-  assignee_not_found: "That member doesn't exist",
-  last_admin: "A workspace needs at least one admin",
-  extension_mismatch: "This extension isn't the one registered on the server (EXTENSION_ID)",
-  workspace_not_found: "Workspace not found",
-  member_not_found: "Member not found",
-  no_workspace: "Join or create a workspace first",
-  internal_unavailable: "Internal sharing needs a company email address",
-  email_unavailable: "Email is not set up on this server, so invitations cannot be sent",
-  invite_email_mismatch: "This invitation is for a different email address",
-  invite_unavailable: "This invite has expired or was withdrawn. Ask for a new one.",
-  invitation_not_found: "Invitation not found",
-}
-
-export function errorMessage(error: unknown): string {
-  if (error instanceof ApiError) return MESSAGES[error.code] ?? error.message
-  if (error instanceof Error) return error.message
-  return String(error)
 }

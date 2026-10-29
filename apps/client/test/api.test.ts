@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { ApiError, createApi, errorMessage } from "../src/lib/api"
-import { shouldRetry } from "../src/lib/query-client"
+import { shouldRetry } from "../src/lib/query/client"
 import { maintenanceOf } from "../src/lib/status"
 
 const ORIGIN = "https://bugberry.kantor.test"
