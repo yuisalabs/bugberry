@@ -12,7 +12,6 @@ import { integrationsModule } from "./modules/integrations"
 import { connectionsModule } from "./modules/connections"
 import { localFilesModule } from "./modules/local-files"
 import { accountModule } from "./modules/account"
-import { meModule } from "./modules/me"
 import { projectsModule } from "./modules/projects"
 import { reportsModule } from "./modules/reports"
 import { agentUploadsModule } from "./modules/reports/agent-uploads"
@@ -21,8 +20,8 @@ import { shareModule } from "./modules/share"
 import { oauthAppsModule } from "./modules/oauth-apps"
 import { tokensModule } from "./modules/tokens"
 import { trackersModule } from "./modules/trackers"
-import { projectLogoModule } from "./modules/project-logo"
-import { workspaceLogoModule } from "./modules/workspace-logo"
+import { projectLogoModule } from "./modules/projects/logo"
+import { workspaceLogoModule } from "./modules/workspaces/logo"
 import { workspacesModule } from "./modules/workspaces"
 import { invitationsModule } from "./modules/invitations"
 import { joinModule } from "./modules/join"
@@ -41,7 +40,6 @@ export function createApp(deps: AppDeps) {
     .use(errorHandler())
     .get("/health", () => ({ ok: true }))
     .use(authModule(deps))
-    .use(meModule(deps))
     .use(accountModule(deps))
     .use(tokensModule(deps))
     .use(oauthAppsModule(deps))

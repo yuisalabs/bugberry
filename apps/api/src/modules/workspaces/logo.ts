@@ -8,7 +8,7 @@ import { newId } from "../../lib/ids"
 import { checkUploadedImage, IMAGE_EXTENSIONS, imageIdType, MAX_IMAGE_BYTES } from "../../lib/image-upload"
 import { createRateLimiter } from "../../lib/rate-limit"
 import { logoKeyFor } from "../../storage/keys"
-import { requireMember } from "../workspaces/access"
+import { requireMember } from "./access"
 
 /** Each upload target lets an admin put up to 2 MB in storage, so they are capped per workspace. */
 const UPLOADS_PER_WORKSPACE_PER_HOUR = 20
