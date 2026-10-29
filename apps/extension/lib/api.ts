@@ -1,22 +1,9 @@
 import { treaty } from "@elysiajs/eden"
 import type { App } from "@bugberry/api"
+import { type EdenResult, unwrapWith } from "@bugberry/shared"
 import type { Settings } from "./settings"
 
-export class ApiError extends Error {
-  constructor(
-    readonly status: number,
-    readonly code: string,
-    message: string,
-  ) {
-    super(message)
-    this.name = "ApiError"
-  }
-
-  /** Network failures, rate limits, server errors and not-yet-visible uploads may succeed on a later try. */
-  get retryable(): boolean {
-    return this.status === 0 || this.status === 429 || this.status >= 500 || this.code === "upload_incomplete"
-  }
-}
+export { ApiError } from "@bugberry/shared"
 
 /** The extension's text for the server codes the extension can run into; other codes keep the server's message. */
 const MESSAGES: Record<string, string> = {
@@ -34,31 +21,11 @@ const MESSAGES: Record<string, string> = {
   duration_required: "Couldn't read the video's duration.",
 }
 
-interface EdenResult<T> {
-  data: T | null
-  error: { status: unknown; value: unknown } | null
-}
+const TEXT = { network: "Can't reach the BugBerry server", fallback: "The request to the server failed", messages: MESSAGES }
 
-async function call<T>(request: () => Promise<EdenResult<T>>): Promise<NonNullable<T>> {
-  let result: EdenResult<T>
-  try {
-    result = await request()
-  } catch {
-    throw new ApiError(0, "network", "Can't reach the BugBerry server")
-  }
-  if (result.error) {
-    // Eden reports a failed fetch as status 503 carrying the thrown Error, not a server response.
-    if (result.error.value instanceof Error) throw new ApiError(0, "network", "Can't reach the BugBerry server")
-    const body = (result.error.value ?? {}) as { code?: unknown; message?: unknown }
-    const code = typeof body.code === "string" ? body.code : "error"
-    throw new ApiError(
-      Number(result.error.status) || 0,
-      code,
-      MESSAGES[code] ?? (typeof body.message === "string" ? body.message : "The request to the server failed"),
-    )
-  }
-  if (result.data === null || result.data === undefined) throw new ApiError(0, "empty", "The server sent an empty response")
-  return result.data as NonNullable<T>
+function call<T>(request: () => Promise<EdenResult<T>>): Promise<NonNullable<T>> {
+  // Called inside the try of unwrapWith's await, so a request that throws at once is a network error too.
+  return unwrapWith(TEXT, Promise.resolve().then(request))
 }
 
 export function createBugberryApi(settings: Settings, fetcher: typeof fetch = fetch) {
