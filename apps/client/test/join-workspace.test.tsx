@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen, within } from "@testing-library/react"
-import { JoinWorkspaceBody } from "../src/components/JoinWorkspaceDialog"
-import { JoinView } from "../src/pages/JoinPage"
+import { JoinWorkspaceBody } from "../src/features/workspaces/JoinWorkspaceDialog"
+import { JoinView } from "../src/features/workspaces/JoinPage"
 
 const ws = (id: string, name: string, memberCount = 3) => ({ id, name, logoUrl: null, memberCount })
 

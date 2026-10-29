@@ -7,14 +7,22 @@ import { Radio, RadioField, RadioGroup } from "@bugberry/ui/radio"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@bugberry/ui/select"
 import { Switch, SwitchField } from "@bugberry/ui/switch"
 import { TextField } from "@bugberry/ui/text-field"
-import { useCurrentWorkspace } from "../../lib/workspace"
+import { useCurrentWorkspace } from "../workspaces/workspace"
 import { SettingsRowsSkeleton } from "../../components/Skeletons"
 import { ErrorState } from "../../components/ui"
 import { TemplatesList } from "./TemplatesList"
 import { qk } from "../../lib/query/keys"
 import { errorMessage } from "../../lib/query/unwrap"
 import { projectQueries } from "../projects/queries"
-import { type AiProviderInput, aiQueries, type AiSettingsPatch, type AiSetup, removeAiProvider, saveAiProvider, useUpdateAiSettings } from "./queries"
+import {
+  type AiProviderInput,
+  aiQueries,
+  type AiSettingsPatch,
+  type AiSetup,
+  removeAiProvider,
+  saveAiProvider,
+  useUpdateAiSettings,
+} from "./queries"
 
 const card = "flex flex-col gap-5 rounded-2xl border border-border bg-background p-6 shadow-xs sm:p-8"
 const cardTitle = "font-heading text-lg font-semibold text-foreground"

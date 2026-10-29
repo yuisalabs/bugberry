@@ -5,7 +5,7 @@ import { buttonStyles } from "@bugberry/ui/button"
 import { ReportsBrowser } from "../components/ReportsBrowser"
 import { ReportsPageSkeleton } from "../components/Skeletons"
 import { EmptyState, ErrorState } from "../components/ui"
-import { useCurrentWorkspace } from "../lib/workspace"
+import { useCurrentWorkspace } from "../features/workspaces/workspace"
 import { projectQueries } from "../features/projects/queries"
 
 const routeApi = getRouteApi("/_authed/app/p/$projectSlug")

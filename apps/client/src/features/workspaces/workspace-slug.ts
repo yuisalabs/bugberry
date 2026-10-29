@@ -1,6 +1,6 @@
 import { RESERVED_WORKSPACE_SLUGS, WORKSPACE_SLUG_PATTERN } from "@bugberry/shared"
 import { useEffect, useRef, useState } from "react"
-import { api } from "./client"
+import { slugCheck } from "./queries"
 
 export type SlugStatus = "checking" | "available" | "taken" | "invalid" | "reserved"
 export type SlugAnswer = { slug: string; available: boolean; reason: "taken" | "invalid" | "reserved" | null }
@@ -9,7 +9,7 @@ type SlugQuery = { name?: string; slug?: string; except?: string }
 const PATTERN = new RegExp(WORKSPACE_SLUG_PATTERN)
 const RESERVED: ReadonlySet<string> = new Set(RESERVED_WORKSPACE_SLUGS)
 const DEBOUNCE_MS = 300
-const askServer = (query: SlugQuery) => api.slugCheck(query)
+const askServer = (query: SlugQuery) => slugCheck(query)
 
 /** A rule break the browser can see without asking the server. */
 export function localSlugProblem(slug: string): "invalid" | "reserved" | null {

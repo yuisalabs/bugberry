@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { invitesAllowed, usageText } from "../src/lib/usage"
+import { invitesAllowed, usageText } from "../src/features/workspaces/usage"
 
 const SIZES = { maxRecordingMs: 120_000 }
 

@@ -7,13 +7,21 @@ import { Button } from "@bugberry/ui/button"
 import { Label } from "@bugberry/ui/field"
 import { Input, InputGroup } from "@bugberry/ui/input"
 import { TextField } from "@bugberry/ui/text-field"
-import type { JoinPreview, MyInvitation } from "../lib/api"
-import { api } from "../lib/client"
-import { plausibleJoinValue } from "../lib/join-value"
-import { queries } from "../lib/queries"
+import { plausibleJoinValue } from "./join-value"
 import { WorkspaceTile } from "./WorkspaceMenu"
-import { ApiError, errorMessage } from "../lib/query/unwrap"
-import { accountQueries } from "../features/account/queries"
+import { ApiError, errorMessage } from "../../lib/query/unwrap"
+import { accountQueries } from "../account/queries"
+import {
+  acceptMyInvitation,
+  join,
+  joinByDomain,
+  type JoinPreview,
+  joinPreview,
+  type MyInvitation,
+  useCancelJoinRequest,
+  workspaceQueries,
+} from "./queries"
+import { qk } from "../../lib/query/keys"
 
 export type PreviewState = { status: "idle" | "checking" | "invalid" } | { status: "found"; data: JoinPreview }
 export type DomainWorkspace = {
@@ -154,8 +162,8 @@ export function JoinWorkspacePanel({ onJoined }: { onJoined(): void }) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const me = useQuery(accountQueries.me())
-  const invitations = useQuery(queries.myInvitations())
-  const domainWorkspaces = useQuery(queries.domainWorkspaces())
+  const invitations = useQuery(workspaceQueries.myInvitations())
+  const domainWorkspaces = useQuery(workspaceQueries.domainWorkspaces())
   const [value, setValue] = useState("")
   const [preview, setPreview] = useState<PreviewState>({ status: "idle" })
   const [rateError, setRateError] = useState<string | null>(null)
@@ -171,7 +179,7 @@ export function JoinWorkspacePanel({ onJoined }: { onJoined(): void }) {
     setPreview({ status: "checking" })
     const ticket = ++latest.current
     const timer = setTimeout(() => {
-      api.joinPreview(text).then(
+      joinPreview(text).then(
         (data) => ticket === latest.current && setPreview({ status: "found", data }),
         (error: unknown) => {
           if (ticket !== latest.current) return
@@ -189,19 +197,16 @@ export function JoinWorkspacePanel({ onJoined }: { onJoined(): void }) {
     onJoined()
     await navigate({ to: "/app" })
   }
-  const byCode = useMutation({ mutationFn: () => api.join(value.trim()), onSuccess: joined })
-  const byInvitation = useMutation({ mutationFn: (id: string) => api.acceptMyInvitation(id), onSuccess: joined })
+  const byCode = useMutation({ mutationFn: () => join(value.trim()), onSuccess: joined })
+  const byInvitation = useMutation({ mutationFn: (id: string) => acceptMyInvitation(id), onSuccess: joined })
   const byDomain = useMutation({
-    mutationFn: (workspaceId: string) => api.joinByDomain(workspaceId),
+    mutationFn: (workspaceId: string) => joinByDomain(workspaceId),
     onSuccess: async (result) => {
-      if ("requested" in result) await queryClient.invalidateQueries({ queryKey: queries.domainWorkspaces().queryKey })
+      if ("requested" in result) await queryClient.invalidateQueries({ queryKey: qk.domainWorkspaces })
       else await joined()
     },
   })
-  const cancel = useMutation({
-    mutationFn: (workspaceId: string) => api.cancelJoinRequest(workspaceId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queries.domainWorkspaces().queryKey }),
-  })
+  const cancel = useCancelJoinRequest()
 
   const error = byCode.error ?? byInvitation.error ?? byDomain.error ?? cancel.error
   return (

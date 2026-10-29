@@ -1,7 +1,8 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { sendLabel } from "../src/components/InviteDialog"
-import { inviteMeta, MembersView, membersSummary } from "../src/pages/settings/MembersPage"
+import { sendLabel } from "../src/features/workspaces/InviteDialog"
+import { inviteMeta, membersSummary } from "../src/features/workspaces/members-text"
+import { MembersView } from "../src/features/workspaces/MembersView"
 import { choose } from "./fields"
 
 const members = [

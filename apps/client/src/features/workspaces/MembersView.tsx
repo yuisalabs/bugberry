@@ -9,58 +9,27 @@ import {
   RiShieldUserLine,
   RiUserLine,
   RiUserMinusLine,
-  RiVipCrown2Line,
 } from "@remixicon/react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { type ReactNode, useState } from "react"
 import { Avatar } from "@bugberry/ui/avatar"
 import { Button } from "@bugberry/ui/button"
 import { Input, InputGroup } from "@bugberry/ui/input"
 import { Menu, MenuItem, MenuLabel, MenuTrigger } from "@bugberry/ui/menu"
 import { SearchField } from "@bugberry/ui/search-field"
-import { BrandedHeader } from "../../components/BrandedHeader"
-import { InviteForm, type InviteRole } from "../../components/InviteDialog"
-import { SettingsRowsSkeleton } from "../../components/Skeletons"
-import { Badge, CopyButton, dangerText, ErrorState } from "../../components/ui"
-import { useNow } from "../../hooks/useNow"
-import type { InviteResult, JoinRequest, Member, PendingInvitation } from "../../lib/api"
-import { api } from "../../lib/client"
+import { InviteForm, type InviteRole } from "./InviteDialog"
+import { dangerText } from "../../components/ui"
 import { formatAgo, formatDate } from "../../lib/format"
 import { initialsOf } from "../../lib/people"
-import { queries } from "../../lib/queries"
-import { invitesAllowed } from "../../lib/usage"
-import { roleLabel, useCurrentWorkspace, workspaceColor } from "../../lib/workspace"
-import { errorMessage } from "../../lib/query/unwrap"
-import { accountQueries } from "../../features/account/queries"
+import { roleLabel, workspaceColor } from "./workspace"
+import type { InviteResult, JoinRequest, Member, PendingInvitation } from "./queries"
+import { inviteMeta, ROLE_RIGHTS } from "./members-text"
+import { RoleBadge } from "./RoleBadge"
 
 const card = "rounded-3xl border border-border bg-background"
 const cardTitle = "font-heading text-xl font-semibold text-foreground"
 // Member, role, joined, actions; on phones the cells wrap instead.
 const columns = "sm:grid sm:grid-cols-[minmax(0,1fr)_9rem_9rem_7rem] sm:items-center sm:gap-4"
 const rowPadding = "px-4"
-const DAY = 24 * 60 * 60 * 1000
-
-/** What each role may do, as the side card lists it. */
-const ROLE_RIGHTS: Array<{ role: { role: WorkspaceRole; owner: boolean }; text: string }> = [
-  { role: { role: "admin", owner: true }, text: "Delete workspace, everything an Admin can do." },
-  { role: { role: "admin", owner: false }, text: "Manage members, projects and integrations." },
-  { role: { role: "member", owner: false }, text: "Record, view and comment on reports." },
-]
-
-/** "3 people in Cuy Workspaces · 1 pending invite". */
-export function membersSummary(people: number, workspaceName: string, pendingInvites: number): string {
-  const head = `${people} ${people === 1 ? "person" : "people"} in ${workspaceName}`
-  return pendingInvites > 0 ? `${head} · ${pendingInvites} pending ${pendingInvites === 1 ? "invite" : "invites"}` : head
-}
-
-/** "Sent 2d ago", and "· expires in 2 days" once the end is three days off or nearer. */
-export function inviteMeta(invitation: Pick<PendingInvitation, "sentAt" | "expiresAt">, now: number): string {
-  const sent = `Sent ${formatAgo(invitation.sentAt, now)}`
-  const left = new Date(invitation.expiresAt).getTime() - now
-  if (left > 3 * DAY) return sent
-  const days = Math.floor(left / DAY)
-  return `${sent} · ${days < 1 ? "expires today" : `expires in ${days} ${days === 1 ? "day" : "days"}`}`
-}
 
 const matches = (query: string, ...texts: string[]) => texts.some((text) => text.toLowerCase().includes(query))
 
@@ -97,22 +66,6 @@ function Person({ person, you = false }: { person: { id: string; name: string; e
         <span className="truncate text-sm text-muted-foreground">{person.email}</span>
       </div>
     </div>
-  )
-}
-
-export function RoleBadge({ member }: { member: { role: WorkspaceRole; owner: boolean } }) {
-  const label = roleLabel(member)
-  const [Icon, colours] =
-    label === "Owner"
-      ? [RiVipCrown2Line, "bg-warning-subtle text-warning-subtle-foreground"]
-      : label === "Admin"
-        ? [RiShieldUserLine, "bg-primary-subtle text-primary"]
-        : [RiUserLine, "bg-secondary text-secondary-foreground"]
-  return (
-    <Badge className={`w-fit justify-self-start px-2.5 py-0.5 text-sm ${colours}`}>
-      <Icon aria-hidden className="size-3.5" />
-      {label}
-    </Badge>
   )
 }
 
@@ -326,86 +279,5 @@ export function MembersView({
         </section>
       </div>
     </div>
-  )
-}
-
-export function MembersPage() {
-  const queryClient = useQueryClient()
-  const now = useNow()
-  const me = useQuery(accountQueries.me())
-  const { workspace } = useCurrentWorkspace()
-  const workspaceId = workspace?.id ?? ""
-  const isAdmin = workspace?.role === "admin"
-  const members = useQuery({ ...queries.members(workspaceId), enabled: Boolean(workspace) })
-  const invitations = useQuery({ ...queries.invitations(workspaceId), enabled: isAdmin })
-  const requests = useQuery({ ...queries.joinRequests(workspaceId), enabled: isAdmin })
-  const limits = useQuery({ ...queries.workspaceLimits(workspaceId), enabled: Boolean(workspace) })
-  // The workspace's join link, when an admin has turned it on in Settings.
-  const access = useQuery({ ...queries.workspaceAccess(workspaceId), enabled: isAdmin })
-  const refresh = async () => {
-    await queryClient.invalidateQueries({ queryKey: ["members", workspaceId] })
-    await queryClient.invalidateQueries({ queryKey: ["invitations", workspaceId] })
-    await queryClient.invalidateQueries({ queryKey: ["workspaces"] })
-    await queryClient.invalidateQueries({ queryKey: ["join-requests", workspaceId] })
-  }
-  const approve = useMutation({ mutationFn: (userId: string) => api.approveJoinRequest(workspaceId, userId), onSuccess: refresh })
-  const decline = useMutation({ mutationFn: (userId: string) => api.declineJoinRequest(workspaceId, userId), onSuccess: refresh })
-  const setRole = useMutation({
-    mutationFn: ({ userId, role }: { userId: string; role: WorkspaceRole }) => api.setMemberRole(workspaceId, userId, role),
-    onSuccess: refresh,
-  })
-  const remove = useMutation({
-    mutationFn: (userId: string) => api.removeMember(workspaceId, userId),
-    onSuccess: async (_data, userId) => {
-      // Leaving moves the person to another workspace (or to none).
-      if (userId === me.data?.id) await queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== "auth-methods" })
-      else await refresh()
-    },
-  })
-  const revoke = useMutation({ mutationFn: (id: string) => api.revokeInvitation(workspaceId, id), onSuccess: refresh })
-  const resend = useMutation({ mutationFn: (id: string) => api.resendInvitation(workspaceId, id), onSuccess: refresh })
-
-  const error = setRole.error ?? remove.error ?? revoke.error ?? resend.error ?? approve.error ?? decline.error
-  const shareCode = access.data?.shareCode
-  return (
-    <section className="flex flex-col gap-8">
-      <BrandedHeader
-        title="Members"
-        description={workspace && members.data ? membersSummary(members.data.length, workspace.name, invitations.data?.length ?? 0) : " "}
-        action={shareCode && <CopyButton text={`${window.location.origin}/join/${shareCode}`} label="Copy invite link" className="bg-background" />}
-      />
-      {error && (
-        <p role="alert" className="text-sm text-danger-subtle-foreground">
-          {errorMessage(error)}
-        </p>
-      )}
-      {members.isPending || me.isPending || limits.isPending ? (
-        <SettingsRowsSkeleton />
-      ) : members.isError ? (
-        <ErrorState error={members.error} onRetry={() => void members.refetch()} />
-      ) : (
-        <MembersView
-          meId={me.data?.id ?? ""}
-          isAdmin={isAdmin}
-          members={members.data}
-          invitations={invitations.data ?? []}
-          requests={requests.data ?? []}
-          membersAllowed={invitesAllowed(limits.data)}
-          workspaceName={workspace?.name}
-          now={now}
-          onApprove={(userId) => approve.mutate(userId)}
-          onDecline={(userId) => decline.mutate(userId)}
-          onInvite={async (emails, role) => {
-            const results = await api.invite(workspaceId, emails, role)
-            await refresh()
-            return results
-          }}
-          onSetRole={(userId, role) => setRole.mutate({ userId, role })}
-          onRemove={(userId) => remove.mutate(userId)}
-          onRevoke={(id) => revoke.mutate(id)}
-          onResend={(id) => resend.mutate(id)}
-        />
-      )}
-    </section>
   )
 }

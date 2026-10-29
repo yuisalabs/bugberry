@@ -33,10 +33,12 @@ import { copyForAiText, type TrackerItem } from "../../lib/more-menu"
 import { queries } from "../../lib/queries"
 import { backTarget } from "../../lib/report-page"
 import { toast } from "../../lib/toast"
-import { roleIn } from "../../lib/workspace"
+import { roleIn } from "../../features/workspaces/workspace"
 import { useReportTrackers } from "./useReportTrackers"
 import { errorMessage } from "../../lib/query/unwrap"
 import { projectQueries } from "../../features/projects/queries"
+import { workspaceQueries } from "../../features/workspaces/queries"
+import { qk } from "../../lib/query/keys"
 
 const NO_PROJECT = "none"
 const NEW_PROJECT = "new"
@@ -289,7 +291,7 @@ export function MoreMenu({ report }: { report: ReportDetail }) {
   // After a delete, back to the list the report was opened from.
   const reportsFrom = useLocation({ select: (location) => location.state.reportsFrom })
   const { confirm, dialog } = useConfirm()
-  const workspaces = useQuery(queries.workspaces())
+  const workspaces = useQuery(workspaceQueries.workspaces())
   const projects = useQuery(projectQueries.projects(report.workspaceId))
   const trackers = useReportTrackers(report)
   const reportKey = queries.report(report.id).queryKey
@@ -322,7 +324,7 @@ export function MoreMenu({ report }: { report: ReportDetail }) {
       queryClient.removeQueries({ queryKey: reportKey })
       void queryClient.invalidateQueries({ queryKey: ["reports"] })
       // A deleted report frees a slot under ACCOUNT_LIMITS.
-      void queryClient.invalidateQueries({ queryKey: ["workspace-limits"] })
+      void queryClient.invalidateQueries({ queryKey: qk.workspaceLimits.all })
     },
     onError: failed,
   })

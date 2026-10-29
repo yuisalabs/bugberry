@@ -16,15 +16,10 @@ function breaksRules(file: string, text: string): boolean {
 
 /** Files still on the old layer; each feature task removes its own. Empty when the refactor is done. */
 const PENDING = new Set<string>([
-  "components/AppShell.tsx",
-  "components/CreateWorkspaceDialog.tsx",
-  "components/InviteDialog.tsx",
-  "components/JoinWorkspaceDialog.tsx",
   "components/MediaViewer.tsx",
   "components/MobileReportFilters.tsx",
   "components/ReportCard.tsx",
   "components/ReportComments.tsx",
-  "components/ReportFilters.tsx",
   "components/ReportTable.tsx",
   "components/ReportView.tsx",
   "components/ReportsBrowser.tsx",
@@ -44,26 +39,17 @@ const PENDING = new Set<string>([
   "components/report/ReportMeta.tsx",
   "components/report/TrackerButton.tsx",
   "components/report/useReportTrackers.ts",
-  "features/auth/admin-guard.ts",
   "lib/api.ts",
   "lib/client.ts",
   "lib/comment-feed.ts",
-  "lib/invite.ts",
   "lib/more-menu.ts",
   "lib/queries.ts",
   "lib/report-feed.ts",
   "lib/report-page.ts",
   "lib/tracker-links.ts",
-  "lib/usage.ts",
-  "lib/workspace-slug.ts",
-  "lib/workspace.ts",
   "pages/DemoPage.tsx",
-  "pages/InvitePage.tsx",
-  "pages/JoinPage.tsx",
   "pages/ReportPage.tsx",
   "pages/SharePage.tsx",
-  "pages/settings/MembersPage.tsx",
-  "pages/settings/WorkspaceSettingsPage.tsx",
 ])
 
 async function violators(): Promise<string[]> {

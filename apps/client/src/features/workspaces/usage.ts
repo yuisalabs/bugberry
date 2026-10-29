@@ -1,4 +1,4 @@
-import type { WorkspaceLimits } from "./api"
+import type { WorkspaceLimits } from "./queries"
 
 const kept = (count: { used: number; max: number }, noun: string) => `${count.used} of ${count.max} ${noun}${count.max === 1 ? "" : "s"}`
 

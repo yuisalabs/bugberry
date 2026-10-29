@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
-import { WorkspaceAccessView } from "../src/pages/settings/WorkspaceSettingsPage"
+import { WorkspaceAccessView } from "../src/features/workspaces/WorkspaceAccessView"
 
 type Access = Parameters<typeof WorkspaceAccessView>[0]["access"]
 const base: Access = { shareCode: null, joinDomain: null, joinMode: null, ownDomain: "javan.co.id" }

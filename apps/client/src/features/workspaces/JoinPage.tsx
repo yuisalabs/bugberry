@@ -1,14 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { getRouteApi, useNavigate } from "@tanstack/react-router"
 import { Link } from "@bugberry/ui/link"
-import { BugBerryLogo } from "../components/BugBerryLogo"
-import { Loading } from "../components/ui"
-import { WorkspaceTile } from "../components/WorkspaceMenu"
+import { BugBerryLogo } from "../../components/BugBerryLogo"
+import { Loading } from "../../components/ui"
+import { WorkspaceTile } from "./WorkspaceMenu"
 import { buttonStyles, Button } from "@bugberry/ui/button"
-import type { JoinPreview } from "../lib/api"
-import { api } from "../lib/client"
-import { errorMessage } from "../lib/query/unwrap"
-import { accountQueries } from "../features/account/queries"
+import { errorMessage } from "../../lib/query/unwrap"
+import { accountQueries } from "../account/queries"
+import { join as joinWorkspace, type JoinPreview, workspaceQueries } from "./queries"
 
 const routeApi = getRouteApi("/join/$code")
 const primaryLink = `${buttonStyles({ intent: "primary", size: "sm" })}`
@@ -78,14 +77,9 @@ export function JoinPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const me = useQuery({ ...accountQueries.me(), retry: false, meta: { signedOutIsFine: true } })
-  const preview = useQuery({
-    queryKey: ["shared-invite", code],
-    queryFn: () => api.sharedPreview(code),
-    enabled: Boolean(me.data),
-    retry: false,
-  })
+  const preview = useQuery({ ...workspaceQueries.sharedInvite(code), enabled: Boolean(me.data) })
   const join = useMutation({
-    mutationFn: () => api.join(`/join/${code}`),
+    mutationFn: () => joinWorkspace(`/join/${code}`),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== "auth-methods" })
       await navigate({ to: "/app" })

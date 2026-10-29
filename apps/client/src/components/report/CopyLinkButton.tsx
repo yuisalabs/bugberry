@@ -10,12 +10,13 @@ import { queries } from "../../lib/queries"
 import { copiedDescription, sharePopoverState } from "../../lib/share-access"
 import { toast } from "../../lib/toast"
 import { shareUrl } from "../../lib/urls"
-import { roleIn } from "../../lib/workspace"
+import { roleIn } from "../../features/workspaces/workspace"
 import { isUndone } from "../../features/onboarding/onboarding"
 import { useOnboarding } from "../../features/onboarding/OnboardingProvider"
 import { SharePopoverView } from "./SharePopover"
 import { errorMessage } from "../../lib/query/unwrap"
 import { accountQueries } from "../../features/account/queries"
+import { workspaceQueries } from "../../features/workspaces/queries"
 
 /**
  * The one share link of a report. The main part copies it as it is; the arrow opens the Share popover,
@@ -34,7 +35,7 @@ export function CopyLinkButton({
 }) {
   const queryClient = useQueryClient()
   const me = useQuery({ ...accountQueries.me(), enabled: settings })
-  const workspaces = useQuery({ ...queries.workspaces(), enabled: settings })
+  const workspaces = useQuery({ ...workspaceQueries.workspaces(), enabled: settings })
   const editable = roleIn(workspaces.data ?? [], report.workspaceId) === "admin" || me.data?.id === report.reporter.id
   const reportKey = queries.report(report.id).queryKey
   // Getting started: while "Share a report" is next, Copy link asks to be pressed.

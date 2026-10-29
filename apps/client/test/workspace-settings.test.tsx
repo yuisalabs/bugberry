@@ -2,8 +2,8 @@ import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { RiSettings3Line, RiUserAddLine } from "@remixicon/react"
 import { SettingsTabs } from "../src/components/SettingsTabs"
-import { WorkspaceSettingsView } from "../src/pages/settings/WorkspaceSettingsPage"
-import type { SlugAnswer } from "../src/lib/workspace-slug"
+import { WorkspaceSettingsView } from "../src/features/workspaces/WorkspaceSettingsView"
+import type { SlugAnswer } from "../src/features/workspaces/workspace-slug"
 import { fileInput } from "./fields"
 
 const workspace = { id: "w1", name: "Javan QA", slug: "javan-qa", logoUrl: null as string | null }

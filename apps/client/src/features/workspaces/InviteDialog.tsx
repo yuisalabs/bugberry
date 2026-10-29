@@ -1,17 +1,16 @@
 import { RiArrowRightLine, RiGroupLine, RiLinkM, RiSendPlaneLine } from "@remixicon/react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { type FormEvent, type ReactNode, useState } from "react"
 import { Button } from "@bugberry/ui/button"
 import { Dialog, DialogBody, DialogDescription, DialogTitle } from "@bugberry/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@bugberry/ui/select"
-import type { InviteResult } from "../lib/api"
-import { api } from "../lib/client"
-import { queries } from "../lib/queries"
-import { useCurrentWorkspace } from "../lib/workspace"
+import { useCurrentWorkspace } from "./workspace"
 import { EmailChips } from "./EmailChips"
-import { CopyButton } from "./ui"
-import { errorMessage } from "../lib/query/unwrap"
+import { CopyButton } from "../../components/ui"
+import { errorMessage } from "../../lib/query/unwrap"
+import { invite, type InviteResult, useUpdateWorkspaceAccess, workspaceQueries } from "./queries"
+import { qk } from "../../lib/query/keys"
 
 export const RESULT_LABELS: Record<InviteResult["status"], string> = {
   sent: "Invited",
@@ -195,11 +194,8 @@ export function InviteDialog({
 }) {
   const queryClient = useQueryClient()
   const { workspace } = useCurrentWorkspace()
-  const access = useQuery({ ...queries.workspaceAccess(workspaceId), enabled: isOpen })
-  const turnOn = useMutation({
-    mutationFn: () => api.updateWorkspaceAccess(workspaceId, { shareLink: "on" }),
-    onSuccess: (next) => queryClient.setQueryData(queries.workspaceAccess(workspaceId).queryKey, next),
-  })
+  const access = useQuery({ ...workspaceQueries.workspaceAccess(workspaceId), enabled: isOpen })
+  const turnOn = useUpdateWorkspaceAccess(workspaceId)
   const shareCode = access.data?.shareCode
 
   return (
@@ -210,10 +206,10 @@ export function InviteDialog({
           inviteLink={shareCode ? `${window.location.origin}/join/${shareCode}` : null}
           linkBusy={turnOn.isPending || access.isPending}
           linkError={turnOn.error ? errorMessage(turnOn.error) : null}
-          onTurnOnLink={() => turnOn.mutate()}
+          onTurnOnLink={() => turnOn.mutate({ shareLink: "on" })}
           onInvite={async (emails) => {
-            const results = await api.invite(workspaceId, emails)
-            await queryClient.invalidateQueries({ queryKey: ["invitations", workspaceId] })
+            const results = await invite(workspaceId, emails)
+            await queryClient.invalidateQueries({ queryKey: qk.invitations(workspaceId) })
             return results
           }}
           onCancel={() => onOpenChange(false)}

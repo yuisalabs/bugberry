@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import { queries, REPORT_LIST_REFRESH_MS } from "../src/lib/queries"
+import { queries } from "../src/lib/queries"
+import { REPORT_LIST_REFRESH_MS } from "../src/features/reports/queries"
 
 describe("report list query", () => {
   test("refreshes well within the default signed-link lifetime, so a page left open keeps working previews", () => {

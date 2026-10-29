@@ -1,4 +1,4 @@
-import { workspaceColor } from "../../lib/workspace"
+import { workspaceColor } from "../workspaces/workspace"
 
 /**
  * A project's logo, or the first letter of its name on the project's own colour while it has none. `className`

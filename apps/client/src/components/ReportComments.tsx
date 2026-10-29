@@ -3,12 +3,13 @@ import { useLocation } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { api } from "../lib/client"
 import { queries } from "../lib/queries"
-import { roleIn } from "../lib/workspace"
+import { roleIn } from "../features/workspaces/workspace"
 import { CommentsSection } from "./comments/CommentsSection"
 import { PeopleRowsSkeleton } from "./Skeletons"
 import { ErrorState } from "./ui"
 import { errorMessage } from "../lib/query/unwrap"
 import { accountQueries } from "../features/account/queries"
+import { workspaceQueries } from "../features/workspaces/queries"
 
 /** This browser remembers whether the feed shows All activity; Comments only is the default. */
 const TAB_KEY = "bugberry.commentsTab"
@@ -33,10 +34,10 @@ export function ReportComments({ reportId, workspaceId }: { reportId: string; wo
   const queryClient = useQueryClient()
   const [showActivity, setShowActivity] = useState(readShowActivity)
   const me = useQuery(accountQueries.me())
-  const workspaces = useQuery(queries.workspaces())
+  const workspaces = useQuery(workspaceQueries.workspaces())
   const comments = useQuery(queries.comments(reportId))
   const activity = useQuery({ ...queries.activity(reportId), enabled: showActivity })
-  const members = useQuery(queries.members(workspaceId))
+  const members = useQuery(workspaceQueries.members(workspaceId))
   const hash = useLocation({ select: (location) => location.hash })
   const loaded = comments.isSuccess
   // A link to "#comment-<id>" (from the bell or an email) lands on that comment once comments load.

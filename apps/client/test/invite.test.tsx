@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
-import { inviteView } from "../src/lib/invite"
-import { InviteView } from "../src/pages/InvitePage"
+import { inviteView } from "../src/features/workspaces/invite"
+import { InviteView } from "../src/features/workspaces/InvitePage"
 
 const info = { workspaceName: "PT Maju", email: "sari@ptmaju.com", inviterName: "Budi", status: "pending" as const }
 

@@ -2,18 +2,19 @@ import { RiRecordCircleLine } from "@remixicon/react"
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query"
 import { type ReactNode, useState } from "react"
 import { useNow } from "../hooks/useNow"
-import { invitesAllowed, usageText } from "../lib/usage"
+import { invitesAllowed, usageText } from "../features/workspaces/usage"
 import { feedItems } from "../lib/report-feed"
 import { hasFilters, type ReportSearch, toReportsQuery } from "../lib/report-search"
 import { readLayout, type ReportLayout, saveLayout } from "../lib/report-layout"
-import { useCurrentWorkspace } from "../lib/workspace"
-import { InviteDialog } from "./InviteDialog"
+import { useCurrentWorkspace } from "../features/workspaces/workspace"
+import { InviteDialog } from "../features/workspaces/InviteDialog"
 import { InstallExtensionButton, NewReportButton } from "./NewReportButton"
 import { ReportsView } from "./ReportsView"
 import { installHref } from "../pages/landing/site-links"
 import { authQueries } from "../features/auth/queries"
 import { queries } from "../lib/queries"
 import { projectQueries } from "../features/projects/queries"
+import { workspaceQueries } from "../features/workspaces/queries"
 
 export type SearchUpdater = (update: (prev: ReportSearch) => ReportSearch) => void
 
@@ -42,7 +43,7 @@ export function ReportsBrowser({
   const now = useNow()
   const { workspace } = useCurrentWorkspace()
   const workspaceId = workspace?.id ?? ""
-  const members = useQuery({ ...queries.members(workspaceId), enabled: Boolean(workspace) })
+  const members = useQuery({ ...workspaceQueries.members(workspaceId), enabled: Boolean(workspace) })
   // The project filter needs them on the all-reports page; the list view names projects on every page.
   const projects = useQuery({ ...projectQueries.projects(workspaceId), enabled: Boolean(workspace) })
   const reports = useInfiniteQuery({ ...queries.reportFeed(workspaceId, toReportsQuery(scope, search)), enabled: Boolean(workspace) })
@@ -51,7 +52,7 @@ export function ReportsBrowser({
   const installUrl = installHref(config.data?.extensionInstallUrl ?? null)
   const [layout, setLayout] = useState<ReportLayout>(readLayout)
   const [inviting, setInviting] = useState(false)
-  const limits = useQuery({ ...queries.workspaceLimits(workspaceId), enabled: Boolean(workspace) })
+  const limits = useQuery({ ...workspaceQueries.workspaceLimits(workspaceId), enabled: Boolean(workspace) })
 
   const update = (patch: Partial<ReportSearch>) => setSearch((prev) => ({ ...prev, ...patch }))
   const pages = reports.data?.pages ?? []

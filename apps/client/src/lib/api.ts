@@ -6,7 +6,6 @@ import type {
   Priority,
   ReportStatus,
   Visibility,
-  WorkspaceRole,
 } from "@bugberry/shared"
 import { unwrap } from "./query/unwrap"
 
@@ -37,48 +36,6 @@ export interface ReportsQuery {
 export function createApi(origin: string = window.location.origin, fetcher: typeof fetch = fetch) {
   const { api } = treaty<App>(origin, { fetcher })
   return {
-    switchWorkspace: (workspaceId: string) => unwrap(api.me.workspace.put({ workspaceId })),
-    workspaces: () => unwrap(api.workspaces.get()),
-    createWorkspace: (name: string, slug?: string) => unwrap(api.workspaces.post(slug === undefined ? { name } : { name, slug })),
-    updateWorkspace: (id: string, patch: { name?: string; slug?: string }) => unwrap(api.workspaces({ id }).patch(patch)),
-    slugCheck: (query: { name?: string; slug?: string; except?: string }) => unwrap(api.workspaces.slug.get({ query })),
-    logoUploadTarget: (workspaceId: string, contentType: "image/png" | "image/jpeg", size: number) =>
-      unwrap(api.workspaces({ id: workspaceId }).logo.post({ contentType, size })),
-    confirmLogo: (workspaceId: string, logoId: string) => unwrap(api.workspaces({ id: workspaceId }).logo({ logoId }).post()),
-    removeLogo: (workspaceId: string) => unwrap(api.workspaces({ id: workspaceId }).logo.delete()),
-    members: (workspaceId: string) => unwrap(api.workspaces({ id: workspaceId }).members.get()),
-    setMemberRole: (workspaceId: string, userId: string, role: WorkspaceRole) =>
-      unwrap(api.workspaces({ id: workspaceId }).members({ userId }).patch({ role })),
-    removeMember: (workspaceId: string, userId: string) =>
-      unwrap(api.workspaces({ id: workspaceId }).members({ userId }).delete()),
-    invitations: (workspaceId: string) => unwrap(api.workspaces({ id: workspaceId }).invitations.get()),
-    invite: (workspaceId: string, emails: string[], role?: "member" | "admin") =>
-      unwrap(api.workspaces({ id: workspaceId }).invitations.post(role ? { emails, role } : { emails })),
-    revokeInvitation: (workspaceId: string, id: string) =>
-      unwrap(api.workspaces({ id: workspaceId }).invitations({ invitationId: id }).delete()),
-    resendInvitation: (workspaceId: string, id: string) =>
-      unwrap(api.workspaces({ id: workspaceId }).invitations({ invitationId: id }).resend.post()),
-    myInvitations: () => unwrap(api.me.invitations.get()),
-    acceptMyInvitation: (id: string) => unwrap(api.me.invitations({ id }).accept.post()),
-    invitation: (token: string) => unwrap(api.invitations({ token }).get()),
-    acceptInvitation: (token: string) => unwrap(api.invitations({ token }).accept.post()),
-    joinPreview: (value: string) => unwrap(api.join.preview.post({ value })),
-    join: (value: string) => unwrap(api.join.post({ value })),
-    sharedPreview: (code: string) => unwrap(api.join.shared({ code }).get()),
-    domainWorkspaces: () => unwrap(api.join.domain.get()),
-    joinByDomain: (workspaceId: string) => unwrap(api.join.domain({ workspaceId }).post()),
-    cancelJoinRequest: (workspaceId: string) => unwrap(api.join.domain({ workspaceId }).request.delete()),
-    workspaceAccess: (workspaceId: string) => unwrap(api.workspaces({ id: workspaceId }).access.get()),
-    workspaceLimits: (workspaceId: string) => unwrap(api.workspaces({ id: workspaceId }).limits.get()),
-    updateWorkspaceAccess: (
-      workspaceId: string,
-      patch: { shareLink?: "on" | "off" | "reset"; joinDomain?: string | null; joinMode?: "direct" | "approval" },
-    ) => unwrap(api.workspaces({ id: workspaceId }).access.patch(patch)),
-    joinRequests: (workspaceId: string) => unwrap(api.workspaces({ id: workspaceId })["join-requests"].get()),
-    approveJoinRequest: (workspaceId: string, userId: string) =>
-      unwrap(api.workspaces({ id: workspaceId })["join-requests"]({ userId }).approve.post()),
-    declineJoinRequest: (workspaceId: string, userId: string) =>
-      unwrap(api.workspaces({ id: workspaceId })["join-requests"]({ userId }).delete()),
     reports: (workspaceId: string, query: ReportsQuery) => unwrap(api.reports.get({ query: { workspaceId, ...query } })),
     reportCounts: (workspaceId: string, query: Omit<ReportsQuery, "page" | "perPage">) =>
       unwrap(api.reports.counts.get({ query: { workspaceId, ...query } })),
@@ -104,16 +61,6 @@ export function createApi(origin: string = window.location.origin, fetcher: type
 }
 
 export type Api = ReturnType<typeof createApi>
-export type Member = Awaited<ReturnType<Api["members"]>>[number]
-export type Workspace = Awaited<ReturnType<Api["workspaces"]>>[number]
-export type PendingInvitation = Awaited<ReturnType<Api["invitations"]>>[number]
-export type MyInvitation = Awaited<ReturnType<Api["myInvitations"]>>[number]
-export type JoinPreview = Awaited<ReturnType<Api["joinPreview"]>>
-export type WorkspaceAccess = Awaited<ReturnType<Api["workspaceAccess"]>>
-export type WorkspaceLimits = Awaited<ReturnType<Api["workspaceLimits"]>>
-export type JoinRequest = Awaited<ReturnType<Api["joinRequests"]>>[number]
-export type InviteResult = Awaited<ReturnType<Api["invite"]>>[number]
-export type InvitationInfo = Awaited<ReturnType<Api["invitation"]>>
 export type ReportList = Awaited<ReturnType<Api["reports"]>>
 export type ReportCounts = Awaited<ReturnType<Api["reportCounts"]>>
 export type ReportListItem = ReportList["items"][number]

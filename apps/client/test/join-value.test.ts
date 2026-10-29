@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { plausibleJoinValue } from "../src/lib/join-value"
+import { plausibleJoinValue } from "../src/features/workspaces/join-value"
 
 describe("plausibleJoinValue", () => {
   test("only a whole code or a link is worth a lookup", () => {

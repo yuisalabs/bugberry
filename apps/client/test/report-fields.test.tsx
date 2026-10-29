@@ -1,8 +1,8 @@
 import { describe, expect, mock, test } from "bun:test"
 import { render, screen } from "@testing-library/react"
 import { ReportFields } from "../src/components/report/ReportFields"
-import type { Member } from "../src/lib/api"
 import { choose } from "./fields"
+import type { Member } from "../src/features/workspaces/queries"
 
 const budi = { id: "u2", name: "Budi", image: null }
 const members: Member[] = [

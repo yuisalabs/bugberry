@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query"
 import { getRouteApi, Navigate } from "@tanstack/react-router"
 import { SettingsRowsSkeleton } from "../../components/Skeletons"
 import { EmptyState } from "../../components/ui"
-import { useCurrentWorkspace } from "../../lib/workspace"
+import { useCurrentWorkspace } from "../workspaces/workspace"
 import { projectQueries } from "../projects/queries"
 
 const legacyRouteApi = getRouteApi("/_authed/_admin/app/settings/projects/$projectId/integrations")

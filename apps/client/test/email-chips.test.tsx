@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { useState } from "react"
-import { EmailChips } from "../src/components/EmailChips"
+import { EmailChips } from "../src/features/workspaces/EmailChips"
 
 function Harness() {
   const [emails, setEmails] = useState<string[]>([])

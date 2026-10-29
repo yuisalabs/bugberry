@@ -86,7 +86,7 @@ const projectRoute = createRoute({
 })
 
 /** Public: an invitation link works before signing in. */
-const inviteRoute = createRoute({ getParentRoute: () => rootRoute, path: "/invite/$token", component: lazyRouteComponent(() => import("./pages/InvitePage"), "InvitePage") })
+const inviteRoute = createRoute({ getParentRoute: () => rootRoute, path: "/invite/$token", component: lazyRouteComponent(() => import("./features/workspaces/InvitePage"), "InvitePage") })
 
 /** Where an AI app's OAuth sign-in asks the person to approve it; handles signed-out visitors itself. */
 const oauthConsentRoute = createRoute({
@@ -107,7 +107,7 @@ const sessionEndedRoute = createRoute({
 const privacyRoute = createRoute({ getParentRoute: () => rootRoute, path: "/privacy", component: lazyRouteComponent(() => import("./pages/PrivacyPage"), "PrivacyPage") })
 
 /** Public: a workspace's shared invite link; works signed out so the person can sign in first. */
-const joinRoute = createRoute({ getParentRoute: () => rootRoute, path: "/join/$code", component: lazyRouteComponent(() => import("./pages/JoinPage"), "JoinPage") })
+const joinRoute = createRoute({ getParentRoute: () => rootRoute, path: "/join/$code", component: lazyRouteComponent(() => import("./features/workspaces/JoinPage"), "JoinPage") })
 
 /** `?t=3` starts the video at 0:03 (the player's "Share at" link). */
 const shareRoute = createRoute({
@@ -160,7 +160,7 @@ const projectIntegrationsRoute = createRoute({
 })
 
 /** Everyone in the workspace sees its members; admins also invite and manage them. */
-const membersRoute = createRoute({ getParentRoute: () => authedRoute, path: "/app/settings/members", component: lazyRouteComponent(() => import("./pages/settings/MembersPage"), "MembersPage") })
+const membersRoute = createRoute({ getParentRoute: () => authedRoute, path: "/app/settings/members", component: lazyRouteComponent(() => import("./features/workspaces/MembersPage"), "MembersPage") })
 
 /** Anyone signed in: connect AI apps to the MCP server and manage their personal tokens. */
 const aiAgentsRoute = createRoute({
@@ -179,7 +179,7 @@ const accountRoute = createRoute({
 const workspaceSettingsRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "/app/settings/workspace",
-  component: lazyRouteComponent(() => import("./pages/settings/WorkspaceSettingsPage"), "WorkspaceSettingsPage"),
+  component: lazyRouteComponent(() => import("./features/workspaces/WorkspaceSettingsPage"), "WorkspaceSettingsPage"),
 })
 
 /** Public, on BugBerry cloud only (publicSiteGate): the home page and the marketing pages. */

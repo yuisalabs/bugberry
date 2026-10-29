@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { Button } from "@bugberry/ui/button"
-import { JoinWorkspacePanel } from "../components/JoinWorkspaceDialog"
+import { JoinWorkspacePanel } from "./JoinWorkspaceDialog"
 
 export function WorkspaceHomeView({ join, onCreate }: { join: ReactNode; onCreate(): void }) {
   return (

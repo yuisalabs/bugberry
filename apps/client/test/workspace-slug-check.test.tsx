@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test"
 import { renderHook, waitFor } from "@testing-library/react"
-import { useSlugCheck } from "../src/lib/workspace-slug"
+import { useSlugCheck } from "../src/features/workspaces/workspace-slug"
 
 describe("useSlugCheck", () => {
   test("slug status from the server", async () => {

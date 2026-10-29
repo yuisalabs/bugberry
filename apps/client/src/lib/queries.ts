@@ -1,41 +1,9 @@
 import { infiniteQueryOptions, keepPreviousData, queryOptions } from "@tanstack/react-query"
 import { api } from "./client"
 import { nextReportsPage, type ReportFilterQuery, reportsPageQuery } from "./report-feed"
-
-/**
- * Report lists carry signed preview links that expire (READ_URL_TTL_SECONDS, an hour by default), so a
- * list left open is refreshed well before that.
- */
-export const REPORT_LIST_REFRESH_MS = 5 * 60_000
-
-/**
- * A report list is fresh for a minute: switching back to the window within that time doesn't fetch every part
- * shown again. Changes made here invalidate it at once.
- */
-export const REPORT_LIST_STALE_MS = 60_000
+import { REPORT_LIST_REFRESH_MS, REPORT_LIST_STALE_MS } from "../features/reports/queries"
 
 export const queries = {
-  workspaces: () => queryOptions({ queryKey: ["workspaces"], queryFn: () => api.workspaces(), staleTime: 60_000 }),
-  members: (workspaceId: string) =>
-    queryOptions({ queryKey: ["members", workspaceId], queryFn: () => api.members(workspaceId) }),
-  invitations: (workspaceId: string) =>
-    queryOptions({ queryKey: ["invitations", workspaceId], queryFn: () => api.invitations(workspaceId) }),
-  myInvitations: () => queryOptions({ queryKey: ["my-invitations"], queryFn: () => api.myInvitations() }),
-  domainWorkspaces: () => queryOptions({ queryKey: ["domain-workspaces"], queryFn: () => api.domainWorkspaces() }),
-  /** Under ACCOUNT_LIMITS: screenshots and recordings kept, and no inviting. Refreshed with the report list. */
-  workspaceLimits: (workspaceId: string) =>
-    queryOptions({
-      queryKey: ["workspace-limits", workspaceId],
-      queryFn: () => api.workspaceLimits(workspaceId),
-      refetchInterval: REPORT_LIST_REFRESH_MS,
-    }),
-  workspaceAccess: (workspaceId: string) =>
-    queryOptions({ queryKey: ["workspace-access", workspaceId], queryFn: () => api.workspaceAccess(workspaceId) }),
-  /** Admins see waiting requests as a count next to Members, so the list is refreshed every minute. */
-  joinRequests: (workspaceId: string) =>
-    queryOptions({ queryKey: ["join-requests", workspaceId], queryFn: () => api.joinRequests(workspaceId), refetchInterval: 60_000 }),
-  invitation: (token: string) =>
-    queryOptions({ queryKey: ["invitation", token], queryFn: () => api.invitation(token), retry: false }),
   /** A report list fetched a part at a time as it scrolls; a refresh fetches again every part already shown. */
   reportFeed: (workspaceId: string, filters: ReportFilterQuery) =>
     infiniteQueryOptions({

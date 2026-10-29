@@ -9,7 +9,7 @@ import { Input, InputGroup } from "@bugberry/ui/input"
 import { MenuItem, MenuLabel, MenuSection, MenuSeparator, menuStyles } from "@bugberry/ui/menu"
 import { Popover } from "@bugberry/ui/popover"
 import { SearchField } from "@bugberry/ui/search-field"
-import { roleLabel, workspaceColor } from "../lib/workspace"
+import { roleLabel, workspaceColor } from "./workspace"
 
 export interface MenuWorkspace {
   id: string

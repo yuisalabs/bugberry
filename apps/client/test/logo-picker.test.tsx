@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { LogoPicker } from "../src/components/LogoPicker"
+import { LogoPicker } from "../src/features/workspaces/LogoPicker"
 import { fileInput } from "./fields"
 
 const png = (name = "logo.png", type = "image/png") => new File([new Uint8Array(100)], name, { type })

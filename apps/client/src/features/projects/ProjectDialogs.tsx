@@ -7,12 +7,20 @@ import { Description, Label } from "@bugberry/ui/field"
 import { Input, InputGroup } from "@bugberry/ui/input"
 import { TextField } from "@bugberry/ui/text-field"
 import { slugify } from "./slug"
-import { LOGO_RULE, LogoPicker } from "../../components/LogoPicker"
+import { LOGO_RULE, LogoPicker } from "../workspaces/LogoPicker"
 import { cleanPatterns, MAX_PATTERN_LENGTH, MAX_PATTERNS, patternExamples, savePatternsLabel, testUrl } from "./url-patterns"
-import { useCurrentWorkspace, workspaceColor } from "../../lib/workspace"
+import { useCurrentWorkspace, workspaceColor } from "../workspaces/workspace"
 import { errorMessage } from "../../lib/query/unwrap"
 import { qk } from "../../lib/query/keys"
-import { confirmProjectLogo, createProject, type Project, type ProjectInput, projectLogoUploadTarget, removeProjectLogo, updateProject } from "./queries"
+import {
+  confirmProjectLogo,
+  createProject,
+  type Project,
+  type ProjectInput,
+  projectLogoUploadTarget,
+  removeProjectLogo,
+  updateProject,
+} from "./queries"
 
 const sectionLabel = "text-sm font-medium text-foreground"
 

@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import type { ComponentProps } from "react"
-import { InviteDialogView } from "../src/components/InviteDialog"
+import { InviteDialogView } from "../src/features/workspaces/InviteDialog"
 
 function view(overrides: Partial<ComponentProps<typeof InviteDialogView>> = {}) {
   const props = {

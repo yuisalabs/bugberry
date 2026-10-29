@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { LoadMore } from "../src/components/LoadMore"
-import { queries, REPORT_LIST_REFRESH_MS } from "../src/lib/queries"
+import { queries } from "../src/lib/queries"
+import { REPORT_LIST_REFRESH_MS } from "../src/features/reports/queries"
 import { feedItems, nextReportsPage, REPORTS_PAGE_SIZE, reportsPageQuery } from "../src/lib/report-feed"
 import { listItemFixture } from "./fixtures"
 

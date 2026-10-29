@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { CreateWorkspaceForm, inviteProblem } from "../src/components/CreateWorkspaceDialog"
-import type { SlugAnswer } from "../src/lib/workspace-slug"
+import { CreateWorkspaceForm, inviteProblem } from "../src/features/workspaces/CreateWorkspaceDialog"
+import type { SlugAnswer } from "../src/features/workspaces/workspace-slug"
 import { fileInput } from "./fields"
 
 const sized = async () => ({ width: 256, height: 256 })

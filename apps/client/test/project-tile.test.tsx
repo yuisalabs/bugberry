@@ -2,7 +2,7 @@ import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { ProjectForm } from "../src/features/projects/ProjectDialogs"
 import { ProjectTile } from "../src/features/projects/ProjectTile"
-import { workspaceColor } from "../src/lib/workspace"
+import { workspaceColor } from "../src/features/workspaces/workspace"
 
 const project = {
   id: "p1",

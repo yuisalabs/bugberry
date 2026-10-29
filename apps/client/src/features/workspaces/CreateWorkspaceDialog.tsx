@@ -6,14 +6,14 @@ import { Button } from "@bugberry/ui/button"
 import { Label } from "@bugberry/ui/field"
 import { Input } from "@bugberry/ui/input"
 import { TextField } from "@bugberry/ui/text-field"
-import type { InviteResult } from "../lib/api"
-import { api } from "../lib/client"
-import { type SlugAnswer, type SlugStatus, useSlugCheck } from "../lib/workspace-slug"
+import { type SlugAnswer, type SlugStatus, useSlugCheck } from "./workspace-slug"
 import { EmailChips } from "./EmailChips"
 import { RESULT_LABELS } from "./InviteDialog"
 import { LogoPicker } from "./LogoPicker"
-import { errorMessage } from "../lib/query/unwrap"
-import { accountQueries } from "../features/account/queries"
+import { errorMessage } from "../../lib/query/unwrap"
+import { accountQueries } from "../account/queries"
+import { confirmLogo, createWorkspace, invite, type InviteResult, logoUploadTarget } from "./queries"
+import { qk } from "../../lib/query/keys"
 
 export interface NewWorkspace {
   name: string
@@ -203,24 +203,24 @@ export function CreateWorkspaceDialog({ isOpen, onOpenChange }: { isOpen: boolea
   }
 
   const submit = async (input: NewWorkspace) => {
-    const created = await api.createWorkspace(input.name, input.slugEdited ? input.slug : undefined)
+    const created = await createWorkspace(input.name, input.slugEdited ? input.slug : undefined)
     // The new workspace is now the current one: everything on screen changes.
     await queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== "auth-methods" })
     const problems: string[] = []
     if (input.logo) {
       try {
         const type = input.logo.type as "image/png" | "image/jpeg"
-        const { upload, logoId } = await api.logoUploadTarget(created.id, type, input.logo.size)
+        const { upload, logoId } = await logoUploadTarget(created.id, type, input.logo.size)
         const response = await fetch(upload.url, { method: upload.method, headers: upload.headers, body: input.logo })
         if (!response.ok) throw new Error("upload failed")
-        await api.confirmLogo(created.id, logoId)
-        await queryClient.invalidateQueries({ queryKey: ["workspaces"] })
+        await confirmLogo(created.id, logoId)
+        await queryClient.invalidateQueries({ queryKey: qk.workspaces })
       } catch {
         problems.push("Workspace created, but the logo didn't upload")
       }
     }
     if (input.emails.length > 0) {
-      const problem = await api.invite(created.id, input.emails).then(inviteProblem, inviteProblem)
+      const problem = await invite(created.id, input.emails).then(inviteProblem, inviteProblem)
       if (problem) problems.push(problem)
     }
     if (problems.length === 0) return close()

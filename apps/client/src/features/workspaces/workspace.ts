@@ -1,9 +1,7 @@
 import type { WorkspaceRole } from "@bugberry/shared"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import type { Workspace } from "./api"
-import { api } from "./client"
-import { queries } from "./queries"
-import { accountQueries } from "../features/account/queries"
+import { accountQueries } from "../account/queries"
+import { switchWorkspace, type Workspace, workspaceQueries } from "./queries"
 
 /** The workspace the dashboard shows: the last one used while still a member, else the first by name. */
 export function pickWorkspace<T extends { id: string; name: string }>(workspaces: readonly T[], lastWorkspaceId: string | null): T | null {
@@ -40,7 +38,7 @@ export function useCurrentWorkspace(): {
 } {
   const queryClient = useQueryClient()
   const me = useQuery(accountQueries.me())
-  const workspaces = useQuery(queries.workspaces())
+  const workspaces = useQuery(workspaceQueries.workspaces())
   const list = workspaces.data ?? []
   return {
     workspace: pickWorkspace(list, me.data?.lastWorkspaceId ?? null),
@@ -48,7 +46,7 @@ export function useCurrentWorkspace(): {
     isPending: me.isPending || workspaces.isPending,
     async switchTo(id) {
       if (id === me.data?.lastWorkspaceId) return
-      await api.switchWorkspace(id)
+      await switchWorkspace(id)
       // Everything on screen belonged to the previous workspace.
       await queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== "auth-methods" })
     },

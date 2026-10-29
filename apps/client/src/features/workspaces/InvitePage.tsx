@@ -1,16 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { getRouteApi, useNavigate } from "@tanstack/react-router"
 import { Link } from "@bugberry/ui/link"
-import { BugBerryLogo } from "../components/BugBerryLogo"
-import { Loading } from "../components/ui"
+import { BugBerryLogo } from "../../components/BugBerryLogo"
+import { Loading } from "../../components/ui"
 import { buttonStyles, Button } from "@bugberry/ui/button"
-import type { InvitationInfo } from "../lib/api"
-import { signOut } from "../features/auth/auth"
-import { api } from "../lib/client"
-import { inviteView } from "../lib/invite"
-import { queries } from "../lib/queries"
-import { ApiError, errorMessage } from "../lib/query/unwrap"
-import { accountQueries } from "../features/account/queries"
+import { signOut } from "../auth/auth"
+import { inviteView } from "./invite"
+import { ApiError, errorMessage } from "../../lib/query/unwrap"
+import { accountQueries } from "../account/queries"
+import { acceptInvitation, type InvitationInfo, workspaceQueries } from "./queries"
 
 const routeApi = getRouteApi("/invite/$token")
 const primaryLink = `${buttonStyles({ intent: "primary", size: "sm" })}`
@@ -79,9 +77,9 @@ export function InvitePage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const me = useQuery({ ...accountQueries.me(), retry: false, meta: { signedOutIsFine: true } })
-  const invite = useQuery(queries.invitation(token))
+  const invite = useQuery(workspaceQueries.invitation(token))
   const join = useMutation({
-    mutationFn: () => api.acceptInvitation(token),
+    mutationFn: () => acceptInvitation(token),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== "auth-methods" })
       await navigate({ to: "/app" })

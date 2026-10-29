@@ -14,7 +14,7 @@ import { EmptyState, ErrorState } from "../../components/ui"
 import { EditIntegrationSteps, type LoadOptions, UseConnectionModal } from "./UseConnectionDialog"
 import { INITIAL_INTEGRATIONS_UI, integrationsUi } from "./integrations-ui"
 import { qk } from "../../lib/query/keys"
-import { useCurrentWorkspace } from "../../lib/workspace"
+import { useCurrentWorkspace } from "../workspaces/workspace"
 import { errorMessage } from "../../lib/query/unwrap"
 import { projectQueries } from "../projects/queries"
 import {

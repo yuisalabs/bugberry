@@ -1,4 +1,4 @@
-import type { InvitationInfo } from "./api"
+import type { InvitationInfo } from "./queries"
 
 export type InviteState = "sign-in" | "join" | "wrong-account" | "unavailable"
 
