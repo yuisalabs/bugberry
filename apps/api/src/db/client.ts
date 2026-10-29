@@ -22,7 +22,10 @@ export function executor(db: Db): Executor {
   return active && active.db === db ? active.tx : db
 }
 
-/** Runs `fn` in one transaction; a throw rolls it back and is rethrown. A nested call joins the outer one. */
+/**
+ * Runs `fn` in one transaction; a throw rolls it back and is rethrown. A nested call joins the outer one, so a
+ * failed statement inside it aborts the outer transaction even if the error is caught: retry inside withSavepoint.
+ */
 export function withTransaction<T>(db: Db, fn: () => Promise<T>): Promise<T> {
   const active = activeTx.getStore()
   if (active && active.db === db) return fn()

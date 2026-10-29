@@ -118,3 +118,17 @@ export function listProjectSummaries(db: Db, workspaceId: string) {
     .where(eq(project.workspaceId, workspaceId))
     .orderBy(asc(project.name))
 }
+
+export async function findProjectName(db: Db, projectId: string): Promise<string | null> {
+  const [row] = await executor(db).select({ name: project.name }).from(project).where(eq(project.id, projectId)).limit(1)
+  return row?.name ?? null
+}
+
+export async function projectInWorkspace(db: Db, projectId: string, workspaceId: string): Promise<boolean> {
+  const [row] = await executor(db)
+    .select({ id: project.id })
+    .from(project)
+    .where(and(eq(project.id, projectId), eq(project.workspaceId, workspaceId)))
+    .limit(1)
+  return row !== undefined
+}

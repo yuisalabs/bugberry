@@ -8,7 +8,7 @@ import { trackerFactoryFor } from "../trackers/default"
 import { PART_BYTES, partSizes } from "../../storage/multipart"
 import { requireReportMember } from "../workspaces/access"
 import { createUploadBody } from "./model"
-import { findReport } from "./repository"
+import { findReport, findReportReporter } from "./repository"
 import { createReportUpload, finalizeReportUpload } from "./upload-flow"
 
 export const UPLOAD_SESSIONS_PER_MINUTE = 30
@@ -50,9 +50,9 @@ export function reportUploadsModule(deps: AppDeps) {
       "/reports/:id/finalize",
       async ({ user, params }) => {
         await requireReportMember(db, user.id, params.id)
-        const row = await findReport(db, params.id)
-        if (!row) throw notFound("report_not_found", "Report not found")
-        if (row.reporterId !== user.id) throw forbidden("Only the reporter can finalize this upload")
+        const reporterId = await findReportReporter(db, params.id)
+        if (!reporterId) throw notFound("report_not_found", "Report not found")
+        if (reporterId !== user.id) throw forbidden("Only the reporter can finalize this upload")
         return finalizeReportUpload(deps, dispatcher, params.id)
       },
       { auth: true },

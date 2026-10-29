@@ -21,7 +21,7 @@ import { resolveWorkspace } from "../workspaces/access"
 import { assertCanCreateReport } from "../workspaces/limits"
 import { afterFinalize } from "./after-finalize"
 import type { CreateUploadBody } from "./model"
-import { findProject } from "../projects/repository"
+import { projectInWorkspace } from "../projects/repository"
 import {
   claimReportNumber,
   findReport,
@@ -74,7 +74,7 @@ export async function createReportUpload(
     throw unprocessable("internal_unavailable", "Internal sharing needs a company email domain")
   }
   if (body.projectId) {
-    if ((await findProject(db, body.projectId))?.workspaceId !== workspaceId) {
+    if (!(await projectInWorkspace(db, body.projectId, workspaceId))) {
       throw unprocessable("project_not_found", "Project not found in this workspace")
     }
   }

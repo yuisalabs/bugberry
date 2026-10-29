@@ -9,7 +9,7 @@ import { AppError, conflict, notFound, tooManyRequests } from "../../lib/errors"
 import { createRateLimiter } from "../../lib/rate-limit"
 import { requireMember } from "../workspaces/access"
 import { assertCanAddMembers, isWorkspaceLimited } from "../workspaces/limits"
-import { findWorkspaceSummary } from "../workspaces/repository"
+import { findWorkspaceName } from "../workspaces/repository"
 import {
   findInvitationByTokenHash,
   findInvitationForEmail,
@@ -36,7 +36,7 @@ export function invitationsModule(deps: AppDeps) {
   const limiter = createRateLimiter({ limit: INVITES_PER_WORKSPACE_PER_HOUR, windowMs: 60 * 60 * 1000 })
   const perPerson = createRateLimiter({ limit: INVITES_PER_PERSON_PER_HOUR, windowMs: 60 * 60 * 1000 })
 
-  const workspaceName = async (workspaceId: string) => (await findWorkspaceSummary(db, workspaceId))?.name ?? ""
+  const workspaceName = async (workspaceId: string) => (await findWorkspaceName(db, workspaceId)) ?? ""
 
   const sendInvite = async (to: string, workspaceId: string, from: { id: string; name: string }, token: string, code: string) => {
     if (!sender) throw conflict("email_unavailable", "Set up email (EMAIL_DRIVER) to send invitations")

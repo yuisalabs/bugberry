@@ -309,3 +309,8 @@ export function listMemberNames(db: Db, workspaceId: string) {
     .innerJoin(user, eq(user.id, workspaceMember.userId))
     .where(eq(workspaceMember.workspaceId, workspaceId))
 }
+
+export async function findWorkspaceName(db: Db, workspaceId: string): Promise<string | null> {
+  const [row] = await executor(db).select({ name: workspace.name }).from(workspace).where(eq(workspace.id, workspaceId)).limit(1)
+  return row?.name ?? null
+}

@@ -5,7 +5,7 @@ import { badRequest, forbidden, notFound, unprocessable } from "../../lib/errors
 import { newShareSlug } from "../../lib/ids"
 import { memberRole, requireReportMember, resolveWorkspace } from "../workspaces/access"
 import { recordActivity } from "../activity/repository"
-import { findProject } from "../projects/repository"
+import { projectInWorkspace } from "../projects/repository"
 import { loadReportDetail, type ReportDetail } from "./detail"
 import type { updateReportBody } from "./model"
 import { countListByStatus, findLoggedFields, type ListReportsInput, listPage, updateReadyReport } from "./repository"
@@ -89,7 +89,7 @@ export async function updateReport(
     throw unprocessable("assignee_not_found", "Assignee is not in this workspace")
   }
   if (input.projectId) {
-    if ((await findProject(db, input.projectId))?.workspaceId !== target.workspaceId) {
+    if (!(await projectInWorkspace(db, input.projectId, target.workspaceId))) {
       throw unprocessable("project_not_found", "Project not found in this workspace")
     }
   }

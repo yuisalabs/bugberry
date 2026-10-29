@@ -22,7 +22,7 @@ import { trackerFactoryFor } from "../trackers/default"
 import { TrackerError } from "../trackers/providers"
 import { requireProjectRole } from "../workspaces/access"
 import { findConnection } from "../connections/repository"
-import { findProject } from "../projects/repository"
+import { findProjectName } from "../projects/repository"
 import { deleteIntegration, insertIntegration, recordDelivery, updateIntegration } from "./repository"
 
 const createBody = t.Object({
@@ -157,8 +157,8 @@ export function integrationsModule(deps: AppDeps) {
             await trackers(use.provider, use.config as TrackerConfig, secret).test()
           } else {
             // A notifier is tested by posting one message: no retries, so the answer comes at once.
-            const owner = await findProject(db, params.id)
-            await notifiers(use.provider, use.config as NotifierConfig, secret).send(testMessage(owner?.name ?? "", deps.config.appUrl))
+            const ownerName = await findProjectName(db, params.id)
+            await notifiers(use.provider, use.config as NotifierConfig, secret).send(testMessage(ownerName ?? "", deps.config.appUrl))
             // It got through, so the channel works again: an old failure would mislead.
             await recordDelivery(db, use.id, null, true)
           }

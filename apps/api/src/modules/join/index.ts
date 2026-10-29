@@ -22,6 +22,7 @@ import {
   listDomainWorkspacesNotJoined,
   listJoinRequests,
   listRequestedWorkspaces,
+  takeJoinRequest,
   updateJoinSettings,
 } from "./repository"
 import { joinAsMember, setNewShareCode } from "./service"
@@ -198,7 +199,7 @@ export function joinModule(deps: AppDeps) {
       async ({ user: current, params }) => {
         await requireMember(db, current.id, params.id, "admin")
         await assertCanAddMembers(db, config.accountLimits, params.id)
-        if (await deleteJoinRequest(db, params.id, params.userId)) {
+        if (await takeJoinRequest(db, params.id, params.userId)) {
           await addMemberIfAbsent(db, params.id, params.userId, "member")
           return { ok: true }
         }

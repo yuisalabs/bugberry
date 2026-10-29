@@ -70,8 +70,12 @@ export async function insertJoinRequest(db: Db, workspaceId: string, userId: str
   await executor(db).insert(joinRequest).values({ workspaceId, userId }).onConflictDoNothing()
 }
 
-/** True when there was a request to remove. */
-export async function deleteJoinRequest(db: Db, workspaceId: string, userId: string): Promise<boolean> {
+export async function deleteJoinRequest(db: Db, workspaceId: string, userId: string): Promise<void> {
+  await executor(db).delete(joinRequest).where(and(eq(joinRequest.workspaceId, workspaceId), eq(joinRequest.userId, userId)))
+}
+
+/** Removes the request; true when there was one. */
+export async function takeJoinRequest(db: Db, workspaceId: string, userId: string): Promise<boolean> {
   const removed = await executor(db)
     .delete(joinRequest)
     .where(and(eq(joinRequest.workspaceId, workspaceId), eq(joinRequest.userId, userId)))

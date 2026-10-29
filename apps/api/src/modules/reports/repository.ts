@@ -303,3 +303,18 @@ export async function findReportPlace(db: Db, workspaceId: string, projectId: st
     .limit(1)
   return place ?? null
 }
+
+export async function findReportReporter(db: Db, reportId: string): Promise<string | null> {
+  const [row] = await executor(db).select({ reporterId: report.reporterId }).from(report).where(eq(report.id, reportId)).limit(1)
+  return row?.reporterId ?? null
+}
+
+/** The report's stored files and its workspace, for deleting it. */
+export async function findReportFiles(db: Db, reportId: string) {
+  const [row] = await executor(db)
+    .select({ mediaKey: report.mediaKey, debuggerKey: report.debuggerKey, workspaceId: report.workspaceId })
+    .from(report)
+    .where(eq(report.id, reportId))
+    .limit(1)
+  return row ?? null
+}

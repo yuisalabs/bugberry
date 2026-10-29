@@ -12,7 +12,7 @@ import { listReportsQuery, reportLocationBody, updateReportBody } from "./model"
 import {
   deleteReport,
   findReadyReportVisibility,
-  findReport,
+  findReportFiles,
   replaceShareSlug,
   updateReport as setReportFields,
 } from "./repository"
@@ -79,7 +79,7 @@ export function reportsModule(deps: AppDeps) {
     .delete(
       "/reports/:id",
       async ({ user: current, params }) => {
-        const row = await findReport(db, params.id)
+        const row = await findReportFiles(db, params.id)
         if (!row || !(await memberRole(db, current.id, row.workspaceId))) throw reportNotFound()
         await requireMember(db, current.id, row.workspaceId, "admin")
         // The thumbnail key is always tried: one that arrived after finalize dropped it has no reference.

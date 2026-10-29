@@ -39,6 +39,25 @@ describe("app", () => {
     expect(await response.json()).toMatchObject({ code: "validation" })
   })
 
+  test("a malformed JSON body returns 400 bad_request", async () => {
+    const { headers } = await createUserWithToken(ctx.db)
+    const response = await ctx.app.handle(
+      new Request("http://localhost/api/reports/uploads", {
+        method: "POST",
+        headers: { ...headers, "content-type": "application/json" },
+        body: "{",
+      }),
+    )
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ code: "bad_request", message: "Malformed request body" })
+  })
+
+  test("unknown paths outside /api return the same error shape", async () => {
+    const response = await ctx.app.handle(new Request("http://localhost/.well-known/nope"))
+    expect(response.status).toBe(404)
+    expect(await response.json()).toEqual({ code: "not_found", message: "Route not found" })
+  })
+
   test("token routes are gone", async () => {
     const { headers } = await createUserWithToken(ctx.db)
     const call = (method: string, path: string, body?: unknown) =>

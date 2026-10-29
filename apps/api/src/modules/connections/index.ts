@@ -12,7 +12,7 @@ import { testMessage } from "../notifiers/message"
 import { createSecretBox, SECRET_UNREADABLE, SecretError } from "../../lib/secret-box"
 import { TrackerError } from "../trackers/providers"
 import { requireMember } from "../workspaces/access"
-import { findWorkspaceSummary } from "../workspaces/repository"
+import { findWorkspaceName } from "../workspaces/repository"
 import {
   type ConnectionRow,
   deleteConnection,
@@ -179,8 +179,8 @@ export function connectionsModule(deps: AppDeps) {
             return { ok: true }
           }
           // A channel with nothing to pick is tested by posting one message to it.
-          const owner = await findWorkspaceSummary(db, params.id)
-          await notifiers(row.provider, row.settings as NotifierConfig, plain).send(testMessage(owner?.name ?? "", deps.config.appUrl))
+          const ownerName = await findWorkspaceName(db, params.id)
+          await notifiers(row.provider, row.settings as NotifierConfig, plain).send(testMessage(ownerName ?? "", deps.config.appUrl))
         } catch (error) {
           throw unprocessable("integration_test_failed", error instanceof TrackerError ? error.message : "The connection test failed")
         }

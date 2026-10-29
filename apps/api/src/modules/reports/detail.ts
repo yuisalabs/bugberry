@@ -8,7 +8,6 @@ export interface PersonSummary {
   image: string | null
 }
 
-
 export async function loadReportDetail(
   { db, storage }: Pick<AppDeps, "db" | "storage">,
   key: ReportKey,
