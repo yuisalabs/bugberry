@@ -28,3 +28,10 @@ export function withTransaction<T>(db: Db, fn: () => Promise<T>): Promise<T> {
   if (active && active.db === db) return fn()
   return db.transaction((tx) => activeTx.run({ db, tx }, fn))
 }
+
+/** Like withTransaction, but nested it opens a savepoint: a failure inside undoes only its own writes. */
+export function withSavepoint<T>(db: Db, fn: () => Promise<T>): Promise<T> {
+  const active = activeTx.getStore()
+  if (!active || active.db !== db) return withTransaction(db, fn)
+  return active.tx.transaction((savepoint) => activeTx.run({ db, tx: savepoint }, fn))
+}

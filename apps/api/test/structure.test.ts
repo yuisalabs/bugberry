@@ -45,12 +45,6 @@ const PENDING = new Set<string>([
   "modules/share/index.ts",
   "modules/trackers/dispatch.ts",
   "modules/trackers/index.ts",
-  "modules/workspaces/access.ts",
-  "modules/workspaces/index.ts",
-  "modules/workspaces/limits.ts",
-  "modules/workspaces/logo.ts",
-  "modules/workspaces/provision.ts",
-  "modules/workspaces/slug.ts",
 ])
 
 async function violators(): Promise<string[]> {

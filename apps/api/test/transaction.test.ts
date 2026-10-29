@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, expect, test } from "bun:test"
-import { inArray } from "drizzle-orm"
-import { createDb, type Db, executor, withTransaction } from "../src/db/client"
+import { inArray, sql } from "drizzle-orm"
+import { createDb, type Db, executor, withSavepoint, withTransaction } from "../src/db/client"
 import { demoRequest } from "../src/db/schema"
 import { AppError, conflict } from "../src/lib/errors"
 import { newId } from "../src/lib/ids"
@@ -89,6 +89,33 @@ test("a nested withTransaction joins the outer one: the inner write rolls back w
   expect(inner).toBe(outer)
   expect(inner).not.toBe(db)
   expect(await countRows(ids)).toBe(0)
+})
+
+test("withSavepoint inside a transaction undoes only its own writes when it throws", async () => {
+  let kept = ""
+  let undone = ""
+  await withTransaction(db, async () => {
+    kept = await insertRow()
+    await withSavepoint(db, async () => {
+      undone = await insertRow()
+      // A failed statement, as a unique violation would be: without a savepoint it aborts the whole transaction.
+      await executor(db).execute(sql`select 1/0`)
+    }).catch(() => undefined)
+    await insertRow()
+  })
+  expect(await countRows([kept])).toBe(1)
+  expect(await countRows([undone])).toBe(0)
+})
+
+test("withSavepoint outside a transaction is a transaction of its own", async () => {
+  let id = ""
+  await expect(
+    withSavepoint(db, async () => {
+      id = await insertRow()
+      throw new Error("boom")
+    }),
+  ).rejects.toThrow("boom")
+  expect(await countRows([id])).toBe(0)
 })
 
 test("the transaction of one database is never handed to another", async () => {

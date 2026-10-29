@@ -2,6 +2,7 @@ import { emailDomain, FREE_EMAIL_DOMAINS } from "@bugberry/shared"
 import { and, asc, count, eq, gt, isNull, notInArray } from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"
 import { Elysia, t } from "elysia"
+import { executor, withTransaction } from "../../db/client"
 import type { AppDeps } from "../../deps"
 import { authPlugin } from "../../plugins/auth"
 import { isEmailAllowed } from "../auth/policy"
@@ -94,8 +95,9 @@ export function joinModule(deps: AppDeps) {
 
   /** Adds the person as Member (once) and makes the workspace their current one. */
   const joinAsMember = async (workspaceId: string, userId: string) => {
-    await db.transaction(async (tx) => {
-      await assertCanAddMembers(tx, config.accountLimits, workspaceId, "joiner")
+    await withTransaction(db, async () => {
+      const tx = executor(db)
+      await assertCanAddMembers(db, config.accountLimits, workspaceId, "joiner")
       await tx.insert(workspaceMember).values({ workspaceId, userId, role: "member" }).onConflictDoNothing()
       // A request still waiting would keep counting in the admins' sidebar.
       await tx.delete(joinRequest).where(and(eq(joinRequest.workspaceId, workspaceId), eq(joinRequest.userId, userId)))

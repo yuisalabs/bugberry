@@ -5,7 +5,7 @@ import type { AppDeps } from "../../deps"
 import { authPlugin } from "../../plugins/auth"
 import { isEmailAllowed } from "../auth/policy"
 import type { AccountLimits } from "../../config"
-import type { Db } from "../../db/client"
+import { type Db, executor, withTransaction } from "../../db/client"
 import { joinRequest, user, workspace, workspaceInvitation, workspaceMember } from "../../db/schema"
 import { inviteEmail } from "./invite-email"
 import { hashCode, newJoinCode } from "../join/join-codes"
@@ -37,8 +37,9 @@ export async function accept(
   workspaceId: string,
   userId: string,
 ): Promise<{ workspaceId: string }> {
-  await db.transaction(async (tx) => {
-    await assertCanAddMembers(tx, limits, workspaceId, "joiner")
+  await withTransaction(db, async () => {
+    const tx = executor(db)
+    await assertCanAddMembers(db, limits, workspaceId, "joiner")
     const marked = await tx
       .update(workspaceInvitation)
       .set({ acceptedAt: new Date() })

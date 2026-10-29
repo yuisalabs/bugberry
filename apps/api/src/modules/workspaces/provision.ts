@@ -1,12 +1,8 @@
-import { and, eq, gt, isNull } from "drizzle-orm"
 import type { AccountLimits } from "../../config"
-import type { Db } from "../../db/client"
-
-type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0]
-import { user, workspace, workspaceInvitation, workspaceMember } from "../../db/schema"
+import { type Db, withSavepoint } from "../../db/client"
 import { conflict, unprocessable } from "../../lib/errors"
-import { newId } from "../../lib/ids"
 import { isWorkspaceLimited } from "./limits"
+import { insertWorkspace, listInvitingWorkspaces, startOnboarding as startOnboardingRow } from "./repository"
 import { freeSlug, isUniqueViolation, slugProblem } from "./slug"
 
 /** A suggested slug can lose a race with another new workspace; it is picked again this many times. */
@@ -23,7 +19,7 @@ export function defaultWorkspaceName(userName: string, email: string): string {
  * Without a typed slug, a free one is picked from the name.
  */
 export async function createWorkspace(
-  db: Db | Tx,
+  db: Db,
   ownerId: string,
   name: string,
   typedSlug?: string,
@@ -32,16 +28,8 @@ export async function createWorkspace(
   for (let attempt = 1; ; attempt++) {
     const slug = typedSlug ?? (await freeSlug(db, name))
     try {
-      return await db.transaction(async (tx) => {
-        const [created] = await tx
-          .insert(workspace)
-          .values({ id: newId(), name, slug, ownerId })
-          .returning({ id: workspace.id, name: workspace.name, slug: workspace.slug })
-        if (!created) throw new Error("Failed to create workspace")
-        await tx.insert(workspaceMember).values({ workspaceId: created.id, userId: ownerId, role: "admin" })
-        await tx.update(user).set({ lastWorkspaceId: created.id }).where(eq(user.id, ownerId))
-        return { ...created, slug }
-      })
+      // A savepoint, so a slug lost to a race inside the caller's transaction can be retried.
+      return await withSavepoint(db, async () => ({ ...(await insertWorkspace(db, { name, slug, ownerId })), slug }))
     } catch (error) {
       if (!isUniqueViolation(error)) throw error
       if (typedSlug !== undefined) throw conflict("slug_taken", "This URL is taken")
@@ -52,7 +40,7 @@ export async function createWorkspace(
 
 /** Gives a new account the Getting started checklist; an account that already has one keeps it. */
 export async function startOnboarding(db: Db, userId: string): Promise<void> {
-  await db.update(user).set({ onboarding: {} }).where(and(eq(user.id, userId), isNull(user.onboarding)))
+  await startOnboardingRow(db, userId)
 }
 
 /**
@@ -66,19 +54,8 @@ export async function provisionNewUser(
   limits: AccountLimits | null,
 ): Promise<void> {
   await startOnboarding(db, person.id)
-  const invitations = await db
-    .select({ workspaceId: workspaceInvitation.workspaceId })
-    .from(workspaceInvitation)
-    .where(
-      and(
-        eq(workspaceInvitation.email, person.email.trim().toLowerCase()),
-        isNull(workspaceInvitation.acceptedAt),
-        isNull(workspaceInvitation.revokedAt),
-        gt(workspaceInvitation.expiresAt, new Date()),
-      ),
-    )
-  for (const invitation of invitations) {
-    if (!(await isWorkspaceLimited(db, limits, invitation.workspaceId))) return
+  for (const workspaceId of await listInvitingWorkspaces(db, person.email.trim().toLowerCase())) {
+    if (!(await isWorkspaceLimited(db, limits, workspaceId))) return
   }
   await createWorkspace(db, person.id, defaultWorkspaceName(person.name, person.email))
 }

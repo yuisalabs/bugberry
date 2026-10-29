@@ -1,17 +1,11 @@
 import type { Visibility, WorkspaceRole } from "@bugberry/shared"
-import { and, asc, eq } from "drizzle-orm"
 import type { Db } from "../../db/client"
-import { project, report, workspaceMember } from "../../db/schema"
 import { conflict, forbidden, notFound } from "../../lib/errors"
+import { findMemberRole, findOldestMembership, findProjectWorkspace, findReportAccess } from "./repository"
 
 /** The person's role in the workspace, or null when they are not a member. */
-export async function memberRole(db: Db, userId: string, workspaceId: string): Promise<WorkspaceRole | null> {
-  const [row] = await db
-    .select({ role: workspaceMember.role })
-    .from(workspaceMember)
-    .where(and(eq(workspaceMember.userId, userId), eq(workspaceMember.workspaceId, workspaceId)))
-    .limit(1)
-  return row?.role ?? null
+export function memberRole(db: Db, userId: string, workspaceId: string): Promise<WorkspaceRole | null> {
+  return findMemberRole(db, userId, workspaceId)
 }
 
 /**
@@ -41,14 +35,9 @@ export async function resolveWorkspace(
     return requested
   }
   if (person.lastWorkspaceId && (await memberRole(db, person.id, person.lastWorkspaceId))) return person.lastWorkspaceId
-  const [oldest] = await db
-    .select({ workspaceId: workspaceMember.workspaceId })
-    .from(workspaceMember)
-    .where(eq(workspaceMember.userId, person.id))
-    .orderBy(asc(workspaceMember.createdAt))
-    .limit(1)
+  const oldest = await findOldestMembership(db, person.id)
   if (!oldest) throw conflict("no_workspace", "Join or create a workspace first")
-  return oldest.workspaceId
+  return oldest
 }
 
 /**
@@ -61,10 +50,10 @@ export async function requireProjectRole(
   projectId: string,
   need: "member" | "admin" = "member",
 ): Promise<string> {
-  const [row] = await db.select({ workspaceId: project.workspaceId }).from(project).where(eq(project.id, projectId)).limit(1)
-  if (!row || !(await memberRole(db, userId, row.workspaceId))) throw notFound("project_not_found", "Project not found")
-  await requireMember(db, userId, row.workspaceId, need)
-  return row.workspaceId
+  const workspaceId = await findProjectWorkspace(db, projectId)
+  if (!workspaceId || !(await memberRole(db, userId, workspaceId))) throw notFound("project_not_found", "Project not found")
+  await requireMember(db, userId, workspaceId, need)
+  return workspaceId
 }
 
 /**
@@ -76,16 +65,7 @@ export async function requireReportMember(
   userId: string,
   reportId: string,
 ): Promise<{ workspaceId: string; reporterId: string; reporterDomain: string | null; visibility: Visibility; role: WorkspaceRole }> {
-  const [row] = await db
-    .select({
-      workspaceId: report.workspaceId,
-      reporterId: report.reporterId,
-      reporterDomain: report.reporterDomain,
-      visibility: report.visibility,
-    })
-    .from(report)
-    .where(eq(report.id, reportId))
-    .limit(1)
+  const row = await findReportAccess(db, reportId)
   const role = row ? await memberRole(db, userId, row.workspaceId) : null
   if (!row || !role) throw notFound("report_not_found", "Report not found")
   return { ...row, role }

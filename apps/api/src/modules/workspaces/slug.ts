@@ -1,9 +1,6 @@
 import { RESERVED_WORKSPACE_SLUGS, WORKSPACE_SLUG_PATTERN } from "@bugberry/shared"
-import { and, asc, eq, isNull, like, ne, or } from "drizzle-orm"
 import type { Db } from "../../db/client"
-import { workspace } from "../../db/schema"
-
-type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0]
+import { listWorkspacesWithoutSlug, setWorkspaceSlug, slugInUse, slugsLike } from "./repository"
 
 export const SLUG_PATTERN = new RegExp(WORKSPACE_SLUG_PATTERN)
 export const RESERVED_SLUGS: ReadonlySet<string> = new Set(RESERVED_WORKSPACE_SLUGS)
@@ -31,20 +28,14 @@ export function slugProblem(slug: string): "invalid" | "reserved" | null {
 }
 
 /** Whether another workspace already has this slug. */
-export async function slugTaken(db: Db | Tx, slug: string, exceptWorkspaceId?: string): Promise<boolean> {
-  const conditions = [eq(workspace.slug, slug)]
-  if (exceptWorkspaceId) conditions.push(ne(workspace.id, exceptWorkspaceId))
-  const [row] = await db.select({ id: workspace.id }).from(workspace).where(and(...conditions)).limit(1)
-  return Boolean(row)
+export function slugTaken(db: Db, slug: string, exceptWorkspaceId?: string): Promise<boolean> {
+  return slugInUse(db, slug, exceptWorkspaceId)
 }
 
 /** The name's slug if it is free, else the same with "-2", "-3"… */
-export async function freeSlug(db: Db | Tx, name: string, exceptWorkspaceId?: string): Promise<string> {
+export async function freeSlug(db: Db, name: string, exceptWorkspaceId?: string): Promise<string> {
   const base = slugify(name)
-  const conditions = [or(eq(workspace.slug, base), like(workspace.slug, `${base}-%`))]
-  if (exceptWorkspaceId) conditions.push(ne(workspace.id, exceptWorkspaceId))
-  const rows = await db.select({ slug: workspace.slug }).from(workspace).where(and(...conditions))
-  const taken = new Set(rows.map((row) => row.slug))
+  const taken = await slugsLike(db, base, exceptWorkspaceId)
   if (!taken.has(base)) return base
   for (let n = 2; ; n++) {
     const candidate = `${base}-${n}`
@@ -54,14 +45,8 @@ export async function freeSlug(db: Db | Tx, name: string, exceptWorkspaceId?: st
 
 /** Gives every workspace without a slug one, oldest first. Safe to run on every start. */
 export async function ensureWorkspaceSlugs(db: Db): Promise<number> {
-  const missing = await db
-    .select({ id: workspace.id, name: workspace.name })
-    .from(workspace)
-    .where(isNull(workspace.slug))
-    .orderBy(asc(workspace.createdAt), asc(workspace.id))
-  for (const row of missing) {
-    await db.update(workspace).set({ slug: await freeSlug(db, row.name) }).where(eq(workspace.id, row.id))
-  }
+  const missing = await listWorkspacesWithoutSlug(db)
+  for (const row of missing) await setWorkspaceSlug(db, row.id, await freeSlug(db, row.name))
   return missing.length
 }
 

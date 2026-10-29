@@ -8,6 +8,7 @@ import {
   THUMBNAIL_CONTENT_TYPE,
 } from "@bugberry/shared"
 import { and, eq } from "drizzle-orm"
+import { executor, withTransaction } from "../../db/client"
 import type { AppDeps } from "../../deps"
 import type { CurrentUser } from "../../plugins/auth"
 import { project, report, workspace } from "../../db/schema"
@@ -80,10 +81,11 @@ export async function createReportUpload(
   const debuggerKey = body.debuggerSize ? debuggerKeyFor(id) : null
   const thumbnailKey = body.thumbnailSize ? thumbnailKeyFor(id) : null
 
-  const created = await db.transaction(async (tx) => {
+  const created = await withTransaction(db, async () => {
+    const tx = executor(db)
     const number = await claimReportNumber(tx, workspaceId)
     // Counted after the claim, which locks the workspace row: uploads at the same time take turns here.
-    await assertCanCreateReport(tx, config, workspaceId, body.captureType, body.durationMs ?? null)
+    await assertCanCreateReport(db, config, workspaceId, body.captureType, body.durationMs ?? null)
     const [row] = await tx
       .insert(report)
       .values({
@@ -251,10 +253,11 @@ export async function finalizeReportUpload(
     keepThumbnail = info !== null && info.size === row.thumbnailSize
     if (!keepThumbnail) await storage.delete(row.thumbnailKey).catch(() => undefined)
   }
-  const madeReady = await db.transaction(async (tx) => {
+  const madeReady = await withTransaction(db, async () => {
+    const tx = executor(db)
     // Locks the workspace row as an upload does, so finalizes and new uploads take turns at the count.
     await tx.select({ id: workspace.id }).from(workspace).where(eq(workspace.id, row.workspaceId)).for("update")
-    await assertCanCreateReport(tx, config, row.workspaceId, row.captureType, row.durationMs, row.id)
+    await assertCanCreateReport(db, config, row.workspaceId, row.captureType, row.durationMs, row.id)
     const updated = await tx
       .update(report)
       .set({

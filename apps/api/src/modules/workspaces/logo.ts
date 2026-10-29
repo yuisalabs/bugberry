@@ -1,14 +1,13 @@
-import { eq } from "drizzle-orm"
 import { Elysia, t } from "elysia"
 import type { AppDeps } from "../../deps"
 import { authPlugin } from "../../plugins/auth"
-import { pendingLogo, workspace } from "../../db/schema"
 import { notFound, payloadTooLarge, tooManyRequests, unprocessable } from "../../lib/errors"
 import { newId } from "../../lib/ids"
 import { checkUploadedImage, IMAGE_EXTENSIONS, imageIdType, MAX_IMAGE_BYTES } from "../../lib/image-upload"
 import { createRateLimiter } from "../../lib/rate-limit"
 import { logoKeyFor } from "../../storage/keys"
 import { requireMember } from "./access"
+import { deletePendingLogo, findPendingLogo, findWorkspaceSummary, setPendingLogo, setWorkspaceLogo } from "./repository"
 
 /** Each upload target lets an admin put up to 2 MB in storage, so they are capped per workspace. */
 const UPLOADS_PER_WORKSPACE_PER_HOUR = 20
@@ -20,11 +19,7 @@ export function workspaceLogoModule(deps: AppDeps) {
   const logoUrl = (workspaceId: string, logoId: string) => `${config.appUrl}/api/workspace-logos/${workspaceId}/${logoId}`
 
   const summary = async (workspaceId: string) => {
-    const [row] = await db
-      .select({ id: workspace.id, name: workspace.name, slug: workspace.slug, logoUrl: workspace.logoUrl })
-      .from(workspace)
-      .where(eq(workspace.id, workspaceId))
-      .limit(1)
+    const row = await findWorkspaceSummary(db, workspaceId)
     if (!row) throw notFound("workspace_not_found", "Workspace not found")
     return { ...row, slug: row.slug ?? "" }
   }
@@ -37,7 +32,7 @@ export function workspaceLogoModule(deps: AppDeps) {
   }
   const setLogo = async (workspaceId: string, url: string | null) => {
     const before = await summary(workspaceId)
-    await db.update(workspace).set({ logoUrl: url }).where(eq(workspace.id, workspaceId))
+    await setWorkspaceLogo(db, workspaceId, url)
     const old = uploadedKey(workspaceId, before.logoUrl)
     if (old && old !== uploadedKey(workspaceId, url)) await storage.delete(old).catch(() => {})
     return summary(workspaceId)
@@ -53,14 +48,11 @@ export function workspaceLogoModule(deps: AppDeps) {
         if (!uploads.consume(params.id)) throw tooManyRequests()
         const logoId = `${newId()}.${IMAGE_EXTENSIONS[body.contentType]}`
         // The previous upload was never confirmed: it goes, unless it somehow became the logo in use.
-        const [previous] = await db.select().from(pendingLogo).where(eq(pendingLogo.workspaceId, params.id)).limit(1)
+        const previous = await findPendingLogo(db, params.id)
         if (previous && (await summary(params.id)).logoUrl !== logoUrl(params.id, previous.logoId)) {
           await storage.delete(logoKeyFor(params.id, previous.logoId)).catch(() => {})
         }
-        await db
-          .insert(pendingLogo)
-          .values({ workspaceId: params.id, logoId })
-          .onConflictDoUpdate({ target: pendingLogo.workspaceId, set: { logoId, createdAt: new Date() } })
+        await setPendingLogo(db, params.id, logoId)
         const upload = await storage.createUploadTarget(logoKeyFor(params.id, logoId), {
           contentType: body.contentType,
           maxBytes: body.size,
@@ -82,7 +74,7 @@ export function workspaceLogoModule(deps: AppDeps) {
         if (verdict === "missing") throw notFound("logo_not_found", "Logo not found")
         if (verdict === "too_large") throw payloadTooLarge("Logos can be up to 2 MB")
         if (verdict === "invalid") throw unprocessable("invalid_image", "Use a PNG or JPG logo")
-        await db.delete(pendingLogo).where(eq(pendingLogo.workspaceId, params.id))
+        await deletePendingLogo(db, params.id)
         return setLogo(params.id, logoUrl(params.id, params.logoId))
       },
       { auth: true },
