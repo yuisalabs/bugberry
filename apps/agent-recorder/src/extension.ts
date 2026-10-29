@@ -38,26 +38,43 @@ function failed(answer: unknown): string | null {
 
 /**
  * Records `page` the way the popup's Record button does, without the countdown, with the server's limits; resolves
- * with the draft the extension records into.
+ * with the draft the extension records into and the extension's id for the tab.
  */
-export async function startTabRecording(session: BrowserSession, page: Page, caps: RecordingCaps): Promise<{ draftId: string }> {
-  const answer = await withAutomationPage(session, async (automation) => {
+export async function startTabRecording(
+  session: BrowserSession,
+  page: Page,
+  caps: RecordingCaps,
+): Promise<{ draftId: string; tabId: number }> {
+  const { reply, tabId } = await withAutomationPage(session, async (automation) => {
     // Recording a tab asks for it in front, as a person's click on it would leave it.
     await page.bringToFront()
     const tabs = await automation.evaluate(() => chrome.tabs.query({ active: true }))
     const tabId = pickRecordedTab(tabs as Array<{ id?: number; url?: string; active?: boolean }>, page.url())
-    if (tabId === null) return { ok: false, error: "The recorded tab is not known to the extension" }
-    return automation.evaluate((message) => chrome.runtime.sendMessage(message), {
+    if (tabId === null) return { reply: { ok: false, error: "The recorded tab is not known to the extension" }, tabId: -1 }
+    const reply = await automation.evaluate((message) => chrome.runtime.sendMessage(message), {
       type: "bugberry:record-start",
       tabId,
       options: { source: "tab", mic: false, systemAudio: false, countdown: false, camera: null },
       caps,
     })
+    return { reply, tabId }
   })
   await page.bringToFront()
-  const error = failed(answer)
+  const error = failed(reply)
   if (error) throw new Error(`Couldn't start recording: ${error}`)
-  return { draftId: String((answer as { draftId: unknown }).draftId) }
+  return { draftId: String((reply as { draftId: unknown }).draftId), tabId }
+}
+
+/**
+ * The tab in front, asked of the extension's service worker: Playwright makes every page it drives look visible
+ * and focused, so only Chrome itself knows which tab the agent's browser tool switched to. Null when the worker
+ * is asleep or can't answer.
+ */
+export async function frontTab(session: BrowserSession): Promise<{ id: number; url: string } | null> {
+  const worker = session.context.serviceWorkers().find((each) => each.url().startsWith(`chrome-extension://${session.extensionId}/`))
+  if (!worker) return null
+  const [tab] = await worker.evaluate(() => chrome.tabs.query({ active: true, lastFocusedWindow: true }))
+  return tab?.id !== undefined && tab.url ? { id: tab.id, url: tab.url } : null
 }
 
 /** Stops the running recording with the review left closed; resolves with its draft's id. */

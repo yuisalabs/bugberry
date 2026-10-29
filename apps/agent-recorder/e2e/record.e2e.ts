@@ -128,3 +128,27 @@ test("driving another browser gives an empty recording, which is refused", async
     await close()
   }
 })
+
+test("going to a tab that was already open is warned", async () => {
+  const s = state()
+  const { recorder, browser, close } = await agent(s)
+  try {
+    await call(recorder, "startRecording", { url: new URL("/shop", s.demoUrl).href })
+    await call(browser, "browser_tabs", { action: "new", url: s.demoUrl })
+    await call(recorder, "discardRecording")
+
+    // Tab 1 is now an old tab: the next recording's watcher never saw it open.
+    await call(recorder, "startRecording", { url: new URL("/shop", s.demoUrl).href })
+    await call(browser, "browser_tabs", { action: "select", index: 1 })
+    const away = (await call(recorder, "recordingStatus")).structuredContent as { warning: string | null }
+    expect(away.warning).toContain("You are on another tab")
+    expect(away.warning).toContain("Go back to tab 0")
+
+    await call(browser, "browser_tabs", { action: "select", index: 0 })
+    const back = (await call(recorder, "recordingStatus")).structuredContent as { warning: string | null }
+    expect(back.warning).toBeNull()
+    await call(recorder, "discardRecording")
+  } finally {
+    await close()
+  }
+})

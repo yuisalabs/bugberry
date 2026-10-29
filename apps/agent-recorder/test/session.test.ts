@@ -65,6 +65,8 @@ let stored: AutomationDraftMeta
 let calls: string[]
 let stopAnswer: () => Promise<{ draftId: string }>
 let readFailures: number
+let front: { id: number; url: string } | null
+let startDraft: string
 
 beforeEach(() => {
   tempDir = mkdtempSync(join(tmpdir(), "recorder-test-"))
@@ -73,6 +75,8 @@ beforeEach(() => {
   calls = []
   stopAnswer = async () => ({ draftId: "draft-1" })
   readFailures = 0
+  front = { id: 7, url: "https://shop.test/checkout" }
+  startDraft = "draft-1"
 })
 afterEach(() => rmSync(tempDir, { recursive: true, force: true }))
 
@@ -87,7 +91,7 @@ function session(overrides: Partial<SessionDeps<FakePage>> = {}) {
     caps: async () => ({ maxMs: 120_000, maxBytes: 1_000_000 }),
     start: async (_browser, page) => {
       calls.push(`start ${page.url()}`)
-      return { draftId: "draft-1" }
+      return { draftId: startDraft, tabId: 7 }
     },
     stop: async () => stopAnswer(),
     read: async (_browser, _id, dir) => {
@@ -99,6 +103,7 @@ function session(overrides: Partial<SessionDeps<FakePage>> = {}) {
       return stored
     },
     remove: async (_browser, id) => void calls.push(`delete ${id}`),
+    frontTab: async () => front,
     newId: () => "rec-1",
     ...overrides,
   })
@@ -211,10 +216,10 @@ describe("recorder session", () => {
     const recorder = session()
     await recorder.start("https://shop.test/checkout")
     await expect(recorder.stop()).rejects.toThrow("call stopRecording again")
-    expect(recorder.status().recording).toBe(true)
+    expect((await recorder.status()).recording).toBe(true)
     const result = await recorder.stop()
     expect(result.recordingId).toBe("rec-1")
-    expect(recorder.status().recording).toBe(false)
+    expect((await recorder.status()).recording).toBe(false)
   })
 
   test("stop includes the tab warning", async () => {
@@ -234,7 +239,7 @@ describe("recorder session", () => {
     await recorder.start("https://shop.test/checkout")
     await recorder.discard()
     expect(calls).toContain("delete draft-1")
-    expect(recorder.status().recording).toBe(false)
+    expect((await recorder.status()).recording).toBe(false)
   })
 
   test("close shuts the browser it launched", async () => {
@@ -245,18 +250,18 @@ describe("recorder session", () => {
     await recorder.start("https://shop.test/checkout")
     await recorder.close()
     expect(closed).toBe(1)
-    expect(recorder.status().recording).toBe(false)
+    expect((await recorder.status()).recording).toBe(false)
   })
 
   test("status says how long it has run and repeats the warning", async () => {
     let now = 1000
     const recorder = session({ now: () => now })
-    expect(recorder.status()).toMatchObject({ recording: false })
+    expect(await recorder.status()).toMatchObject({ recording: false })
     await recorder.start("https://shop.test/checkout")
     now = 8000
     context.open("https://shop.test/two")
-    expect(recorder.status()).toMatchObject({ recording: true, seconds: 7 })
-    expect(recorder.status().warning).toContain("Go back to tab 0")
+    expect(await recorder.status()).toMatchObject({ recording: true, seconds: 7 })
+    expect((await recorder.status()).warning).toContain("Go back to tab 0")
   })
 
   test("status says when the time limit has stopped the recording", async () => {
@@ -264,6 +269,36 @@ describe("recorder session", () => {
     const recorder = session({ now: () => now })
     await recorder.start("https://shop.test/checkout")
     now = 1000 + 121_000
-    expect(recorder.status().warning).toContain("limit")
+    expect((await recorder.status()).warning).toContain("limit")
+  })
+  test("status and stop warn when the agent went to a tab that was already open", async () => {
+    const recorder = session()
+    await recorder.start("https://shop.test/checkout")
+    expect((await recorder.status()).warning).toBeNull()
+    front = { id: 9, url: "https://shop.test/old" }
+    const warning = (await recorder.status()).warning
+    expect(warning).toContain("https://shop.test/old")
+    expect(warning).toContain("Go back to tab 0")
+    expect((await recorder.stop()).warning).toContain("https://shop.test/old")
+  })
+
+  test("the extension's own page in front is no reason to warn", async () => {
+    const recorder = session()
+    await recorder.start("https://shop.test/checkout")
+    front = { id: 3, url: "chrome-extension://abc/automation.html" }
+    expect((await recorder.status()).warning).toBeNull()
+  })
+
+  test("close removes what was never sent: files, drafts, the running recording and the temp folder", async () => {
+    const recorder = session({ newId: (() => { let n = 0; return () => `rec-${++n}` })() })
+    await recorder.start("https://shop.test/checkout")
+    await recorder.stop()
+    expect(existsSync(join(tempDir, "rec-1", "media.webm"))).toBe(true)
+    startDraft = "draft-2"
+    await recorder.start("https://shop.test/checkout")
+    await recorder.close()
+    expect(calls).toContain("delete draft-1")
+    expect(calls).toContain("delete draft-2")
+    expect(existsSync(tempDir)).toBe(false)
   })
 })

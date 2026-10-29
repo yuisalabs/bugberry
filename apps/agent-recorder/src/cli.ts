@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import type { Page } from "playwright-core"
 import { type BrowserSession, launchBrowser } from "./browser"
-import { deleteDraft, readDraft, startTabRecording, stopTabRecording } from "./extension"
+import { deleteDraft, frontTab, readDraft, startTabRecording, stopTabRecording } from "./extension"
 import { recordingCaps } from "./limits"
 import { parseOptions } from "./options"
 import { createRecorderServer } from "./server"
@@ -41,6 +41,7 @@ const session = createRecorderSession<Page>({
   stop: (browser) => stopTabRecording(sessionOf(browser)),
   read: (browser, draftId, dir) => readDraft(sessionOf(browser), draftId, dir),
   remove: (browser, draftId) => deleteDraft(sessionOf(browser), draftId),
+  frontTab: (browser) => frontTab(sessionOf(browser)),
 })
 
 const server = createRecorderServer(session, (recording, uploadLink) => submitRecording(recording, uploadLink, { server: options.server }))

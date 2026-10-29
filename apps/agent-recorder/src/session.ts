@@ -18,11 +18,14 @@ export interface SessionDeps<P extends PageLike> {
   tempDir: string
   launch(): Promise<RecorderBrowser<P>>
   caps(): Promise<RecordingCaps>
-  start(browser: RecorderBrowser<P>, page: P, caps: RecordingCaps): Promise<{ draftId: string }>
+  /** Resolves with the draft it records into and the extension's id for the recorded tab. */
+  start(browser: RecorderBrowser<P>, page: P, caps: RecordingCaps): Promise<{ draftId: string; tabId: number }>
   stop(browser: RecorderBrowser<P>): Promise<{ draftId: string }>
   /** Writes the draft's files into `dir` (media.webm, debugger.json.gz, thumbnail.jpg when there is one). */
   read(browser: RecorderBrowser<P>, draftId: string, dir: string): Promise<AutomationDraftMeta>
   remove(browser: RecorderBrowser<P>, draftId: string): Promise<void>
+  /** The tab in front, as the extension sees it: the agent's browser tool can switch tabs without the recorder knowing. */
+  frontTab(browser: RecorderBrowser<P>): Promise<{ id: number; url: string } | null>
   newId?(): string
   now?(): number
 }
@@ -66,13 +69,13 @@ export interface StoredRecording {
 
 export interface RecorderSession {
   start(url: string): Promise<StartResult>
-  status(): { recording: boolean; seconds: number; warning: string | null }
+  status(): Promise<{ recording: boolean; seconds: number; warning: string | null }>
   stop(): Promise<StopResult>
   discard(): Promise<void>
   take(recordingId: string): StoredRecording | null
   /** Drops a submitted recording: its files, and the draft in the extension. */
   forget(recordingId: string): Promise<void>
-  /** Closes the browser, as the recorder shuts down. */
+  /** Drops what was never sent and closes the browser, as the recorder shuts down. */
   close(): Promise<void>
 }
 
@@ -130,7 +133,7 @@ export function createRecorderSession<P extends PageLike>(deps: SessionDeps<P>):
   let watcher: TabWatcher | null = null
   let page: P | null = null
   /** `stopped` once the extension stopped it: a stop whose reading failed then only reads again. */
-  let running: { draftId: string; startedAt: number; maxMs: number; stopped: boolean } | null = null
+  let running: { draftId: string; tabId: number; startedAt: number; maxMs: number; stopped: boolean } | null = null
   const stored = new Map<string, StoredRecording>()
 
   const ensureBrowser = async (): Promise<RecorderBrowser<P>> => {
@@ -141,6 +144,15 @@ export function createRecorderSession<P extends PageLike>(deps: SessionDeps<P>):
     page = null
     watcher = createTabWatcher(launched.context, () => page)
     return launched
+  }
+
+  /** A tab the agent opened, or else an older tab it went to: either way the recording doesn't see it. */
+  const warningNow = async (): Promise<string | null> => {
+    const opened = watcher?.warning() ?? null
+    if (opened || !running || !browser || !page) return opened
+    const front = await deps.frontTab(browser).catch(() => null)
+    if (!front || front.id === running.tabId || front.url.startsWith("chrome-extension://")) return null
+    return `You are on another tab (${front.url}). It is not recorded. Go back to tab ${agentTabs(browser.context).indexOf(page)} to keep recording.`
   }
 
   return {
@@ -157,8 +169,8 @@ export function createRecorderSession<P extends PageLike>(deps: SessionDeps<P>):
       page = await recordedPageFor(current.context, page, parsed.href)
       watcher?.reset()
       const caps = await deps.caps()
-      const { draftId } = await deps.start(current, page, caps)
-      running = { draftId, startedAt: now(), maxMs: caps.maxMs, stopped: false }
+      const { draftId, tabId } = await deps.start(current, page, caps)
+      running = { draftId, tabId, startedAt: now(), maxMs: caps.maxMs, stopped: false }
       // Loaded again while recording, so errors and failed requests on load are in the report.
       await page.reload()
       const tabIndex = agentTabs(current.context).indexOf(page)
@@ -177,17 +189,17 @@ export function createRecorderSession<P extends PageLike>(deps: SessionDeps<P>):
       }
     },
 
-    status() {
+    async status() {
       if (!running) return { recording: false, seconds: 0, warning: null }
       const elapsed = now() - running.startedAt
       const limit = elapsed >= running.maxMs ? `The recording reached its ${clock(running.maxMs)} limit and has stopped: call stopRecording to keep it.` : null
-      return { recording: true, seconds: Math.round(elapsed / 1000), warning: [watcher?.warning(), limit].filter(Boolean).join(" ") || null }
+      return { recording: true, seconds: Math.round(elapsed / 1000), warning: [await warningNow(), limit].filter(Boolean).join(" ") || null }
     },
 
     async stop() {
       if (!running || !browser) throw new Error("Nothing is recording. Call startRecording first.")
       const current = running
-      const warning = watcher?.warning() ?? null
+      const warning = await warningNow()
       if (!current.stopped) {
         // A limit may have stopped it already; its draft is the one this recording started.
         await deps.stop(browser).catch((error: unknown) => {
@@ -257,8 +269,17 @@ export function createRecorderSession<P extends PageLike>(deps: SessionDeps<P>):
 
     async close() {
       const current = browser
+      const left = running
       browser = null
       running = null
+      // The profile is kept between runs, so drafts left in the extension would pile up there.
+      if (current?.isOpen()) {
+        if (left) await deps.stop(current).catch(() => {})
+        const drafts = [...(left ? [left.draftId] : []), ...[...stored.values()].map((recording) => recording.draftId)]
+        for (const draftId of drafts) await deps.remove(current, draftId).catch(() => {})
+      }
+      stored.clear()
+      rmSync(deps.tempDir, { recursive: true, force: true })
       if (current?.isOpen()) await current.close()
     },
   }

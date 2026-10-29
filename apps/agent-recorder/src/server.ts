@@ -29,6 +29,8 @@ async function run(work: () => Promise<CallToolResult>): Promise<CallToolResult>
 export function createRecorderServer(session: RecorderSession, submit: Submit): McpServer {
   const server = new McpServer({ name: "bugberry-recorder", version: packageJson.version }, { instructions: INSTRUCTIONS })
   const changes = { readOnlyHint: false, destructiveHint: false, openWorldHint: false }
+  /** Recordings already sent, by id: a retry after a lost answer gets the report again instead of an error. */
+  const sent = new Map<string, string>()
 
   server.registerTool(
     "startRecording",
@@ -57,7 +59,7 @@ export function createRecorderServer(session: RecorderSession, submit: Submit): 
     },
     () =>
       run(async () => {
-        const status = session.status()
+        const status = await session.status()
         const line = status.recording ? `Recording for ${status.seconds} s.` : "Nothing is recording."
         return text([line, status.warning].filter(Boolean).join(" "), status)
       }),
@@ -114,8 +116,11 @@ export function createRecorderServer(session: RecorderSession, submit: Submit): 
     ({ recordingId, uploadLink }) =>
       run(async () => {
         const recording = session.take(recordingId)
+        const sentTo = sent.get(recordingId)
+        if (!recording && sentTo) return text(`Already sent. The report is ready: ${sentTo}`, { reportUrl: sentTo })
         if (!recording) throw new Error(`No stopped recording ${recordingId} here. Call stopRecording first.`)
         const { reportUrl } = await submit(recording, uploadLink)
+        sent.set(recordingId, reportUrl)
         await session.forget(recordingId)
         return text(`Sent. The report is ready: ${reportUrl}`, { reportUrl })
       }),
