@@ -25,7 +25,8 @@ export const accountQueries = {
 /** Names and photos show in the menu, members, comments and cards. */
 export const refreshPeople = (queryClient: QueryClient) =>
   queryClient.invalidateQueries({
-    predicate: (query) => ["me", "members", "workspaces", "reports", "comments"].includes(String(query.queryKey[0])),
+    predicate: (query) =>
+      [qk.me[0], qk.members("")[0], qk.workspaces[0], qk.reports.all[0], qk.comments("")[0]].includes(String(query.queryKey[0])),
   })
 
 export function useUpdateName() {

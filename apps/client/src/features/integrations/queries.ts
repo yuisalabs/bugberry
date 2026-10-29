@@ -4,6 +4,9 @@ import { eden } from "../../lib/query/eden"
 import { qk } from "../../lib/query/keys"
 import { unwrap } from "../../lib/query/unwrap"
 
+// These four stay hand-written: Eden types a new connection as a per-provider union the form does not build (hence
+// the casts below), and types `settings`, `target` and `list` looser than these.
+
 /** A workspace connection as an admin saves it; the secret is sealed on the server and never comes back. */
 export interface ConnectionInput {
   provider: IntegrationProvider
@@ -30,10 +33,7 @@ export interface IntegrationInput {
 }
 
 /** Only labels and auto-send change; a different target is a new use. */
-export interface IntegrationPatch {
-  labels?: string[]
-  autoSend?: boolean
-}
+export type IntegrationPatch = NonNullable<Parameters<ReturnType<ReturnType<typeof eden.api.projects>["integrations"]>["patch"]>[0]>
 
 export const connections = (workspaceId: string) => unwrap(eden.api.workspaces({ id: workspaceId }).connections.get())
 export const createConnection = (workspaceId: string, body: ConnectionInput) =>

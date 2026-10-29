@@ -10,6 +10,7 @@ import { errorMessage } from "../../lib/query/unwrap"
 import { accountQueries } from "../account/queries"
 import {
   invite,
+  refreshForNewWorkspace,
   refreshMembers,
   removeMember,
   useApproveJoinRequest,
@@ -42,7 +43,7 @@ export function MembersPage() {
     mutationFn: (userId: string) => removeMember(workspaceId, userId),
     onSuccess: async (_data, userId) => {
       // Leaving moves the person to another workspace (or to none).
-      if (userId === me.data?.id) await queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== "auth-methods" })
+      if (userId === me.data?.id) await refreshForNewWorkspace(queryClient)
       else await refreshMembers(queryClient, workspaceId)
     },
   })

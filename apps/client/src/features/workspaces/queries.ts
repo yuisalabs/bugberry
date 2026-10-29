@@ -5,7 +5,7 @@ import { qk } from "../../lib/query/keys"
 import { unwrap } from "../../lib/query/unwrap"
 import { REPORT_LIST_REFRESH_MS } from "../reports/queries"
 
-export type WorkspaceAccessPatch = { shareLink?: "on" | "off" | "reset"; joinDomain?: string | null; joinMode?: "direct" | "approval" }
+export type WorkspaceAccessPatch = NonNullable<Parameters<ReturnType<typeof eden.api.workspaces>["access"]["patch"]>[0]>
 
 export const switchWorkspace = (workspaceId: string) => unwrap(eden.api.me.workspace.put({ workspaceId }))
 export const workspaces = () => unwrap(eden.api.workspaces.get())
@@ -81,6 +81,9 @@ export const workspaceQueries = {
   invitation: (token: string) => queryOptions({ queryKey: qk.invitation(token), queryFn: () => invitation(token), retry: false }),
   sharedInvite: (code: string) => queryOptions({ queryKey: qk.sharedInvite(code), queryFn: () => sharedPreview(code), retry: false }),
 }
+
+export const refreshForNewWorkspace = (queryClient: QueryClient) =>
+  queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== qk.authMethods[0] })
 
 export const refreshMembers = async (queryClient: QueryClient, workspaceId: string) => {
   await queryClient.invalidateQueries({ queryKey: qk.members(workspaceId) })

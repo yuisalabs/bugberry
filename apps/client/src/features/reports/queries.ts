@@ -1,4 +1,3 @@
-import type { CaptureType, Priority, ReportStatus, Visibility } from "@bugberry/shared"
 import { infiniteQueryOptions, keepPreviousData, queryOptions, useMutation, useQueryClient } from "@tanstack/react-query"
 import { eden } from "../../lib/query/eden"
 import { qk } from "../../lib/query/keys"
@@ -17,29 +16,17 @@ export const REPORT_LIST_REFRESH_MS = 5 * 60_000
  */
 export const REPORT_LIST_STALE_MS = 60_000
 
-export interface ReportsQuery {
-  /** A project id, "none" for reports without a project, or absent for all reports. */
-  projectId?: string
-  status?: ReportStatus[]
-  priority?: Priority[]
-  assigneeId?: string
-  reporterId?: string
-  captureType?: CaptureType
-  q?: string
-  sort: "newest" | "oldest" | "priority"
-  page: number
-  perPage: number
-}
+type ReportsRouteQuery = NonNullable<NonNullable<Parameters<typeof eden.api.reports.get>[0]>["query"]>
 
-export interface ReportPatch {
-  title?: string
-  status?: ReportStatus
-  priority?: Priority
-  visibility?: Visibility
-  assigneeId?: string | null
-  /** Null takes the report out of its project. */
-  projectId?: string | null
-}
+/**
+ * The list's filters; `projectId` is a project id, "none" for reports without a project, or absent for all reports.
+ * The dashboard always sends a sort and a page.
+ */
+export type ReportsQuery = Omit<ReportsRouteQuery, "workspaceId" | "sort" | "page" | "perPage"> &
+  Required<Pick<ReportsRouteQuery, "sort" | "page" | "perPage">>
+
+/** A null `projectId` takes the report out of its project. */
+export type ReportPatch = NonNullable<Parameters<ReturnType<typeof eden.api.reports>["patch"]>[0]>
 
 export const reports = (workspaceId: string, query: ReportsQuery) => unwrap(eden.api.reports.get({ query: { workspaceId, ...query } }))
 export const reportCounts = (workspaceId: string, query: Omit<ReportsQuery, "page" | "perPage">) =>

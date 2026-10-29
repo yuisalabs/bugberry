@@ -3,11 +3,7 @@ import { eden } from "../../lib/query/eden"
 import { qk } from "../../lib/query/keys"
 import { unwrap } from "../../lib/query/unwrap"
 
-export interface ProjectInput {
-  name: string
-  slug: string
-  urlPatterns: string[]
-}
+export type ProjectInput = Omit<Parameters<typeof eden.api.projects.post>[0], "workspaceId">
 
 export const projects = (workspaceId: string) => unwrap(eden.api.projects.get({ query: { workspaceId } }))
 export const createProject = (workspaceId: string, body: ProjectInput) => unwrap(eden.api.projects.post({ workspaceId, ...body }))

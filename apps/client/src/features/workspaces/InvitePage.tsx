@@ -8,7 +8,7 @@ import { signOut } from "../auth/auth"
 import { inviteView } from "./invite"
 import { ApiError, errorMessage } from "../../lib/query/unwrap"
 import { accountQueries } from "../account/queries"
-import { acceptInvitation, type InvitationInfo, workspaceQueries } from "./queries"
+import { acceptInvitation, type InvitationInfo, refreshForNewWorkspace, workspaceQueries } from "./queries"
 
 const routeApi = getRouteApi("/invite/$token")
 const primaryLink = `${buttonStyles({ intent: "primary", size: "sm" })}`
@@ -81,7 +81,7 @@ export function InvitePage() {
   const join = useMutation({
     mutationFn: () => acceptInvitation(token),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== "auth-methods" })
+      await refreshForNewWorkspace(queryClient)
       await navigate({ to: "/app" })
     },
   })

@@ -18,6 +18,7 @@ import {
   type JoinPreview,
   joinPreview,
   type MyInvitation,
+  refreshForNewWorkspace,
   useCancelJoinRequest,
   workspaceQueries,
 } from "./queries"
@@ -193,7 +194,7 @@ export function JoinWorkspacePanel({ onJoined }: { onJoined(): void }) {
   }, [value])
 
   const joined = async () => {
-    await queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== "auth-methods" })
+    await refreshForNewWorkspace(queryClient)
     onJoined()
     await navigate({ to: "/app" })
   }

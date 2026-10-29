@@ -3,26 +3,13 @@ import { eden } from "../../lib/query/eden"
 import { qk } from "../../lib/query/keys"
 import { unwrap } from "../../lib/query/unwrap"
 
-export interface AiProviderInput {
-  preset: "openai" | "custom"
-  baseUrl?: string
-  model: string
-  /** Left out to keep the saved key. */
-  apiKey?: string
-}
+type AiRoutes = ReturnType<typeof eden.api.workspaces>["ai"]
 
-export interface AiTemplateInput {
-  name: string
-  /** The description's sections, as Markdown headings. */
-  skeleton: string
-  instructions: string
-}
-
-export interface AiSettingsPatch {
-  sendResponseBodies?: boolean
-  defaultTemplateId?: string | null
-  projectDefaults?: Array<{ projectId: string; templateId: string | null }>
-}
+/** An `apiKey` left out keeps the saved key. */
+export type AiProviderInput = Parameters<AiRoutes["provider"]["put"]>[0]
+/** `skeleton` is the description's sections, as Markdown headings. */
+export type AiTemplateInput = Parameters<AiRoutes["templates"]["post"]>[0]
+export type AiSettingsPatch = NonNullable<Parameters<AiRoutes["settings"]["patch"]>[0]>
 
 export const mcpTokens = () => unwrap(eden.api.me.tokens.get())
 export const createMcpToken = (label: string) => unwrap(eden.api.me.tokens.post({ label }))

@@ -12,7 +12,7 @@ import { RESULT_LABELS } from "./InviteDialog"
 import { LogoPicker } from "./LogoPicker"
 import { errorMessage } from "../../lib/query/unwrap"
 import { accountQueries } from "../account/queries"
-import { confirmLogo, createWorkspace, invite, type InviteResult, logoUploadTarget } from "./queries"
+import { confirmLogo, createWorkspace, invite, type InviteResult, logoUploadTarget, refreshForNewWorkspace } from "./queries"
 import { qk } from "../../lib/query/keys"
 
 export interface NewWorkspace {
@@ -205,7 +205,7 @@ export function CreateWorkspaceDialog({ isOpen, onOpenChange }: { isOpen: boolea
   const submit = async (input: NewWorkspace) => {
     const created = await createWorkspace(input.name, input.slugEdited ? input.slug : undefined)
     // The new workspace is now the current one: everything on screen changes.
-    await queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== "auth-methods" })
+    await refreshForNewWorkspace(queryClient)
     const problems: string[] = []
     if (input.logo) {
       try {

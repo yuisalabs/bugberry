@@ -7,7 +7,7 @@ import { WorkspaceTile } from "./WorkspaceMenu"
 import { buttonStyles, Button } from "@bugberry/ui/button"
 import { errorMessage } from "../../lib/query/unwrap"
 import { accountQueries } from "../account/queries"
-import { join as joinWorkspace, type JoinPreview, workspaceQueries } from "./queries"
+import { join as joinWorkspace, type JoinPreview, refreshForNewWorkspace, workspaceQueries } from "./queries"
 
 const routeApi = getRouteApi("/join/$code")
 const primaryLink = `${buttonStyles({ intent: "primary", size: "sm" })}`
@@ -81,7 +81,7 @@ export function JoinPage() {
   const join = useMutation({
     mutationFn: () => joinWorkspace(`/join/${code}`),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== "auth-methods" })
+      await refreshForNewWorkspace(queryClient)
       await navigate({ to: "/app" })
     },
   })
