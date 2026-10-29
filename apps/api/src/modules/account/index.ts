@@ -2,44 +2,58 @@ import { ONBOARDING_EVENTS } from "@bugberry/shared"
 import { Elysia, t } from "elysia"
 import type { AppDeps } from "../../deps"
 import { authPlugin } from "../../plugins/auth"
-import { notFound, payloadTooLarge, tooManyRequests, unprocessable } from "../../lib/errors"
-import { newId } from "../../lib/ids"
-import { checkUploadedImage, IMAGE_EXTENSIONS, IMAGE_ID, IMAGE_TYPES, imageIdType } from "../../lib/image-upload"
-import { createRateLimiter } from "../../lib/rate-limit"
+import { notFound, unprocessable } from "../../lib/errors"
+import { imageUploads } from "../../lib/image-upload"
 import { avatarKeyFor as avatarKey } from "../../storage/keys"
 import { onboardingProgress, recordOnboarding } from "../onboarding/progress"
 import { requireMember } from "../workspaces/access"
 import { canCreateWorkspace, isAccountLimited } from "../workspaces/limits"
-import { deletePendingAvatar, findCurrentUser, findPendingAvatar, linkedProviders, setPendingAvatar, updateUser } from "./repository"
+import {
+  deletePendingAvatar,
+  findCurrentUser,
+  findPendingAvatar,
+  linkedProviders,
+  setPendingAvatar,
+  updateUser,
+} from "./repository"
 
 export const MAX_AVATAR_BYTES = 2 * 1024 * 1024
 const PROVIDERS = ["google", "github", "gitlab"] as const
-/** Each upload target lets someone put up to 2 MB in storage, so they are capped per person. */
 const UPLOADS_PER_PERSON_PER_HOUR = 20
 
 /** The signed-in person: who they are, their limits and checklist, their profile, photo and sign-in methods. */
 export function accountModule(deps: AppDeps) {
   const { db, storage, config } = deps
-  const uploads = createRateLimiter({ limit: UPLOADS_PER_PERSON_PER_HOUR, windowMs: 60 * 60 * 1000 })
-  const avatarUrl = (userId: string, avatarId: string) => `${config.appUrl}/api/avatars/${userId}/${avatarId}`
 
   const profile = async (userId: string) => {
     const row = await findCurrentUser(db, userId)
     if (!row) throw notFound("user_not_found", "User not found")
     return row
   }
-  /** The storage key of the photo this person uploaded, or null for none or a photo from their sign-in provider. */
-  const uploadedKey = (userId: string, image: string | null) => {
-    const prefix = avatarUrl(userId, "")
-    if (!image?.startsWith(prefix)) return null
-    const avatarId = image.slice(prefix.length)
-    return IMAGE_ID.test(avatarId) ? avatarKey(userId, avatarId) : null
-  }
+  // A photo from the person's sign-in provider is a link from elsewhere: replacing it deletes nothing.
+  const photos = imageUploads({
+    storage,
+    keyFor: avatarKey,
+    urlFor: (userId, avatarId) => `${config.appUrl}/api/avatars/${userId}/${avatarId}`,
+    currentUrl: async (userId) => (await profile(userId)).image,
+    pending: {
+      find: async (userId) => (await findPendingAvatar(db, userId))?.avatarId ?? null,
+      set: (userId, avatarId) => setPendingAvatar(db, userId, avatarId),
+      remove: (userId) => deletePendingAvatar(db, userId),
+    },
+    uploadsPerHour: UPLOADS_PER_PERSON_PER_HOUR,
+    maxBytes: MAX_AVATAR_BYTES,
+    copy: {
+      tooLarge: "Photos can be up to 2 MB",
+      invalid: "Use a PNG or JPG photo",
+      notFoundCode: "avatar_not_found",
+      notFound: "Photo not found",
+    },
+  })
   const setImage = async (userId: string, image: string | null) => {
     const before = await profile(userId)
     await updateUser(db, userId, { image })
-    const old = uploadedKey(userId, before.image)
-    if (old && old !== uploadedKey(userId, image)) await storage.delete(old).catch(() => {})
+    await photos.dropReplaced(userId, before.image, image)
     return profile(userId)
   }
 
@@ -97,21 +111,8 @@ export function accountModule(deps: AppDeps) {
     .post(
       "/me/avatar",
       async ({ user: current, body }) => {
-        if (body.size > MAX_AVATAR_BYTES) throw payloadTooLarge("Photos can be up to 2 MB")
-        if (!uploads.consume(current.id)) throw tooManyRequests()
-        const avatarId = `${newId()}.${IMAGE_EXTENSIONS[body.contentType]}`
-        // The previous upload was never confirmed: it goes, unless it somehow became the photo in use.
-        const previous = await findPendingAvatar(db, current.id)
-        if (previous) {
-          const inUse = (await profile(current.id)).image === avatarUrl(current.id, previous.avatarId)
-          if (!inUse) await storage.delete(avatarKey(current.id, previous.avatarId)).catch(() => {})
-        }
-        await setPendingAvatar(db, current.id, avatarId)
-        const upload = await storage.createUploadTarget(avatarKey(current.id, avatarId), {
-          contentType: body.contentType,
-          maxBytes: body.size,
-        })
-        return { upload, avatarId }
+        const { upload, imageId } = await photos.start(current.id, body)
+        return { upload, avatarId: imageId }
       },
       {
         auth: true,
@@ -124,14 +125,7 @@ export function accountModule(deps: AppDeps) {
     .post(
       "/me/avatar/:avatarId",
       async ({ user: current, params }) => {
-        const expected = imageIdType(params.avatarId)
-        if (!expected) throw notFound("avatar_not_found", "Photo not found")
-        const verdict = await checkUploadedImage(storage, avatarKey(current.id, params.avatarId), expected, MAX_AVATAR_BYTES)
-        if (verdict === "missing") throw notFound("avatar_not_found", "Photo not found")
-        if (verdict === "too_large") throw payloadTooLarge("Photos can be up to 2 MB")
-        if (verdict === "invalid") throw unprocessable("invalid_image", "Use a PNG or JPG photo")
-        await deletePendingAvatar(db, current.id)
-        return setImage(current.id, avatarUrl(current.id, params.avatarId))
+        return setImage(current.id, await photos.confirm(current.id, params.avatarId))
       },
       { auth: true },
     )
@@ -147,12 +141,5 @@ export function accountModule(deps: AppDeps) {
       { auth: true },
     )
     // Public: avatars show on share pages to people who are not signed in.
-    .get("/avatars/:userId/:avatarId", async ({ params }) => {
-      const match = IMAGE_ID.exec(params.avatarId)
-      if (!match || !/^[A-Za-z0-9-]{1,64}$/.test(params.userId)) throw notFound("avatar_not_found", "Photo not found")
-      const key = avatarKey(params.userId, params.avatarId)
-      if (!(await storage.head(key))) throw notFound("avatar_not_found", "Photo not found")
-      const location = await storage.getReadUrl(key, { contentType: IMAGE_TYPES[match[1] as keyof typeof IMAGE_TYPES] })
-      return new Response(null, { status: 302, headers: { location, "cache-control": "private, max-age=300" } })
-    })
+    .get("/avatars/:userId/:avatarId", ({ params }) => photos.serve(params.userId, params.avatarId))
 }

@@ -2,25 +2,63 @@ import { Elysia, t } from "elysia"
 import type { AppDeps } from "../../deps"
 import { authPlugin } from "../../plugins/auth"
 import { badRequest, conflict, notFound } from "../../lib/errors"
-import { imageIdType } from "../../lib/image-upload"
+import { imageIdType, imageUploads } from "../../lib/image-upload"
 import { projectLogoKeyFor } from "../../storage/keys"
 import { requireMember, requireProjectRole, resolveWorkspace } from "../workspaces/access"
 import { projectFields } from "./model"
 import {
+  deletePendingProjectLogo,
   deleteProject,
+  findPendingProjectLogo,
+  findProject,
   insertProject,
   listProjectPatterns,
   listProjects,
   projectHasReports,
   reportPagesByProject,
   reportStatsByProject,
+  setPendingProjectLogo,
   updateProject,
 } from "./repository"
 import { assertSlugFree, projectView } from "./service"
 import { unmatchedPages } from "./unmatched"
 
+const LOGO_UPLOADS_PER_PROJECT_PER_HOUR = 20
+
 export function projectsModule(deps: AppDeps) {
-  const { db, storage } = deps
+  const { db, storage, config } = deps
+
+  const current = async (projectId: string) => {
+    const row = await findProject(db, projectId)
+    if (!row) throw notFound("project_not_found", "Project not found")
+    return row
+  }
+  // A project's logo, as a workspace's: admins upload, replace or remove it; anyone may load it (it is just an image).
+  const logos = imageUploads({
+    storage,
+    keyFor: projectLogoKeyFor,
+    urlFor: (projectId, logoId) => `${config.appUrl}/api/project-logos/${projectId}/${logoId}`,
+    currentUrl: async (projectId) => (await current(projectId)).logoUrl,
+    pending: {
+      find: async (projectId) => (await findPendingProjectLogo(db, projectId))?.logoId ?? null,
+      set: (projectId, logoId) => setPendingProjectLogo(db, projectId, logoId),
+      remove: (projectId) => deletePendingProjectLogo(db, projectId),
+    },
+    uploadsPerHour: LOGO_UPLOADS_PER_PROJECT_PER_HOUR,
+    copy: {
+      tooLarge: "Logos can be up to 2 MB",
+      invalid: "Use a PNG or JPG logo",
+      notFoundCode: "logo_not_found",
+      notFound: "Logo not found",
+    },
+  })
+  const setLogo = async (projectId: string, url: string | null) => {
+    const before = await current(projectId)
+    const updated = await updateProject(db, projectId, { logoUrl: url })
+    await logos.dropReplaced(projectId, before.logoUrl, url)
+    if (!updated) throw notFound("project_not_found", "Project not found")
+    return updated
+  }
 
   return new Elysia()
     .use(authPlugin(deps))
@@ -96,4 +134,34 @@ export function projectsModule(deps: AppDeps) {
       },
       { auth: true },
     )
+    .post(
+      "/projects/:id/logo",
+      async ({ user, params, body }) => {
+        await requireProjectRole(db, user.id, params.id, "admin")
+        const { upload, imageId } = await logos.start(params.id, body)
+        return { upload, logoId: imageId }
+      },
+      {
+        auth: true,
+        body: t.Object({ contentType: t.UnionEnum(["image/png", "image/jpeg"]), size: t.Integer({ minimum: 1 }) }),
+      },
+    )
+    .post(
+      "/projects/:id/logo/:logoId",
+      async ({ user, params }) => {
+        await requireProjectRole(db, user.id, params.id, "admin")
+        return setLogo(params.id, await logos.confirm(params.id, params.logoId))
+      },
+      { auth: true },
+    )
+    .delete(
+      "/projects/:id/logo",
+      async ({ user, params }) => {
+        await requireProjectRole(db, user.id, params.id, "admin")
+        return setLogo(params.id, null)
+      },
+      { auth: true },
+    )
+    // Public, like avatars and workspace logos.
+    .get("/project-logos/:projectId/:logoId", ({ params }) => logos.serve(params.projectId, params.logoId))
 }
