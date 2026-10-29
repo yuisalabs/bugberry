@@ -1,7 +1,7 @@
 import { and, asc, count, desc, eq, exists, gt, gte, ilike, inArray, isNull, lt, or, type SQL, sql } from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"
 import { type Db, executor } from "../../db/client"
-import { agentUpload, comment, report, user, workspace } from "../../db/schema"
+import { agentUpload, comment, project, report, user, workspace } from "../../db/schema"
 import { newId } from "../../lib/ids"
 import { escapeLike } from "../../lib/sql"
 import { type listReportsQuery, NO_ASSIGNEE, NO_PROJECT } from "./model"
@@ -275,4 +275,31 @@ export async function markAgentUploadFinalized(db: Db, ticketId: string): Promis
 
 export async function deleteExpiredAgentUploads(db: Db, before: Date): Promise<void> {
   await executor(db).delete(agentUpload).where(lt(agentUpload.expiresAt, before))
+}
+
+/** A finished report by its id, its share slug, or its number in a workspace. */
+export async function findReadyReportByRef(
+  db: Db,
+  ref: { id: string } | { shareSlug: string } | { workspaceId: string; number: number },
+): Promise<ReportRow | null> {
+  const ready = eq(report.uploadStatus, "ready")
+  const where =
+    "id" in ref
+      ? and(eq(report.id, ref.id), ready)
+      : "shareSlug" in ref
+        ? and(eq(report.shareSlug, ref.shareSlug), ready)
+        : and(eq(report.workspaceId, ref.workspaceId), eq(report.number, ref.number), ready)
+  const [row] = await executor(db).select().from(report).where(where).limit(1)
+  return row ?? null
+}
+
+/** The workspace's slug, and the name and slug of the project when it is one of the workspace's, in one read. */
+export async function findReportPlace(db: Db, workspaceId: string, projectId: string | null) {
+  const [place] = await executor(db)
+    .select({ projectName: project.name, projectSlug: project.slug, workspaceSlug: workspace.slug })
+    .from(workspace)
+    .leftJoin(project, and(eq(project.id, projectId ?? ""), eq(project.workspaceId, workspace.id)))
+    .where(eq(workspace.id, workspaceId))
+    .limit(1)
+  return place ?? null
 }

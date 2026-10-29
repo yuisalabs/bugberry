@@ -1,12 +1,12 @@
 import { CAPTURE_TYPES, MAX_PER_PAGE, PRIORITIES, REPORT_STATUSES } from "@bugberry/shared"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
-import { and, asc, eq, or } from "drizzle-orm"
 import { z } from "zod"
-import { project, user, workspace, workspaceMember } from "../../db/schema"
 import { listNotifications } from "../../modules/notifications/service"
 import { NO_ASSIGNEE, NO_PROJECT } from "../../modules/reports/model"
 import { listReports, type ReportListItem } from "../../modules/reports/service"
+import { findProjectByRef, listProjectSummaries } from "../../modules/projects/repository"
 import { resolveWorkspace } from "../../modules/workspaces/access"
+import { listMemberContacts, listMemberNames, listWorkspaceRoles } from "../../modules/workspaces/repository"
 import { type McpContext, McpToolError, runTool } from "../context"
 import { reportUrl, textResult } from "../format"
 import { resolveReportRef, workspaceFor } from "../refs"
@@ -26,13 +26,9 @@ function decodePage(cursor: string): number {
 /** A project named by id or slug inside the workspace, or "none". */
 async function projectFilter(ctx: McpContext, workspaceId: string, value: string | undefined): Promise<string | undefined> {
   if (!value || value === NO_PROJECT) return value
-  const [row] = await ctx.deps.db
-    .select({ id: project.id })
-    .from(project)
-    .where(and(eq(project.workspaceId, workspaceId), or(eq(project.id, value), eq(project.slug, value.toLowerCase()))))
-    .limit(1)
-  if (!row) throw new McpToolError("project_not_found", "Project not found in this workspace")
-  return row.id
+  const projectId = await findProjectByRef(ctx.deps.db, workspaceId, value)
+  if (!projectId) throw new McpToolError("project_not_found", "Project not found in this workspace")
+  return projectId
 }
 
 const person = (ctx: McpContext, value: string | undefined) => (value === "me" ? ctx.caller.user.id : value)
@@ -52,11 +48,7 @@ function reportLine(appUrl: string, item: ReportListItem, assignees: Map<string,
 }
 
 async function memberNames(ctx: McpContext, workspaceId: string): Promise<Map<string, string>> {
-  const rows = await ctx.deps.db
-    .select({ id: user.id, name: user.name })
-    .from(workspaceMember)
-    .innerJoin(user, eq(user.id, workspaceMember.userId))
-    .where(eq(workspaceMember.workspaceId, workspaceId))
+  const rows = await listMemberNames(ctx.deps.db, workspaceId)
   return new Map(rows.map((row) => [row.id, row.name]))
 }
 
@@ -148,12 +140,7 @@ export function registerBrowseTools(server: McpServer, ctx: McpContext): void {
     () =>
       runTool(async () => {
         const current = await resolveWorkspace(ctx.deps.db, ctx.caller.user).catch(() => null)
-        const rows = await ctx.deps.db
-          .select({ id: workspace.id, slug: workspace.slug, name: workspace.name, role: workspaceMember.role })
-          .from(workspaceMember)
-          .innerJoin(workspace, eq(workspace.id, workspaceMember.workspaceId))
-          .where(eq(workspaceMember.userId, ctx.caller.user.id))
-          .orderBy(asc(workspace.name), asc(workspace.id))
+        const rows = await listWorkspaceRoles(ctx.deps.db, ctx.caller.user.id)
         if (rows.length === 0) return textResult("You are not in any workspace yet.")
         return textResult(
           rows.map((row) => `${row.id} · ${row.slug ?? ""} · ${row.name} · ${row.role}${row.id === current ? " (current)" : ""}`).join("\n"),
@@ -173,11 +160,7 @@ export function registerBrowseTools(server: McpServer, ctx: McpContext): void {
     (args) =>
       runTool(async () => {
         const workspaceId = await workspaceFor(ctx, args.workspace)
-        const rows = await ctx.deps.db
-          .select({ id: project.id, slug: project.slug, name: project.name, urlPatterns: project.urlPatterns })
-          .from(project)
-          .where(eq(project.workspaceId, workspaceId))
-          .orderBy(asc(project.name))
+        const rows = await listProjectSummaries(ctx.deps.db, workspaceId)
         if (rows.length === 0) return textResult("This workspace has no projects.")
         return textResult(rows.map((row) => `${row.id} · ${row.slug} · ${row.name} · ${row.urlPatterns.join(", ") || "no URL patterns"}`).join("\n"), {
           projects: rows,
@@ -196,12 +179,7 @@ export function registerBrowseTools(server: McpServer, ctx: McpContext): void {
     (args) =>
       runTool(async () => {
         const workspaceId = await workspaceFor(ctx, args.workspace)
-        const rows = await ctx.deps.db
-          .select({ id: user.id, name: user.name, email: user.email, role: workspaceMember.role })
-          .from(workspaceMember)
-          .innerJoin(user, eq(user.id, workspaceMember.userId))
-          .where(eq(workspaceMember.workspaceId, workspaceId))
-          .orderBy(asc(user.name), asc(user.email))
+        const rows = await listMemberContacts(ctx.deps.db, workspaceId)
         return textResult(
           [...rows.map((row) => `${row.id} · ${row.name} <${row.email}> · ${row.role}`), "", "Mention someone in a comment with @[user:<id>]."].join("\n"),
           { members: rows },

@@ -197,3 +197,8 @@ export function workspaceMembersAmong(db: Db, workspaceId: string, userIds: stri
     .from(workspaceMember)
     .where(and(eq(workspaceMember.workspaceId, workspaceId), inArray(workspaceMember.userId, userIds)))
 }
+
+export async function countReportComments(db: Db, reportId: string): Promise<number> {
+  const [row] = await executor(db).select({ value: count() }).from(comment).where(eq(comment.reportId, reportId))
+  return row?.value ?? 0
+}

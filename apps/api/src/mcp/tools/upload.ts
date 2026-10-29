@@ -1,8 +1,7 @@
 import { MAX_THUMBNAIL_BYTES, matchProject, PRIORITIES } from "@bugberry/shared"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
-import { and, eq, or } from "drizzle-orm"
 import { z } from "zod"
-import { project } from "../../db/schema"
+import { findProjectByRef, listProjectPatterns } from "../../modules/projects/repository"
 import { createRateLimiter } from "../../lib/rate-limit"
 import { agentUploadLink, issueAgentUpload } from "../../modules/reports/agent-uploads"
 import { createReportUpload } from "../../modules/reports/upload-flow"
@@ -68,15 +67,10 @@ export function registerUploadTools(server: McpServer, ctx: McpContext): void {
         const workspaceId = await workspaceFor(ctx, args.workspace)
         let projectId: string | null
         if (args.project) {
-          const [row] = await db
-            .select({ id: project.id })
-            .from(project)
-            .where(and(eq(project.workspaceId, workspaceId), or(eq(project.id, args.project), eq(project.slug, args.project.toLowerCase()))))
-            .limit(1)
-          if (!row) throw new McpToolError("project_not_found", "Project not found in this workspace")
-          projectId = row.id
+          projectId = await findProjectByRef(db, workspaceId, args.project)
+          if (!projectId) throw new McpToolError("project_not_found", "Project not found in this workspace")
         } else {
-          const projects = await db.select({ id: project.id, urlPatterns: project.urlPatterns }).from(project).where(eq(project.workspaceId, workspaceId))
+          const projects = await listProjectPatterns(db, workspaceId)
           projectId = matchProject(projects, args.recording.pageUrl)?.id ?? null
         }
 

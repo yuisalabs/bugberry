@@ -6,11 +6,10 @@
  * in the dashboard stops its tokens at once instead of when they expire.
  */
 import { cleanAppName } from "@bugberry/shared"
-import { and, eq } from "drizzle-orm"
 import { createLocalJWKSet, decodeProtectedHeader, type JSONWebKeySet, jwtVerify } from "jose"
 import type { AppDeps } from "../deps"
 import { mcpResource } from "../modules/auth/mcp-oauth"
-import { oauthClient, oauthConsent } from "../db/schema"
+import { findConsent } from "../modules/oauth-apps/repository"
 import type { McpScope } from "./context"
 
 export interface VerifiedOAuthToken {
@@ -79,12 +78,7 @@ export async function verifyOAuthAccessToken(
     const clientId = typeof payload.client_id === "string" ? payload.client_id : typeof payload.azp === "string" ? payload.azp : null
     if (!userId || !clientId) return null
 
-    const [consent] = await deps.db
-      .select({ id: oauthConsent.id, scopes: oauthConsent.scopes, clientName: oauthClient.name, disabled: oauthClient.disabled })
-      .from(oauthConsent)
-      .innerJoin(oauthClient, eq(oauthClient.clientId, oauthConsent.clientId))
-      .where(and(eq(oauthConsent.clientId, clientId), eq(oauthConsent.userId, userId)))
-      .limit(1)
+    const consent = await findConsent(deps.db, clientId, userId)
     if (!consent || consent.disabled) return null
 
     // What the token says, but never more than the person allows now: narrowing a consent applies at once.

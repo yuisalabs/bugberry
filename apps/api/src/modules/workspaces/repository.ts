@@ -271,3 +271,42 @@ export async function deletePendingLogo(db: Db, workspaceId: string): Promise<vo
 export async function addMemberIfAbsent(db: Db, workspaceId: string, userId: string, role: WorkspaceRole): Promise<void> {
   await executor(db).insert(workspaceMember).values({ workspaceId, userId, role }).onConflictDoNothing()
 }
+
+/** A workspace by its id or its slug. */
+export async function findWorkspaceByRef(db: Db, ref: string): Promise<string | null> {
+  const [row] = await executor(db)
+    .select({ id: workspace.id })
+    .from(workspace)
+    .where(or(eq(workspace.id, ref), eq(workspace.slug, ref.toLowerCase())))
+    .limit(1)
+  return row?.id ?? null
+}
+
+/** The person's workspaces with their role, by name, as the MCP lists them. */
+export function listWorkspaceRoles(db: Db, userId: string) {
+  return executor(db)
+    .select({ id: workspace.id, slug: workspace.slug, name: workspace.name, role: workspaceMember.role })
+    .from(workspaceMember)
+    .innerJoin(workspace, eq(workspace.id, workspaceMember.workspaceId))
+    .where(eq(workspaceMember.userId, userId))
+    .orderBy(asc(workspace.name), asc(workspace.id))
+}
+
+/** Members with their address and role, by name. */
+export function listMemberContacts(db: Db, workspaceId: string) {
+  return executor(db)
+    .select({ id: user.id, name: user.name, email: user.email, role: workspaceMember.role })
+    .from(workspaceMember)
+    .innerJoin(user, eq(user.id, workspaceMember.userId))
+    .where(eq(workspaceMember.workspaceId, workspaceId))
+    .orderBy(asc(user.name), asc(user.email))
+}
+
+/** Every member's name. */
+export function listMemberNames(db: Db, workspaceId: string) {
+  return executor(db)
+    .select({ id: user.id, name: user.name })
+    .from(workspaceMember)
+    .innerJoin(user, eq(user.id, workspaceMember.userId))
+    .where(eq(workspaceMember.workspaceId, workspaceId))
+}

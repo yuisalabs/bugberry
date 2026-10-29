@@ -1,5 +1,5 @@
-import { and, eq, or } from "drizzle-orm"
-import { report, workspace } from "../db/schema"
+import { findReadyReportByRef, type ReportRow } from "../modules/reports/repository"
+import { findWorkspaceByRef } from "../modules/workspaces/repository"
 import { notFound } from "../lib/errors"
 import { memberRole, requireMember, resolveWorkspace } from "../modules/workspaces/access"
 import { reportAccess } from "../modules/reports/access"
@@ -12,7 +12,7 @@ export interface ResolvedReport {
   workspaceId: string
   /** "member" works on the report; "viewer" reads it through its share link, like the share page. */
   access: "member" | "viewer"
-  row: typeof report.$inferSelect
+  row: ReportRow
 }
 
 const ID = /^[A-Za-z0-9_-]{8,64}$/
@@ -55,14 +55,10 @@ export async function workspaceFor(ctx: McpContext, requested?: string): Promise
   const { db } = ctx.deps
   const user = ctx.caller.user
   if (!requested) return resolveWorkspace(db, user)
-  const [row] = await db
-    .select({ id: workspace.id })
-    .from(workspace)
-    .where(or(eq(workspace.id, requested), eq(workspace.slug, requested.toLowerCase())))
-    .limit(1)
-  if (!row) throw notFound("workspace_not_found", "Workspace not found")
-  await requireMember(db, user.id, row.id)
-  return row.id
+  const workspaceId = await findWorkspaceByRef(db, requested)
+  if (!workspaceId) throw notFound("workspace_not_found", "Workspace not found")
+  await requireMember(db, user.id, workspaceId)
+  return workspaceId
 }
 
 /** A finished report the caller may at least read, found from any form of reference. */
@@ -71,14 +67,14 @@ export async function resolveReportRef(ctx: McpContext, ref: string, workspaceRe
   const parsed = parseReportRef(ref, config.appUrl)
   if (!parsed) throw reportNotFound()
 
-  const ready = eq(report.uploadStatus, "ready")
-  const where =
+  const row = await findReadyReportByRef(
+    db,
     parsed.kind === "id"
-      ? and(eq(report.id, parsed.id), ready)
+      ? { id: parsed.id }
       : parsed.kind === "slug"
-        ? and(eq(report.shareSlug, parsed.slug), ready)
-        : and(eq(report.workspaceId, await workspaceFor(ctx, workspaceRef)), eq(report.number, parsed.number), ready)
-  const [row] = await db.select().from(report).where(where).limit(1)
+        ? { shareSlug: parsed.slug }
+        : { workspaceId: await workspaceFor(ctx, workspaceRef), number: parsed.number },
+  )
   if (!row) throw reportNotFound()
 
   const user = ctx.caller.user

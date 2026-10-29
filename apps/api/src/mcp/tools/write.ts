@@ -1,8 +1,7 @@
 import { PRIORITIES, REPORT_STATUSES } from "@bugberry/shared"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
-import { and, eq, or } from "drizzle-orm"
 import { z } from "zod"
-import { project } from "../../db/schema"
+import { findProjectByRef } from "../../modules/projects/repository"
 import { createCommentsService } from "../../modules/comments/service"
 import { markAllNotificationsRead, markNotificationRead } from "../../modules/notifications/service"
 import { updateReport, type UpdateReportInput } from "../../modules/reports/service"
@@ -110,13 +109,9 @@ export function registerWriteTools(server: McpServer, ctx: McpContext): void {
         if (args.project !== undefined) {
           if (args.project === "none") input.projectId = null
           else {
-            const [row] = await ctx.deps.db
-              .select({ id: project.id })
-              .from(project)
-              .where(and(eq(project.workspaceId, resolved.workspaceId), or(eq(project.id, args.project), eq(project.slug, args.project.toLowerCase()))))
-              .limit(1)
-            if (!row) throw new McpToolError("project_not_found", "Project not found in this workspace")
-            input.projectId = row.id
+            const projectId = await findProjectByRef(ctx.deps.db, resolved.workspaceId, args.project)
+            if (!projectId) throw new McpToolError("project_not_found", "Project not found in this workspace")
+            input.projectId = projectId
           }
         }
         const detail = await updateReport(ctx.deps, ctx.caller.user, resolved.id, input, { viaAgent: agentLabel(ctx.caller) })

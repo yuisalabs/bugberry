@@ -1,10 +1,9 @@
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js"
-import { eq } from "drizzle-orm"
 import { Elysia } from "elysia"
 import type { AppDeps } from "../deps"
 import { type CurrentUser, createUserResolver } from "../plugins/auth"
 import { isEmailAllowed } from "../modules/auth/policy"
-import { user as userTable } from "../db/schema"
+import { findCurrentUser } from "../modules/account/repository"
 import { TOKEN_PREFIX } from "../modules/tokens/token"
 import { createRateLimiter, type RateLimiter } from "../lib/rate-limit"
 import { createDispatcher } from "../modules/trackers/dispatch"
@@ -41,20 +40,7 @@ export function mcpModule(deps: AppDeps, options: { limiter?: RateLimiter } = {}
   const challenge = `Bearer resource_metadata="${resourceMetadataUrl(deps.config.appUrl)}"`
   const unauthorized = () => rpcError(401, -32001, "Unauthorized", { "www-authenticate": challenge })
 
-  const loadUser = async (id: string): Promise<CurrentUser | null> => {
-    const [row] = await deps.db
-      .select({
-        id: userTable.id,
-        email: userTable.email,
-        name: userTable.name,
-        image: userTable.image,
-        lastWorkspaceId: userTable.lastWorkspaceId,
-      })
-      .from(userTable)
-      .where(eq(userTable.id, id))
-      .limit(1)
-    return row ?? null
-  }
+  const loadUser = (id: string): Promise<CurrentUser | null> => findCurrentUser(deps.db, id)
 
   /**
    * Bearer only: a personal token (fdb_…, read + write) or an OAuth access token for this MCP resource

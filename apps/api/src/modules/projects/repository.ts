@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, max, sql } from "drizzle-orm"
+import { and, asc, count, desc, eq, max, or, sql } from "drizzle-orm"
 import { type Db, executor } from "../../db/client"
 import { pendingProjectLogo, project, report } from "../../db/schema"
 import { newId } from "../../lib/ids"
@@ -98,4 +98,23 @@ export async function setPendingProjectLogo(db: Db, projectId: string, logoId: s
 
 export async function deletePendingProjectLogo(db: Db, projectId: string): Promise<void> {
   await executor(db).delete(pendingProjectLogo).where(eq(pendingProjectLogo.projectId, projectId))
+}
+
+/** A project of the workspace by its id or its slug. */
+export async function findProjectByRef(db: Db, workspaceId: string, ref: string): Promise<string | null> {
+  const [row] = await executor(db)
+    .select({ id: project.id })
+    .from(project)
+    .where(and(eq(project.workspaceId, workspaceId), or(eq(project.id, ref), eq(project.slug, ref.toLowerCase()))))
+    .limit(1)
+  return row?.id ?? null
+}
+
+/** By name, with what routes reports to each. */
+export function listProjectSummaries(db: Db, workspaceId: string) {
+  return executor(db)
+    .select({ id: project.id, slug: project.slug, name: project.name, urlPatterns: project.urlPatterns })
+    .from(project)
+    .where(eq(project.workspaceId, workspaceId))
+    .orderBy(asc(project.name))
 }

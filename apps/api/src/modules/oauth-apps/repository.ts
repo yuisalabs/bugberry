@@ -43,3 +43,14 @@ export function revokeConsentedApp(db: Db, userId: string, clientId: string): Pr
     return removed.length > 0
   })
 }
+
+/** The person's consent for the app, with the app's name and whether it was disabled. */
+export async function findConsent(db: Db, clientId: string, userId: string) {
+  const [consent] = await executor(db)
+    .select({ id: oauthConsent.id, scopes: oauthConsent.scopes, clientName: oauthClient.name, disabled: oauthClient.disabled })
+    .from(oauthConsent)
+    .innerJoin(oauthClient, eq(oauthClient.clientId, oauthConsent.clientId))
+    .where(and(eq(oauthConsent.clientId, clientId), eq(oauthConsent.userId, userId)))
+    .limit(1)
+  return consent ?? null
+}

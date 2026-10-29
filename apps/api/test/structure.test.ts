@@ -14,17 +14,6 @@ const mayImportDrizzle = (path: string) =>
 const mayOpenTransaction = (path: string) =>
   path === "db/client.ts" || path.startsWith("admin/") || path === "modules/auth/better-auth.ts"
 
-/** Files that still query outside a repository; each repository task removes its own. Empty when the refactor is done. */
-const PENDING = new Set<string>([
-  "mcp/oauth.ts",
-  "mcp/refs.ts",
-  "mcp/route.ts",
-  "mcp/tools/browse.ts",
-  "mcp/tools/report-read.ts",
-  "mcp/tools/upload.ts",
-  "mcp/tools/write.ts",
-])
-
 async function violators(): Promise<string[]> {
   const found: string[] = []
   for (const path of new Bun.Glob("**/*.ts").scanSync(SRC)) {
@@ -43,11 +32,6 @@ async function violators(): Promise<string[]> {
 
 describe("structure", () => {
   test("Drizzle is used only where the structure allows it", async () => {
-    expect((await violators()).filter((path) => !PENDING.has(path))).toEqual([])
-  })
-
-  test("PENDING lists only files that still break the rules", async () => {
-    const found = await violators()
-    expect([...PENDING].filter((path) => !found.includes(path))).toEqual([])
+    expect(await violators()).toEqual([])
   })
 })
