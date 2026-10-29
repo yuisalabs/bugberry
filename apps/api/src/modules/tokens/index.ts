@@ -1,18 +1,15 @@
-import { and, count, desc, eq, isNull } from "drizzle-orm"
 import { Elysia, t } from "elysia"
 import type { AppDeps } from "../../deps"
 import { authPlugin } from "../../plugins/auth"
-import { apiToken } from "../../db/schema"
 import { generateApiToken, hashToken } from "./token"
 import { conflict, forbidden, notFound } from "../../lib/errors"
-import { newId } from "../../lib/ids"
+import { countActiveMcpTokens, insertMcpToken, listActiveMcpTokens, revokeMcpToken } from "./repository"
 
 const MAX_ACTIVE_TOKENS = 25
 
 /** Personal tokens for AI agents without OAuth. They only work on /api/mcp; the secret is shown once. */
 export function tokensModule(deps: AppDeps) {
   const { db } = deps
-  const mine = (userId: string) => and(eq(apiToken.userId, userId), eq(apiToken.kind, "mcp"), isNull(apiToken.revokedAt))
   /** A token must not mint or revoke tokens: only someone signed in to the dashboard may. */
   const requireSession = (tokenKind: "full" | "mcp" | null) => {
     if (tokenKind !== null) throw forbidden("Manage tokens from the BugBerry dashboard")
@@ -24,11 +21,7 @@ export function tokensModule(deps: AppDeps) {
       "/me/tokens",
       async ({ user, tokenKind }) => {
         requireSession(tokenKind)
-        return db
-          .select({ id: apiToken.id, label: apiToken.label, createdAt: apiToken.createdAt, lastUsedAt: apiToken.lastUsedAt })
-          .from(apiToken)
-          .where(mine(user.id))
-          .orderBy(desc(apiToken.createdAt), desc(apiToken.id))
+        return listActiveMcpTokens(db, user.id)
       },
       { auth: true },
     )
@@ -36,13 +29,9 @@ export function tokensModule(deps: AppDeps) {
       "/me/tokens",
       async ({ user, tokenKind, body }) => {
         requireSession(tokenKind)
-        const [active] = await db.select({ value: count() }).from(apiToken).where(mine(user.id))
-        if ((active?.value ?? 0) >= MAX_ACTIVE_TOKENS) throw conflict("too_many_tokens", "Revoke a token before making another")
+        if ((await countActiveMcpTokens(db, user.id)) >= MAX_ACTIVE_TOKENS) throw conflict("too_many_tokens", "Revoke a token before making another")
         const token = generateApiToken()
-        const [row] = await db
-          .insert(apiToken)
-          .values({ id: newId(), userId: user.id, tokenHash: hashToken(token), label: body.label.trim(), kind: "mcp" })
-          .returning({ id: apiToken.id, label: apiToken.label, createdAt: apiToken.createdAt })
+        const row = await insertMcpToken(db, { userId: user.id, tokenHash: hashToken(token), label: body.label.trim() })
         if (!row) throw new Error("failed to insert token")
         return { ...row, token }
       },
@@ -52,12 +41,7 @@ export function tokensModule(deps: AppDeps) {
       "/me/tokens/:id",
       async ({ user, tokenKind, params }) => {
         requireSession(tokenKind)
-        const revoked = await db
-          .update(apiToken)
-          .set({ revokedAt: new Date() })
-          .where(and(eq(apiToken.id, params.id), mine(user.id)))
-          .returning({ id: apiToken.id })
-        if (revoked.length === 0) throw notFound("token_not_found", "Token not found")
+        if (!(await revokeMcpToken(db, user.id, params.id))) throw notFound("token_not_found", "Token not found")
         return { ok: true }
       },
       { auth: true },

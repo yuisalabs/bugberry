@@ -24,7 +24,6 @@ const PENDING = new Set<string>([
   "mcp/tools/report-read.ts",
   "mcp/tools/upload.ts",
   "mcp/tools/write.ts",
-  "modules/account/index.ts",
   "modules/activity/backfill.ts",
   "modules/activity/service.ts",
   "modules/ai/index.ts",
@@ -41,7 +40,6 @@ const PENDING = new Set<string>([
   "modules/join/index.ts",
   "modules/notifications/service.ts",
   "modules/notifiers/deliver.ts",
-  "modules/oauth-apps/index.ts",
   "modules/onboarding/progress.ts",
   "modules/projects/index.ts",
   "modules/projects/logo.ts",
@@ -53,7 +51,6 @@ const PENDING = new Set<string>([
   "modules/reports/upload-flow.ts",
   "modules/reports/uploads.ts",
   "modules/share/index.ts",
-  "modules/tokens/index.ts",
   "modules/trackers/dispatch.ts",
   "modules/trackers/index.ts",
   "modules/workspaces/access.ts",
@@ -62,7 +59,6 @@ const PENDING = new Set<string>([
   "modules/workspaces/logo.ts",
   "modules/workspaces/provision.ts",
   "modules/workspaces/slug.ts",
-  "plugins/auth.ts",
 ])
 
 async function violators(): Promise<string[]> {

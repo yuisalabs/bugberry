@@ -1,10 +1,10 @@
-import { and, eq, isNull } from "drizzle-orm"
 import { Elysia } from "elysia"
 import type { AppDeps } from "../deps"
-import { apiToken, user } from "../db/schema"
 import { hashToken, TOKEN_PREFIX } from "../modules/tokens/token"
 import { forbidden, unauthorized } from "../lib/errors"
+import { findCurrentUser } from "../modules/account/repository"
 import { isEmailAllowed } from "../modules/auth/policy"
+import { findActiveTokenCaller, touchTokenLastUsed } from "../modules/tokens/repository"
 
 export interface CurrentUser {
   id: string
@@ -23,14 +23,6 @@ export const MCP_TOKEN_ONLY = "This token only works with the BugBerry MCP serve
 
 const LAST_USED_RESOLUTION_MS = 60_000
 
-const currentUserColumns = {
-  id: user.id,
-  email: user.email,
-  name: user.name,
-  image: user.image,
-  lastWorkspaceId: user.lastWorkspaceId,
-}
-
 /**
  * Resolves the caller from a personal token (Bearer) or a Better Auth session cookie. Callers decide
  * what an MCP-kind token may do: authPlugin refuses it, the MCP route accepts it.
@@ -41,15 +33,10 @@ export function createUserResolver({ db, betterAuth }: Pick<AppDeps, "db" | "bet
     if (authorization?.startsWith("Bearer ")) {
       const token = authorization.slice("Bearer ".length).trim()
       if (!token.startsWith(TOKEN_PREFIX)) return null
-      const [row] = await db
-        .select({ ...currentUserColumns, tokenId: apiToken.id, lastUsedAt: apiToken.lastUsedAt, kind: apiToken.kind })
-        .from(apiToken)
-        .innerJoin(user, eq(apiToken.userId, user.id))
-        .where(and(eq(apiToken.tokenHash, hashToken(token)), isNull(apiToken.revokedAt)))
-        .limit(1)
+      const row = await findActiveTokenCaller(db, hashToken(token))
       if (!row) return null
       if (!row.lastUsedAt || Date.now() - row.lastUsedAt.getTime() > LAST_USED_RESOLUTION_MS) {
-        await db.update(apiToken).set({ lastUsedAt: new Date() }).where(eq(apiToken.id, row.tokenId))
+        await touchTokenLastUsed(db, row.tokenId, new Date())
       }
       return {
         id: row.id,
@@ -63,7 +50,7 @@ export function createUserResolver({ db, betterAuth }: Pick<AppDeps, "db" | "bet
 
     const session = await betterAuth.api.getSession({ headers })
     if (!session) return null
-    const [row] = await db.select(currentUserColumns).from(user).where(eq(user.id, session.user.id)).limit(1)
+    const row = await findCurrentUser(db, session.user.id)
     return row ? { ...row, tokenKind: null } : null
   }
 }
