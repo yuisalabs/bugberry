@@ -72,8 +72,8 @@ const PROMPT_TICKETS_KEY = "promptTickets"
 /** Session storage key of the camera grant; the page layer reads it to know a page load should ask for the bubble. */
 const CAMERA_GRANT_KEY = "camera"
 /** The build bundled with the agent recorder (`bun run build:recorder`); the store builds never have its automation path. */
-// Compared in place, so Vite writes a literal and the store builds drop the automation path altogether.
-const RECORDER_BUILD = import.meta.env.VITE_RECORDER_BUILD === "true"
+// Defined by wxt.config.ts as a literal, so the store builds drop the automation path altogether.
+const RECORDER_BUILD = __BUGBERRY_RECORDER_BUILD__
 /** Where WXT puts recording-ui.content.ts. */
 const PAGE_LAYER_SCRIPT = "/content-scripts/recording-ui.js"
 

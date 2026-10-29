@@ -10,7 +10,8 @@ export default defineConfig({
   modules: ["@wxt-dev/module-react"],
   // Apart from the store build, so neither overwrites the other.
   outDir: recorderBuild ? ".output-recorder" : ".output",
-  vite: () => ({ plugins: [tailwindcss()] }),
+  // The background reads the flag from here, never from import.meta.env: a .env file could set that one alone.
+  vite: () => ({ plugins: [tailwindcss()], define: { __BUGBERRY_RECORDER_BUILD__: JSON.stringify(recorderBuild) } }),
   // WXT writes a sources zip next to each package; the private key and env files never go in it. The one
   // reviewers get is made by scripts/zip-sources.ts, from the whole workspace the build needs.
   zip: { excludeSources: ["*.pem", "**/*.pem", ".env*", "**/.env*"] },

@@ -12,10 +12,11 @@ release with no extension change still gets its own entry, and the entry says th
   inside. The agent drives it with Playwright MCP, records the bug, writes the title and description, and files the
   report with video, console, network, and its actions. It hands back the link. The report says **Recorded by** and the
   agent's name, and nothing new is needed in the browser: identity comes from your BugBerry MCP connection. A recording
-  follows one tab, and the recorder warns the agent when it opens another. Setup for Claude Code, Cursor, VS Code, and
+  follows one tab, and the recorder warns the agent when it opens another or goes to one already open. Setup for Claude Code, Cursor, VS Code, and
   Windsurf is under **AI Agents → Let agents record bugs**. See [Agent recordings](/guide/agent-recordings).
 - **New MCP tool `createUpload`** creates the report for a recording, and gives the recorder a link to send it through
-  that works for 15 minutes.
+  that works for 15 minutes. An upload that started in time can still finish after that. When the recorder closes,
+  recordings it never sent are deleted from your computer.
 - **Self-hosting:** update the server; a migration adds the agent upload links and a column on reports when it starts.
   Set `--server` to your address in the recorder. The extension stays at 0.9.0.
 
