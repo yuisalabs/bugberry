@@ -27,11 +27,11 @@ test("a screenshot report travels from the extension to the server", async () =>
   // Signed out, the popup asks for a sign-in; with the dashboard's cookie it is ready, with no token anywhere.
   const options = await context.newPage()
   await options.goto(`chrome-extension://${extensionId}/popup.html`)
-  await expect(options.getByText("Sign in to BugBerry")).toBeVisible()
+  await expect(options.getByText("Sign in to send your captures to BugBerry")).toBeVisible()
   await context.addCookies([{ ...state.sessionCookie, url: state.serverUrl }])
   await options.reload()
   await options.getByRole("button", { name: "More" }).click()
-  await expect(options.getByText(/Signed in as E2E/)).toBeVisible()
+  await expect(options.getByRole("group", { name: /^Signed in as E2E/ })).toBeVisible()
 
   const demo = await context.newPage()
   await demo.goto(state.demoUrl)
@@ -115,7 +115,7 @@ test("a screenshot report travels from the extension to the server", async () =>
   await expect(share.getByRole("tabpanel").getByText("500 Internal Server Error")).toBeVisible()
 
   await share.getByRole("button", { name: "Close request" }).click()
-  await share.getByRole("tab", { name: /Info/ }).click()
+  await share.getByRole("tab", { name: /Overview/ }).click()
   await expect(share.getByText(/timezone/)).toBeVisible()
 
   await context.close()

@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, test } from "bun:test"
+import { afterAll, describe, expect, spyOn, test } from "bun:test"
 import { areaPickFrom, cropBox, pickArea } from "../../lib/capture/select-area"
 
 function pointer(type: string, x: number, y: number) {
@@ -7,8 +7,12 @@ function pointer(type: string, x: number, y: number) {
 
 const overlay = () => document.querySelector("[data-bugberry-area]")
 
-// The last drag's click guard lasts 300 ms; the next test file clicks at once.
-afterAll(() => new Promise((resolve) => setTimeout(resolve, 350)))
+// After a drag, pickArea keeps a click guard on window for 300 ms; it comes off here so the next file's clicks land.
+const listeners = spyOn(window, "addEventListener")
+afterAll(() => {
+  for (const args of listeners.mock.calls) window.removeEventListener(...args)
+  listeners.mockRestore()
+})
 
 describe("pickArea", () => {
   test("a drag gives its box, and the overlay is gone before the answer", async () => {
