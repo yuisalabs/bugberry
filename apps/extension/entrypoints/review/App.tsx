@@ -1,25 +1,21 @@
 import type { RecordingNote } from "@bugberry/capture"
-import type { Visibility } from "@bugberry/shared"
 import { VideoPlayer } from "@bugberry/player/video-player"
 import { BUILT_IN_TEMPLATES, buildMaterial, templateFor } from "@bugberry/ai-write"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { browser } from "wxt/browser"
 import { aiPath, writeWithAi } from "../../lib/ai/ai-assist"
-import { type AiSetup, ApiError, createBugberryApi, type Project, type Workspace } from "../../lib/server/api"
-import { browserAiKeyStorage } from "../../lib/ai/browser-ai-key"
-import { latestOnly } from "../../lib/shared/latest"
+import { createBugberryApi, type Project, type Workspace } from "../../lib/server/api"
 import { relayFetcher } from "../../lib/server/api-relay"
 import { BUILD_SERVER_ORIGIN, browserSettingsStorage, includeCityStorage, lastWorkspaceStorage } from "../../lib/server/browser-settings"
 import { createIndexedDbDraftStore, saveAnnotations } from "../../lib/drafts/draft-store"
 import { createDraftWriter } from "../../lib/drafts/draft-writer"
-import { createSeeker } from "../../lib/review/seeker"
 import { type EditorDeps, loadDestination, loadEditor, loadProjects } from "../../lib/review/editor-load"
 import { limitsFor } from "../../lib/server/limits"
 import { currentCoordinates, locationForSend, toggleCity } from "../../lib/review/location"
 import type { ReviewAgainRequest, ReviewAnotherRequest } from "../../lib/shared/messages"
 import { isSignedOut } from "../../lib/drafts/popup"
-import { reviewMarkers, type TrimRange, trimPayload } from "../../lib/review/review-data"
-import { draftKept, draftWithNotes, draftWithTrim, trimLocked } from "../../lib/review/review-draft"
+import { reviewMarkers, trimPayload } from "../../lib/review/review-data"
+import { draftKept, draftWithNotes, trimLocked } from "../../lib/review/review-draft"
 import { createReviewLimits, type LimitNote, NO_LIMIT_NOTE, openDashboardFor } from "../../lib/review/review-limits"
 import { signInUrl } from "../../lib/server/session"
 import { loadSettings, type Settings } from "../../lib/server/settings"
@@ -33,7 +29,9 @@ import { LOCKED, putFile, type ReportForm, submitDraft, type UploadProgress } fr
 import { videoFrames } from "../../lib/review/video-frames"
 import { AnnotationCanvas, type AnnotationCanvasHandle } from "./AnnotationCanvas"
 import { type Assignable, ReviewView, type ReviewStatus } from "./ReviewView"
-import type { SentDetails, TrackerChoice } from "./SentPanel"
+import { useAiSetup } from "./use-ai-setup"
+import { useSentReport } from "./use-sent-report"
+import { useTrim } from "./use-trim"
 
 const store = createIndexedDbDraftStore()
 const writeDraft = createDraftWriter(store)
@@ -65,9 +63,6 @@ const editorDeps: Omit<EditorDeps, "createObjectURL"> = {
   createImageBitmap: (blob) => createImageBitmap(blob),
 }
 
-/** The selected workspace's AI settings; `setup` is null on an older server or when loading failed (`error`). */
-type AiLoad = { workspaceId: string; setup: AiSetup | null; error: string | null }
-
 type Loaded = {
   draft: ReportDraft
   videoUrl: string | null
@@ -96,28 +91,21 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
   // The selected workspace under ACCOUNT_LIMITS: its usage for this kind, and whether "Create report" waits.
   const [limitNote, setLimitNote] = useState<LimitNote>(NO_LIMIT_NOTE)
   const [members, setMembers] = useState<Assignable[]>([])
-  // After sending: the report as the server has it, and the trackers it can go to.
-  const [sentDetails, setSentDetails] = useState<SentDetails | null>(null)
-  const [trackers, setTrackers] = useState<TrackerChoice[] | null>(null)
-  const [trackerNote, setTrackerNote] = useState<string | null>(null)
-  // A report sent without a project has no trackers until one is picked in the sent panel.
-  const [needsProject, setNeedsProject] = useState(false)
+  const video = useRef<HTMLVideoElement>(null)
   // Recordings: the part that is sent, the strip's frames, and how far the trimmed video's encoding is while
   // sending (null when it isn't encoding).
-  const [trim, setTrim] = useState<TrimRange | null>(null)
-  /** The trim waiting to be saved: a handle moves many times a second, and each save writes the whole video. */
-  const trimSave = useRef<{ timer: ReturnType<typeof setTimeout>; range: TrimRange | null } | null>(null)
-  // Where the player is and whether it plays, for the strip's playhead and play button.
-  const [position, setPosition] = useState(0)
-  const [playing, setPlaying] = useState(false)
-  const [frames, setFrames] = useState<string[] | null>(null)
+  const { trim, setTrim, position, setPosition, playing, setPlaying, frames, setFrames, saveTrim, changeTrim, seekTo, playTrim } = useTrim(
+    draftId,
+    video,
+    writeDraft,
+  )
   const [preparing, setPreparing] = useState<number | null>(null)
   const [locked, setLocked] = useState(false)
-  const video = useRef<HTMLVideoElement>(null)
-  // Write with AI: the selected workspace's setup (null on older servers), and whether this browser has its own key.
-  const [aiSetup, setAiSetup] = useState<AiLoad | null>(null)
-  const [personalKey, setPersonalKey] = useState(false)
-  const [serverUrl, setServerUrl] = useState<string | null>(null)
+  const { aiSetup, personalKey, serverUrl, loadAi } = useAiSetup(apiOf)
+  const { sentDetails, trackers, trackerNote, needsProject, loadSent, moveToProject, changeVisibility, sendToTracker } = useSentReport(
+    projects,
+    apiOf,
+  )
 
   /** The people of a workspace, for Assignee; none when the server can't say. */
   const loadMembers = useCallback(async (workspaceId: string | null) => {
@@ -129,30 +117,6 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
     setMembers(listed.map((member) => ({ id: member.id, name: member.name ?? "", email: member.email })))
   }, [])
 
-  // A slow answer for a workspace the reporter has since left must not land: its key and templates would be used.
-  const takeAiSetup = useMemo(() => latestOnly<AiLoad | null>(setAiSetup), [])
-  const loadAi = useCallback(
-    (workspaceId: string | null) =>
-      takeAiSetup(
-        (async () => {
-          const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
-          setServerUrl(settings?.serverUrl ?? null)
-          if (!settings || !workspaceId) return null
-          try {
-            return { workspaceId, setup: await apiOf(settings).aiSetup(workspaceId), error: null }
-          } catch (cause) {
-            // An older server has no AI routes (404): only a personal key works then. Anything else is an error.
-            if (cause instanceof ApiError && cause.status === 404) return { workspaceId, setup: null, error: null }
-            return { workspaceId, setup: null, error: "Couldn't load the AI settings." }
-          }
-        })(),
-      ),
-    [takeAiSetup],
-  )
-
-  useEffect(() => {
-    void browserAiKeyStorage.get().then((key) => setPersonalKey(key !== null))
-  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -285,73 +249,6 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
     void loadAi(id)
   }
 
-  /** What the created report looks like on the server, and where else it can go; the review works without either. */
-  const loadSent = async (reportId: string) => {
-    const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
-    if (!settings) return
-    const api = apiOf(settings)
-    const report = await api.getReport(reportId).catch(() => null)
-    if (report) {
-      setSentDetails({
-        number: report.number,
-        title: report.title,
-        status: report.status,
-        priority: report.priority,
-        visibility: report.visibility,
-        projectName: projects.find((project) => project.id === report.projectId)?.name ?? null,
-        assigneeName: report.assignee?.name ?? null,
-      })
-    }
-    const offered = await api.reportTrackers(reportId).catch(() => null)
-    if (!offered) return
-    const sentTo = new Map(offered.links.map((link) => [link.integrationId, link]))
-    const choices = offered.integrations.map((integration): TrackerChoice => {
-      const link = sentTo.get(integration.id)
-      return { id: integration.id, provider: integration.provider, label: integration.label, state: link?.externalUrl ? { url: link.externalUrl } : "idle" }
-    })
-    setTrackers(choices)
-    setNeedsProject(offered.needsProject)
-    setTrackerNote(null)
-  }
-
-  /** Moves the sent report into a project, then offers that project's trackers. */
-  const moveToProject = async (reportId: string, projectId: string) => {
-    const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
-    if (!settings) return
-    try {
-      await apiOf(settings).updateReport(reportId, { projectId })
-    } catch (cause) {
-      setTrackerNote(cause instanceof Error ? cause.message : "Couldn't move the report to the project.")
-      return
-    }
-    await loadSent(reportId)
-  }
-
-  const changeVisibility = async (reportId: string, visibility: Visibility) => {
-    const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
-    if (!settings) return
-    const before = sentDetails
-    setSentDetails((current) => current && { ...current, visibility })
-    // Back as it was when the server refuses: the link must not claim more (or less) than is true.
-    await apiOf(settings)
-      .updateReport(reportId, { visibility })
-      .catch(() => setSentDetails(before))
-  }
-
-  const sendToTracker = async (reportId: string, integrationId: string) => {
-    const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
-    if (!settings) return
-    const mark = (state: TrackerChoice["state"]) =>
-      setTrackers((current) => current?.map((tracker) => (tracker.id === integrationId ? { ...tracker, state } : tracker)) ?? null)
-    mark("sending")
-    try {
-      const link = (await apiOf(settings).sendToTracker(reportId, integrationId)) as { externalUrl?: string | null; error?: string | null }
-      mark(link.error ? { error: link.error } : { url: link.externalUrl ?? null })
-    } catch (cause) {
-      mark({ error: cause instanceof Error ? cause.message : String(cause) })
-    }
-  }
-
   const changeIncludeCity = async (on: boolean) => {
     const result = await toggleCity(on, () => currentCoordinates(navigator.geolocation))
     setIncludeCity(result.includeCity)
@@ -367,42 +264,6 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
     return () => window.removeEventListener("beforeunload", ask)
   }, [preparing])
 
-  /** Saves the trim waiting to be saved, now. */
-  const saveTrim = async () => {
-    const waiting = trimSave.current
-    if (!waiting) return
-    clearTimeout(waiting.timer)
-    trimSave.current = null
-    await writeDraft(draftId, (current) => draftWithTrim(current, waiting.range))
-  }
-
-  /** A moved handle applies at once (player, tiles, markers); the draft keeps it a moment later. */
-  const changeTrim = (range: TrimRange | null) => {
-    setTrim(range)
-    if (trimSave.current) clearTimeout(trimSave.current.timer)
-    trimSave.current = { range, timer: setTimeout(() => void saveTrim(), 400) }
-  }
-
-  /** Seeks for the strip one at a time, so a dragged handle or playhead doesn't pile them up (see createSeeker). */
-  const seeker = useRef<{ element: HTMLVideoElement; seek(seconds: number): void } | null>(null)
-  const seekTo = (ms: number) => {
-    const element = video.current
-    if (!element) return
-    if (seeker.current?.element !== element) seeker.current = { element, ...createSeeker(element) }
-    seeker.current.seek(ms / 1000)
-  }
-
-  /** The strip's play button: plays the part being kept (the player keeps inside it), or pauses. */
-  const playTrim = () => {
-    const player = video.current
-    if (!player) return
-    if (player.paused) {
-      void player.play().then(() => setPlaying(true))
-    } else {
-      player.pause()
-      setPlaying(false)
-    }
-  }
 
   // The strip's frames, made once the recording is loaded.
   useEffect(() => {
