@@ -1,6 +1,6 @@
 import { Button } from "@bugberry/ui/button"
 import { RiArrowLeftSLine } from "@remixicon/react"
-import { canDelete, draftNote } from "../../lib/popup"
+import { canDelete, draftNote } from "../../lib/drafts/popup"
 import type { RecordingStatus } from "../../lib/recording/recording-flow"
 import type { ReportDraft } from "../../lib/types"
 

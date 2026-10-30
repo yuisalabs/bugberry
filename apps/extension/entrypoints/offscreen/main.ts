@@ -1,5 +1,5 @@
 import { browser } from "wxt/browser"
-import { createIndexedDbDraftStore } from "../../lib/draft-store"
+import { createIndexedDbDraftStore } from "../../lib/drafts/draft-store"
 import { isOffscreenMessage, type RecordingEndedNotice } from "../../lib/messages"
 import { createMediaDeps, createRecorderHandler } from "../../lib/recording/recorder-handler"
 

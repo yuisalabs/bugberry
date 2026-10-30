@@ -8,7 +8,7 @@ import {
 import type { ScreenshotMode } from "./capture-prefs"
 import { deviceInfoFrom } from "./device"
 import { environmentFrom } from "./environment"
-import type { DraftStore } from "../draft-store"
+import type { DraftStore } from "../drafts/draft-store"
 import { type AreaPick, type AreaRect, areaPickFrom } from "./select-area"
 
 export type PageCapture =

@@ -38,10 +38,10 @@ import type { AiPath } from "../../lib/ai-assist"
 import { useAutoGrow } from "../../lib/auto-grow"
 import type { Project, Workspace } from "../../lib/server/api"
 import { useUnobscured } from "../../lib/prompt-page"
-import { formProblem } from "../../lib/report-form"
-import { isTrimmed, reviewStats, suggestTitle, type TrimRange, trimPayload } from "../../lib/review-data"
+import { formProblem } from "../../lib/review/report-form"
+import { isTrimmed, reviewStats, suggestTitle, type TrimRange, trimPayload } from "../../lib/review/review-data"
 import type { ReportDraft } from "../../lib/types"
-import type { ReportForm, SentReport, UploadProgress } from "../../lib/upload"
+import type { ReportForm, SentReport, UploadProgress } from "../../lib/review/upload"
 import { TrimStrip } from "./TrimStrip"
 
 export type ReviewStatus =

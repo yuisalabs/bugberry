@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import type { AutomationDraftMeta } from "../../extension/lib/automation-draft"
+import type { AutomationDraftMeta } from "../../extension/lib/drafts/automation-draft"
 import { createRecorderSession, type SessionDeps } from "../src/session"
 import type { ContextLike, PageLike } from "../src/tabs"
 

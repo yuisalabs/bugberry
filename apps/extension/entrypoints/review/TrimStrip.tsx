@@ -2,7 +2,7 @@ import { Button } from "@bugberry/ui/button"
 import { RiMore2Fill, RiPauseFill, RiPlayFill } from "@remixicon/react"
 import { useState } from "react"
 import { Slider, SliderThumb, SliderTrack } from "react-aria-components"
-import { clampTrim, type TrimRange } from "../../lib/review-data"
+import { clampTrim, type TrimRange } from "../../lib/review/review-data"
 
 const STEP_MS = 100
 const THUMB_LABELS = ["Trim start", "Trim end"]

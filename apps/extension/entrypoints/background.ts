@@ -11,7 +11,7 @@ import { hasTabRecorder } from "../lib/browser-support"
 import { recordOptionsFor, type ScreenshotMode } from "../lib/capture/capture-prefs"
 import { BUILD_SERVER_ORIGIN, browserSettingsStorage, capturePrefsStorage, lastSessionStorage, lastWorkspaceStorage } from "../lib/server/browser-settings"
 import { type ActiveTab, type CaptureFlowDeps, type CaptureResult, startScreenshotReport } from "../lib/capture/capture-flow"
-import { createIndexedDbDraftStore } from "../lib/draft-store"
+import { createIndexedDbDraftStore } from "../lib/drafts/draft-store"
 import {
   type BarRequest,
   isBarRequest,
@@ -42,7 +42,7 @@ import { createRecordingController, type RecordingFlowDeps } from "../lib/record
 import { createWindowRecorderHost, onRecorderClosed } from "../lib/recording/recorder-window"
 import { openSessionToContentScripts } from "../lib/server/session-access"
 import { createPromptOpener, type PromptTicket, type PromptTickets, ticketFor } from "../lib/prompt-opener"
-import { createReviewOpener } from "../lib/review-opener"
+import { createReviewOpener } from "../lib/review/review-opener"
 import { fromAutomationPage, fromExtensionPage, fromPopup, ofThisRecording } from "../lib/sender-rules"
 import { createTakeAgain } from "../lib/capture/take-again"
 import { isBugBerryServer } from "../lib/server/session"
@@ -59,9 +59,9 @@ import {
   workspaceLimitsInTime,
 } from "../lib/server/upload-limit"
 import { limitsFor } from "../lib/server/limits"
-import { isSignedOut } from "../lib/popup"
+import { isSignedOut } from "../lib/drafts/popup"
 import type { RecordingEndReason } from "../lib/recording/recorder"
-import { pickEditorWorkspace } from "../lib/report-form"
+import { pickEditorWorkspace } from "../lib/review/report-form"
 
 /** Casts keep these valid before WXT has generated the path types for the pages. */
 const REVIEW_PAGE = "/review.html" as Parameters<typeof browser.runtime.getURL>[0]

@@ -1,7 +1,7 @@
-import { base64Chunk, type PreparedDraft, prepareAutomationDraft } from "../../lib/automation-draft"
-import { createIndexedDbDraftStore } from "../../lib/draft-store"
-import { makeThumbnail } from "../../lib/thumbnail"
-import { browserThumbnailDeps } from "../../lib/thumbnail-browser"
+import { base64Chunk, type PreparedDraft, prepareAutomationDraft } from "../../lib/drafts/automation-draft"
+import { createIndexedDbDraftStore } from "../../lib/drafts/draft-store"
+import { makeThumbnail } from "../../lib/review/thumbnail"
+import { browserThumbnailDeps } from "../../lib/review/thumbnail-browser"
 
 /**
  * The agent recorder's way into finished recordings, in the recorder build only: it opens this page over CDP and

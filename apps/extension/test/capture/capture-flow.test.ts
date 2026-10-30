@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { type CaptureFlowDeps, sanitizePageCapture, startScreenshotReport } from "../../lib/capture/capture-flow"
-import type { DraftStore } from "../../lib/draft-store"
+import type { DraftStore } from "../../lib/drafts/draft-store"
 import type { ReportDraft, ScreenshotDraft } from "../../lib/types"
 
 const PNG_DATA_URL = `data:image/png;base64,${btoa("fake-png")}`

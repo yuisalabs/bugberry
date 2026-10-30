@@ -4,7 +4,7 @@ import type { Shape } from "./annotations"
 import type { ScreenshotMode } from "./capture/capture-prefs"
 import type { PageCaptureRecord } from "./recording/page-merge"
 import type { RecordingEndReason } from "./recording/recorder"
-import type { TrimRange } from "./review-data"
+import type { TrimRange } from "./review/review-data"
 
 export interface ReportForm {
   /** The workspace the report goes to. Forms saved before workspaces have none. */

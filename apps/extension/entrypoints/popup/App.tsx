@@ -7,7 +7,7 @@ import { type CameraAccess, cameraAccess, type CameraDevice, cameraDevices } fro
 import { capturable } from "../../lib/capture/capture-flow"
 import { hasTabRecorder } from "../../lib/browser-support"
 import { type CapturePrefs, DEFAULT_CAPTURE_PREFS, recordOptionsFor } from "../../lib/capture/capture-prefs"
-import { createIndexedDbDraftStore } from "../../lib/draft-store"
+import { createIndexedDbDraftStore } from "../../lib/drafts/draft-store"
 import { fullWarning, limitsFor, usageLine } from "../../lib/server/limits"
 import type {
   OpenDraftRequest,
@@ -19,8 +19,8 @@ import type {
   ScreenshotRequest,
 } from "../../lib/messages"
 import { type MicAccess, micAccess, micChoiceAfterCheck, micDevices } from "../../lib/devices/microphone"
-import { controlError, recordStartNote, replyResult, uncapturableNote } from "../../lib/popup"
-import { pickEditorWorkspace } from "../../lib/report-form"
+import { controlError, recordStartNote, replyResult, uncapturableNote } from "../../lib/drafts/popup"
+import { pickEditorWorkspace } from "../../lib/review/report-form"
 import type { PopupRecordingStatus, RecordingStatus } from "../../lib/recording/recording-flow"
 import { checkSession, type SessionState, serverLabel, signInUrl } from "../../lib/server/session"
 import { loadSettings, type Settings } from "../../lib/server/settings"

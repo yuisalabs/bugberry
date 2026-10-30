@@ -10,27 +10,27 @@ import { browserAiKeyStorage } from "../../lib/browser-ai-key"
 import { latestOnly } from "../../lib/latest"
 import { relayFetcher } from "../../lib/server/api-relay"
 import { BUILD_SERVER_ORIGIN, browserSettingsStorage, includeCityStorage, lastWorkspaceStorage } from "../../lib/server/browser-settings"
-import { createIndexedDbDraftStore, saveAnnotations } from "../../lib/draft-store"
-import { createDraftWriter } from "../../lib/draft-writer"
-import { createSeeker } from "../../lib/seeker"
-import { type EditorDeps, loadDestination, loadEditor, loadProjects } from "../../lib/editor-load"
+import { createIndexedDbDraftStore, saveAnnotations } from "../../lib/drafts/draft-store"
+import { createDraftWriter } from "../../lib/drafts/draft-writer"
+import { createSeeker } from "../../lib/review/seeker"
+import { type EditorDeps, loadDestination, loadEditor, loadProjects } from "../../lib/review/editor-load"
 import { limitsFor } from "../../lib/server/limits"
-import { currentCoordinates, locationForSend, toggleCity } from "../../lib/location"
+import { currentCoordinates, locationForSend, toggleCity } from "../../lib/review/location"
 import type { ReviewAgainRequest, ReviewAnotherRequest } from "../../lib/messages"
-import { isSignedOut } from "../../lib/popup"
-import { reviewMarkers, type TrimRange, trimPayload } from "../../lib/review-data"
-import { draftKept, draftWithNotes, draftWithTrim, trimLocked } from "../../lib/review-draft"
-import { createReviewLimits, type LimitNote, NO_LIMIT_NOTE, openDashboardFor } from "../../lib/review-limits"
+import { isSignedOut } from "../../lib/drafts/popup"
+import { reviewMarkers, type TrimRange, trimPayload } from "../../lib/review/review-data"
+import { draftKept, draftWithNotes, draftWithTrim, trimLocked } from "../../lib/review/review-draft"
+import { createReviewLimits, type LimitNote, NO_LIMIT_NOTE, openDashboardFor } from "../../lib/review/review-limits"
 import { signInUrl } from "../../lib/server/session"
 import { loadSettings, type Settings } from "../../lib/server/settings"
-import { makeThumbnail } from "../../lib/thumbnail"
-import { browserThumbnailDeps } from "../../lib/thumbnail-browser"
-import { type PreparedMedia, prepareVideo } from "../../lib/trim-send"
+import { makeThumbnail } from "../../lib/review/thumbnail"
+import { browserThumbnailDeps } from "../../lib/review/thumbnail-browser"
+import { type PreparedMedia, prepareVideo } from "../../lib/review/trim-send"
 import { whenBack } from "../../lib/when-back"
-import type { trimVideo as TrimVideo } from "../../lib/trim-video"
+import type { trimVideo as TrimVideo } from "../../lib/review/trim-video"
 import type { ReportDraft } from "../../lib/types"
-import { LOCKED, putFile, type ReportForm, submitDraft, type UploadProgress } from "../../lib/upload"
-import { videoFrames } from "../../lib/video-frames"
+import { LOCKED, putFile, type ReportForm, submitDraft, type UploadProgress } from "../../lib/review/upload"
+import { videoFrames } from "../../lib/review/video-frames"
 import { AnnotationCanvas, type AnnotationCanvasHandle } from "./AnnotationCanvas"
 import { type Assignable, ReviewView, type ReviewStatus, type SentDetails, type TrackerChoice } from "./ReviewView"
 
@@ -38,7 +38,7 @@ const store = createIndexedDbDraftStore()
 const writeDraft = createDraftWriter(store)
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 /** The encoder (mediabunny) loads only when a trimmed recording is sent: most reviews never need it. */
-const trimVideo: typeof TrimVideo = async (...args) => (await import("../../lib/trim-video")).trimVideo(...args)
+const trimVideo: typeof TrimVideo = async (...args) => (await import("../../lib/review/trim-video")).trimVideo(...args)
 /** Web Locks are shared by every extension page and released when a page closes. */
 function lock<T>(name: string, work: () => Promise<T>): Promise<T | typeof LOCKED> {
   // request() resolves with the callback's settled value; the DOM types do not unwrap the promise.

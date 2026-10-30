@@ -1,6 +1,6 @@
 import { MAX_RECORDING_MS } from "../../lib/recording/recorder"
 import { beforeEach, describe, expect, mock, test } from "bun:test"
-import type { DraftStore } from "../../lib/draft-store"
+import type { DraftStore } from "../../lib/drafts/draft-store"
 import type { OffscreenMessage } from "../../lib/messages"
 import {
   createRecordingController,

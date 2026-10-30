@@ -1,7 +1,7 @@
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import type { Page } from "playwright-core"
-import type { AutomationDraftMeta } from "../../extension/lib/automation-draft"
+import type { AutomationDraftMeta } from "../../extension/lib/drafts/automation-draft"
 import type { BrowserSession } from "./browser"
 import type { RecordingCaps } from "./limits"
 import { pickRecordedTab } from "./tabs"

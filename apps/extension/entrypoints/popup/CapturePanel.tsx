@@ -17,7 +17,7 @@ import {
 import { type ReactNode, type RefObject, useSyncExternalStore } from "react"
 import { Button as AriaButton, Radio, RadioGroup, ToggleButton } from "react-aria-components"
 import type { CapturePrefs, RecordSource, ScreenshotMode } from "../../lib/capture/capture-prefs"
-import { type CaptureChoice, captureCopy } from "../../lib/popup"
+import { type CaptureChoice, captureCopy } from "../../lib/drafts/popup"
 import { Dial, InfoBox, SectionLabel } from "./parts"
 import type { LevelSource } from "./PopupView"
 

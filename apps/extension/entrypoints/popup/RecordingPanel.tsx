@@ -1,7 +1,7 @@
 import { RiDeleteBinLine, RiPauseLargeLine, RiPlayLargeLine, RiRestartLine } from "@remixicon/react"
 import type { ReactNode } from "react"
 import { Button as AriaButton } from "react-aria-components"
-import { countText, recordingLabel } from "../../lib/popup"
+import { countText, recordingLabel } from "../../lib/drafts/popup"
 import type { PopupRecordingStatus } from "../../lib/recording/recording-flow"
 import { Dial, InfoBox } from "./parts"
 

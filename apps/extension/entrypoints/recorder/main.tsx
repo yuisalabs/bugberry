@@ -1,7 +1,7 @@
 import "../../assets/style.css"
 import { createRoot } from "react-dom/client"
 import { browser } from "wxt/browser"
-import { createIndexedDbDraftStore } from "../../lib/draft-store"
+import { createIndexedDbDraftStore } from "../../lib/drafts/draft-store"
 import type { RecordingEndedNotice } from "../../lib/messages"
 import { createMediaDeps, createRecorderHandler } from "../../lib/recording/recorder-handler"
 import { App } from "./App"

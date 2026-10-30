@@ -1,11 +1,11 @@
 import { type CaptureEvent, DEBUGGER_PAYLOAD_VERSION, type DebuggerPayload, redactUrl } from "@bugberry/capture"
 import { type ActiveTab, type CaptureResult, capturable, pagePayloadFor, sanitizePageCapture } from "../capture/capture-flow"
 import { deviceInfoFrom } from "../capture/device"
-import type { DraftStore } from "../draft-store"
+import type { DraftStore } from "../drafts/draft-store"
 import type { RecordSource } from "../capture/capture-prefs"
 import type { CameraChoice, CaptureSource, OffscreenMessage, RecordOptions } from "../messages"
 import { capPages, mergePages, type PageCaptureRecord } from "./page-merge"
-import { applyPauses, errorsCaught, keptEvents, type LiveCounts, liveCounts, type PauseSpan, pauseMarks, videoTime } from "../review-data"
+import { applyPauses, errorsCaught, keptEvents, type LiveCounts, liveCounts, type PauseSpan, pauseMarks, videoTime } from "../review/review-data"
 import { MAX_RECORDING_MS, type RecordingEndReason } from "./recorder"
 import type { VideoDraft } from "../types"
 

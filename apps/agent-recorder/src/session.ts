@@ -1,7 +1,7 @@
 import { rmSync } from "node:fs"
 import { join } from "node:path"
 import type { DebuggerSummary, DeviceInfo } from "@bugberry/shared"
-import type { AutomationDraftMeta } from "../../extension/lib/automation-draft"
+import type { AutomationDraftMeta } from "../../extension/lib/drafts/automation-draft"
 import type { RecordingCaps } from "./limits"
 import { agentTabs, type ContextLike, createTabWatcher, type PageLike, recordedPageFor, type TabWatcher } from "./tabs"
 
