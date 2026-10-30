@@ -1,7 +1,7 @@
 import type { DebuggerPayload } from "@bugberry/capture"
 import type { DeviceInfo, Priority, Visibility } from "@bugberry/shared"
 import type { Shape } from "./annotations"
-import type { ScreenshotMode } from "./capture-prefs"
+import type { ScreenshotMode } from "./capture/capture-prefs"
 import type { PageCaptureRecord } from "./page-merge"
 import type { RecordingEndReason } from "./recorder"
 import type { TrimRange } from "./review-data"

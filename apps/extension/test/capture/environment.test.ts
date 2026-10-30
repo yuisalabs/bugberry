@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { environmentFrom } from "../lib/environment"
+import { environmentFrom } from "../../lib/capture/environment"
 
 const mac = {
   language: "id-ID",

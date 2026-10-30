@@ -1,7 +1,7 @@
 import { RiHeadphoneLine, RiMicLine, RiMicOffLine, RiShieldCheckLine, RiUsbLine } from "@remixicon/react"
 import { type ReactNode, type RefObject, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Button as AriaButton, Radio, RadioGroup } from "react-aria-components"
-import type { MicAccess, MicDevice, MicKind } from "../../lib/microphone"
+import type { MicAccess, MicDevice, MicKind } from "../../lib/devices/microphone"
 import { LevelBars } from "./CapturePanel"
 import type { LevelSource } from "./PopupView"
 

@@ -2,7 +2,7 @@ import { Button } from "@bugberry/ui/button"
 import { RiMicLine } from "@remixicon/react"
 import { useState } from "react"
 import { capturePrefsStorage } from "../../lib/server/browser-settings"
-import { micAccess, micErrorText } from "../../lib/microphone"
+import { micAccess, micErrorText } from "../../lib/devices/microphone"
 import { closePrompt, PromptShell, usePromptTicket } from "../../lib/prompt-page"
 
 /**

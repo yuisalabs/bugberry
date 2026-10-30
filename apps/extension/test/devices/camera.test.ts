@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { cameraAccess, cameraDevices, cameraErrorText } from "../lib/camera"
+import { cameraAccess, cameraDevices, cameraErrorText } from "../../lib/devices/camera"
 
 const video = (deviceId: string, label: string) => ({ kind: "videoinput", deviceId, label })
 

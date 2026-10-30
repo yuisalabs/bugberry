@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { micAccess, micChoiceAfterCheck, micDevices, micErrorText } from "../lib/microphone"
+import { micAccess, micChoiceAfterCheck, micDevices, micErrorText } from "../../lib/devices/microphone"
 
 const input = (deviceId: string, label: string, groupId = deviceId) => ({ kind: "audioinput", deviceId, groupId, label })
 

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test"
-import { type CameraGrant, cameraTicketReply, createCameraGrants, uiStateReply } from "../lib/camera-grant"
+import { type CameraGrant, cameraTicketReply, createCameraGrants, uiStateReply } from "../../lib/devices/camera-grant"
 
 let stored: CameraGrant | null
 let timers: Array<() => void>

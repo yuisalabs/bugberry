@@ -8,24 +8,21 @@ const MAX_LINES = 500
 /** Modules and tests not yet in their folder; each move deletes its names here. */
 const PENDING_LIB = new Set([
   "ai-assist", "ai-key", "ai-relay", "annotations", "auto-grow", "automation-draft", "badge", "bar-drag",
-  "browser-ai-key", "browser-recording-state", "browser-support", "camera-grant", "camera",
-  "capture-flow", "capture-prefs", "device", "draft-store", "draft-writer", "editor-load", "environment", "keep-alive", "latest",
-  "location", "manifest", "messages", "microphone", "page-flush", "page-merge", "page-ui", "pixelate", "popup",
+  "browser-ai-key", "browser-recording-state", "browser-support", "draft-store", "draft-writer", "editor-load", "keep-alive", "latest",
+  "location", "manifest", "messages", "page-flush", "page-merge", "page-ui", "pixelate", "popup",
   "prompt-opener", "prompt-page", "recorder-build", "recorder-handler", "recorder-window", "recorder", "recording-flow",
   "recording-stream", "recording-watch", "render", "report-form", "review-data", "review-draft", "review-limits", "review-opener",
-  "seeker", "select-area", "sender-rules", "store-build-check", "strokes", "take-again",
-  "thumbnail-browser", "thumbnail", "trim-send", "trim-video", "types", "upload", "video-frames", "webm-duration",
+  "seeker", "sender-rules", "store-build-check", "strokes", "thumbnail-browser", "thumbnail", "trim-send", "trim-video", "types", "upload", "video-frames", "webm-duration",
   "when-back",
 ])
 const PENDING_TEST = new Set([
   "ai-assist", "ai-relay", "annotation-canvas", "annotations", "automation-draft", "badge", "bar-drag",
-  "bar-view", "brand", "browser-support", "camera-bubble", "camera-grant", "camera", "capture-flow", "capture-prefs",
-  "device", "draft-store", "draft-writer", "draw-notes", "editor-load", "english", "environment", "extension-key", "icon-states",
-  "icons", "keep-alive", "latest", "location", "manifest", "messages", "microphone", "options-ai", "page-flush",
-  "page-merge", "page-ui", "pixelate", "popup-view", "popup", "prompt-opener", "recorder-bar-page", "recorder-handler",
+  "bar-view", "brand", "browser-support", "camera-bubble", "draft-store", "draft-writer", "draw-notes", "editor-load", "english", "extension-key", "icon-states",
+  "icons", "keep-alive", "latest", "location", "manifest", "messages", "options-ai", "page-flush",
+  "page-merge", "page-ui", "pixelate", "popup", "prompt-opener", "recorder-bar-page", "recorder-handler",
   "recorder-window", "recorder", "recording-flow", "recording-stream", "recording-watch", "report-form", "review-ai", "review-data",
-  "review-draft", "review-fields", "review-limits", "review-opener", "review-view", "seeker", "select-area", "sender-rules",
-  "sent-trackers", "sign-firefox", "store-build-check", "strokes", "take-again", "thumbnail",
+  "review-draft", "review-fields", "review-limits", "review-opener", "review-view", "seeker", "sender-rules",
+  "sent-trackers", "sign-firefox", "store-build-check", "strokes", "thumbnail",
   "trim-send", "trim-video", "upload", "webm-duration", "when-back", "zip-sources",
 ])
 /** Files split for length; each stays under MAX_LINES. */

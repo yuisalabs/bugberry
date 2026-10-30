@@ -1,4 +1,4 @@
-import type { CaptureResult } from "./capture-flow"
+import type { CaptureResult } from "./capture/capture-flow"
 
 export interface BadgeAction {
   /** `null` gives the tab back to the global badge text (REC while recording). */

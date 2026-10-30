@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname } from "node:path"
 import { fileURLToPath } from "node:url"
 import { type BrowserContext, chromium, expect, type Frame, type Locator, type Page, type Worker } from "@playwright/test"
-import type { CapturePrefs } from "../lib/capture-prefs"
+import type { CapturePrefs } from "../lib/capture/capture-prefs"
 import type { CameraChoice } from "../lib/messages"
 
 declare const chrome: {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { capturePrefsFrom, createCapturePrefsStorage, DEFAULT_CAPTURE_PREFS, recordOptionsFor } from "../lib/capture-prefs"
+import { capturePrefsFrom, createCapturePrefsStorage, DEFAULT_CAPTURE_PREFS, recordOptionsFor } from "../../lib/capture/capture-prefs"
 
 function memoryArea() {
   const items: Record<string, unknown> = {}

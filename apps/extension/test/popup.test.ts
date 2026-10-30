@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { ApiError } from "../lib/server/api"
-import { DEFAULT_CAPTURE_PREFS } from "../lib/capture-prefs"
+import { DEFAULT_CAPTURE_PREFS } from "../lib/capture/capture-prefs"
 import {
   canDelete,
   captureCopy,

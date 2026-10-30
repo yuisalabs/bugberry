@@ -1,4 +1,4 @@
-import type { CameraShape, RecordSource, ScreenshotMode } from "./capture-prefs"
+import type { CameraShape, RecordSource, ScreenshotMode } from "./capture/capture-prefs"
 import { MAX_RECORDING_MS, type RecordingEndReason } from "./recorder"
 
 export interface ScreenshotRequest {

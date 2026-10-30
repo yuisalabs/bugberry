@@ -1,5 +1,5 @@
 import type { CaptureEvent } from "@bugberry/capture"
-import { withinBudget } from "./capture-flow"
+import { withinBudget } from "./capture/capture-flow"
 
 /** One document's capture buffer, as it was when the page went away (or when the recording stopped). */
 export interface PageCaptureRecord {

@@ -1,4 +1,4 @@
-import type { RecordOptions } from "./messages"
+import type { RecordOptions } from "../messages"
 
 export type ScreenshotMode = "visible" | "area"
 export type RecordSource = "tab" | "screen" | "window"

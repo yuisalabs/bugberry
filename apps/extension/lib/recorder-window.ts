@@ -1,4 +1,4 @@
-import type { CaptureResult } from "./capture-flow"
+import type { CaptureResult } from "./capture/capture-flow"
 import type { OffscreenMessage } from "./messages"
 import type { RecordingStatus } from "./recording-flow"
 

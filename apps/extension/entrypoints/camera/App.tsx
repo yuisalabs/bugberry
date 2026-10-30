@@ -2,7 +2,7 @@ import { Button } from "@bugberry/ui/button"
 import { RiVideoOnLine } from "@remixicon/react"
 import { useState } from "react"
 import { capturePrefsStorage } from "../../lib/server/browser-settings"
-import { cameraAccess, cameraErrorText } from "../../lib/camera"
+import { cameraAccess, cameraErrorText } from "../../lib/devices/camera"
 import { closePrompt, PromptShell, usePromptTicket } from "../../lib/prompt-page"
 
 /**

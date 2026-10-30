@@ -1,5 +1,5 @@
-import type { CameraShape } from "./capture-prefs"
-import type { CameraChoice, CameraTicketRequest } from "./messages"
+import type { CameraShape } from "../capture/capture-prefs"
+import type { CameraChoice, CameraTicketRequest } from "../messages"
 
 /** How long a recording waits for the camera bubble's first picture before it starts anyway. */
 export const CAMERA_READY_MS = 1500

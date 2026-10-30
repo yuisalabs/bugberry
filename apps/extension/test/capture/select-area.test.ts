@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { areaPickFrom, cropBox, pickArea } from "../lib/select-area"
+import { areaPickFrom, cropBox, pickArea } from "../../lib/capture/select-area"
 
 function pointer(type: string, x: number, y: number) {
   window.dispatchEvent(new MouseEvent(type, { clientX: x, clientY: y, bubbles: true, button: 0 }))

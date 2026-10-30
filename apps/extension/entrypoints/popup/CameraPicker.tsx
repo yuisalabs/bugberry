@@ -1,8 +1,8 @@
 import { RiCheckboxBlankCircleLine, RiRectangleLine, RiShieldCheckLine, RiVideoOffLine, RiVideoOnLine } from "@remixicon/react"
 import { type ReactNode, type RefObject, useRef } from "react"
 import { Button as AriaButton, Radio, RadioGroup } from "react-aria-components"
-import type { CameraAccess, CameraDevice } from "../../lib/camera"
-import type { CameraShape } from "../../lib/capture-prefs"
+import type { CameraAccess, CameraDevice } from "../../lib/devices/camera"
+import type { CameraShape } from "../../lib/capture/capture-prefs"
 import { Row, usePickerDismiss, usePickerRoom } from "./MicPicker"
 
 const NONE = "none"
