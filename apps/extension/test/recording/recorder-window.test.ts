@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test"
-import type { OffscreenMessage } from "../lib/messages"
-import { createWindowRecorderHost, onRecorderClosed, RECORDER_CLOSED, type WindowRecorderDeps } from "../lib/recorder-window"
+import type { OffscreenMessage } from "../../lib/messages"
+import { createWindowRecorderHost, onRecorderClosed, RECORDER_CLOSED, type WindowRecorderDeps } from "../../lib/recording/recorder-window"
 
 function memoryWindowId(initial: number | null = null) {
   let value = initial

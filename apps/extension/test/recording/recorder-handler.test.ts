@@ -1,9 +1,9 @@
 import { describe, expect, mock, test } from "bun:test"
-import type { OffscreenMessage } from "../lib/messages"
-import type { RecordingDeps } from "../lib/recorder"
-import { createRecorderHandler, micConstraints } from "../lib/recorder-handler"
-import type { StreamDeps } from "../lib/recording-stream"
-import type { ReportDraft } from "../lib/types"
+import type { OffscreenMessage } from "../../lib/messages"
+import type { RecordingDeps } from "../../lib/recording/recorder"
+import { createRecorderHandler, micConstraints } from "../../lib/recording/recorder-handler"
+import type { StreamDeps } from "../../lib/recording/recording-stream"
+import type { ReportDraft } from "../../lib/types"
 
 class FakeTrack {
   stopped = false

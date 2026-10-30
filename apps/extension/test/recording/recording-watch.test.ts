@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test"
-import { watchRecording } from "../lib/recording-watch"
+import { watchRecording } from "../../lib/recording/recording-watch"
 
 const noChanges = { addListener: () => {} }
 

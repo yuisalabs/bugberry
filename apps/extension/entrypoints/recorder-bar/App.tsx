@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react"
 import { browser } from "wxt/browser"
-import { type BarDragMessage, startBarDrag } from "../../lib/bar-drag"
+import { type BarDragMessage, startBarDrag } from "../../lib/recording/bar-drag"
 import type { BarRequest } from "../../lib/messages"
-import type { BarStatus } from "../../lib/recording-flow"
+import type { BarStatus } from "../../lib/recording/recording-flow"
 import { BarView, type DrawTool } from "./BarView"
 
 const POLL_MS = 1000

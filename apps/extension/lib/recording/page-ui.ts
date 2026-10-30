@@ -1,4 +1,4 @@
-import type { CameraShape } from "./capture/capture-prefs"
+import type { CameraShape } from "../capture/capture-prefs"
 
 /** Top-left corner of the Recording Bar (or the camera bubble), in CSS pixels of the viewport. */
 export interface BarPosition {

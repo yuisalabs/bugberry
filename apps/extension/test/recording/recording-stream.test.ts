@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test"
-import { openRecordingStream, type StreamDeps } from "../lib/recording-stream"
+import { openRecordingStream, type StreamDeps } from "../../lib/recording/recording-stream"
 
 class FakeTrack {
   stopped = false

@@ -1,5 +1,5 @@
 import type { WorkspaceLimits } from "./limits"
-import { MAX_RECORDING_MS } from "../recorder"
+import { MAX_RECORDING_MS } from "../recording/recorder"
 import type { SessionState } from "./session"
 import { BUGBERRY_CLOUD_ORIGIN } from "./settings"
 

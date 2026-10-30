@@ -1,7 +1,7 @@
 import { type Browser, browser } from "wxt/browser"
 import { createFailureFlag } from "../lib/badge"
 import { bridgeSenderOrigin, createBridge } from "../lib/server/bridge"
-import { browserRecordingState } from "../lib/browser-recording-state"
+import { browserRecordingState } from "../lib/recording/browser-recording-state"
 import { createBugberryApi } from "../lib/server/api"
 import { CAMERA_READY_MS, type CameraGrant, cameraTicketReply, createCameraGrants, uiStateReply } from "../lib/devices/camera-grant"
 import { handleAiTest, handleAiWrite, isAiTestRequest, isAiWriteRequest } from "../lib/ai-relay"
@@ -38,8 +38,8 @@ import {
   type PopupRecordingAction,
   type RecordOptions,
 } from "../lib/messages"
-import { createRecordingController, type RecordingFlowDeps } from "../lib/recording-flow"
-import { createWindowRecorderHost, onRecorderClosed } from "../lib/recorder-window"
+import { createRecordingController, type RecordingFlowDeps } from "../lib/recording/recording-flow"
+import { createWindowRecorderHost, onRecorderClosed } from "../lib/recording/recorder-window"
 import { openSessionToContentScripts } from "../lib/server/session-access"
 import { createPromptOpener, type PromptTicket, type PromptTickets, ticketFor } from "../lib/prompt-opener"
 import { createReviewOpener } from "../lib/review-opener"
@@ -60,7 +60,7 @@ import {
 } from "../lib/server/upload-limit"
 import { limitsFor } from "../lib/server/limits"
 import { isSignedOut } from "../lib/popup"
-import type { RecordingEndReason } from "../lib/recorder"
+import type { RecordingEndReason } from "../lib/recording/recorder"
 import { pickEditorWorkspace } from "../lib/report-form"
 
 /** Casts keep these valid before WXT has generated the path types for the pages. */

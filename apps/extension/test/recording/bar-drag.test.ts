@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, mock, test } from "bun:test"
-import { type BarDragMessage, startBarDrag, startCameraResize } from "../lib/bar-drag"
+import { type BarDragMessage, startBarDrag, startCameraResize } from "../../lib/recording/bar-drag"
 
 function bar() {
   document.body.innerHTML = '<div id="pill"><span id="clock">00:02</span><button id="stop">Stop</button></div>'

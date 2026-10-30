@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { CaptureEvent } from "@bugberry/capture"
-import { MAX_MERGED_EVENTS, mergePages } from "../lib/page-merge"
+import { MAX_MERGED_EVENTS, mergePages } from "../../lib/recording/page-merge"
 
 const log = (t: number, text = "x"): CaptureEvent => ({ kind: "console", t, level: "log", args: [text] })
 const resource = (t: number): CaptureEvent => ({ kind: "resource", t, url: `https://shop.test/${t}.png`, initiatorType: "img" })

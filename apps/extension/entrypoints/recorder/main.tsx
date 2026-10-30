@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client"
 import { browser } from "wxt/browser"
 import { createIndexedDbDraftStore } from "../../lib/draft-store"
 import type { RecordingEndedNotice } from "../../lib/messages"
-import { createMediaDeps, createRecorderHandler } from "../../lib/recorder-handler"
+import { createMediaDeps, createRecorderHandler } from "../../lib/recording/recorder-handler"
 import { App } from "./App"
 
 /** Firefox's recorder: the same handler as Chrome's offscreen document, in a window the reporter can see. */

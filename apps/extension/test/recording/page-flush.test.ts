@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { CAPTURE_PAUSE_EVENT, FLUSH_EVENT, FLUSH_REQUEST_EVENT } from "@bugberry/capture"
-import { installPageFlush, type RecordingWatch } from "../lib/page-flush"
+import { installPageFlush, type RecordingWatch } from "../../lib/recording/page-flush"
 
 /** The page's capture script, answering a flush request the way the MAIN-world session does. */
 function page(answer: string | null) {

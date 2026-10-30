@@ -1,7 +1,7 @@
-import { MAX_RECORDING_MS } from "../lib/recorder"
+import { MAX_RECORDING_MS } from "../../lib/recording/recorder"
 import { beforeEach, describe, expect, mock, test } from "bun:test"
-import type { DraftStore } from "../lib/draft-store"
-import type { OffscreenMessage } from "../lib/messages"
+import type { DraftStore } from "../../lib/draft-store"
+import type { OffscreenMessage } from "../../lib/messages"
 import {
   createRecordingController,
   discardRecording,
@@ -13,8 +13,8 @@ import {
   recordingStatus,
   startVideoRecording,
   stopVideoRecording,
-} from "../lib/recording-flow"
-import type { ReportDraft } from "../lib/types"
+} from "../../lib/recording/recording-flow"
+import type { ReportDraft } from "../../lib/types"
 
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"

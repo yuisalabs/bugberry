@@ -1,5 +1,5 @@
 import { CAPTURE_PAUSE_EVENT, FLUSH_EVENT, FLUSH_REQUEST_EVENT } from "@bugberry/capture"
-import type { PageFlushMessage, PageStartMessage } from "./messages"
+import type { PageFlushMessage, PageStartMessage } from "../messages"
 
 export interface FlushHost {
   /** The page's document, shared with the capture script in the MAIN world. */

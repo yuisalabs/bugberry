@@ -1,5 +1,5 @@
 import type { CameraShape, RecordSource, ScreenshotMode } from "./capture/capture-prefs"
-import { MAX_RECORDING_MS, type RecordingEndReason } from "./recorder"
+import { MAX_RECORDING_MS, type RecordingEndReason } from "./recording/recorder"
 
 export interface ScreenshotRequest {
   type: "bugberry:screenshot"

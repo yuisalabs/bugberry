@@ -1,5 +1,5 @@
 import { expect, mock, test } from "bun:test"
-import { KEEP_ALIVE_MS, keepBackgroundAwake } from "../lib/keep-alive"
+import { KEEP_ALIVE_MS, keepBackgroundAwake } from "../../lib/recording/keep-alive"
 
 test("pings the background on an interval until stopped", () => {
   let tick: (() => void) | undefined

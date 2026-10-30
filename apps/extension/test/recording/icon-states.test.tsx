@@ -7,7 +7,7 @@ import {
 } from "@remixicon/react"
 import { render, screen } from "@testing-library/react"
 import { renderToStaticMarkup } from "react-dom/server"
-import { BarView, type BarViewProps } from "../entrypoints/recorder-bar/BarView"
+import { BarView, type BarViewProps } from "../../entrypoints/recorder-bar/BarView"
 
 /** The shape an icon draws, to tell its line and fill variants apart. */
 const shape = (Icon: RemixiconComponentType) => renderToStaticMarkup(<Icon />).match(/ d="([^"]+)"/)?.[1] ?? "none"

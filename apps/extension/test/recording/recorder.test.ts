@@ -8,7 +8,7 @@ import {
   type RecordingEndReason,
   startRecording,
   VIDEO_BITS_PER_SECOND,
-} from "../lib/recorder"
+} from "../../lib/recording/recorder"
 
 class FakeTrack {
   stopped = false

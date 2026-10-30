@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, mock, test } from "bun:test"
-import { type BarPosition, cameraFromUiState, cameraHeightFrom, clampPosition, createPageUi, uiStateNeeded } from "../lib/page-ui"
+import { type BarPosition, cameraFromUiState, cameraHeightFrom, clampPosition, createPageUi, uiStateNeeded } from "../../lib/recording/page-ui"
 
 const ORIGIN = "chrome-extension://abcdefghijklmnopabcdefghijklmnop"
 

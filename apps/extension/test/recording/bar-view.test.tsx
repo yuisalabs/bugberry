@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
-import { barStatusFrom } from "../entrypoints/recorder-bar/App"
-import { BarView, type BarViewProps } from "../entrypoints/recorder-bar/BarView"
+import { barStatusFrom } from "../../entrypoints/recorder-bar/App"
+import { BarView, type BarViewProps } from "../../entrypoints/recorder-bar/BarView"
 
 const RUNNING = { recording: true, elapsedMs: 42_000, paused: false, errors: 2, micOn: false, micAvailable: true, maxMs: null }
 

@@ -1,7 +1,7 @@
 import { type CaptureEvent, encodeDebuggerPayload, summarize } from "@bugberry/capture"
 import type { DebuggerSummary, DeviceInfo } from "@bugberry/shared"
 import type { DraftStore } from "./draft-store"
-import type { RecordingEndReason } from "./recorder"
+import type { RecordingEndReason } from "./recording/recorder"
 
 /** What the agent recorder learns of a stopped recording; the files themselves it reads a slice at a time. */
 export interface AutomationDraftMeta {

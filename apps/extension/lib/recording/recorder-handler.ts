@@ -1,5 +1,5 @@
-import type { DraftStore } from "./draft-store"
-import type { OffscreenMessage } from "./messages"
+import type { DraftStore } from "../draft-store"
+import type { OffscreenMessage } from "../messages"
 import { type Recording, type RecordingDeps, type RecordingEndReason, startRecording } from "./recorder"
 import { type OpenedStream, openRecordingStream, type StreamDeps } from "./recording-stream"
 import { withWebmDuration } from "./webm-duration"

@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test"
+import { afterAll, describe, expect, test } from "bun:test"
 import { areaPickFrom, cropBox, pickArea } from "../../lib/capture/select-area"
 
 function pointer(type: string, x: number, y: number) {
@@ -6,6 +6,9 @@ function pointer(type: string, x: number, y: number) {
 }
 
 const overlay = () => document.querySelector("[data-bugberry-area]")
+
+// The last drag's click guard lasts 300 ms; the next test file clicks at once.
+afterAll(() => new Promise((resolve) => setTimeout(resolve, 350)))
 
 describe("pickArea", () => {
   test("a drag gives its box, and the overlay is gone before the answer", async () => {

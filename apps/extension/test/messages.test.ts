@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { MAX_RECORDING_MS } from "../lib/recorder"
+import { MAX_RECORDING_MS } from "../lib/recording/recorder"
 import {
   isOffscreenMessage,
   isPageFlush,

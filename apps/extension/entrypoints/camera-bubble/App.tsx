@@ -1,6 +1,6 @@
 import { RiExpandDiagonalLine } from "@remixicon/react"
 import { useEffect, useRef, useState } from "react"
-import { startBarDrag, startCameraResize } from "../../lib/bar-drag"
+import { startBarDrag, startCameraResize } from "../../lib/recording/bar-drag"
 import type { CameraTicketRequest } from "../../lib/messages"
 
 /**

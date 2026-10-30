@@ -1,5 +1,5 @@
 import { BlobSource, BufferTarget, Conversion, Input, Output, WEBM, WebMOutputFormat } from "mediabunny"
-import { AUDIO_BITS_PER_SECOND, VIDEO_BITS_PER_SECOND } from "./recorder"
+import { AUDIO_BITS_PER_SECOND, VIDEO_BITS_PER_SECOND } from "./recording/recorder"
 import type { TrimRange } from "./review-data"
 
 /** The range as mediabunny takes it: seconds. */

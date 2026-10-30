@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test"
 import { render } from "@testing-library/react"
-import { barContent } from "../entrypoints/recorder-bar/App"
-import { BarView } from "../entrypoints/recorder-bar/BarView"
+import { barContent } from "../../entrypoints/recorder-bar/App"
+import { BarView } from "../../entrypoints/recorder-bar/BarView"
 
 const noop = () => {}
 
@@ -30,7 +30,7 @@ test("the bar's content sits in the frame's bottom-left corner, so what opens ab
 })
 
 test("the bar's page never scrolls: a scrollbar in the frame would push the bar about", async () => {
-  const html = await Bun.file(new URL("../entrypoints/recorder-bar/index.html", import.meta.url)).text()
+  const html = await Bun.file(new URL("../../entrypoints/recorder-bar/index.html", import.meta.url)).text()
   expect(html).toMatch(/<html[^>]*overflow:\s*hidden/)
   expect(html).toMatch(/<body[^>]*overflow-hidden/)
 })
