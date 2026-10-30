@@ -6,7 +6,7 @@ const ROOT = join(import.meta.dir, "..", "..")
 const FOLDERS = new Set(["ai", "annotate", "capture", "devices", "drafts", "platform", "prompts", "recording", "review", "server", "shared"])
 const MAX_LINES = 500
 /** Files split for length; each stays under MAX_LINES. */
-const SPLIT: string[] = ["lib/recording/recording-flow.ts"]
+const SPLIT: string[] = ["lib/recording/recording-flow.ts", "entrypoints/review/ReviewView.tsx"]
 
 type Entry = { name: string; folder: boolean }
 

@@ -1,6 +1,7 @@
 import { describe, expect, mock, test } from "bun:test"
 import { act, fireEvent, render, screen } from "@testing-library/react"
-import { ReviewView, type ReviewViewProps, type TrackerChoice } from "../../entrypoints/review/ReviewView"
+import { ReviewView, type ReviewViewProps } from "../../entrypoints/review/ReviewView"
+import type { TrackerChoice } from "../../entrypoints/review/SentPanel"
 import type { ReportDraft } from "../../lib/shared/types"
 
 const draft = {

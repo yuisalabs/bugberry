@@ -1,38 +1,9 @@
 import type { RecordingNote } from "@bugberry/capture"
-import { clockLabel, defaultReportTitle, emailDomain, matchProject, PRIORITIES, type Priority, sizeLabel, type Visibility, visibilityChoices, visibilityOptions } from "@bugberry/shared"
-import { Button, buttonStyles } from "@bugberry/ui/button"
-import { Checkbox, CheckboxField } from "@bugberry/ui/checkbox"
+import { matchProject, type Visibility } from "@bugberry/shared"
+import { Button } from "@bugberry/ui/button"
 import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@bugberry/ui/dialog"
-import { Description, Label } from "@bugberry/ui/field"
-import { Input } from "@bugberry/ui/input"
-import { Link } from "@bugberry/ui/link"
-import { Select, SelectContent, SelectItem, SelectTrigger } from "@bugberry/ui/select"
-import { TextField } from "@bugberry/ui/text-field"
-import {
-  type RemixiconComponentType,
-  RiArrowRightUpLine,
-  RiCameraLine,
-  RiCheckLine,
-  RiCloseLine,
-  RiCursorLine,
-  RiDeleteBinLine,
-  RiFileTextLine,
-  RiFlagLine,
-  RiFolderLine,
-  RiGithubFill,
-  RiGlobalLine,
-  RiHashtag,
-  RiLink,
-  RiRecordCircleLine,
-  RiShieldCheckLine,
-  RiSparkling2Line,
-  RiTerminalBoxLine,
-  RiUserLine,
-  RiVideoOnLine,
-  RiWindowLine,
-} from "@remixicon/react"
+import { RiCameraLine, RiCloseLine, RiCursorLine, RiDeleteBinLine, RiGlobalLine, RiTerminalBoxLine, RiVideoOnLine, RiWindowLine } from "@remixicon/react"
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
-import { Button as AriaButton, ProgressBar, TextArea as AriaTextArea } from "react-aria-components"
 import type { TemplateText } from "@bugberry/ai-write"
 import type { AiPath } from "../../lib/ai/ai-assist"
 import { useAutoGrow } from "../../lib/shared/auto-grow"
@@ -42,6 +13,9 @@ import { formProblem } from "../../lib/review/report-form"
 import { isTrimmed, reviewStats, suggestTitle, type TrimRange, trimPayload } from "../../lib/review/review-data"
 import type { ReportDraft } from "../../lib/shared/types"
 import type { ReportForm, SentReport, UploadProgress } from "../../lib/review/upload"
+import { PreparingBar, Tile, UploadBar } from "./parts"
+import { ReportFields } from "./ReportFields"
+import { SentPanel, type SentDetails, type TrackerChoice } from "./SentPanel"
 import { TrimStrip } from "./TrimStrip"
 
 export type ReviewStatus =
@@ -59,26 +33,6 @@ export interface Assignable {
   id: string
   name: string
   email: string
-}
-
-/** What the server says about the report just created; null until it has answered (or when it couldn't). */
-export interface SentDetails {
-  /** Shown as BB-{number}. */
-  number: number
-  title: string
-  status: string
-  priority: Priority
-  visibility: Visibility
-  projectName: string | null
-  assigneeName: string | null
-}
-
-/** A tracker of the report's project, and whether the report already went there. */
-export interface TrackerChoice {
-  id: string
-  provider: string
-  label: string
-  state: "idle" | "sending" | { url: string | null } | { error: string }
 }
 
 export interface ReviewViewProps {
@@ -173,19 +127,6 @@ export interface ReviewViewProps {
   onTrimPlay?(): void
   /** While sending a trimmed video: how far its encoding is (0–1); null otherwise. */
   preparing?: number | null
-}
-
-/** "No project" in the project list; a list key can't be empty. */
-const NO_PROJECT = "__none"
-/** "Unassigned" in the assignee list. */
-const NOBODY = "__nobody"
-
-const PRIORITY_LABELS: Record<Priority, string> = { none: "No priority", low: "Low", medium: "Medium", high: "High", critical: "Critical" }
-
-function visibilityLabel(visibility: Visibility, email: string | null): string {
-  if (visibility === "public") return "Anyone with the link"
-  if (visibility === "internal") return email ? `Anyone at @${emailDomain(email)}` : "Anyone at your company"
-  return "Workspace members"
 }
 
 /**
@@ -373,277 +314,29 @@ export function ReviewView(props: ReviewViewProps) {
               {/* Three parts: the top and bottom keep their size, the middle (title and description) gives way and the
                   description scrolls inside it. The whole panel scrolls only when even that doesn't fit. */}
               <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-5 sm:p-7">
-                <div data-review-part="top" className="flex shrink-0 flex-col gap-5">
-                  {!props.signInUrl && (
-                    <div className="flex flex-col gap-1.5">
-                      <div className="flex items-center gap-3">
-                        <span id="save-to" className="shrink-0 text-sm text-muted-foreground">
-                          Save to
-                        </span>
-                        <Select
-                          aria-labelledby="save-to"
-                          selectedKey={form.workspaceId ?? props.workspaceId ?? null}
-                          isDisabled={props.workspaces.length < 2}
-                          onSelectionChange={(key) => {
-                            if (key === null) return
-                            // Projects and people belong to a workspace, so a new workspace starts with neither chosen.
-                            update({ workspaceId: String(key), projectId: "", assigneeId: "" })
-                            props.onWorkspaceChange(String(key))
-                          }}
-                          className="w-auto min-w-0"
-                        >
-                          <SelectTrigger className="font-semibold" />
-                          <SelectContent items={props.workspaces}>{(entry) => <SelectItem id={entry.id}>{entry.name}</SelectItem>}</SelectContent>
-                        </Select>
-                      </div>
-                      {props.usage && <p className="text-xs text-muted-foreground">{props.usage}</p>}
-                    </div>
-                  )}
-
-                  {isVideo && ai && !props.signInUrl && (
-                    <div ref={setAiRowElement} className="flex flex-col gap-2">
-                      {ai.path ? (
-                        ai.templates.length > 0 ? (
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Select
-                              aria-label="Template"
-                              selectedKey={aiTemplate}
-                              onSelectionChange={(key) => key !== null && setPickedTemplate(String(key))}
-                              className="w-auto min-w-0 flex-1"
-                            >
-                              <SelectTrigger prefix={<RiFileTextLine size={16} aria-hidden />} />
-                              <SelectContent items={ai.templates}>{(template) => <SelectItem id={template.id}>{template.name}</SelectItem>}</SelectContent>
-                            </Select>
-                            <Button intent="outline" isPending={writing} isDisabled={!aiSeen} onPress={() => void writeWithAi()}>
-                              <RiSparkling2Line aria-hidden />
-                              Write with AI
-                            </Button>
-                            {undo && (
-                              <AriaButton
-                                className="rounded-sm text-sm font-semibold text-primary underline outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
-                                onPress={() => {
-                                  update(undo)
-                                  setUndo(null)
-                                }}
-                              >
-                                Undo
-                              </AriaButton>
-                            )}
-                          </div>
-                        ) : (
-                          <p className="text-sm text-muted-foreground">Add a template in Settings → AI to write with AI</p>
-                        )
-                      ) : ai.error ? (
-                        <p role="alert" className="flex flex-wrap items-center gap-2 text-sm text-danger-subtle-foreground">
-                          {ai.error}
-                          {props.onAiRetry && (
-                            <AriaButton
-                              className="rounded-sm font-semibold underline outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
-                              onPress={props.onAiRetry}
-                            >
-                              Try again
-                            </AriaButton>
-                          )}
-                        </p>
-                      ) : ai.isAdmin ? (
-                        <Link href={ai.settingsUrl} target="_blank" rel="noreferrer" className="self-start text-sm font-semibold text-primary">
-                          Set up AI
-                        </Link>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">Ask your admin to set up AI in Settings → AI</p>
-                      )}
-                      {aiError && (
-                        <p role="alert" className="text-sm text-danger-subtle-foreground">
-                          {aiError}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                <div data-review-part="middle" className="flex min-h-40 flex-1 flex-col gap-5">
-                  <TextField
-                    aria-label="Title"
-                    isReadOnly={writing}
-                    maxLength={200}
-                    value={form.title}
-                    onChange={(title) => {
-                      setTitleEdited(true)
-                      setUndo(null)
-                      // A title is one paragraph: pasted line breaks become spaces.
-                      update({ title: title.replace(/\s*\n\s*/g, " ") })
-                    }}
-                  >
-                    <AriaTextArea
-                      ref={titleField}
-                      rows={1}
-                      placeholder={defaultReportTitle(draft.captureType, props.name ?? "you")}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") event.preventDefault()
-                      }}
-                      className="w-full resize-none overflow-hidden bg-transparent font-heading text-lg/tight font-bold text-foreground outline-hidden placeholder:text-muted-foreground/70"
-                    />
-                    {!titleEdited && suggestion && (
-                      <Description className="text-xs text-primary">
-                        {suggestion.from === "request" ? "Suggested from the failed request" : "Suggested from a console error"}
-                      </Description>
-                    )}
-                  </TextField>
-                  <TextField
-                    aria-label="What went wrong?"
-                    isReadOnly={writing}
-                    maxLength={5000}
-                    value={form.description}
-                    onChange={(description) => {
-                      setUndo(null)
-                      update({ description })
-                    }}
-                    // Fills the space down to Project, Priority and Assignee, which stay in view; a long description
-                    // scrolls inside it.
-                    className="flex min-h-32 flex-1 flex-col"
-                  >
-                    <AriaTextArea
-                      rows={4}
-                      placeholder="What went wrong? Describe what you expected to happen."
-                      className="min-h-24 w-full flex-1 resize-none overflow-y-auto bg-transparent text-base text-foreground outline-hidden placeholder:text-muted-foreground/70"
-                    />
-                  </TextField>
-                </div>
-
-                <div data-review-part="bottom" className="flex shrink-0 flex-col gap-5">
-                  <div className="grid grid-cols-2 gap-3">
-                    {!props.signInUrl && (
-                      <Select
-                        selectedKey={form.projectId || NO_PROJECT}
-                        onSelectionChange={(key) => key !== null && update({ projectId: key === NO_PROJECT ? "" : String(key) })}
-                      >
-                        <Label>Project</Label>
-                        <SelectTrigger prefix={<RiFolderLine size={16} aria-hidden />} />
-                        <SelectContent items={[{ id: NO_PROJECT, name: "No project" }, ...props.projects]}>
-                          {(project) => <SelectItem id={project.id}>{project.name}</SelectItem>}
-                        </SelectContent>
-                      </Select>
-                    )}
-                    <Select selectedKey={form.priority} onSelectionChange={(key) => key !== null && update({ priority: key as Priority })}>
-                      <Label>Priority</Label>
-                      <SelectTrigger prefix={<RiFlagLine size={16} aria-hidden />} />
-                      <SelectContent items={PRIORITIES.map((priority) => ({ id: priority, name: PRIORITY_LABELS[priority] }))}>
-                        {(priority) => <SelectItem id={priority.id}>{priority.name}</SelectItem>}
-                      </SelectContent>
-                    </Select>
-                </div>
-                {!props.signInUrl && (
-                  <Select selectedKey={form.assigneeId || NOBODY} onSelectionChange={(key) => key !== null && update({ assigneeId: key === NOBODY ? "" : String(key) })}>
-                    <Label>Assignee</Label>
-                    <SelectTrigger prefix={<RiUserLine size={16} aria-hidden />} />
-                    <SelectContent items={[{ id: NOBODY, name: "Unassigned" }, ...(props.members ?? [])]}>
-                      {(member) => <SelectItem id={member.id}>{member.name || ("email" in member ? member.email : "")}</SelectItem>}
-                    </SelectContent>
-                  </Select>
-                )}
-
-                {notes.length > 0 && (
-                  <div className="flex flex-col gap-2">
-                    <span className="text-sm/6 font-medium text-foreground">Notes</span>
-                    {/* Many notes scroll here, so the bottom part doesn't push the description away. */}
-                    <div className="-m-1 flex max-h-40 flex-col gap-2 overflow-y-auto p-1">
-                      {notes.map((note, index) => (
-                        <div key={note.n} className="flex items-center gap-2">
-                          <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-                            {note.n}
-                          </span>
-                          <span className="shrink-0 font-mono text-xs text-muted-foreground">{clock(note.atMs)}</span>
-                          <Input
-                            aria-label={`Note ${note.n}`}
-                            maxLength={500}
-                            value={note.text}
-                            onChange={(event) =>
-                              setNotes((current) => current.map((entry, at) => (at === index ? { ...entry, text: event.target.value } : entry)))
-                            }
-                          />
-                          <Button
-                            intent="plain"
-                            size="sq-xs"
-                            aria-label={`Remove note ${note.n}`}
-                            onPress={() => setNotes((current) => current.filter((_, at) => at !== index))}
-                          >
-                            <RiCloseLine aria-hidden />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <p className="flex items-center gap-2 rounded-xl bg-success-subtle px-3.5 py-2.5 text-sm text-success-subtle-foreground">
-                  <RiShieldCheckLine size={16} aria-hidden className="shrink-0" />
-                  Passwords and card numbers were masked in the logs
-                </p>
-                {/* Over someone else's page the city can't be asked for, so only the review in its own tab offers it. */}
-                {!props.embedded && (
-                  <div className="flex flex-col gap-1">
-                    <CheckboxField isSelected={props.includeCity} onChange={props.onIncludeCityChange}>
-                      <Checkbox>Include my city</Checkbox>
-                    </CheckboxField>
-                    {props.cityNote && <p className="text-xs text-muted-foreground">{props.cityNote}</p>}
-                  </div>
-                )}
-                {draft.captureType === "video" && draft.stoppedAtLimitMs !== undefined && (
-                  <p role="status" className="rounded-xl bg-warning-subtle px-3.5 py-2.5 text-sm text-warning-subtle-foreground">
-                    {`The recording stopped by itself at ${clockLabel(draft.stoppedAtLimitMs)}, the longest allowed.`}
-                  </p>
-                )}
-                {props.limitWarning && (
-                  <p role="status" className="flex flex-wrap items-center gap-2 rounded-xl bg-warning-subtle px-3.5 py-2.5 text-sm text-warning-subtle-foreground">
-                    {props.limitWarning}
-                    {props.onOpenDashboard && (
-                      <AriaButton
-                        className="rounded-sm font-semibold underline outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
-                        onPress={props.onOpenDashboard}
-                      >
-                        Open dashboard
-                      </AriaButton>
-                    )}
-                  </p>
-                )}
-                {typeof props.status === "object" && "trimFailed" in props.status && (
-                  <p role="alert" className="flex flex-wrap items-center gap-2 rounded-xl bg-danger-subtle px-3.5 py-2.5 text-sm text-danger-subtle-foreground">
-                    Couldn't trim the video: {props.status.trimFailed}
-                    {!props.signInUrl && !props.fullVideoTooLong && (
-                      <AriaButton
-                        className="rounded-sm font-semibold underline outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
-                        onPress={() => send({ fullVideo: true })}
-                      >
-                        Send full video
-                      </AriaButton>
-                    )}
-                  </p>
-                )}
-                {typeof props.status === "object" && "failed" in props.status && (
-                  <p role="alert" className="flex flex-wrap items-center gap-2 rounded-xl bg-danger-subtle px-3.5 py-2.5 text-sm text-danger-subtle-foreground">
-                    {props.status.failed}
-                    {!props.sendBlocked && !props.signInUrl && (
-                      <AriaButton className="rounded-sm font-semibold underline outline-hidden focus-visible:ring-2 focus-visible:ring-ring" onPress={() => send()}>
-                        Try again
-                      </AriaButton>
-                    )}
-                  </p>
-                )}
-                {typeof props.status === "object" && "signedOut" in props.status && (
-                  <p role="alert" className="rounded-xl bg-danger-subtle px-3.5 py-2.5 text-sm text-danger-subtle-foreground">
-                    Your session ended.{" "}
-                    <Link href={props.status.signedOut} target="_blank" rel="noreferrer" className="font-semibold underline">
-                      Sign in
-                    </Link>
-                    , then create the report again.
-                  </p>
-                )}
-                {problem && (
-                  <p role="alert" className="text-sm text-danger-subtle-foreground">
-                    {problem}
-                  </p>
-                )}
-                </div>
+                <ReportFields
+                  review={props}
+                  form={form}
+                  update={update}
+                  notes={notes}
+                  setNotes={setNotes}
+                  titleField={titleField}
+                  titleEdited={titleEdited}
+                  setTitleEdited={setTitleEdited}
+                  suggestion={suggestion}
+                  problem={problem}
+                  send={send}
+                  ai={ai}
+                  aiTemplate={aiTemplate}
+                  setPickedTemplate={setPickedTemplate}
+                  setAiRowElement={setAiRowElement}
+                  writing={writing}
+                  aiSeen={aiSeen}
+                  writeWithAi={writeWithAi}
+                  undo={undo}
+                  setUndo={setUndo}
+                  aiError={aiError}
+                />
               </div>
 
               {sending && props.preparing != null ? (
@@ -739,292 +432,5 @@ export function ReviewView(props: ReviewViewProps) {
         </Dialog>
       </section>
     </div>
-  )
-}
-
-/** Integration logos shipped with the extension (public/assets/integrations); GitHub's is the icon font's. */
-const TRACKER_MARKS: Record<string, string> = {
-  activecollab: "/assets/integrations/activecollab.png",
-  gitlab: "/assets/integrations/gitlab.svg",
-  jira: "/assets/integrations/jira.svg",
-  linear: "/assets/integrations/linear.svg",
-  plane: "/assets/integrations/plane.png",
-}
-
-/** The tracker's logo, so a repo name or "Project #261" says which integration it goes to. */
-function TrackerMark({ provider }: { provider: string }) {
-  if (provider === "github") return <RiGithubFill data-tracker-mark="github" aria-hidden className="size-5 shrink-0" />
-  const src = TRACKER_MARKS[provider]
-  return src ? <img data-tracker-mark={provider} src={src} alt="" className="size-5 shrink-0 rounded object-contain" /> : null
-}
-
-/** Tracker choices list the destination next to its logo, from the left. */
-const trackerChoice = "h-auto min-h-10 justify-start py-2 text-left"
-
-/** The right side once the report exists: what was created, its link and who sees it, and where else it can go. */
-function SentPanel(props: {
-  sent: SentReport
-  details: SentDetails | null
-  visibility: Visibility
-  email: string | null
-  trackers: TrackerChoice[] | null
-  trackerNote: string | null
-  needsProject: boolean
-  projects: Project[]
-  onPickProject?(projectId: string): Promise<void> | void
-  onVisibilityChange?(visibility: Visibility): void
-  onSendToTracker?(integrationId: string): void
-  onAnother?(): void
-  anotherLabel: string
-  onDone(): void
-}) {
-  const { sent, details } = props
-  const [copied, setCopied] = useState<"copied" | "failed" | null>(null)
-  const [moving, setMoving] = useState(false)
-  const pickProject = async (projectId: string) => {
-    setMoving(true)
-    try {
-      await props.onPickProject?.(projectId)
-    } finally {
-      setMoving(false)
-    }
-  }
-  const copy = () =>
-    void Promise.resolve()
-      .then(() => navigator.clipboard.writeText(sent.shareUrl))
-      .then(
-        () => setCopied("copied"),
-        () => setCopied("failed"),
-      )
-  // Copied as soon as the report exists: sharing it is what comes next. A refused clipboard just waits for "Copy".
-  useEffect(() => {
-    void Promise.resolve()
-      .then(() => navigator.clipboard.writeText(sent.shareUrl))
-      .then(
-        () => setCopied("copied"),
-        () => {},
-      )
-  }, [sent.shareUrl])
-  const visibilities = props.email ? visibilityOptions(props.email) : visibilityChoices(false)
-  const shown = visibilities.includes(props.visibility) ? visibilities : [...visibilities, props.visibility]
-
-  return (
-    <>
-      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto p-5 sm:p-7">
-        <div className="flex flex-col items-center gap-2 pt-4 text-center">
-          <span className="mb-2 grid size-20 place-items-center rounded-full bg-success-subtle ring-8 ring-success-subtle/50">
-            <RiCheckLine size={36} aria-hidden className="text-success-subtle-foreground" />
-          </span>
-          <h1 className="font-heading text-2xl font-bold">Report created</h1>
-          <p className="text-muted-foreground">Your team can open it right away.</p>
-        </div>
-
-        {details && (
-          <div className="flex flex-col gap-2 rounded-2xl bg-muted/60 p-4 ring-1 ring-border">
-            <span className="flex items-center gap-2 text-sm">
-              <span className="font-mono text-muted-foreground">BB-{details.number}</span>
-              <span className="flex items-center gap-1.5 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary capitalize">
-                <span aria-hidden className="size-1.5 rounded-full bg-current" />
-                {details.status.replaceAll("_", " ")}
-              </span>
-            </span>
-            <span className="font-heading text-lg font-bold">{details.title}</span>
-            <span className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-              {details.projectName && (
-                <span className="flex items-center gap-1">
-                  <RiHashtag size={14} aria-hidden />
-                  {details.projectName}
-                </span>
-              )}
-              {details.priority !== "none" && (
-                <span className="flex items-center gap-1">
-                  <RiFlagLine size={14} aria-hidden className="text-danger-subtle-foreground" />
-                  {PRIORITY_LABELS[details.priority]}
-                </span>
-              )}
-              {details.assigneeName && (
-                <span className="flex items-center gap-1">
-                  <RiUserLine size={14} aria-hidden />
-                  {details.assigneeName}
-                </span>
-              )}
-            </span>
-          </div>
-        )}
-
-        <div className="flex flex-col gap-2">
-          <span id="share-label" className="text-sm font-medium">
-            Share link
-          </span>
-          <div className="flex items-center gap-2 rounded-xl px-3 py-1.5 ring-2 ring-primary/70">
-            <RiLink size={16} aria-hidden className="shrink-0 text-muted-foreground" />
-            <input
-              aria-label="Share link"
-              readOnly
-              value={sent.shareUrl}
-              onFocus={(event) => event.target.select()}
-              className="min-w-0 flex-1 bg-transparent py-1 text-sm text-foreground outline-hidden"
-            />
-            {copied === "copied" ? (
-              <span role="status" className="flex shrink-0 items-center gap-1 rounded-lg bg-success-subtle px-2.5 py-1 text-sm font-semibold text-success-subtle-foreground">
-                <RiCheckLine size={14} aria-hidden />
-                Copied
-              </span>
-            ) : (
-              <Button size="xs" intent="outline" onPress={copy}>
-                Copy
-              </Button>
-            )}
-          </div>
-          {copied === "failed" && <p className="text-xs text-muted-foreground">Your browser didn't allow copying. Select the link and copy it.</p>}
-          <Select
-            aria-label="Who can see it"
-            selectedKey={props.visibility}
-            isDisabled={!props.onVisibilityChange}
-            onSelectionChange={(key) => key !== null && props.onVisibilityChange?.(key as Visibility)}
-            className="w-auto self-start"
-          >
-            <SelectTrigger className="border-0 px-0 text-muted-foreground sm:px-0" />
-            <SelectContent items={shown.map((visibility) => ({ id: visibility, name: visibilityLabel(visibility, props.email) }))}>
-              {(visibility) => <SelectItem id={visibility.id}>{visibility.name}</SelectItem>}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex flex-col gap-3">
-          <Link href={sent.reportUrl} target="_blank" rel="noreferrer" className={buttonStyles({ size: "lg", className: "w-full justify-center" })}>
-            Open report
-            <RiArrowRightUpLine aria-hidden />
-          </Link>
-          {props.trackers && props.trackers.length > 0 && (
-            <>
-              <div className="grid grid-cols-[repeat(auto-fit,minmax(7rem,1fr))] gap-2">
-                {props.trackers.map((tracker) => {
-                  const done = typeof tracker.state === "object" && "url" in tracker.state ? tracker.state : null
-                  if (done?.url) {
-                    return (
-                      <Link key={tracker.id} href={done.url} target="_blank" rel="noreferrer" className={buttonStyles({ intent: "outline", className: trackerChoice })}>
-                        <TrackerMark provider={tracker.provider} />
-                        <span className="min-w-0 flex-1 break-words">{tracker.label}</span>
-                        <RiCheckLine aria-hidden className="text-success-subtle-foreground" />
-                      </Link>
-                    )
-                  }
-                  return (
-                    <Button
-                      key={tracker.id}
-                      intent="outline"
-                      isDisabled={tracker.state === "sending" || done !== null}
-                      onPress={() => props.onSendToTracker?.(tracker.id)}
-                      className={trackerChoice}
-                    >
-                      <TrackerMark provider={tracker.provider} />
-                      <span className="min-w-0 flex-1 break-words">{tracker.state === "sending" ? "Sending…" : tracker.label}</span>
-                    </Button>
-                  )
-                })}
-              </div>
-              {props.trackers.map(
-                (tracker) =>
-                  typeof tracker.state === "object" &&
-                  "error" in tracker.state && (
-                    <p key={tracker.id} role="alert" className="text-sm text-danger-subtle-foreground">
-                      {tracker.label}: {tracker.state.error}
-                    </p>
-                  ),
-              )}
-              <p className="text-sm text-muted-foreground">Send it to a tracker without leaving this page.</p>
-            </>
-          )}
-          {props.needsProject &&
-            props.onPickProject &&
-            (props.projects.length > 0 ? (
-              <div className="flex flex-col gap-2">
-                <Select placeholder="Pick a project" selectedKey={null} isDisabled={moving} onSelectionChange={(key) => key !== null && void pickProject(String(key))}>
-                  <Label>Project</Label>
-                  <SelectTrigger prefix={<RiFolderLine size={16} aria-hidden />} />
-                  <SelectContent items={props.projects}>{(project) => <SelectItem id={project.id}>{project.name}</SelectItem>}</SelectContent>
-                </Select>
-                <p className="text-sm text-muted-foreground">{moving ? "Moving it to the project…" : "Pick a project to send it to that project's trackers."}</p>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">Create a project with a tracker to send reports there.</p>
-            ))}
-          {props.trackerNote && <p className="text-sm text-muted-foreground">{props.trackerNote}</p>}
-        </div>
-      </div>
-
-      <footer className="mx-5 flex items-center justify-between gap-2 border-t border-border py-5 sm:mx-7">
-        {props.onAnother ? (
-          <Button intent="plain" onPress={props.onAnother} className="[--btn-foreground:var(--color-primary)] [--btn-icon:var(--color-primary)]">
-            <RiRecordCircleLine aria-hidden />
-            {props.anotherLabel}
-          </Button>
-        ) : (
-          <span />
-        )}
-        <Button className="[--btn-bg:var(--color-foreground)] [--btn-foreground:var(--color-background)]" onPress={props.onDone}>
-          Done
-        </Button>
-      </footer>
-    </>
-  )
-}
-
-function Tile({ icon: Icon, tone, title, value }: { icon: RemixiconComponentType; tone: "danger" | "warning" | "muted"; title: string; value: string }) {
-  const color = tone === "danger" ? "text-danger-subtle-foreground" : tone === "warning" ? "text-warning-subtle-foreground" : "text-foreground"
-  return (
-    <div className="flex min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 ring-1 ring-border">
-      <span className={`grid size-9 shrink-0 place-items-center rounded-lg ${tone === "danger" ? "bg-danger-subtle" : tone === "warning" ? "bg-warning-subtle" : "bg-muted"}`}>
-        <Icon size={18} aria-hidden className={tone === "muted" ? "text-muted-foreground" : color} />
-      </span>
-      <span className="flex min-w-0 flex-col">
-        <span className="truncate text-xs text-muted-foreground">{title}</span>
-        <span className={`truncate text-sm font-semibold ${color}`}>{value}</span>
-      </span>
-    </div>
-  )
-}
-
-function clock(ms: number): string {
-  const seconds = Math.max(0, Math.floor(ms / 1000))
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`
-}
-
-/** Above the footer while a trimmed video is encoded, before its upload starts. */
-function PreparingBar({ fraction }: { fraction: number }) {
-  const percent = Math.min(100, Math.max(0, Math.floor(fraction * 100)))
-  return (
-    <ProgressBar value={percent} aria-label="Preparing video" className="mx-5 flex flex-col gap-1.5 pb-3 sm:mx-7">
-      <span className="text-xs text-muted-foreground tabular-nums">Preparing video… {percent}%</span>
-      <span className="h-1 overflow-hidden rounded-full bg-secondary">
-        <span className="block h-full rounded-full bg-primary transition-[width] duration-300" style={{ width: `${percent}%` }} />
-      </span>
-    </ProgressBar>
-  )
-}
-
-/** Above the footer while sending: how far the upload is, then that the server is making the report. */
-function UploadBar({ progress, isVideo }: { progress: UploadProgress; isVideo: boolean }) {
-  const done = progress.sent >= progress.total
-  const percent = progress.total > 0 ? Math.min(100, Math.floor((progress.sent / progress.total) * 100)) : 100
-  const label = done ? "Creating report…" : isVideo ? "Uploading video" : "Uploading screenshot"
-  return (
-    <ProgressBar
-      value={percent}
-      aria-label={label}
-      valueLabel={`${sizeLabel(progress.sent)} of ${sizeLabel(progress.total)}, ${percent}%`}
-      className="mx-5 flex flex-col gap-1.5 pb-3 sm:mx-7"
-    >
-      <span className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-        <span>{label}</span>
-        <span className="tabular-nums">
-          {sizeLabel(progress.sent)} of {sizeLabel(progress.total)} · {percent}%
-        </span>
-      </span>
-      <span className="h-1 overflow-hidden rounded-full bg-secondary">
-        <span className="block h-full rounded-full bg-primary transition-[width] duration-300" style={{ width: `${percent}%` }} />
-      </span>
-    </ProgressBar>
   )
 }

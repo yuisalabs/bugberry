@@ -32,7 +32,8 @@ import type { ReportDraft } from "../../lib/shared/types"
 import { LOCKED, putFile, type ReportForm, submitDraft, type UploadProgress } from "../../lib/review/upload"
 import { videoFrames } from "../../lib/review/video-frames"
 import { AnnotationCanvas, type AnnotationCanvasHandle } from "./AnnotationCanvas"
-import { type Assignable, ReviewView, type ReviewStatus, type SentDetails, type TrackerChoice } from "./ReviewView"
+import { type Assignable, ReviewView, type ReviewStatus } from "./ReviewView"
+import type { SentDetails, TrackerChoice } from "./SentPanel"
 
 const store = createIndexedDbDraftStore()
 const writeDraft = createDraftWriter(store)
