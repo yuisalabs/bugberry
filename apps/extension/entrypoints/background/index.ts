@@ -1,54 +1,25 @@
-import { type Browser, browser } from "wxt/browser"
-import { createFailureFlag } from "../lib/platform/badge"
-import { bridgeSenderOrigin, createBridge } from "../lib/server/bridge"
-import { browserRecordingState } from "../lib/recording/browser-recording-state"
-import { createBugberryApi } from "../lib/server/api"
-import { CAMERA_READY_MS, type CameraGrant, cameraTicketReply, createCameraGrants, uiStateReply } from "../lib/devices/camera-grant"
-import { handleAiTest, handleAiWrite, isAiTestRequest, isAiWriteRequest } from "../lib/ai/ai-relay"
-import { handleApiFetch, isApiFetchRequest } from "../lib/server/api-relay"
-import { browserAiKeyStorage } from "../lib/ai/browser-ai-key"
-import { hasTabRecorder } from "../lib/platform/browser-support"
-import { recordOptionsFor, type ScreenshotMode } from "../lib/capture/capture-prefs"
-import { BUILD_SERVER_ORIGIN, browserSettingsStorage, capturePrefsStorage, lastSessionStorage, lastWorkspaceStorage } from "../lib/server/browser-settings"
-import { type ActiveTab, type CaptureFlowDeps, type CaptureResult, startScreenshotReport } from "../lib/capture/capture-flow"
-import { createIndexedDbDraftStore } from "../lib/drafts/draft-store"
-import {
-  type BarRequest,
-  isBarRequest,
-  isBridgeHelloRequest,
-  isBridgeOpenPopupRequest,
-  isBridgeUseServerRequest,
-  isCameraTicketRequest,
-  isPageFlush,
-  isPageStart,
-  isPopupRecordingRequest,
-  isRecorderReadyNotice,
-  isRecordingEndedNotice,
-  isAutomationStopRequest,
-  isRecordStartRequest,
-  isRecordStatusRequest,
-  isPopupPromptRequest,
-  isOpenDraftRequest,
-  isPromptTicketRequest,
-  isReviewAgainRequest,
-  isReviewAnotherRequest,
-  isScreenshotRequest,
-  isUiStateRequest,
-  type PageUiMessage,
-  type PopupRecordingAction,
-  type RecordOptions,
-} from "../lib/shared/messages"
-import { createRecordingController } from "../lib/recording/recording-controller"
-import { type RecordingFlowDeps } from "../lib/recording/recording-flow"
-import { createWindowRecorderHost, onRecorderClosed } from "../lib/recording/recorder-window"
-import { openSessionToContentScripts } from "../lib/server/session-access"
-import { createPromptOpener, type PromptTicket, type PromptTickets, ticketFor } from "../lib/prompts/prompt-opener"
-import { createReviewOpener } from "../lib/review/review-opener"
-import { fromAutomationPage, fromExtensionPage, fromPopup, ofThisRecording } from "../lib/platform/sender-rules"
-import { createTakeAgain } from "../lib/capture/take-again"
-import { isBugBerryServer } from "../lib/server/session"
-import { cropBox, pickArea } from "../lib/capture/select-area"
-import { loadSettings } from "../lib/server/settings"
+import { browser } from "wxt/browser"
+import { createFailureFlag } from "../../lib/platform/badge"
+import { createBridge } from "../../lib/server/bridge"
+import { browserRecordingState } from "../../lib/recording/browser-recording-state"
+import { createBugberryApi } from "../../lib/server/api"
+import { CAMERA_READY_MS, type CameraGrant, createCameraGrants } from "../../lib/devices/camera-grant"
+import { hasTabRecorder } from "../../lib/platform/browser-support"
+import { recordOptionsFor, type ScreenshotMode } from "../../lib/capture/capture-prefs"
+import { BUILD_SERVER_ORIGIN, browserSettingsStorage, capturePrefsStorage, lastSessionStorage, lastWorkspaceStorage } from "../../lib/server/browser-settings"
+import { type ActiveTab, type CaptureFlowDeps, type CaptureResult, startScreenshotReport } from "../../lib/capture/capture-flow"
+import { createIndexedDbDraftStore } from "../../lib/drafts/draft-store"
+import type { BarRequest, PageUiMessage, PopupRecordingAction, RecordOptions } from "../../lib/shared/messages"
+import { createRecordingController } from "../../lib/recording/recording-controller"
+import { type RecordingFlowDeps } from "../../lib/recording/recording-flow"
+import { createWindowRecorderHost, onRecorderClosed } from "../../lib/recording/recorder-window"
+import { openSessionToContentScripts } from "../../lib/server/session-access"
+import { createPromptOpener } from "../../lib/prompts/prompt-opener"
+import { createReviewOpener } from "../../lib/review/review-opener"
+import { createTakeAgain } from "../../lib/capture/take-again"
+import { isBugBerryServer } from "../../lib/server/session"
+import { cropBox, pickArea } from "../../lib/capture/select-area"
+import { loadSettings } from "../../lib/server/settings"
 import {
   clientConfigInTime,
   DEFAULT_MAX_UPLOAD_MB,
@@ -58,18 +29,20 @@ import {
   signedOutForLength,
   uploadLimitMb,
   workspaceLimitsInTime,
-} from "../lib/server/upload-limit"
-import { limitsFor } from "../lib/server/limits"
-import { isSignedOut } from "../lib/drafts/popup"
-import type { RecordingEndReason } from "../lib/recording/recorder"
-import { pickEditorWorkspace } from "../lib/review/report-form"
+} from "../../lib/server/upload-limit"
+import { limitsFor } from "../../lib/server/limits"
+import { isSignedOut } from "../../lib/drafts/popup"
+import type { RecordingEndReason } from "../../lib/recording/recorder"
+import { pickEditorWorkspace } from "../../lib/review/report-form"
+import { createMessageListener } from "./on-message"
+import { promptTickets } from "./prompt-tickets"
+import { readPageCapture, readPageEnvironment, toActiveTab } from "./tabs"
 
 /** Casts keep these valid before WXT has generated the path types for the pages. */
 const REVIEW_PAGE = "/review.html" as Parameters<typeof browser.runtime.getURL>[0]
 const OFFSCREEN_PAGE = "/offscreen.html" as Parameters<typeof browser.runtime.getURL>[0]
 /** Session storage key of Firefox's recorder window id. */
 const RECORDER_WINDOW_KEY = "recorderWindow"
-const PROMPT_TICKETS_KEY = "promptTickets"
 /** Session storage key of the camera grant; the page layer reads it to know a page load should ask for the bubble. */
 const CAMERA_GRANT_KEY = "camera"
 /** The build bundled with the agent recorder (`bun run build:recorder`); the store builds never have its automation path. */
@@ -78,77 +51,9 @@ const RECORDER_BUILD = __BUGBERRY_RECORDER_BUILD__
 /** Where WXT puts recording-ui.content.ts. */
 const PAGE_LAYER_SCRIPT = "/content-scripts/recording-ui.js"
 
-function toActiveTab(tab: Browser.tabs.Tab | undefined): ActiveTab | null {
-  if (tab?.id === undefined || tab.windowId === undefined) return null
-  return {
-    id: tab.id,
-    windowId: tab.windowId,
-    active: tab.active,
-    url: tab.url,
-    title: tab.title,
-    width: tab.width,
-    height: tab.height,
-  }
-}
-
-/**
- * Runs in the page's MAIN world: must be self-contained. During a recording `keep` leaves out events from
- * before the take and from its pauses before the 1000-event cut, so they don't push out the ones kept.
- */
-function readCaptureSession(keep: { since: number; pauses: Array<{ start: number; end: number }> } | null) {
-  const key = Symbol.for("bugberry.capture.session")
-  const session = (window as unknown as Record<symbol, { snapshot(): unknown[]; incomplete: readonly string[] } | undefined>)[key]
-  const kept = (event: unknown) => {
-    const t = (event as { t?: unknown }).t
-    if (!keep || typeof t !== "number") return true
-    return t >= keep.since && !keep.pauses.some((pause) => t >= pause.start && t < pause.end)
-  }
-  // 1000 = BUFFER_MAX_EVENTS; this function runs in the page and cannot import it.
-  return session
-    ? {
-        status: "ok",
-        events: session.snapshot().filter(kept).slice(-1000),
-        incomplete: [...session.incomplete],
-        documentId: (session as { documentId?: unknown }).documentId,
-      }
-    : { status: "missing" }
-}
-
-/** Runs in the page's MAIN world: must be self-contained. The extension checks every field it returns. */
-async function readEnvironment() {
-  const nav = navigator as Navigator & {
-    connection?: { effectiveType?: string; downlink?: number; rtt?: number }
-    userAgentData?: { getHighEntropyValues(hints: string[]): Promise<Record<string, unknown>> }
-  }
-  const uaData = await nav.userAgentData?.getHighEntropyValues(["fullVersionList", "platformVersion"]).catch(() => undefined)
-  return {
-    language: nav.language,
-    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    pixelRatio: window.devicePixelRatio,
-    connection: nav.connection
-      ? { effectiveType: nav.connection.effectiveType, downlink: nav.connection.downlink, rtt: nav.connection.rtt }
-      : undefined,
-    uaData,
-  }
-}
-
 export default defineBackground(() => {
   const store = createIndexedDbDraftStore()
   const newId = () => crypto.randomUUID()
-  const readPageCapture = async (tabId: number, keep?: { since: number; pauses: Array<{ start: number; end: number }> }) => {
-    const [injection] = await browser.scripting.executeScript({
-      target: { tabId },
-      world: "MAIN",
-      func: readCaptureSession,
-      // An open pause has no end yet: JSON can't carry Infinity, so it is sent as "until now".
-      args: [keep ? { since: keep.since, pauses: keep.pauses.map((pause) => ({ start: pause.start, end: Math.min(pause.end, Date.now()) })) } : null],
-    })
-    return injection?.result
-  }
-  const readPageEnvironment = async (tabId: number) => {
-    const [injection] = await browser.scripting.executeScript({ target: { tabId }, world: "MAIN", func: readEnvironment })
-    return injection?.result
-  }
   const toPage = (tabId: number, message: PageUiMessage) => browser.tabs.sendMessage(tabId, message, { frameId: 0 })
   /**
    * The review and prompts over a page. A tab loaded before the extension (installed, updated or reloaded) has no
@@ -162,6 +67,7 @@ export default defineBackground(() => {
       return toPage(tabId, message)
     }
   }
+  const reviewUrl = (draftId: string) => `${browser.runtime.getURL(REVIEW_PAGE)}?draft=${encodeURIComponent(draftId)}`
   const openReview = createReviewOpener({
     sendToTab: (tabId, message) => toPageLayer(tabId, message as PageUiMessage),
     openTab: async (url) => void (await browser.tabs.create({ url })),
@@ -169,7 +75,7 @@ export default defineBackground(() => {
       const tab = await browser.tabs.update(tabId, { active: true })
       if (tab?.windowId !== undefined) await browser.windows.update(tab.windowId, { focused: true })
     },
-    reviewUrl: (draftId) => `${browser.runtime.getURL(REVIEW_PAGE)}?draft=${encodeURIComponent(draftId)}`,
+    reviewUrl,
   })
 
   /** The signed-in name for notes, asked once per worker. */
@@ -427,21 +333,6 @@ export default defineBackground(() => {
     return captureType === "screenshot" ? screenshot(tab, mode) : record(tab)
   }
 
-  // Session storage: a ticket outlives a sleeping worker, never the browser session.
-  const readTickets = async () =>
-    ((await browser.storage.session.get(PROMPT_TICKETS_KEY))[PROMPT_TICKETS_KEY] ?? {}) as Record<string, PromptTicket>
-  const promptTickets: PromptTickets = {
-    get: async (token) => (await readTickets())[token] ?? null,
-    put: async (token, ticket) => {
-      const now = Date.now()
-      const kept = Object.fromEntries(Object.entries(await readTickets()).filter(([, entry]) => entry.expiresAt > now))
-      await browser.storage.session.set({ [PROMPT_TICKETS_KEY]: { ...kept, [token]: ticket } })
-    },
-    delete: async (token) => {
-      const { [token]: _gone, ...rest } = await readTickets()
-      await browser.storage.session.set({ [PROMPT_TICKETS_KEY]: rest })
-    },
-  }
   const openPrompt = createPromptOpener({
     tickets: promptTickets,
     newToken: () => crypto.randomUUID(),
@@ -520,120 +411,27 @@ export default defineBackground(() => {
 
   const extensionOrigin = browser.runtime.getURL("")
 
-  browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    const reply = (work: Promise<unknown>) => {
-      work.then(sendResponse, (error: unknown) => sendResponse({ ok: false, error: String(error) }))
-      return true // keeps the channel open for the async response
-    }
-    // Firefox's review over a page gets no sign-in cookie of its own; its API requests come here.
-    if (isApiFetchRequest(message)) {
-      if (!fromExtensionPage(sender, browser.runtime.id, extensionOrigin)) return undefined
-      return reply(
-        loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN).then((settings) => handleApiFetch(message, settings?.serverUrl ?? null, fetch)),
-      )
-    }
-    // Write with AI on the reporter's own key: only the extension's pages may use it, never a web page.
-    if (isAiWriteRequest(message) || isAiTestRequest(message)) {
-      if (!fromExtensionPage(sender, browser.runtime.id, extensionOrigin)) return undefined
-      return reply(isAiWriteRequest(message) ? handleAiWrite(message, browserAiKeyStorage, fetch) : handleAiTest(message, fetch))
-    }
-    if (isRecorderReadyNotice(message)) {
-      if (fromExtensionPage(sender, browser.runtime.id, extensionOrigin)) windowHost?.ready()
-      return undefined
-    }
-    if (isBridgeHelloRequest(message) || isBridgeUseServerRequest(message) || isBridgeOpenPopupRequest(message)) {
-      const origin = bridgeSenderOrigin(sender, browser.runtime.id)
-      if (!origin) return undefined
-      if (isBridgeOpenPopupRequest(message)) return reply(bridge.openPopup(origin))
-      return reply(isBridgeHelloRequest(message) ? bridge.hello(origin) : bridge.useServer(origin, sender.tab?.id ?? null))
-    }
-    if (isScreenshotRequest(message)) {
-      return reply(browser.tabs.get(message.tabId).then((tab) => screenshot(toActiveTab(tab), message.mode ?? "visible")))
-    }
-    // The agent recorder's own build only, and only from its own pages: a web page or the store build never gets here.
-    const fromRecorder = fromAutomationPage(sender, browser.runtime.id, extensionOrigin, RECORDER_BUILD)
-    if (isRecordStartRequest(message)) {
-      const caps = fromRecorder ? message.caps : undefined
-      return reply(browser.tabs.get(message.tabId).then((tab) => record(toActiveTab(tab), message.options, caps)))
-    }
-    if (RECORDER_BUILD && isAutomationStopRequest(message)) {
-      if (!fromRecorder) return undefined
-      return reply(recordings.stop(undefined, { review: false }))
-    }
-    // The page layer asks on every page load whether its tab is being recorded.
-    if (isUiStateRequest(message)) {
-      return reply(
-        Promise.all([browserRecordingState.get(), cameraGrants.forTab(sender.tab?.id)]).then(([state, camera]) => uiStateReply(state, camera, sender.tab?.id)),
-      )
-    }
-    // The camera bubble, by its grant's token: only from inside the granted tab (sites can embed the page).
-    if (isCameraTicketRequest(message)) {
-      if (!fromExtensionPage(sender, browser.runtime.id, extensionOrigin)) return undefined
-      return reply(cameraTicketReply(cameraGrants, message, sender.tab?.id))
-    }
-    // Only the extension's own pages drive a recording: the review from anywhere, the bar and the drawing
-    // layer only from inside the recorded tab (another site can embed those pages, but not in that tab).
-    if (isReviewAgainRequest(message)) {
-      return fromExtensionPage(sender, browser.runtime.id, extensionOrigin) ? reply(takeAgain(message.draftId)) : undefined
-    }
-    if (isReviewAnotherRequest(message)) {
-      return fromExtensionPage(sender, browser.runtime.id, extensionOrigin)
-        ? reply(takeAnother(message.captureType, message.tabId, message.mode ?? "visible"))
-        : undefined
-    }
-    // The popup can't show the browser's microphone prompt, and a draft opened from it belongs over the page too.
-    if (isPopupPromptRequest(message)) {
-      return fromPopup(sender, browser.runtime.id, extensionOrigin) ? reply(openPrompt({ page: message.page }, message.tabId).then(() => ({ ok: true }))) : undefined
-    }
-    if (isOpenDraftRequest(message)) {
-      if (!fromPopup(sender, browser.runtime.id, extensionOrigin)) return undefined
-      return reply(
-        message.tabId === null
-          ? browser.tabs.create({ url: `${browser.runtime.getURL(REVIEW_PAGE)}?draft=${encodeURIComponent(message.draftId)}` }).then(() => ({ ok: true }))
-          : openReview(message.draftId, message.tabId).then(() => ({ ok: true })),
-      )
-    }
-    if (isPromptTicketRequest(message)) {
-      if (!fromExtensionPage(sender, browser.runtime.id, extensionOrigin)) return undefined
-      return reply(
-        ticketFor(promptTickets, message.token, sender.tab?.id, Date.now()).then(async (ticket) => {
-          if (!ticket || message.action === "read") return ticket ? { page: ticket.page, server: ticket.server ?? null } : null
-          await promptTickets.delete(message.token)
-          if (message.action === "tab") {
-            await openPrompt({ page: ticket.page, ...(ticket.server ? { server: ticket.server } : {}) }, null)
-            return { ok: true }
-          }
-          // Back where they asked from: the popup shows the microphone (or camera) on.
-          if (ticket.page === "microphone" || ticket.page === "camera") await browser.action.openPopup().catch(() => {})
-          return { ok: true }
-        }),
-      )
-    }
-    if (isBarRequest(message)) {
-      if (message.type === "bugberry:me-name") return fromExtensionPage(sender, browser.runtime.id, extensionOrigin) ? reply(author()) : undefined
-      return reply(
-        browserRecordingState.get().then((state) =>
-          ofThisRecording(sender, browser.runtime.id, extensionOrigin, state, message.session) ? barAction(message) : { ok: false, error: "Not the recorded tab" },
-        ),
-      )
-    }
-    if (isPopupRecordingRequest(message)) {
-      return fromPopup(sender, browser.runtime.id, extensionOrigin) ? reply(popupAction(message.action)) : undefined
-    }
-    if (isRecordStatusRequest(message)) return reply(recordings.status())
-    // Only the recorded tab counts; flush scripts in other tabs also see that a recording runs.
-    if (isPageStart(message)) {
-      if (sender.tab?.id !== undefined) void recordings.noteNavigation(sender.tab.id)
-      return undefined
-    }
-    if (isPageFlush(message)) {
-      if (sender.tab?.id !== undefined) void recordings.notePageFlush(sender.tab.id, message)
-      return undefined
-    }
-    // The offscreen recorder stopped by itself (time limit, tab closed, error).
-    if (isRecordingEndedNotice(message)) void stopRecording(message.reason)
-    return undefined
-  })
+  browser.runtime.onMessage.addListener(
+    createMessageListener({
+      bridge,
+      recordings,
+      windowHost,
+      cameraGrants,
+      promptTickets,
+      openPrompt,
+      openReview,
+      reviewUrl,
+      screenshot,
+      record,
+      takeAgain,
+      takeAnother,
+      author,
+      barAction,
+      popupAction,
+      stopRecording,
+      extensionOrigin,
+    }),
+  )
 
   // A screen or window recording shows whatever tab the reporter goes to, so those tabs' logs go in too.
   browser.tabs.onActivated.addListener(({ tabId }) => void recordings.noteActiveTab(tabId))
