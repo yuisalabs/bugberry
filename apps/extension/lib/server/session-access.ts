@@ -9,6 +9,6 @@ export function openSessionToContentScripts(
   try {
     void session?.setAccessLevel?.({ accessLevel: "TRUSTED_AND_UNTRUSTED_CONTEXTS" })?.catch(() => {})
   } catch {
-    // Not available here; the flush script then flushes on every page exit (lib/recording-watch.ts).
+    // Not available here; the flush script then flushes on every page exit (lib/recording/recording-watch.ts).
   }
 }

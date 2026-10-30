@@ -124,7 +124,7 @@ export function reviewStats(events: readonly CaptureEvent[]): { errors: number; 
   return { errors: summary.errors, failed: summary.failedRequests, steps: summary.actions }
 }
 
-/** The video's markers, by the dashboard's rules (apps/client/src/lib/timeline-markers.ts) on raw events. */
+/** The video's markers, by the dashboard's rules (apps/client/src/features/reports/detail/timeline-markers.ts) on raw events. */
 export function reviewMarkers(events: readonly CaptureEvent[], startedAt: number): TimelineMarker[] {
   const markers: TimelineMarker[] = []
   ;[...events]

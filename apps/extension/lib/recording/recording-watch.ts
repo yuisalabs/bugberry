@@ -1,4 +1,4 @@
-/** The recording state the background keeps in session storage (lib/browser-recording-state.ts). */
+/** The recording state the background keeps in session storage (lib/recording/browser-recording-state.ts). */
 const RECORDING_KEY = "recording"
 const isPaused = (state: unknown) => typeof (state as { pausedAt?: unknown } | undefined)?.pausedAt === "number"
 

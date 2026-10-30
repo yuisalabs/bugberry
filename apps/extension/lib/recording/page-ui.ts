@@ -291,7 +291,7 @@ export function createPageUi(doc: Document, win: Window, deps: PageUiDeps): Page
       bar.style.cssText = "position:fixed;display:flex;align-items:flex-end"
       barSize = { ...BAR_SIZE }
       const barFrame = frame(doc, deps.extensionUrl(`recorder-bar.html?session=${encodeURIComponent(session)}`), `width:${barSize.width}px;height:${barSize.height}px`)
-      // The bar is dragged from anywhere on it but its buttons; its frame sends the moves (lib/bar-drag.ts).
+      // The bar is dragged from anywhere on it but its buttons; its frame sends the moves (lib/recording/bar-drag.ts).
       bar.append(barFrame)
       // Drawing layer, camera bubble, bar: strokes never cover the reporter's face, and the bar stays on top.
       if (camera?.box.parentNode === shadow) {
