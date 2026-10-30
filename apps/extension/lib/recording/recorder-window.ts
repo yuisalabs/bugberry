@@ -1,6 +1,6 @@
 import type { CaptureResult } from "../capture/capture-flow"
 import type { OffscreenMessage } from "../shared/messages"
-import type { RecordingStatus } from "./recording-flow"
+import type { RecordingStatus } from "./recording-state"
 
 export const RECORDER_PAGE = "/recorder.html"
 export const RECORDER_CLOSED = "Recording lost: the BugBerry recorder window was closed."

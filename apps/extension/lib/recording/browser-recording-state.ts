@@ -1,5 +1,5 @@
 import { browser } from "wxt/browser"
-import { type RecordingStateStore, recordingStateFrom } from "./recording-flow"
+import { recordingStateFrom, type RecordingStateStore } from "./recording-state"
 
 const KEY = "recording"
 

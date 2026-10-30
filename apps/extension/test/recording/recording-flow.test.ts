@@ -2,15 +2,13 @@ import { MAX_RECORDING_MS } from "../../lib/recording/recorder"
 import { beforeEach, describe, expect, mock, test } from "bun:test"
 import type { DraftStore } from "../../lib/drafts/draft-store"
 import type { OffscreenMessage } from "../../lib/shared/messages"
+import { formatElapsed, type RecordingState, recordingStateFrom } from "../../lib/recording/recording-state"
+import { createRecordingController } from "../../lib/recording/recording-controller"
 import {
-  createRecordingController,
   discardRecording,
-  type RecordOptions,
-  formatElapsed,
   type RecordingFlowDeps,
-  type RecordingState,
-  recordingStateFrom,
   recordingStatus,
+  type RecordOptions,
   startVideoRecording,
   stopVideoRecording,
 } from "../../lib/recording/recording-flow"

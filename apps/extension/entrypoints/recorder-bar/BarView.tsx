@@ -18,7 +18,7 @@ import {
   RiRestartLine,
 } from "@remixicon/react"
 import { type PointerEvent, type ReactNode, useEffect, useState } from "react"
-import type { BarStatus } from "../../lib/recording/recording-flow"
+import type { BarStatus } from "../../lib/recording/recording-state"
 
 export type DrawTool = "pen" | "arrow" | "circle" | "note"
 

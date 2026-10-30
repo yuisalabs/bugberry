@@ -2,7 +2,7 @@ import { RiDeleteBinLine, RiPauseLargeLine, RiPlayLargeLine, RiRestartLine } fro
 import type { ReactNode } from "react"
 import { Button as AriaButton } from "react-aria-components"
 import { countText, recordingLabel } from "../../lib/drafts/popup"
-import type { PopupRecordingStatus } from "../../lib/recording/recording-flow"
+import type { PopupRecordingStatus } from "../../lib/recording/recording-state"
 import { Dial, InfoBox } from "./parts"
 
 /** "00:12", "12:05". */

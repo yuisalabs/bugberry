@@ -38,7 +38,8 @@ import {
   type PopupRecordingAction,
   type RecordOptions,
 } from "../lib/shared/messages"
-import { createRecordingController, type RecordingFlowDeps } from "../lib/recording/recording-flow"
+import { createRecordingController } from "../lib/recording/recording-controller"
+import { type RecordingFlowDeps } from "../lib/recording/recording-flow"
 import { createWindowRecorderHost, onRecorderClosed } from "../lib/recording/recorder-window"
 import { openSessionToContentScripts } from "../lib/server/session-access"
 import { createPromptOpener, type PromptTicket, type PromptTickets, ticketFor } from "../lib/prompts/prompt-opener"

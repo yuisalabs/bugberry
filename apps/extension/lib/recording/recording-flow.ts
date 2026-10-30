@@ -1,73 +1,15 @@
-import { type CaptureEvent, DEBUGGER_PAYLOAD_VERSION, type DebuggerPayload, redactUrl } from "@bugberry/capture"
+import { DEBUGGER_PAYLOAD_VERSION, type DebuggerPayload, redactUrl } from "@bugberry/capture"
 import { type ActiveTab, type CaptureResult, capturable, pagePayloadFor, sanitizePageCapture } from "../capture/capture-flow"
 import { deviceInfoFrom } from "../capture/device"
 import type { DraftStore } from "../drafts/draft-store"
-import type { RecordSource } from "../capture/capture-prefs"
 import type { CameraChoice, CaptureSource, OffscreenMessage, RecordOptions } from "../shared/messages"
 import { capPages, mergePages, type PageCaptureRecord } from "./page-merge"
-import { applyPauses, errorsCaught, keptEvents, type LiveCounts, liveCounts, type PauseSpan, pauseMarks, videoTime } from "../review/review-data"
+import { applyPauses, keptEvents, type PauseSpan, pauseMarks, videoTime } from "../review/review-data"
 import { MAX_RECORDING_MS, type RecordingEndReason } from "./recorder"
+import { logsFrom, pausesUntil, type RecordingState, type RecordingStateStore, type RecordingStatus } from "./recording-state"
 import type { VideoDraft } from "../shared/types"
 
 export type { RecordOptions } from "../shared/messages"
-
-export interface RecordingState {
-  draftId: string
-  tabId: number
-  startedAt: number
-  /** Pages the recorded tab loaded since the start; each should flush its events as it goes away. */
-  loads: number
-  /** False for a screen or window recorded from a tab that isn't a web page: there are no logs to read. */
-  logs: boolean
-  /** Finished pauses, in epoch ms. */
-  pauses: PauseSpan[]
-  /** When the running pause began; null while recording. */
-  pausedAt: number | null
-  micOn: boolean
-  micAvailable: boolean
-  /** Whether a Restart counts down again, like the start did. */
-  countdown: boolean
-  /** Between a Restart and its new take: the bar shows a fresh, empty take. */
-  restarting?: boolean
-  /** What is being recorded, for the popup's "Recording this tab". */
-  source: RecordSource
-  /**
-   * A screen or window shows whatever tab the reporter goes to: every other tab that was active during the
-   * recording, whose logs go in too. Always empty when recording a tab.
-   */
-  tabs: number[]
-  /** Where the recording stops by itself; absent on one started before 0.8.1, which stops at MAX_RECORDING_MS. */
-  maxMs?: number
-}
-
-/** Kept in storage.session, so a recording survives the service worker going to sleep. */
-export interface RecordingStateStore {
-  get(): Promise<RecordingState | null>
-  set(state: RecordingState): Promise<void>
-  clear(): Promise<void>
-}
-
-export type RecordingStatus =
-  | { recording: false }
-  | { recording: true; draftId: string; tabId: number; startedAt: number }
-
-/** What the popup shows while a recording runs. */
-export type PopupRecordingStatus =
-  | { recording: false }
-  | { recording: true; source: RecordSource; tabId: number; elapsedMs: number; paused: boolean; logs: boolean; counts: LiveCounts }
-
-/** What the Recording Bar shows. */
-export interface BarStatus {
-  recording: boolean
-  /** Recording time so far, without paused time. */
-  elapsedMs: number
-  paused: boolean
-  errors: number
-  micOn: boolean
-  micAvailable: boolean
-  /** The account's length limit, shown next to the timer; null at the 20-minute ceiling everyone has. */
-  maxMs: number | null
-}
 
 export interface RecordingFlowDeps {
   getStreamId(tabId: number): Promise<string>
@@ -111,41 +53,7 @@ type OffscreenReply =
   | { ok: false; error: string; cancelled?: boolean }
 
 const NOTE_MAX = 500
-const ERRORS_READ_MS = 2000
 const PAGE_READ_MS = 2000
-
-/** Also reads the state saved by older versions, which only knew whether the tab navigated. */
-export function recordingStateFrom(value: unknown): RecordingState | null {
-  if (typeof value !== "object" || value === null) return null
-  const state = value as Record<string, unknown>
-  if (typeof state.draftId !== "string" || typeof state.tabId !== "number" || typeof state.startedAt !== "number") return null
-  const loads = typeof state.loads === "number" && state.loads >= 0 ? state.loads : state.navigated === true ? 1 : 0
-  return {
-    draftId: state.draftId,
-    tabId: state.tabId,
-    startedAt: state.startedAt,
-    loads,
-    logs: state.logs !== false,
-    pauses: Array.isArray(state.pauses) ? (state.pauses as PauseSpan[]) : [],
-    pausedAt: typeof state.pausedAt === "number" ? state.pausedAt : null,
-    micOn: state.micOn === true,
-    micAvailable: state.micAvailable === true,
-    countdown: state.countdown === true,
-    restarting: state.restarting === true,
-    source: state.source === "screen" || state.source === "window" ? state.source : "tab",
-    tabs: Array.isArray(state.tabs) ? state.tabs.filter((id): id is number => typeof id === "number") : [],
-    ...(typeof state.maxMs === "number" && Number.isFinite(state.maxMs) && state.maxMs > 0 ? { maxMs: state.maxMs } : {}),
-  }
-}
-
-export function isRecordingState(value: unknown): value is RecordingState {
-  return recordingStateFrom(value) !== null
-}
-
-/** Every pause so far, the running one ending at `now`. */
-function pausesUntil(state: RecordingState, now: number): PauseSpan[] {
-  return state.pausedAt === null ? state.pauses : [...state.pauses, { start: state.pausedAt, end: now }]
-}
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
@@ -167,11 +75,6 @@ async function ask(deps: RecordingFlowDeps, message: OffscreenMessage): Promise<
   return { ok: true, startedAt, micOn: typeof reply.micOn === "boolean" ? reply.micOn : null, micAvailable: reply.micAvailable === true }
 }
 
-export function formatElapsed(ms: number): string {
-  const totalSeconds = Math.max(0, Math.floor(ms / 1000))
-  return `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, "0")}`
-}
-
 export async function recordingStatus(deps: Pick<RecordingFlowDeps, "state">): Promise<RecordingStatus> {
   const state = await deps.state.get()
   return state ? { recording: true, draftId: state.draftId, tabId: state.tabId, startedAt: state.startedAt } : { recording: false }
@@ -181,16 +84,6 @@ export async function recordingStatus(deps: Pick<RecordingFlowDeps, "state">): P
 export async function noteNavigation(tabId: number, deps: Pick<RecordingFlowDeps, "state">): Promise<void> {
   const state = await deps.state.get()
   if (state && state.tabId === tabId) await deps.state.set({ ...state, loads: state.loads + 1 })
-}
-
-/** Whether a tab's logs belong to the recording: the recorded tab, or one the reporter went to on screen. */
-function logsFrom(state: RecordingState, tabId: number): boolean {
-  return (state.tabId === tabId && state.logs) || state.tabs.includes(tabId)
-}
-
-/** Whether any tab of the recording supplies logs. */
-function hasLogs(state: RecordingState): boolean {
-  return state.logs || state.tabs.length > 0
 }
 
 /** A tab became active (or its window got the focus): during a screen or window recording, its logs go in too. */
@@ -526,105 +419,4 @@ async function openPage(
   clearTimeout(timer)
   const page = sanitizePageCapture(raw)
   return page?.status === "ok" && page.documentId ? { documentId: page.documentId, tabId, events: page.events, incomplete: page.incomplete } : null
-}
-
-export interface RecordingController {
-  start(tab: ActiveTab, options: RecordOptions & { maxBytes: number; maxMs: number }): Promise<CaptureResult>
-  stop(reason?: RecordingEndReason, opts?: { review?: boolean }): Promise<CaptureResult>
-  status(): Promise<RecordingStatus>
-  noteNavigation(tabId: number): Promise<void>
-  notePageFlush(tabId: number, raw: unknown): Promise<void>
-  noteActiveTab(tabId: number): Promise<void>
-  pause(): Promise<void>
-  resume(): Promise<void>
-  setMic(on: boolean): Promise<void>
-  addNote(text: string): Promise<{ n: number } | null>
-  restart(): Promise<CaptureResult>
-  discard(): Promise<CaptureResult>
-  barStatus(): Promise<BarStatus>
-  popupStatus(): Promise<PopupRecordingStatus>
-}
-
-const NO_COUNTS: LiveCounts = { errors: 0, failedRequests: 0, actions: 0 }
-
-const QUIET: BarStatus = { recording: false, elapsedMs: 0, paused: false, errors: 0, micOn: false, micAvailable: false, maxMs: null }
-
-/**
- * Runs every change one after another. The popup, the bar, the shortcuts and the time limit can ask at
- * the same moment; without a queue a start could pass the "already recording" check, or reach the
- * offscreen document while the previous video is still being saved. The bar's status only reads, so it
- * doesn't wait in the queue.
- */
-export function createRecordingController(deps: RecordingFlowDeps): RecordingController {
-  let queue: Promise<unknown> = Promise.resolve()
-  const enqueue = <T>(operation: () => Promise<T>): Promise<T> => {
-    const next = queue.then(operation, operation)
-    queue = next.catch(() => undefined)
-    return next
-  }
-
-  // The page is read for the error count at most every 2 s.
-  let pageEvents: { draftId: string; at: number; events: CaptureEvent[] } | null = null
-  const liveEvents = async (state: RecordingState): Promise<CaptureEvent[]> => {
-    const now = deps.now()
-    if (pageEvents?.draftId === state.draftId && now - pageEvents.at < ERRORS_READ_MS) return pageEvents.events
-    // The pages open now in every tab of the recording, and the ones already left behind.
-    const open = await Promise.all(
-      [...(state.logs ? [state.tabId] : []), ...state.tabs].map(async (tabId) => {
-        const page = sanitizePageCapture(await deps.readPageCapture(tabId).catch(() => null))
-        return page?.status === "ok" ? page.events : []
-      }),
-    )
-    const draft = await deps.store.get(state.draftId)
-    const flushed = draft?.captureType === "video" ? (draft.pages ?? []).flatMap((stored) => stored.events) : []
-    pageEvents = { draftId: state.draftId, at: now, events: [...flushed, ...open.flat()] }
-    return pageEvents.events
-  }
-
-  return {
-    start: (tab, options) => enqueue(() => startVideoRecording(tab, options, deps)),
-    stop: (reason, opts) => enqueue(() => stopVideoRecording(deps, reason, opts)),
-    status: () => enqueue(() => recordingStatus(deps)),
-    noteNavigation: (tabId) => enqueue(() => noteNavigation(tabId, deps)),
-    notePageFlush: (tabId, raw) => enqueue(() => notePageFlush(tabId, raw, deps)),
-    noteActiveTab: (tabId) => enqueue(() => noteActiveTab(tabId, deps)),
-    pause: () => enqueue(() => pauseRecording(deps)),
-    resume: () => enqueue(() => resumeRecording(deps)),
-    setMic: (on) => enqueue(() => setRecordingMic(on, deps)),
-    addNote: (text) => enqueue(() => addRecordingNote(text, deps)),
-    restart: () => enqueue(() => restartRecording(deps)),
-    discard: () => enqueue(() => discardRecording(deps)),
-    barStatus: async () => {
-      const state = await deps.state.get()
-      if (!state) return QUIET
-      const maxMs = state.maxMs !== undefined && state.maxMs < MAX_RECORDING_MS ? state.maxMs : null
-      if (state.restarting) return { ...QUIET, recording: true, micOn: state.micOn, micAvailable: state.micAvailable, maxMs }
-      const now = deps.now()
-      const pauses = pausesUntil(state, now)
-      const errors = hasLogs(state) ? errorsCaught(await liveEvents(state), state.startedAt, pauses) : 0
-      return {
-        recording: true,
-        elapsedMs: videoTime(now, state.startedAt, pauses),
-        paused: state.pausedAt !== null,
-        errors,
-        micOn: state.micOn,
-        micAvailable: state.micAvailable,
-        maxMs,
-      }
-    },
-    popupStatus: async () => {
-      const state = await deps.state.get()
-      if (!state) return { recording: false }
-      const base = { recording: true as const, source: state.source, tabId: state.tabId, logs: hasLogs(state) }
-      if (state.restarting) return { ...base, elapsedMs: 0, paused: false, counts: NO_COUNTS }
-      const now = deps.now()
-      const pauses = pausesUntil(state, now)
-      return {
-        ...base,
-        elapsedMs: videoTime(now, state.startedAt, pauses),
-        paused: state.pausedAt !== null,
-        counts: hasLogs(state) ? liveCounts(await liveEvents(state), state.startedAt, pauses) : NO_COUNTS,
-      }
-    },
-  }
 }

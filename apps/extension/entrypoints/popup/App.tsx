@@ -21,7 +21,7 @@ import type {
 import { type MicAccess, micAccess, micChoiceAfterCheck, micDevices } from "../../lib/devices/microphone"
 import { controlError, recordStartNote, replyResult, uncapturableNote } from "../../lib/drafts/popup"
 import { pickEditorWorkspace } from "../../lib/review/report-form"
-import type { PopupRecordingStatus, RecordingStatus } from "../../lib/recording/recording-flow"
+import type { PopupRecordingStatus, RecordingStatus } from "../../lib/recording/recording-state"
 import { checkSession, type SessionState, serverLabel, signInUrl } from "../../lib/server/session"
 import { loadSettings, type Settings } from "../../lib/server/settings"
 import { type MicList, meteredMicId, micMeterOn, PopupView } from "./PopupView"
