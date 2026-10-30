@@ -1,5 +1,5 @@
 import { browser } from "wxt/browser"
-import { isPageUiMessage, type UiStateRequest } from "../lib/messages"
+import { isPageUiMessage, type UiStateRequest } from "../lib/shared/messages"
 import { type BarPosition, cameraFromUiState, cameraHeightFrom, createPageUi, uiStateNeeded } from "../lib/recording/page-ui"
 
 const POSITION_KEY = "barPosition"

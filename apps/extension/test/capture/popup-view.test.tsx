@@ -2,7 +2,7 @@ import { describe, expect, mock, test } from "bun:test"
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { micMeterOn, PopupView, type PopupViewProps } from "../../entrypoints/popup/PopupView"
 import { DEFAULT_CAPTURE_PREFS } from "../../lib/capture/capture-prefs"
-import type { ReportDraft } from "../../lib/types"
+import type { ReportDraft } from "../../lib/shared/types"
 
 const draft = (id: string, title: string) =>
   ({ id, status: "editing", captureType: "screenshot", page: { url: `https://app.test/${id}`, title } }) as ReportDraft

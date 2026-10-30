@@ -1,6 +1,6 @@
 import { createPrivateKey, createPublicKey, generateKeyPairSync, type KeyObject } from "node:crypto"
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
-import { extensionIdFromPublicKey } from "../lib/manifest"
+import { extensionIdFromPublicKey } from "../lib/platform/manifest"
 
 /**
  * Prints the manifest key and extension ID for a private key file, creating the key the first time.

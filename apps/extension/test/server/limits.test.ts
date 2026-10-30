@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { ApiError } from "../../lib/server/api"
 import { fullWarning, isFull, lengthWarning, limitsFor, sendBlocked, usageLine, type WorkspaceLimits } from "../../lib/server/limits"
-import type { UploadSessionState } from "../../lib/types"
+import type { UploadSessionState } from "../../lib/shared/types"
 
 const full: WorkspaceLimits = { limited: true, screenshots: { used: 3, max: 5 }, recordings: { used: 5, max: 5 } }
 const admin = { isAdmin: true, hasOtherWorkspaces: true }

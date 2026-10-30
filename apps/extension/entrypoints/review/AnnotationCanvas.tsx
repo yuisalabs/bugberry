@@ -19,8 +19,8 @@ import {
   type Point,
   type Shape,
   type Tool,
-} from "../../lib/annotations"
-import { renderAnnotated } from "../../lib/render"
+} from "../../lib/annotate/annotations"
+import { renderAnnotated } from "../../lib/annotate/render"
 
 export interface AnnotationCanvasHandle {
   /** The screenshot with every annotation burned in, as PNG. */

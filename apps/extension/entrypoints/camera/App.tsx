@@ -3,7 +3,7 @@ import { RiVideoOnLine } from "@remixicon/react"
 import { useState } from "react"
 import { capturePrefsStorage } from "../../lib/server/browser-settings"
 import { cameraAccess, cameraErrorText } from "../../lib/devices/camera"
-import { closePrompt, PromptShell, usePromptTicket } from "../../lib/prompt-page"
+import { closePrompt, PromptShell, usePromptTicket } from "../../lib/prompts/prompt-page"
 
 /**
  * Asked for from the popup the first time the camera is turned on: the popup can't show the browser's

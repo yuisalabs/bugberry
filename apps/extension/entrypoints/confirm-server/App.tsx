@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { BUILD_SERVER_ORIGIN, browserSettingsStorage } from "../../lib/server/browser-settings"
 import { confirmNotes, switchServer } from "../../lib/server/bridge"
 import { createIndexedDbDraftStore } from "../../lib/drafts/draft-store"
-import { closePrompt, CoveredNote, PromptShell, usePromptTicket, useUnobscured } from "../../lib/prompt-page"
+import { closePrompt, CoveredNote, PromptShell, usePromptTicket, useUnobscured } from "../../lib/prompts/prompt-page"
 import { isBugBerryServer, serverLabel } from "../../lib/server/session"
 import { loadSettings, normalizeServerUrl } from "../../lib/server/settings"
 

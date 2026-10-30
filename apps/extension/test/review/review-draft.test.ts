@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { draftKept, draftWithNotes, draftWithTrim, sameRange, trimLocked } from "../../lib/review/review-draft"
-import type { ReportDraft } from "../../lib/types"
+import type { ReportDraft } from "../../lib/shared/types"
 
 const form = { workspaceId: "w1", projectId: "", title: "Pay fails", description: "", priority: "none" as const, visibility: "workspace" as const }
 const session = { reportId: "r1" } as unknown as NonNullable<ReportDraft["session"]>

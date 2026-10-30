@@ -1,6 +1,6 @@
 import { clockLabel, tooLong } from "@bugberry/shared"
 import { ApiError, type BugberryApi } from "./api"
-import type { ReportDraft } from "../types"
+import type { ReportDraft } from "../shared/types"
 
 type ServerLimits = Extract<Awaited<ReturnType<BugberryApi["workspaceLimits"]>>, { limited: true }>
 

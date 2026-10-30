@@ -3,7 +3,7 @@ import type { CaptureEvent } from "@bugberry/capture"
 import type { DraftStore } from "../../lib/drafts/draft-store"
 import type { TrimRange } from "../../lib/review/review-data"
 import { prepareVideo } from "../../lib/review/trim-send"
-import type { ReportDraft, VideoDraft } from "../../lib/types"
+import type { ReportDraft, VideoDraft } from "../../lib/shared/types"
 
 const events: CaptureEvent[] = [
   { kind: "console", t: 1000 + 2_000, level: "error", args: ["cut"] },

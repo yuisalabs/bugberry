@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
 import { fileURLToPath } from "node:url"
-import { storeBuildLeaks } from "../lib/store-build-check"
+import { storeBuildLeaks } from "../lib/platform/store-build-check"
 
 /**
  * Fails when a store build in .output carries the agent recorder's automation path, so a misset build flag can't

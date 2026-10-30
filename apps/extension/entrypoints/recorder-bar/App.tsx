@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { browser } from "wxt/browser"
 import { type BarDragMessage, startBarDrag } from "../../lib/recording/bar-drag"
-import type { BarRequest } from "../../lib/messages"
+import type { BarRequest } from "../../lib/shared/messages"
 import type { BarStatus } from "../../lib/recording/recording-flow"
 import { BarView, type DrawTool } from "./BarView"
 

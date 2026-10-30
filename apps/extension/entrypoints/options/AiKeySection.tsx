@@ -5,8 +5,8 @@ import { Input } from "@bugberry/ui/input"
 import { Radio, RadioField, RadioGroup } from "@bugberry/ui/radio"
 import { TextField } from "@bugberry/ui/text-field"
 import { type FormEvent, useEffect, useState } from "react"
-import { type AiKeyStorage, keyHint } from "../../lib/ai-key"
-import type { AiTestReply } from "../../lib/ai-relay"
+import { type AiKeyStorage, keyHint } from "../../lib/ai/ai-key"
+import type { AiTestReply } from "../../lib/ai/ai-relay"
 
 const card = "flex flex-col gap-3 rounded-xl border border-border bg-overlay p-4"
 

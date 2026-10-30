@@ -2,7 +2,7 @@ import { describe, expect, mock, test } from "bun:test"
 import type { CaptureEvent } from "@bugberry/capture"
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react"
 import { ReviewView, type ReviewViewProps } from "../../entrypoints/review/ReviewView"
-import type { ReportDraft } from "../../lib/types"
+import type { ReportDraft } from "../../lib/shared/types"
 
 const events: CaptureEvent[] = [
   { kind: "network", t: 1200, method: "POST", url: "https://shop.test/api/pay?id=1", status: 500 },

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { BRIDGE_OPEN_POPUP } from "@bugberry/shared"
 import { type BridgeDeps, bridgeSenderOrigin, confirmNotes, createBridge, pageRequest, switchServer } from "../../lib/server/bridge"
-import type { ReportDraft } from "../../lib/types"
+import type { ReportDraft } from "../../lib/shared/types"
 
 const BUGBERRY = "https://bugberry.kantor.com"
 const STRANGER = "https://evil.example"

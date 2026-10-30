@@ -1,7 +1,7 @@
 import { Button } from "@bugberry/ui/button"
 import { useEffect, useRef, useState } from "react"
 import { browser } from "wxt/browser"
-import { isOffscreenMessage, type OffscreenMessage, type RecorderReadyNotice } from "../../lib/messages"
+import { isOffscreenMessage, type OffscreenMessage, type RecorderReadyNotice } from "../../lib/shared/messages"
 import { keepBackgroundAwake } from "../../lib/recording/keep-alive"
 import type { RecorderReply } from "../../lib/recording/recorder-handler"
 

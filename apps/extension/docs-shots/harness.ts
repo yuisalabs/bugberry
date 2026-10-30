@@ -3,7 +3,7 @@ import { dirname } from "node:path"
 import { fileURLToPath } from "node:url"
 import { type BrowserContext, chromium, expect, type Frame, type Locator, type Page, type Worker } from "@playwright/test"
 import type { CapturePrefs } from "../lib/capture/capture-prefs"
-import type { CameraChoice } from "../lib/messages"
+import type { CameraChoice } from "../lib/shared/messages"
 
 declare const chrome: {
   tabs: {

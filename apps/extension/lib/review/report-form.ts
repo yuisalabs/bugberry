@@ -1,5 +1,5 @@
 import { matchProject, type ProjectWithPatterns } from "@bugberry/shared"
-import type { ReportForm } from "../types"
+import type { ReportForm } from "../shared/types"
 
 /**
  * What still needs fixing before the report can be sent, or null. Mirrors the server's checks. The title may

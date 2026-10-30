@@ -1,7 +1,7 @@
 import { BRIDGE_POPUP, BRIDGE_STATUS } from "@bugberry/shared"
 import { browser } from "wxt/browser"
 import { pageRequest } from "../lib/server/bridge"
-import type { BridgeHelloRequest, BridgeOpenPopupRequest, BridgeUseServerRequest } from "../lib/messages"
+import type { BridgeHelloRequest, BridgeOpenPopupRequest, BridgeUseServerRequest } from "../lib/shared/messages"
 
 /**
  * Lets a BugBerry dashboard ask whether the extension sends to it, and ask to become its server.

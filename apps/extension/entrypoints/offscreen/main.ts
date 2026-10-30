@@ -1,6 +1,6 @@
 import { browser } from "wxt/browser"
 import { createIndexedDbDraftStore } from "../../lib/drafts/draft-store"
-import { isOffscreenMessage, type RecordingEndedNotice } from "../../lib/messages"
+import { isOffscreenMessage, type RecordingEndedNotice } from "../../lib/shared/messages"
 import { createMediaDeps, createRecorderHandler } from "../../lib/recording/recorder-handler"
 
 /** Offscreen document: the only extension context that may call getUserMedia for a tab stream in Chrome's MV3. */

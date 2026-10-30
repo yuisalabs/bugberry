@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test"
 import { act, fireEvent, render } from "@testing-library/react"
 import { CameraBubble } from "../../entrypoints/camera-bubble/App"
-import type { CameraTicketRequest } from "../../lib/messages"
+import type { CameraTicketRequest } from "../../lib/shared/messages"
 
 function fakeStream() {
   const track = { stop: mock(() => {}) }

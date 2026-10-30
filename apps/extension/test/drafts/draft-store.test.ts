@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { IDBFactory } from "fake-indexeddb"
 import { createIndexedDbDraftStore, type DraftStore, LEGACY_DRAFT_DATABASE } from "../../lib/drafts/draft-store"
-import type { ReportDraft, ScreenshotDraft } from "../../lib/types"
+import type { ReportDraft, ScreenshotDraft } from "../../lib/shared/types"
 
 let factory: IDBFactory
 let store: DraftStore

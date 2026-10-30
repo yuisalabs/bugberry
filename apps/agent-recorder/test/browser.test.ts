@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { createServer } from "node:net"
-import { extensionIdFromPublicKey } from "../../extension/lib/manifest"
+import { extensionIdFromPublicKey } from "../../extension/lib/platform/manifest"
 import { launchBrowser, PortUnavailableError } from "../src/browser"
 import type { RecorderOptions } from "../src/options"
 

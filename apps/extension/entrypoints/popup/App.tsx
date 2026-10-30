@@ -5,7 +5,7 @@ import { createBugberryApi } from "../../lib/server/api"
 import { BUILD_SERVER_ORIGIN, browserSettingsStorage, capturePrefsStorage, lastSessionStorage, lastWorkspaceStorage } from "../../lib/server/browser-settings"
 import { type CameraAccess, cameraAccess, type CameraDevice, cameraDevices } from "../../lib/devices/camera"
 import { capturable } from "../../lib/capture/capture-flow"
-import { hasTabRecorder } from "../../lib/browser-support"
+import { hasTabRecorder } from "../../lib/platform/browser-support"
 import { type CapturePrefs, DEFAULT_CAPTURE_PREFS, recordOptionsFor } from "../../lib/capture/capture-prefs"
 import { createIndexedDbDraftStore } from "../../lib/drafts/draft-store"
 import { fullWarning, limitsFor, usageLine } from "../../lib/server/limits"
@@ -17,7 +17,7 @@ import type {
   RecordStartRequest,
   RecordStatusRequest,
   ScreenshotRequest,
-} from "../../lib/messages"
+} from "../../lib/shared/messages"
 import { type MicAccess, micAccess, micChoiceAfterCheck, micDevices } from "../../lib/devices/microphone"
 import { controlError, recordStartNote, replyResult, uncapturableNote } from "../../lib/drafts/popup"
 import { pickEditorWorkspace } from "../../lib/review/report-form"

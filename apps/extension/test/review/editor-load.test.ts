@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import { ApiError } from "../../lib/server/api"
 import { type EditorDeps, loadDestination, loadEditor } from "../../lib/review/editor-load"
-import { blurRegion } from "../../lib/render"
-import type { ReportDraft } from "../../lib/types"
+import { blurRegion } from "../../lib/annotate/render"
+import type { ReportDraft } from "../../lib/shared/types"
 
 const settings = { serverUrl: "https://bugberry.kantor.test" }
 const video: ReportDraft = {

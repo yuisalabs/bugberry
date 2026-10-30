@@ -1,6 +1,6 @@
 import type { RecordingNote } from "@bugberry/capture"
 import type { TrimRange } from "./review-data"
-import type { ReportDraft } from "../types"
+import type { ReportDraft } from "../shared/types"
 import { type ReportForm, sameForm } from "./upload"
 
 const sameNotes = (a: readonly RecordingNote[], b: readonly RecordingNote[]) => JSON.stringify(a) === JSON.stringify(b)

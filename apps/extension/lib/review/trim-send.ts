@@ -3,7 +3,7 @@ import type { DraftStore } from "../drafts/draft-store"
 import { isTrimmed, trimPayload } from "./review-data"
 import { draftWithTrim, sameRange } from "./review-draft"
 import type { trimVideo } from "./trim-video"
-import type { ReportDraft, VideoDraft } from "../types"
+import type { ReportDraft, VideoDraft } from "../shared/types"
 
 /** What a recording's send uploads: the (trimmed) video, its payload and its length. */
 export interface PreparedMedia {

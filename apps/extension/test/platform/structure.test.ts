@@ -5,27 +5,16 @@ import { join } from "node:path"
 const ROOT = join(import.meta.dir, "..", "..")
 const FOLDERS = new Set(["ai", "annotate", "capture", "devices", "drafts", "platform", "prompts", "recording", "review", "server", "shared"])
 const MAX_LINES = 500
-/** Modules and tests not yet in their folder; each move deletes its names here. */
-const PENDING_LIB = new Set([
-  "ai-assist", "ai-key", "ai-relay", "annotations", "auto-grow", "badge", "browser-ai-key", "browser-support", "latest",
-  "manifest", "messages", "pixelate", "prompt-opener", "prompt-page", "recorder-build", "render", "sender-rules", "store-build-check", "strokes", "types", "when-back",
-])
-const PENDING_TEST = new Set([
-  "ai-assist", "ai-relay", "annotation-canvas", "annotations", "badge", "brand", "browser-support", "draw-notes", "english", "extension-key", "icons", "latest", "manifest", "messages", "options-ai", "pixelate", "prompt-opener", "sender-rules",
-  "sign-firefox", "store-build-check", "strokes", "when-back", "zip-sources",
-])
 /** Files split for length; each stays under MAX_LINES. */
 const SPLIT: string[] = []
 
 type Entry = { name: string; folder: boolean }
 
 /** Entries of lib/ or test/ that sit outside the feature folders. */
-function misplaced(dir: "lib" | "test", entries: Entry[], pending: Set<string>): string[] {
+function misplaced(dir: "lib" | "test", entries: Entry[]): string[] {
   return entries.flatMap((entry) => {
     if (entry.folder) return FOLDERS.has(entry.name) ? [] : [`${entry.name}/`]
-    if (dir === "test" && entry.name === "setup.ts") return []
-    const base = entry.name.replace(dir === "test" ? /\.test\.tsx?$/ : /\.tsx?$/, "")
-    return pending.has(base) ? [] : [entry.name]
+    return dir === "test" && entry.name === "setup.ts" ? [] : [entry.name]
   })
 }
 
@@ -39,7 +28,7 @@ const entries = (dir: string): Entry[] =>
 
 describe("structure", () => {
   test("lib/ and test/ hold only feature folders", () => {
-    expect([...misplaced("lib", entries("lib"), PENDING_LIB), ...misplaced("test", entries("test"), PENDING_TEST)]).toEqual([])
+    expect([...misplaced("lib", entries("lib")), ...misplaced("test", entries("test"))]).toEqual([])
   })
 
   test("split files stay under the line ceiling", () => {
@@ -56,13 +45,11 @@ describe("structure", () => {
   test("the rules catch what they are for", () => {
     const file = (name: string): Entry => ({ name, folder: false })
     const folder = (name: string): Entry => ({ name, folder: true })
-    expect(misplaced("lib", [file("new-thing.ts")], new Set())).toEqual(["new-thing.ts"])
-    expect(misplaced("lib", [file("api.ts")], new Set(["api"]))).toEqual([])
-    expect(misplaced("lib", [folder("misc")], new Set())).toEqual(["misc/"])
-    expect(misplaced("lib", [folder("server")], new Set())).toEqual([])
-    expect(misplaced("test", [file("setup.ts")], new Set())).toEqual([])
-    expect(misplaced("test", [file("x.test.ts")], new Set())).toEqual(["x.test.ts"])
-    expect(misplaced("test", [file("x.test.tsx")], new Set(["x"]))).toEqual([])
+    expect(misplaced("lib", [file("new-thing.ts")])).toEqual(["new-thing.ts"])
+    expect(misplaced("lib", [folder("misc")])).toEqual(["misc/"])
+    expect(misplaced("lib", [folder("server")])).toEqual([])
+    expect(misplaced("test", [file("setup.ts")])).toEqual([])
+    expect(misplaced("test", [file("x.test.ts")])).toEqual(["x.test.ts"])
     expect(tooLong("a\n".repeat(501))).toBe(true)
     expect(tooLong("a\n".repeat(500))).toBe(false)
   })

@@ -1,6 +1,6 @@
 import type { ActiveTab, CaptureResult } from "./capture-flow"
 import type { ScreenshotMode } from "./capture-prefs"
-import type { ReportDraft } from "../types"
+import type { ReportDraft } from "../shared/types"
 
 export interface TakeAgainDeps {
   getDraft(id: string): Promise<ReportDraft | null>

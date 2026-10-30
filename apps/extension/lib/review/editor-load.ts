@@ -3,7 +3,7 @@ import { isSignedOut } from "../drafts/popup"
 import { signInUrl } from "../server/session"
 import { pickEditorWorkspace } from "./report-form"
 import type { Settings } from "../server/settings"
-import type { ReportDraft } from "../types"
+import type { ReportDraft } from "../shared/types"
 
 export interface EditorDeps {
   loadSettings(): Promise<Settings | null>

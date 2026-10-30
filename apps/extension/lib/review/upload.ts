@@ -2,9 +2,9 @@ import { type DebuggerPayload, encodeDebuggerPayload, summarize } from "@bugberr
 import { ApiError, type BugberryApi } from "../server/api"
 import type { DraftStore } from "../drafts/draft-store"
 import type { Coordinates } from "./location"
-import type { ReportDraft, ReportForm, UploadSessionState, UploadTarget } from "../types"
+import type { ReportDraft, ReportForm, UploadSessionState, UploadTarget } from "../shared/types"
 
-export type { ReportForm } from "../types"
+export type { ReportForm } from "../shared/types"
 
 /** A report once its upload is done. */
 export interface SentReport {

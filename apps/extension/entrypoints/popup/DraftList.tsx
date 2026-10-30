@@ -2,7 +2,7 @@ import { Button } from "@bugberry/ui/button"
 import { RiArrowLeftSLine } from "@remixicon/react"
 import { canDelete, draftNote } from "../../lib/drafts/popup"
 import type { RecordingStatus } from "../../lib/recording/recording-flow"
-import type { ReportDraft } from "../../lib/types"
+import type { ReportDraft } from "../../lib/shared/types"
 
 /** Drafts that were never sent: open one in the review, or delete it. */
 export function DraftList(props: {

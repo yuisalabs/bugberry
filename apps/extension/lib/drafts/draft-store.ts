@@ -1,5 +1,5 @@
-import type { Shape } from "../annotations"
-import type { ReportDraft } from "../types"
+import type { Shape } from "../annotate/annotations"
+import type { ReportDraft } from "../shared/types"
 
 export interface DraftStore {
   put(draft: ReportDraft): Promise<void>

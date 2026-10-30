@@ -1,4 +1,4 @@
-import type { CaptureSource } from "../messages"
+import type { CaptureSource } from "../shared/messages"
 
 /** The browser calls, injected so the choice of tracks can be tested without media devices. */
 export interface StreamDeps {

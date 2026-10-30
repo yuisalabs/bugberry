@@ -2,7 +2,7 @@ import { ApiError } from "../server/api"
 import { type CaptureResult, capturable, UNCAPTURABLE } from "../capture/capture-flow"
 import { type CapturePrefs, effectiveSource, type RecordSource, type ScreenshotMode } from "../capture/capture-prefs"
 import type { RecordingStatus } from "../recording/recording-flow"
-import type { ReportDraft } from "../types"
+import type { ReportDraft } from "../shared/types"
 
 /** `recording` is undefined until the background has answered the status request. */
 export function draftNote(draft: ReportDraft, recording: RecordingStatus | undefined): string | null {

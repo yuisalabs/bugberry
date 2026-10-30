@@ -1,5 +1,5 @@
 import type { DraftStore } from "./draft-store"
-import type { ReportDraft } from "../types"
+import type { ReportDraft } from "../shared/types"
 
 /** Changes the stored draft: gets the current one and returns the next, or null to write nothing. */
 export type DraftChange = (current: ReportDraft) => ReportDraft | null

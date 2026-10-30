@@ -1,5 +1,5 @@
 import type { CaptureResult } from "../capture/capture-flow"
-import type { OffscreenMessage } from "../messages"
+import type { OffscreenMessage } from "../shared/messages"
 import type { RecordingStatus } from "./recording-flow"
 
 export const RECORDER_PAGE = "/recorder.html"

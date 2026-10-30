@@ -3,13 +3,13 @@ import { type ActiveTab, type CaptureResult, capturable, pagePayloadFor, sanitiz
 import { deviceInfoFrom } from "../capture/device"
 import type { DraftStore } from "../drafts/draft-store"
 import type { RecordSource } from "../capture/capture-prefs"
-import type { CameraChoice, CaptureSource, OffscreenMessage, RecordOptions } from "../messages"
+import type { CameraChoice, CaptureSource, OffscreenMessage, RecordOptions } from "../shared/messages"
 import { capPages, mergePages, type PageCaptureRecord } from "./page-merge"
 import { applyPauses, errorsCaught, keptEvents, type LiveCounts, liveCounts, type PauseSpan, pauseMarks, videoTime } from "../review/review-data"
 import { MAX_RECORDING_MS, type RecordingEndReason } from "./recorder"
-import type { VideoDraft } from "../types"
+import type { VideoDraft } from "../shared/types"
 
-export type { RecordOptions } from "../messages"
+export type { RecordOptions } from "../shared/messages"
 
 export interface RecordingState {
   draftId: string

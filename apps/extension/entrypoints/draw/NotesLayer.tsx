@@ -1,6 +1,6 @@
 import { Input } from "@bugberry/ui/input"
 import { forwardRef, useEffect, useImperativeHandle, useState } from "react"
-import { FADE_MS, NOTE_LIFE_MS } from "../../lib/strokes"
+import { FADE_MS, NOTE_LIFE_MS } from "../../lib/annotate/strokes"
 
 export interface NotesLayerHandle {
   /** Takes every note off the screen; the notes already saved stay in the report. */

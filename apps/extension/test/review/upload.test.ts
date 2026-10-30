@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from "bun:test"
 import { type CaptureEvent, decodeDebuggerPayload } from "@bugberry/capture"
 import { ApiError, type CreateUploadBody, type UploadSession } from "../../lib/server/api"
 import type { DraftStore } from "../../lib/drafts/draft-store"
-import type { ReportDraft, UploadTarget } from "../../lib/types"
+import type { ReportDraft, UploadTarget } from "../../lib/shared/types"
 import { LOCKED, type PutRequest, putFile, type ReportForm, sha256, submitDraft, type UploadDeps, type UploadProgress } from "../../lib/review/upload"
 
 const form: ReportForm = { workspaceId: "w1", projectId: "p1", title: "Pay button fails", description: "", priority: "high", visibility: "internal" }

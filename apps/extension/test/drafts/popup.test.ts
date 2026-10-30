@@ -14,7 +14,7 @@ import {
   replyResult,
   uncapturableNote,
 } from "../../lib/drafts/popup"
-import type { ReportDraft } from "../../lib/types"
+import type { ReportDraft } from "../../lib/shared/types"
 
 const draft = (status: ReportDraft["status"]) => ({ id: "d1", status }) as ReportDraft
 const recordingThis = { recording: true as const, draftId: "d1", tabId: 1, startedAt: 0 }

@@ -1,7 +1,7 @@
 import "../../assets/style.css"
 import { createRoot } from "react-dom/client"
 import { browser } from "wxt/browser"
-import type { CameraTicketRequest } from "../../lib/messages"
+import type { CameraTicketRequest } from "../../lib/shared/messages"
 import { CameraBubble } from "./App"
 
 const token = new URLSearchParams(location.search).get("camera") ?? ""

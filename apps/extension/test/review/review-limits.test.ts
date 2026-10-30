@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test"
 import type { WorkspaceLimits } from "../../lib/server/limits"
 import { createReviewLimits, type LimitNote, NO_LIMIT_NOTE, openDashboardFor } from "../../lib/review/review-limits"
-import type { UploadSessionState } from "../../lib/types"
+import type { UploadSessionState } from "../../lib/shared/types"
 
 const full: WorkspaceLimits = { limited: true, screenshots: { used: 0, max: 5 }, recordings: { used: 5, max: 5 } }
 const room: WorkspaceLimits = { limited: true, screenshots: { used: 0, max: 5 }, recordings: { used: 2, max: 5 } }

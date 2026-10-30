@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs"
 import tailwindcss from "@tailwindcss/vite"
 import { defineConfig } from "wxt"
-import { entrypointsFor, isRecorderBuild, manifestFor, manifestKey } from "./lib/manifest"
+import { entrypointsFor, isRecorderBuild, manifestFor, manifestKey } from "./lib/platform/manifest"
 
 /** The agent recorder's build: its automation page, and a fixed public key so its extension ID never changes. */
 const recorderBuild = isRecorderBuild(process.env)

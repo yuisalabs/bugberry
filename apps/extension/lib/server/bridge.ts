@@ -1,6 +1,6 @@
 import { BRIDGE_HELLO, BRIDGE_OPEN_POPUP, BRIDGE_USE_SERVER } from "@bugberry/shared"
 import type { Settings } from "./settings"
-import type { ReportDraft } from "../types"
+import type { ReportDraft } from "../shared/types"
 
 export interface BridgeDeps {
   isBugBerryServer(origin: string): Promise<boolean>

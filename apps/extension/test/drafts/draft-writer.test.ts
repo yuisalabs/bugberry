@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { createDraftWriter } from "../../lib/drafts/draft-writer"
 import type { DraftStore } from "../../lib/drafts/draft-store"
-import type { ReportDraft } from "../../lib/types"
+import type { ReportDraft } from "../../lib/shared/types"
 
 /** A store whose reads and writes take a while, as IndexedDB's do with a video inside. */
 function slowStore(first: ReportDraft) {

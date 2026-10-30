@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test"
 import type { CaptureResult } from "../../lib/capture/capture-flow"
 import { createTakeAgain } from "../../lib/capture/take-again"
-import type { ReportDraft } from "../../lib/types"
+import type { ReportDraft } from "../../lib/shared/types"
 
 const draft = { id: "d1", captureType: "screenshot", tabId: 7, screenshotMode: "area" } as unknown as ReportDraft
 const tab = { id: 7, windowId: 1, url: "https://app.test/" }

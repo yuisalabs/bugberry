@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { type CaptureEvent, decodeDebuggerPayload, DEBUGGER_PAYLOAD_VERSION } from "@bugberry/capture"
 import { base64Chunk, prepareAutomationDraft } from "../../lib/drafts/automation-draft"
 import type { DraftStore } from "../../lib/drafts/draft-store"
-import type { ReportDraft, VideoDraft } from "../../lib/types"
+import type { ReportDraft, VideoDraft } from "../../lib/shared/types"
 
 function storeWith(...drafts: ReportDraft[]): DraftStore {
   const map = new Map(drafts.map((draft) => [draft.id, draft]))

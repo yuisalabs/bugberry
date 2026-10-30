@@ -1,6 +1,6 @@
 import "../../assets/style.css"
 import { createRoot } from "react-dom/client"
-import { clearEmbeddedBackground, promptParams } from "../../lib/prompt-page"
+import { clearEmbeddedBackground, promptParams } from "../../lib/prompts/prompt-page"
 import { App } from "./App"
 
 const { token, embedded } = promptParams(location.search)

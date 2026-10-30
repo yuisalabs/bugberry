@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs"
 import { createServer } from "node:net"
 import { join } from "node:path"
 import { type BrowserContext, chromium } from "playwright-core"
-import { extensionIdFromPublicKey } from "../../extension/lib/manifest"
+import { extensionIdFromPublicKey } from "../../extension/lib/platform/manifest"
 import type { RecorderOptions } from "./options"
 
 /** Matches playwright-core in package.json: the Chromium build it drives. */
