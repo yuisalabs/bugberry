@@ -1,14 +1,14 @@
 import { RiLoader4Line } from "@remixicon/react"
 import { useEffect, useState } from "react"
 import { browser } from "wxt/browser"
-import { createBugberryApi } from "../../lib/api"
-import { BUILD_SERVER_ORIGIN, browserSettingsStorage, capturePrefsStorage, lastSessionStorage, lastWorkspaceStorage } from "../../lib/browser-settings"
+import { createBugberryApi } from "../../lib/server/api"
+import { BUILD_SERVER_ORIGIN, browserSettingsStorage, capturePrefsStorage, lastSessionStorage, lastWorkspaceStorage } from "../../lib/server/browser-settings"
 import { type CameraAccess, cameraAccess, type CameraDevice, cameraDevices } from "../../lib/camera"
 import { capturable } from "../../lib/capture-flow"
 import { hasTabRecorder } from "../../lib/browser-support"
 import { type CapturePrefs, DEFAULT_CAPTURE_PREFS, recordOptionsFor } from "../../lib/capture-prefs"
 import { createIndexedDbDraftStore } from "../../lib/draft-store"
-import { fullWarning, limitsFor, usageLine } from "../../lib/limits"
+import { fullWarning, limitsFor, usageLine } from "../../lib/server/limits"
 import type {
   OpenDraftRequest,
   PopupPromptRequest,
@@ -22,8 +22,8 @@ import { type MicAccess, micAccess, micChoiceAfterCheck, micDevices } from "../.
 import { controlError, recordStartNote, replyResult, uncapturableNote } from "../../lib/popup"
 import { pickEditorWorkspace } from "../../lib/report-form"
 import type { PopupRecordingStatus, RecordingStatus } from "../../lib/recording-flow"
-import { checkSession, type SessionState, serverLabel, signInUrl } from "../../lib/session"
-import { loadSettings, type Settings } from "../../lib/settings"
+import { checkSession, type SessionState, serverLabel, signInUrl } from "../../lib/server/session"
+import { loadSettings, type Settings } from "../../lib/server/settings"
 import { type MicList, meteredMicId, micMeterOn, PopupView } from "./PopupView"
 import { useMicLevel } from "./use-mic-level"
 import { useConfirm } from "@bugberry/ui/confirm-dialog"

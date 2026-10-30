@@ -1,5 +1,5 @@
 import { browser } from "wxt/browser"
-import { createCapturePrefsStorage } from "./capture-prefs"
+import { createCapturePrefsStorage } from "../capture-prefs"
 import type { SessionState } from "./session"
 import { defaultServerUrl, type SettingsStorage } from "./settings"
 

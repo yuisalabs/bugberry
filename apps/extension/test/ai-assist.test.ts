@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test"
 import type { Material } from "@bugberry/ai-write"
 import { aiPath, writeWithAi } from "../lib/ai-assist"
-import { ApiError, type AiSetup } from "../lib/api"
+import { ApiError, type AiSetup } from "../lib/server/api"
 
 const setup = (configured: boolean): AiSetup => ({
   team: { configured },

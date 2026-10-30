@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test"
-import { openSessionToContentScripts } from "../lib/session-access"
+import { openSessionToContentScripts } from "../../lib/server/session-access"
 
 describe("openSessionToContentScripts", () => {
   test("opens session storage to content scripts where the browser can", () => {

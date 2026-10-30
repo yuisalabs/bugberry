@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test"
-import { type ApiFetchRequest, handleApiFetch, isApiFetchRequest, relayFetcher } from "../lib/api-relay"
-import { createBugberryApi } from "../lib/api"
+import { type ApiFetchRequest, handleApiFetch, isApiFetchRequest, relayFetcher } from "../../lib/server/api-relay"
+import { createBugberryApi } from "../../lib/server/api"
 
 const SERVER = "https://bugberry.kantor.test"
 

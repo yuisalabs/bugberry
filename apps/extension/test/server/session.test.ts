@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
-import { ApiError } from "../lib/api"
-import { checkSession, isBugBerryServer, serverLabel, signInUrl } from "../lib/session"
-import { sessionFrom } from "../lib/browser-settings"
+import { ApiError } from "../../lib/server/api"
+import { checkSession, isBugBerryServer, serverLabel, signInUrl } from "../../lib/server/session"
+import { sessionFrom } from "../../lib/server/browser-settings"
 
 const settings = { serverUrl: "https://bugberry.kantor.com" }
 const me = { name: "Ana", email: "ana@kantor.test" }

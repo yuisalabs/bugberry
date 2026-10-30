@@ -1,8 +1,8 @@
-import type { Project, Workspace } from "./api"
+import type { Project, Workspace } from "./server/api"
 import { isSignedOut } from "./popup"
-import { signInUrl } from "./session"
+import { signInUrl } from "./server/session"
 import { pickEditorWorkspace } from "./report-form"
-import type { Settings } from "./settings"
+import type { Settings } from "./server/settings"
 import type { ReportDraft } from "./types"
 
 export interface EditorDeps {

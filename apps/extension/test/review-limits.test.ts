@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test"
-import type { WorkspaceLimits } from "../lib/limits"
+import type { WorkspaceLimits } from "../lib/server/limits"
 import { createReviewLimits, type LimitNote, NO_LIMIT_NOTE, openDashboardFor } from "../lib/review-limits"
 import type { UploadSessionState } from "../lib/types"
 

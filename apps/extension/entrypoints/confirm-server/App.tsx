@@ -1,12 +1,12 @@
 import { Button } from "@bugberry/ui/button"
 import { RiServerLine } from "@remixicon/react"
 import { useEffect, useRef, useState } from "react"
-import { BUILD_SERVER_ORIGIN, browserSettingsStorage } from "../../lib/browser-settings"
-import { confirmNotes, switchServer } from "../../lib/bridge"
+import { BUILD_SERVER_ORIGIN, browserSettingsStorage } from "../../lib/server/browser-settings"
+import { confirmNotes, switchServer } from "../../lib/server/bridge"
 import { createIndexedDbDraftStore } from "../../lib/draft-store"
 import { closePrompt, CoveredNote, PromptShell, usePromptTicket, useUnobscured } from "../../lib/prompt-page"
-import { isBugBerryServer, serverLabel } from "../../lib/session"
-import { loadSettings, normalizeServerUrl } from "../../lib/settings"
+import { isBugBerryServer, serverLabel } from "../../lib/server/session"
+import { loadSettings, normalizeServerUrl } from "../../lib/server/settings"
 
 const store = createIndexedDbDraftStore()
 

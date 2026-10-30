@@ -1,5 +1,5 @@
 import { type DebuggerPayload, encodeDebuggerPayload, summarize } from "@bugberry/capture"
-import { ApiError, type BugberryApi } from "./api"
+import { ApiError, type BugberryApi } from "./server/api"
 import type { DraftStore } from "./draft-store"
 import type { Coordinates } from "./location"
 import type { ReportDraft, ReportForm, UploadSessionState, UploadTarget } from "./types"

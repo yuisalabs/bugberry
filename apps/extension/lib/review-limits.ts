@@ -1,4 +1,4 @@
-import { type CaptureKind, fullWarning, lengthWarning, sendBlocked, usageLine, type WorkspaceLimits } from "./limits"
+import { type CaptureKind, fullWarning, lengthWarning, sendBlocked, usageLine, type WorkspaceLimits } from "./server/limits"
 import type { ReportDraft } from "./types"
 
 /** What the review shows about the selected workspace's limits. */

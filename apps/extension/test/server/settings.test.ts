@@ -5,7 +5,7 @@ import {
   normalizeServerUrl,
   SettingsError,
   type SettingsStorage,
-} from "../lib/settings"
+} from "../../lib/server/settings"
 
 describe("normalizeServerUrl", () => {
   test("keeps only the origin and adds https when missing", () => {

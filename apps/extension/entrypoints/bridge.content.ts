@@ -1,6 +1,6 @@
 import { BRIDGE_POPUP, BRIDGE_STATUS } from "@bugberry/shared"
 import { browser } from "wxt/browser"
-import { pageRequest } from "../lib/bridge"
+import { pageRequest } from "../lib/server/bridge"
 import type { BridgeHelloRequest, BridgeOpenPopupRequest, BridgeUseServerRequest } from "../lib/messages"
 
 /**

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { ApiError, createBugberryApi } from "../lib/api"
+import { ApiError, createBugberryApi } from "../../lib/server/api"
 
 const settings = { serverUrl: "https://bugberry.kantor.test" }
 

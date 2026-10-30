@@ -36,7 +36,7 @@ import { Button as AriaButton, ProgressBar, TextArea as AriaTextArea } from "rea
 import type { TemplateText } from "@bugberry/ai-write"
 import type { AiPath } from "../../lib/ai-assist"
 import { useAutoGrow } from "../../lib/auto-grow"
-import type { Project, Workspace } from "../../lib/api"
+import type { Project, Workspace } from "../../lib/server/api"
 import { useUnobscured } from "../../lib/prompt-page"
 import { formProblem } from "../../lib/report-form"
 import { isTrimmed, reviewStats, suggestTitle, type TrimRange, trimPayload } from "../../lib/review-data"

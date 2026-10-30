@@ -1,6 +1,6 @@
 import type { Material, TemplateText } from "@bugberry/ai-write"
 import type { AiReply, AiWriteRequest } from "./ai-relay"
-import type { AiSetup, BugberryApi } from "./api"
+import type { AiSetup, BugberryApi } from "./server/api"
 
 /** Which key writes: the reporter's own (called from this browser), the workspace's (called by the server), or none. */
 export type AiPath = "personal" | "team" | null

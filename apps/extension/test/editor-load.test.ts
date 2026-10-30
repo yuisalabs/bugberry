@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { ApiError } from "../lib/api"
+import { ApiError } from "../lib/server/api"
 import { type EditorDeps, loadDestination, loadEditor } from "../lib/editor-load"
 import { blurRegion } from "../lib/render"
 import type { ReportDraft } from "../lib/types"

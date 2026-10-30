@@ -1,15 +1,15 @@
 import { type Browser, browser } from "wxt/browser"
 import { createFailureFlag } from "../lib/badge"
-import { bridgeSenderOrigin, createBridge } from "../lib/bridge"
+import { bridgeSenderOrigin, createBridge } from "../lib/server/bridge"
 import { browserRecordingState } from "../lib/browser-recording-state"
-import { createBugberryApi } from "../lib/api"
+import { createBugberryApi } from "../lib/server/api"
 import { CAMERA_READY_MS, type CameraGrant, cameraTicketReply, createCameraGrants, uiStateReply } from "../lib/camera-grant"
 import { handleAiTest, handleAiWrite, isAiTestRequest, isAiWriteRequest } from "../lib/ai-relay"
-import { handleApiFetch, isApiFetchRequest } from "../lib/api-relay"
+import { handleApiFetch, isApiFetchRequest } from "../lib/server/api-relay"
 import { browserAiKeyStorage } from "../lib/browser-ai-key"
 import { hasTabRecorder } from "../lib/browser-support"
 import { recordOptionsFor, type ScreenshotMode } from "../lib/capture-prefs"
-import { BUILD_SERVER_ORIGIN, browserSettingsStorage, capturePrefsStorage, lastSessionStorage, lastWorkspaceStorage } from "../lib/browser-settings"
+import { BUILD_SERVER_ORIGIN, browserSettingsStorage, capturePrefsStorage, lastSessionStorage, lastWorkspaceStorage } from "../lib/server/browser-settings"
 import { type ActiveTab, type CaptureFlowDeps, type CaptureResult, startScreenshotReport } from "../lib/capture-flow"
 import { createIndexedDbDraftStore } from "../lib/draft-store"
 import {
@@ -40,14 +40,14 @@ import {
 } from "../lib/messages"
 import { createRecordingController, type RecordingFlowDeps } from "../lib/recording-flow"
 import { createWindowRecorderHost, onRecorderClosed } from "../lib/recorder-window"
-import { openSessionToContentScripts } from "../lib/session-access"
+import { openSessionToContentScripts } from "../lib/server/session-access"
 import { createPromptOpener, type PromptTicket, type PromptTickets, ticketFor } from "../lib/prompt-opener"
 import { createReviewOpener } from "../lib/review-opener"
 import { fromAutomationPage, fromExtensionPage, fromPopup, ofThisRecording } from "../lib/sender-rules"
 import { createTakeAgain } from "../lib/take-again"
-import { isBugBerryServer } from "../lib/session"
+import { isBugBerryServer } from "../lib/server/session"
 import { cropBox, pickArea } from "../lib/select-area"
-import { loadSettings } from "../lib/settings"
+import { loadSettings } from "../lib/server/settings"
 import {
   clientConfigInTime,
   DEFAULT_MAX_UPLOAD_MB,
@@ -57,8 +57,8 @@ import {
   signedOutForLength,
   uploadLimitMb,
   workspaceLimitsInTime,
-} from "../lib/upload-limit"
-import { limitsFor } from "../lib/limits"
+} from "../lib/server/upload-limit"
+import { limitsFor } from "../lib/server/limits"
 import { isSignedOut } from "../lib/popup"
 import type { RecordingEndReason } from "../lib/recorder"
 import { pickEditorWorkspace } from "../lib/report-form"

@@ -7,26 +7,26 @@ const FOLDERS = new Set(["ai", "annotate", "capture", "devices", "drafts", "plat
 const MAX_LINES = 500
 /** Modules and tests not yet in their folder; each move deletes its names here. */
 const PENDING_LIB = new Set([
-  "ai-assist", "ai-key", "ai-relay", "annotations", "api-relay", "api", "auto-grow", "automation-draft", "badge", "bar-drag",
-  "bridge", "browser-ai-key", "browser-recording-state", "browser-settings", "browser-support", "camera-grant", "camera",
+  "ai-assist", "ai-key", "ai-relay", "annotations", "auto-grow", "automation-draft", "badge", "bar-drag",
+  "browser-ai-key", "browser-recording-state", "browser-support", "camera-grant", "camera",
   "capture-flow", "capture-prefs", "device", "draft-store", "draft-writer", "editor-load", "environment", "keep-alive", "latest",
-  "limits", "location", "manifest", "messages", "microphone", "page-flush", "page-merge", "page-ui", "pixelate", "popup",
+  "location", "manifest", "messages", "microphone", "page-flush", "page-merge", "page-ui", "pixelate", "popup",
   "prompt-opener", "prompt-page", "recorder-build", "recorder-handler", "recorder-window", "recorder", "recording-flow",
   "recording-stream", "recording-watch", "render", "report-form", "review-data", "review-draft", "review-limits", "review-opener",
-  "seeker", "select-area", "sender-rules", "session-access", "session", "settings", "store-build-check", "strokes", "take-again",
-  "thumbnail-browser", "thumbnail", "trim-send", "trim-video", "types", "upload-limit", "upload", "video-frames", "webm-duration",
+  "seeker", "select-area", "sender-rules", "store-build-check", "strokes", "take-again",
+  "thumbnail-browser", "thumbnail", "trim-send", "trim-video", "types", "upload", "video-frames", "webm-duration",
   "when-back",
 ])
 const PENDING_TEST = new Set([
-  "ai-assist", "ai-relay", "annotation-canvas", "annotations", "api-relay", "api", "automation-draft", "badge", "bar-drag",
-  "bar-view", "brand", "bridge", "browser-support", "camera-bubble", "camera-grant", "camera", "capture-flow", "capture-prefs",
+  "ai-assist", "ai-relay", "annotation-canvas", "annotations", "automation-draft", "badge", "bar-drag",
+  "bar-view", "brand", "browser-support", "camera-bubble", "camera-grant", "camera", "capture-flow", "capture-prefs",
   "device", "draft-store", "draft-writer", "draw-notes", "editor-load", "english", "environment", "extension-key", "icon-states",
-  "icons", "keep-alive", "latest", "limits", "location", "manifest", "messages", "microphone", "options-ai", "page-flush",
+  "icons", "keep-alive", "latest", "location", "manifest", "messages", "microphone", "options-ai", "page-flush",
   "page-merge", "page-ui", "pixelate", "popup-view", "popup", "prompt-opener", "recorder-bar-page", "recorder-handler",
   "recorder-window", "recorder", "recording-flow", "recording-stream", "recording-watch", "report-form", "review-ai", "review-data",
   "review-draft", "review-fields", "review-limits", "review-opener", "review-view", "seeker", "select-area", "sender-rules",
-  "sent-trackers", "session-access", "session", "settings", "sign-firefox", "store-build-check", "strokes", "take-again", "thumbnail",
-  "trim-send", "trim-video", "upload-limit", "upload", "webm-duration", "when-back", "zip-sources",
+  "sent-trackers", "sign-firefox", "store-build-check", "strokes", "take-again", "thumbnail",
+  "trim-send", "trim-video", "upload", "webm-duration", "when-back", "zip-sources",
 ])
 /** Files split for length; each stays under MAX_LINES. */
 const SPLIT: string[] = []

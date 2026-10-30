@@ -1,4 +1,4 @@
-import { ApiError } from "./api"
+import { ApiError } from "./server/api"
 import { type CaptureResult, capturable, UNCAPTURABLE } from "./capture-flow"
 import { type CapturePrefs, effectiveSource, type RecordSource, type ScreenshotMode } from "./capture-prefs"
 import type { RecordingStatus } from "./recording-flow"

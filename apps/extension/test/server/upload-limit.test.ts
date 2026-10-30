@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import { MAX_RECORDING_MS } from "../lib/recorder"
-import { BUGBERRY_CLOUD_ORIGIN } from "../lib/settings"
+import { MAX_RECORDING_MS } from "../../lib/recorder"
+import { BUGBERRY_CLOUD_ORIGIN } from "../../lib/server/settings"
 import {
   clientConfigInTime,
   expectedRecordingSeconds,
@@ -9,7 +9,7 @@ import {
   signedOutForLength,
   uploadLimitMb,
   workspaceLimitsInTime,
-} from "../lib/upload-limit"
+} from "../../lib/server/upload-limit"
 
 describe("uploadLimitMb", () => {
   test("uses the server's number", () => {
