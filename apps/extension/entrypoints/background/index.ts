@@ -11,7 +11,7 @@ import { type ActiveTab, type CaptureFlowDeps, type CaptureResult, startScreensh
 import { createIndexedDbDraftStore } from "../../lib/drafts/draft-store"
 import type { BarRequest, PageUiMessage, PopupRecordingAction, RecordOptions } from "../../lib/shared/messages"
 import { createRecordingController } from "../../lib/recording/recording-controller"
-import { type RecordingFlowDeps } from "../../lib/recording/recording-flow"
+import type { RecordingFlowDeps } from "../../lib/recording/recording-flow"
 import { createWindowRecorderHost, onRecorderClosed } from "../../lib/recording/recorder-window"
 import { openSessionToContentScripts } from "../../lib/server/session-access"
 import { createPromptOpener } from "../../lib/prompts/prompt-opener"
@@ -34,7 +34,7 @@ import { limitsFor } from "../../lib/server/limits"
 import { isSignedOut } from "../../lib/drafts/popup"
 import type { RecordingEndReason } from "../../lib/recording/recorder"
 import { pickEditorWorkspace } from "../../lib/review/report-form"
-import { createMessageListener } from "./on-message"
+import { createMessageListener, RECORDER_BUILD } from "./on-message"
 import { promptTickets } from "./prompt-tickets"
 import { readPageCapture, readPageEnvironment, toActiveTab } from "./tabs"
 
@@ -45,9 +45,6 @@ const OFFSCREEN_PAGE = "/offscreen.html" as Parameters<typeof browser.runtime.ge
 const RECORDER_WINDOW_KEY = "recorderWindow"
 /** Session storage key of the camera grant; the page layer reads it to know a page load should ask for the bubble. */
 const CAMERA_GRANT_KEY = "camera"
-/** The build bundled with the agent recorder (`bun run build:recorder`); the store builds never have its automation path. */
-// Defined by wxt.config.ts as a literal, so the store builds drop the automation path altogether.
-const RECORDER_BUILD = __BUGBERRY_RECORDER_BUILD__
 /** Where WXT puts recording-ui.content.ts. */
 const PAGE_LAYER_SCRIPT = "/content-scripts/recording-ui.js"
 

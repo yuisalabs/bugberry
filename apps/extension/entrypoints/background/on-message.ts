@@ -45,7 +45,7 @@ import { toActiveTab } from "./tabs"
 
 /** The build bundled with the agent recorder (`bun run build:recorder`); the store builds never have its automation path. */
 // Defined by wxt.config.ts as a literal, so the store builds drop the automation path altogether.
-const RECORDER_BUILD = __BUGBERRY_RECORDER_BUILD__
+export const RECORDER_BUILD = __BUGBERRY_RECORDER_BUILD__
 
 type MessageListener = Parameters<typeof browser.runtime.onMessage.addListener>[0]
 
