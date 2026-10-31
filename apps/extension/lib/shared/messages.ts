@@ -62,7 +62,7 @@ export interface PageFlushMessage {
   documentId: string
   events: unknown[]
   incomplete: unknown[]
-  /** The page's custom fields snapshot and its address, both checked by the background. */
+  /** The page's custom fields snapshot (JSON text, to keep its key order) and its address, both checked by the background. */
   metadata?: unknown
   url?: unknown
 }

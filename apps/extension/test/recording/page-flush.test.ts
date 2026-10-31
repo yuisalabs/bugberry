@@ -33,7 +33,10 @@ describe("installPageFlush", () => {
     const location = { href: "https://shop.test/checkout?token=abc" }
     installPageFlush({ document, window, location }, (message) => sent.push(message), recordingState(true).watch)
     hide()
-    expect(sent.at(-1)).toMatchObject({ type: "bugberry:page-flush", metadata: { fields: { userId: "u1" } }, url: "https://shop.test/checkout?token=abc" })
+    const message = sent.at(-1) as { metadata: string }
+    expect(message).toMatchObject({ type: "bugberry:page-flush", url: "https://shop.test/checkout?token=abc" })
+    // As text: Chrome sorts the keys of objects in runtime messages, and the app's order must survive.
+    expect(JSON.parse(message.metadata)).toEqual({ fields: { userId: "u1" }, error: null, droppedKeys: 0 })
   })
 
   test("a page loaded during a recording says so, and sends its buffer as it goes away", () => {

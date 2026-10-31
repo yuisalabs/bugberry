@@ -32,7 +32,8 @@ function readCaptureSession(keep: { since: number; pauses: Array<{ start: number
   // Before the snapshot, so a failing callback's warn line is in it. Sessions from older capture scripts have no readMetadata.
   let metadata: unknown
   try {
-    metadata = typeof session.readMetadata === "function" ? session.readMetadata() : undefined
+    // As text: Chrome sorts the keys of objects in executeScript results, and the app's field order must survive.
+    metadata = typeof session.readMetadata === "function" ? JSON.stringify(session.readMetadata()) : undefined
   } catch {
     // The page can replace this object; losing the fields must not lose the events.
   }

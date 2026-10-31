@@ -106,9 +106,20 @@ function isEvent(value: unknown): value is CaptureEvent {
 }
 
 const MAX_METADATA_ERROR_CHARS = 500
+/** The snapshot arrives as JSON text; a real one is about 10 KB, so anything far past that is forged. */
+const MAX_METADATA_TEXT = 64 * 1024
 
 /** A page's custom fields as the page sent them; bounded again, since a page can forge them. */
 export function sanitizeMetadata(raw: unknown): MetadataSnapshot {
+  // Sent as text, since Chrome sorts the keys of objects it passes between page and extension.
+  if (typeof raw === "string") {
+    if (raw.length > MAX_METADATA_TEXT) return NO_METADATA
+    try {
+      raw = JSON.parse(raw)
+    } catch {
+      return NO_METADATA
+    }
+  }
   if (typeof raw !== "object" || raw === null) return NO_METADATA
   const value = raw as { fields?: unknown; error?: unknown; droppedKeys?: unknown }
   const dropped = typeof value.droppedKeys === "number" && Number.isInteger(value.droppedKeys) && value.droppedKeys >= 0 ? Math.min(value.droppedKeys, 100_000) : 0

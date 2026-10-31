@@ -252,6 +252,18 @@ describe("sanitizePageCapture metadata and url", () => {
     expect(page.metadata.droppedKeys).toBeGreaterThan(1)
     expect(page.metadata.error).toHaveLength(500)
   })
+  test("a snapshot sent as JSON text keeps the app's key order, nested ones too", () => {
+    const metadata = JSON.stringify({ fields: { userId: "u1", flags: { zeta: 1, alpha: 2 } }, error: null, droppedKeys: 0 })
+    const page = sanitizePageCapture({ ...base, metadata })
+    if (page?.status !== "ok") throw new Error("expected ok")
+    expect(Object.keys(page.metadata.fields ?? {})).toEqual(["userId", "flags"])
+    expect(Object.keys((page.metadata.fields?.flags ?? {}) as object)).toEqual(["zeta", "alpha"])
+  })
+  test("snapshot text that is not JSON, or far too long, is the empty snapshot", () => {
+    expect(sanitizePageCapture({ ...base, metadata: "{not json" })).toMatchObject({ metadata: { fields: null, error: null, droppedKeys: 0 } })
+    const huge = JSON.stringify({ fields: { blob: "x".repeat(200_000) }, error: null, droppedKeys: 0 })
+    expect(sanitizePageCapture({ ...base, metadata: huge })).toMatchObject({ metadata: { fields: null, error: null, droppedKeys: 0 } })
+  })
   test("sdk events pass the kind check", () => {
     const page = sanitizePageCapture({ ...base, events: [{ kind: "sdk", t: 1, level: "info", message: "hi" }] })
     expect(page?.status === "ok" ? page.events : []).toHaveLength(1)

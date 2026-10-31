@@ -88,6 +88,8 @@ test("a screenshot report travels from the extension to the server", async () =>
   expect(sdk[1]?.data).toBe('{"code":"card_declined"}')
   expect(sdk[1]?.source).toMatch(/^demo\.js:\d+$/)
   expect(payload.customFields).toMatchObject({ fields: { userId: "u-e2e", flags: { newCheckout: true }, token: "[redacted]" }, error: null, droppedKeys: 0, url: null })
+  // Chrome sorts the keys of objects it passes between page and extension; the app's order must survive.
+  expect(Object.keys((payload.customFields as { fields: object }).fields)).toEqual(["userId", "flags", "token"])
 
   // The editor made a JPEG thumbnail; the card link serves it (a screenshot without one would fall back to its PNG).
   const list = (await (
@@ -115,13 +117,22 @@ test("a screenshot report travels from the extension to the server", async () =>
   const screenshot = share.getByRole("img", { name: "Report screenshot" })
   await expect(screenshot).toBeVisible()
   await expect.poll(() => screenshot.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0)
-  // The flagged box lists the failed request first (5xx), then the console.error.
+  // The flagged box lists the failed request first (5xx), then the console.error and the app's SDK error.
   const flagged = share.getByRole("region", { name: "BugBerry flagged" })
-  await expect(flagged.getByText("BugBerry flagged 2 issues")).toBeVisible()
+  await expect(flagged.getByText("BugBerry flagged 3 issues")).toBeVisible()
   await expect(flagged.getByRole("listitem").first()).toContainText("GET /api/price → 500")
+  await expect(flagged.getByRole("listitem").filter({ hasText: "Payment declined" })).toBeVisible()
   await share.getByRole("tab", { name: /Console/ }).click()
   await expect(share.getByText("checkout failed", { exact: true })).toBeVisible()
   await expect(share.getByRole("tabpanel").getByText("demo.js:6")).toBeVisible()
+  // The demo page's two @bugberry/sdk lines, labelled, and the Custom level that keeps only them.
+  const console_ = share.getByRole("tabpanel")
+  await expect(console_.getByText("BugBerry", { exact: true })).toHaveCount(2)
+  await expect(console_.getByText(/Payment declined/)).toBeVisible()
+  await share.getByRole("button", { name: /Level/ }).click()
+  await share.getByRole("option", { name: "Custom" }).click()
+  await expect(console_.getByText("checkout failed", { exact: true })).toHaveCount(0)
+  await expect(console_.getByText("BugBerry", { exact: true })).toHaveCount(2)
   await share.getByRole("tab", { name: /Network/ }).click()
   const scriptRow = share.getByRole("row").filter({ has: share.getByRole("button", { name: /^demo\.js/ }) })
   await expect(scriptRow.getByRole("cell", { name: "script", exact: true }).first()).toBeVisible()
@@ -133,6 +144,11 @@ test("a screenshot report travels from the extension to the server", async () =>
   await share.getByRole("button", { name: "Close request" }).click()
   await share.getByRole("tab", { name: /Overview/ }).click()
   await expect(share.getByText(/timezone/)).toBeVisible()
+  // The demo page's metadata callback, with its token redacted by capture.
+  const custom = share.locator("section").filter({ has: share.getByRole("heading", { name: "Custom fields" }) })
+  await expect(custom.getByText("u-e2e", { exact: true })).toBeVisible()
+  await expect(custom.getByText("[redacted]", { exact: true })).toBeVisible()
+  await expect(custom.getByRole("button", { name: "Copy JSON" })).toBeVisible()
 
   await context.close()
 })

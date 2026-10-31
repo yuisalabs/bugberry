@@ -60,7 +60,8 @@ export function installPageFlush(
       documentId: String(value.documentId),
       events: Array.isArray(value.events) ? value.events : [],
       incomplete: Array.isArray(value.incomplete) ? value.incomplete : [],
-      ...(value.metadata !== undefined ? { metadata: value.metadata } : {}),
+      // As text: Chrome sorts the keys of objects in runtime messages, and the app's field order must survive.
+      ...(value.metadata !== undefined ? { metadata: JSON.stringify(value.metadata) } : {}),
       ...(host.location ? { url: host.location.href } : {}),
     })
   })
