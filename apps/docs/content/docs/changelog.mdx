@@ -6,6 +6,17 @@ description: What changed in BugBerry, newest first.
 Each entry is named after the browser extension's version. Changes to the dashboard and the server ship with it. A
 release with no extension change still gets its own entry, and the entry says that the extension stays as it is.
 
+## 0.10.0 · 1 November 2026
+
+- **Your app's own logs and state in every report, with `@bugberry/sdk`.** Add two lines to your app.
+  `bugberry.metadata()` sends what the app knows when a report is made, such as the user, the plan or the feature
+  flags; it shows under **Overview → Custom fields**. `bugberry.log()` writes lines that show in the Console with a
+  **BugBerry** label, as dots on the video timeline, and in **BugBerry flagged** when they are errors. The Console's new
+  **Custom** level shows only those lines. Agents read both over MCP, and Write with AI uses them. See
+  [Custom logs and fields](/guide/custom-logs).
+- **Self-hosting:** update the server and the dashboard (the report viewer, MCP and Write with AI changed), and the
+  extension to 0.10.0. Older extensions keep working; their reports have no custom logs or fields.
+
 ## 0.9.5 · 1 November 2026
 
 - **Firefox 140 or newer is needed now, and 142 on Firefox for Android.** When BugBerry is installed, Firefox asks you
