@@ -49,8 +49,12 @@ interface VisibilityEntry extends IntersectionObserverEntry {
  */
 export function useUnobscured(target: RefObject<HTMLElement | null>, embedded: boolean): boolean {
   const [visible, setVisible] = useState(!embedded)
+  // A prompt can render nothing until its ticket arrives, so `target` gets its element only on a later render.
+  const [element, setElement] = useState<HTMLElement | null>(null)
   useEffect(() => {
-    const element = target.current
+    if (target.current !== element) setElement(target.current)
+  })
+  useEffect(() => {
     if (!embedded || !element) return
     const options = { threshold: [1], trackVisibility: true, delay: 100 } as IntersectionObserverInit
     let observer: IntersectionObserver
@@ -65,7 +69,7 @@ export function useUnobscured(target: RefObject<HTMLElement | null>, embedded: b
     }
     observer.observe(element)
     return () => observer.disconnect()
-  }, [target, embedded])
+  }, [element, embedded])
   return visible
 }
 
