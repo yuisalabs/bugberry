@@ -1,11 +1,12 @@
 import { describe, expect, test } from "bun:test"
 import { createEventBuffer } from "../src/buffer"
 import type { CaptureEvent, NetworkEvent } from "../src/events"
-import { MAX_RESOURCE_EVENTS } from "../src/limits"
+import { MAX_RESOURCE_EVENTS, MAX_SDK_EVENTS } from "../src/limits"
 
 const log = (t: number, text = "x"): CaptureEvent => ({ kind: "console", t, level: "log", args: [text] })
 
 const resource = (t: number): CaptureEvent => ({ kind: "resource", t, url: `https://shop.test/${t}.png`, initiatorType: "img" })
+const sdk = (t: number): CaptureEvent => ({ kind: "sdk", t, level: "info", message: `step ${t}` })
 const click = (t: number): CaptureEvent => ({ kind: "action", t, type: "click", target: "button" })
 
 describe("createEventBuffer", () => {
@@ -29,6 +30,36 @@ describe("createEventBuffer", () => {
     expect(MAX_RESOURCE_EVENTS).toBe(300)
     expect(kept).toHaveLength(300)
     expect(kept[0]?.t).toBe(20)
+  })
+
+  test("at most MAX_SDK_EVENTS sdk events are kept, newest first, without touching other events", () => {
+    const buffer = createEventBuffer({ now: () => 10_000 })
+    buffer.push({ kind: "console", t: 1, level: "log", args: ["first"] })
+    for (let t = 10; t < 10 + MAX_SDK_EVENTS + 20; t++) buffer.push(sdk(t))
+    const kept = buffer.snapshot()
+    expect(kept.filter((event) => event.kind === "sdk")).toHaveLength(MAX_SDK_EVENTS)
+    expect(kept[0]).toMatchObject({ kind: "console", t: 1 })
+    expect(kept.find((event) => event.kind === "sdk")?.t).toBe(30)
+  })
+
+  test("over the total cap, resources go before sdk events, and sdk events before the rest", () => {
+    const buffer = createEventBuffer({ now: () => 10_000, maxEvents: 10 })
+    for (let t = 1; t <= 4; t++) buffer.push({ kind: "console", t, level: "log", args: [String(t)] })
+    for (let t = 5; t <= 9; t++) buffer.push(sdk(t))
+    for (let t = 10; t <= 14; t++) buffer.push(resource(t))
+    const kinds = buffer.snapshot().map((event) => event.kind)
+    expect(kinds.filter((kind) => kind === "console")).toHaveLength(4)
+    expect(kinds.filter((kind) => kind === "sdk")).toHaveLength(5)
+    expect(kinds.filter((kind) => kind === "resource")).toHaveLength(1)
+  })
+
+  test("over the total cap with no resources left, sdk events go before logs", () => {
+    const buffer = createEventBuffer({ now: () => 10_000, maxEvents: 6 })
+    for (let t = 1; t <= 4; t++) buffer.push({ kind: "console", t, level: "log", args: [String(t)] })
+    for (let t = 5; t <= 9; t++) buffer.push(sdk(t))
+    const kinds = buffer.snapshot().map((event) => event.kind)
+    expect(kinds.filter((kind) => kind === "console")).toHaveLength(4)
+    expect(kinds.filter((kind) => kind === "sdk")).toHaveLength(2)
   })
 
   test("snapshot is ordered by event time even when events arrive out of order", () => {

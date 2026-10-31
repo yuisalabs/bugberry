@@ -22,4 +22,15 @@ describe("summarize", () => {
       incomplete: ["xhr"],
     })
   })
+
+  test("sdk events count as logs, and sdk errors as errors", () => {
+    const summary = summarize(
+      [
+        { kind: "sdk", t: 1, level: "info", message: "Checkout started" },
+        { kind: "sdk", t: 2, level: "error", message: "Payment declined" },
+      ],
+      [],
+    )
+    expect(summary).toMatchObject({ logs: 2, errors: 1 })
+  })
 })

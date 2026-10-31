@@ -14,4 +14,6 @@ export const MAX_MASKED_VALUE_CHARS = 50
 export const MAX_CONSOLE_ARGS = 20
 /** Page resources kept per page, so they never crowd out logs, errors and actions. */
 export const MAX_RESOURCE_EVENTS = 300
+/** The app's own SDK logs kept per page, so a logging loop never crowds out the rest. */
+export const MAX_SDK_EVENTS = 300
 export const MAX_URL_CHARS = 2048

@@ -9,8 +9,11 @@ export type {
   PageEvent,
   ResourceEvent,
   ResourceTimingDetail,
+  SdkEvent,
+  SdkLevel,
 } from "./events"
-export { BUFFER_MAX_AGE_MS, BUFFER_MAX_EVENTS, MAX_RESOURCE_EVENTS } from "./limits"
+export { SDK_LEVELS } from "./events"
+export { BUFFER_MAX_AGE_MS, BUFFER_MAX_EVENTS, MAX_RESOURCE_EVENTS, MAX_SDK_EVENTS } from "./limits"
 export {
   buildDebuggerPayload,
   type CaptureEnvironment,
