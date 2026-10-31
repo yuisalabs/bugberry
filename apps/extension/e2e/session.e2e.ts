@@ -60,27 +60,41 @@ test("a BugBerry dashboard points the extension at itself", async () => {
   await extensionPage.evaluate(() => chrome.storage.local.set({ serverUrl: "https://elsewhere.example" }))
   const storedServer = () => extensionPage.evaluate(async () => (await chrome.storage.local.get("serverUrl")).serverUrl)
 
+  // The confirmation opens over the page that asked, or in a tab of its own when that page can't show it.
+  const confirmFrame = () =>
+    context
+      .pages()
+      .flatMap((page) => page.frames())
+      .find((frame) => frame.url().includes("/confirm-server.html"))
+
   // A page that is not a BugBerry server cannot even open the confirmation.
   const demo = await context.newPage()
   await demo.goto(state.demoUrl)
   await demo.evaluate(() => window.postMessage({ type: "bugberry:use-server" }, location.origin))
   await demo.waitForTimeout(2000)
-  expect(context.pages().some((page) => page.url().includes("/confirm-server.html"))).toBe(false)
+  expect(confirmFrame()).toBeUndefined()
 
   const dashboard = await context.newPage()
   await dashboard.goto(`${state.serverUrl}/app`)
-  const confirmOpened = context.waitForEvent("page", (page) => page.url().includes("/confirm-server.html"))
-  await dashboard.getByRole("button", { name: "Use the extension with this server" }).click()
-  const confirm = await confirmOpened
+  const accountMenu = dashboard.getByRole("button", { name: "Account menu" })
+  const extensionItem = dashboard.getByRole("menuitem", { name: /^Browser extension/ })
+  await accountMenu.click()
+  await expect(extensionItem.getByText("Another server")).toBeVisible()
+  await extensionItem.click()
+  await expect.poll(() => confirmFrame() !== undefined).toBe(true)
+  const confirm = confirmFrame()!
   const host = new URL(state.serverUrl).host
   await expect(confirm.getByRole("heading", { name: `Send your BugBerry reports to ${host}?` })).toBeVisible()
   expect(await storedServer()).toBe("https://elsewhere.example")
   await confirm.getByRole("button", { name: "Use this server" }).click()
-  await expect(confirm.getByText(`Done. Reports now go to ${host}.`)).toBeVisible()
+  await expect(confirm.getByText(`Reports now go to ${host}.`)).toBeVisible()
   expect(await storedServer()).toBe(state.serverUrl)
+  await confirm.getByRole("button", { name: "Done" }).click()
+  await expect.poll(() => confirmFrame()).toBeUndefined()
 
   await dashboard.bringToFront()
   await dashboard.evaluate(() => window.dispatchEvent(new Event("focus")))
-  await expect(dashboard.getByRole("region", { name: "Browser extension" }).getByText(/^Installed, v/)).toBeVisible()
+  await accountMenu.click()
+  await expect(extensionItem.getByText(/^v\d/)).toBeVisible()
   await context.close()
 })
