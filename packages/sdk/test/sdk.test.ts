@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test"
+import { afterEach, describe, expect, test } from "bun:test"
 import { type BugBerryGlobal, GLOBAL_KEY, QUEUE_MAX, sdkGlobal } from "../src/global"
 import { createBugBerry } from "../src/index"
 
@@ -64,9 +64,10 @@ describe("bugberry without the extension", () => {
 })
 
 describe("bugberry never throws", () => {
-  test("without a host", () => {
+  test("without a host, and keeps nothing anywhere", () => {
     const sdk = createBugBerry(undefined, stack)
     expect(() => { sdk.log("x"); sdk.metadata(() => ({})) }).not.toThrow()
+    expect((globalThis as Record<string, unknown>)[GLOBAL_KEY]).toBeUndefined()
   })
   test("on a frozen host", () => {
     const sdk = createBugBerry(Object.freeze({}), stack)
@@ -85,10 +86,27 @@ describe("bugberry never throws", () => {
   })
 })
 
-test("the exported bugberry binds to globalThis", async () => {
-  const { bugberry } = await import("../src/index")
-  bugberry.log("hello")
-  expect(globalOf(globalThis).queue.at(-1)?.message).toBe("hello")
+describe("the exported bugberry", () => {
+  const scope = globalThis as Record<string, unknown>
+  afterEach(() => {
+    delete scope.window
+    delete scope[GLOBAL_KEY]
+  })
+
+  test("without a window (a server render) keeps nothing", async () => {
+    const { bugberry } = await import("../src/index")
+    bugberry.log("on the server")
+    bugberry.metadata(() => ({ userId: "someone" }))
+    expect(scope[GLOBAL_KEY]).toBeUndefined()
+  })
+
+  test("in a browser writes to the window, also one that appears after the import", async () => {
+    const { bugberry } = await import("../src/index")
+    const window = {}
+    scope.window = window
+    bugberry.log("hello")
+    expect(globalOf(window).queue.at(-1)?.message).toBe("hello")
+  })
 })
 
 test("with the real stack reader, the first frame left is the app's call", () => {

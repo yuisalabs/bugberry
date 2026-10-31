@@ -24,8 +24,8 @@ function isGlobal(value: unknown): value is BugBerryGlobal {
   return typeof value === "object" && value !== null && (value as { v?: unknown }).v === 1 && Array.isArray((value as { queue?: unknown }).queue)
 }
 
-/** The shared object on `host`, created with the queueing `push` when missing; null when it cannot be made. */
-export function sdkGlobal(host: object | undefined = globalThis): BugBerryGlobal | null {
+/** The shared object on `host`, created with the queueing `push` when missing; null without a host or when it cannot be made. */
+export function sdkGlobal(host: object | undefined): BugBerryGlobal | null {
   try {
     if (typeof host !== "object" || host === null) return null
     const slot = host as Record<string, unknown>

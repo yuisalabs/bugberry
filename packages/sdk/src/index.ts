@@ -15,10 +15,14 @@ export interface BugBerry {
 
 /** For tests: the same API bound to another host object; `stackOf` stands in for the stack read in each method. */
 export function createBugBerry(host: object | undefined, stackOf?: () => string | undefined): BugBerry {
+  return bugberryOn(() => host, stackOf)
+}
+
+function bugberryOn(hostOf: () => object | undefined, stackOf?: () => string | undefined): BugBerry {
   const allowStack = createStackBudget()
   const record = (level: SdkEntry["level"], message: unknown, data: unknown, site: Error | undefined) => {
     try {
-      const global = sdkGlobal(host)
+      const global = sdkGlobal(hostOf())
       if (!global) return
       const entry: SdkEntry = { t: Date.now(), level, message: String(message) }
       if (data !== undefined) entry.data = data
@@ -40,7 +44,7 @@ export function createBugBerry(host: object | undefined, stackOf?: () => string 
   return {
     metadata(callback) {
       try {
-        const global = sdkGlobal(host)
+        const global = sdkGlobal(hostOf())
         if (global && typeof callback === "function") global.metadata = callback
       } catch {
         // Same as above.
@@ -61,4 +65,5 @@ export function createBugBerry(host: object | undefined, stackOf?: () => string 
   }
 }
 
-export const bugberry: BugBerry = createBugBerry(typeof globalThis === "object" ? globalThis : undefined)
+// Looked up on each call: a server render has no window and must keep nothing, and a window can appear later.
+export const bugberry: BugBerry = bugberryOn(() => (typeof window === "object" && window !== null ? window : undefined))
