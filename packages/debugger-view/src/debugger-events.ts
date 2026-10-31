@@ -423,16 +423,22 @@ export interface ConsoleEntry {
   uncaught: boolean
   /** "cart.js:88": where it came from, when known. */
   source: string | null
+  /** A line the app wrote with @bugberry/sdk, shown with the BugBerry label. */
+  sdk: boolean
 }
 
-/** A console call or a page error as a console line; null for any other event. */
+/** A console call, a page error or an SDK log as a console line; null for any other event. */
 export function consoleEntry(event: ViewEvent): ConsoleEntry | null {
   if (event.kind === "console") {
-    return { t: event.t, level: event.level, text: event.text, stack: event.stack, uncaught: false, source: event.source }
+    return { t: event.t, level: event.level, text: event.text, stack: event.stack, uncaught: false, source: event.source, sdk: false }
+  }
+  if (event.kind === "sdk") {
+    const text = event.data ? `${event.message} ${event.data}` : event.message
+    return { t: event.t, level: event.level, text, stack: event.stack, uncaught: false, source: event.source, sdk: true }
   }
   if (event.kind === "error") {
     const message = event.source ? `${event.message} (${event.source})` : event.message
-    return { t: event.t, level: "error", text: message, stack: event.stack, uncaught: true, source: null }
+    return { t: event.t, level: "error", text: message, stack: event.stack, uncaught: true, source: null, sdk: false }
   }
   return null
 }

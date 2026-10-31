@@ -165,3 +165,18 @@ describe("joining console errors to uncaught errors", () => {
     ])
   })
 })
+
+test("an sdk error is flagged at level 4 with the app's source; info and warn are not", () => {
+  const issues = flaggedIssues(
+    view([
+      { kind: "sdk", t: 1100, level: "info", message: "Checkout started" },
+      { kind: "sdk", t: 1200, level: "warn", message: "Retrying" },
+      { kind: "sdk", t: 1300, level: "error", message: "Payment declined", source: "checkout.js:40" },
+      { kind: "sdk", t: 1400, level: "error", message: "Payment declined", source: "checkout.js:40" },
+    ]),
+    VIDEO,
+  )
+  expect(issues).toEqual([
+    expect.objectContaining({ level: 4, text: "Payment declined ×2", source: "checkout.js:40", count: 2, target: { tab: "console" }, time: { kind: "video", offsetMs: 300 } }),
+  ])
+})

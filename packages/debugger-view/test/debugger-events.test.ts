@@ -235,6 +235,19 @@ describe("recording notes and pauses", () => {
 })
 
 describe("sdk events and custom fields", () => {
+  test("consoleEntries turns sdk events into BugBerry lines", () => {
+    const { events } = normalizePayload({
+      events: [
+        { kind: "sdk", t: 1, level: "info", message: "Checkout started", data: '{"orderId":8812}', source: "checkout.js:40" },
+        { kind: "console", t: 2, level: "log", args: ["plain"] },
+      ],
+    })
+    expect(consoleEntries(events)).toEqual([
+      { t: 1, level: "info", text: 'Checkout started {"orderId":8812}', stack: null, uncaught: false, source: "checkout.js:40", sdk: true },
+      { t: 2, level: "log", text: "plain", stack: null, uncaught: false, source: null, sdk: false },
+    ])
+  })
+
   test("an sdk event is typed and capped; unknown levels become info", () => {
     const view = normalizePayload({
       events: [
