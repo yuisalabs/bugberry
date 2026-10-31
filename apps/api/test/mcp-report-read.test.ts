@@ -211,7 +211,7 @@ describe("getReport and the app's BugBerry SDK", () => {
     expect(text).toContain('  "userId": "u-1"')
     expect(text).toContain("+1 field over the 10 KB limit")
     expect(text).toContain('getConsoleLogs sources=["sdk"]')
-    expect((structured as { customFields: unknown }).customFields).toEqual({ fields: { userId: "u-1", flags: { newCheckout: true } }, droppedKeys: 1, url: "https://shop.test/checkout", error: null })
+    expect((structured as { customFields: unknown }).customFields).toEqual({ fields: { userId: "u-1", flags: { newCheckout: true } }, clipped: false, droppedKeys: 1, url: "https://shop.test/checkout", error: null })
   })
 
   test("fields from the last page and an error from it are both shown", async () => {
@@ -227,6 +227,15 @@ describe("getReport and the app's BugBerry SDK", () => {
     expect(text).not.toContain("Custom fields")
     expect(text).not.toContain('sources=["sdk"]')
     expect((structured as { customFields: unknown }).customFields).toBeNull()
+  })
+
+  test("structured custom fields over 10 KB are left out, like the text that is cut", async () => {
+    const fields = Object.fromEntries(Array.from({ length: 50 }, (_, n) => [`k${n}`, "z".repeat(1000)]))
+    const id = await reportWith({ customFields: { fields, error: null, droppedKeys: 0, url: null, t: T0 } })
+    const { structured } = await callTool(client, "getReport", { report: id })
+    const custom = (structured as { customFields: { fields: unknown; clipped: boolean } }).customFields
+    expect(custom.fields).toBeNull()
+    expect(custom.clipped).toBe(true)
   })
 
   test("a failed callback is reported in words", async () => {

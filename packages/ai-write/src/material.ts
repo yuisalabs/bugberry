@@ -29,6 +29,8 @@ export const MAX_STATE_CHARS = 2000
 
 /** Lines that explain the bug: kept first when a recording is too long. */
 const KEY_KINDS = new Set<MaterialLine["kind"]>(["error", "request", "note", "sdk"])
+/** Among key lines, the page's own errors and the reporter's notes come before the app's SDK lines, which can be many. */
+const isPrimary = (line: MaterialLine) => KEY_KINDS.has(line.kind) && line.kind !== "sdk"
 
 const cut = (text: string, max: number) => (text.length <= max ? text : `${text.slice(0, max)}…[cut]`)
 
@@ -90,14 +92,19 @@ function fit(material: Material): Material {
   let lines = byTime
   if (lines.length > MAX_LINES) {
     // Steps need the reporter's actions as much as the errors: key lines take at most half when both are many.
-    const key = byTime.filter((line) => KEY_KINDS.has(line.kind))
+    const primary = byTime.filter(isPrimary)
+    const sdk = byTime.filter((line) => line.kind === "sdk")
     const others = byTime.filter((line) => !KEY_KINDS.has(line.kind))
-    const keyCount = Math.min(key.length, Math.max(MAX_LINES - others.length, MAX_LINES / 2))
-    lines = [...key.slice(0, keyCount), ...others.slice(0, MAX_LINES - keyCount)].sort((a, b) => a.atMs - b.atMs)
+    const keyCount = Math.min(primary.length + sdk.length, Math.max(MAX_LINES - others.length, MAX_LINES / 2))
+    const keptPrimary = primary.slice(0, keyCount)
+    // The app's newest lines: the ones nearest the failure.
+    const sdkCount = keyCount - keptPrimary.length
+    const keptSdk = sdkCount > 0 ? sdk.slice(-sdkCount) : []
+    lines = [...keptPrimary, ...keptSdk, ...others.slice(0, MAX_LINES - keyCount)].sort((a, b) => a.atMs - b.atMs)
   }
   let omitted = material.omitted + byTime.length - lines.length
   let fitted: Material = { ...material, lines, omitted }
-  // Bodies give way first, then whole lines from the end: the others before the key ones.
+  // Bodies give way first, then whole lines from the end: the others, then the app's SDK lines, then the rest.
   for (const max of [200, 0]) {
     if (sizeOf(fitted) <= MAX_MATERIAL_CHARS) return fitted
     fitted = {
@@ -107,7 +114,8 @@ function fit(material: Material): Material {
   }
   while (sizeOf(fitted) > MAX_MATERIAL_CHARS && fitted.lines.length > 0) {
     const others = fitted.lines.findLastIndex((line) => !KEY_KINDS.has(line.kind))
-    const drop = others >= 0 ? others : fitted.lines.length - 1
+    const sdk = fitted.lines.findLastIndex((line) => line.kind === "sdk")
+    const drop = others >= 0 ? others : sdk >= 0 ? sdk : fitted.lines.length - 1
     omitted += 1
     fitted = { ...fitted, lines: fitted.lines.filter((_, index) => index !== drop), omitted }
   }

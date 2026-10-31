@@ -35,6 +35,13 @@ export function nextSteps(summary: DebuggerSummary, captureType: CaptureType = "
 
 const duration = (ms: number | null) => (ms === null ? null : `${Math.round(ms / 100) / 10}s`)
 
+/** getReport's structured custom fields: over the 10 KB the text is cut to, `fields` is left out and `clipped` says so. */
+function structuredCustomFields(custom: DebuggerView["customFields"]) {
+  if (!custom || (custom.fields === null && custom.error === null)) return null
+  const clipped = custom.fields !== null && JSON.stringify(custom.fields).length > MAX_FIELDS_CHARS
+  return { fields: clipped ? null : custom.fields, clipped, droppedKeys: custom.droppedKeys, url: custom.url, error: custom.error }
+}
+
 /** getReport's lines for the app's custom fields; none when the app sent none. */
 function customFieldLines(view: DebuggerView | null): string[] {
   const custom = view?.customFields
@@ -141,7 +148,7 @@ export async function reportSummary(ctx: McpContext, resolved: ResolvedReport) {
     hasDebugger: view !== null,
     topErrors,
     notes: view?.notes ?? [],
-    customFields: custom && (custom.fields !== null || custom.error !== null) ? { fields: custom.fields, droppedKeys: custom.droppedKeys, url: custom.url, error: custom.error } : null,
+    customFields: structuredCustomFields(custom),
     recordingStartedAt: base,
     trackers: trackers.map((link) => link.url).filter(Boolean),
     nextSteps: steps,

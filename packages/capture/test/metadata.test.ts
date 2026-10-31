@@ -27,6 +27,13 @@ describe("readMetadata", () => {
     expect(readMetadata(hostWith(() => null)).error).toBe("callback returned null, not an object")
     expect(readMetadata(hostWith("not a function")).error).toBe("metadata is not a function")
   })
+  test("a Promise, a Map or a class instance is reported by its type, not shown as empty fields", () => {
+    class Store { user = "u1" }
+    expect(readMetadata(hostWith(async () => ({ userId: "u1" }))).error).toBe("callback returned Promise, not a plain object")
+    expect(readMetadata(hostWith(() => new Map([["a", 1]]))).error).toBe("callback returned Map, not a plain object")
+    expect(readMetadata(hostWith(() => new Store())).error).toBe("callback returned Store, not a plain object")
+    expect(readMetadata(hostWith(() => Object.create(null))).error).toBeNull()
+  })
   test("a getter that throws during sanitizing is a thrown callback", () => {
     const value = { get boom(): string { throw new Error("getter") } }
     expect(readMetadata(hostWith(() => value)).error).toBe("callback threw: getter")

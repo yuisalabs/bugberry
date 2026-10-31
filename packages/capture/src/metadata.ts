@@ -125,6 +125,12 @@ export function readMetadata(host: SdkHost): MetadataSnapshot {
       if (typeof value !== "object" || value === null || Array.isArray(value)) {
         return { fields: null, error: `callback returned ${typeName(value)}, not an object`, droppedKeys: 0 }
       }
+      // An async callback returns a Promise, which would read as empty fields; name it instead.
+      const prototype: unknown = Object.getPrototypeOf(value)
+      if (prototype !== Object.prototype && prototype !== null) {
+        const name = (prototype as { constructor?: { name?: unknown } }).constructor?.name
+        return { fields: null, error: `callback returned ${typeof name === "string" && name ? name : "an object"}, not a plain object`, droppedKeys: 0 }
+      }
       return { ...boundMetadata(value as Record<string, unknown>), error: null }
     } catch (error) {
       return { fields: null, error: `callback threw: ${messageOf(error).slice(0, MAX_ERROR_CHARS)}`, droppedKeys: 0 }

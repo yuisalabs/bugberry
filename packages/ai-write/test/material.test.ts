@@ -190,3 +190,14 @@ describe("the app's BugBerry SDK", () => {
     expect(m.lines.some((line) => line.kind === "sdk")).toBe(true)
   })
 })
+
+test("a chatty app's early SDK lines never push out the page's own error", () => {
+  const events = [
+    ...Array.from({ length: 300 }, (_, n) => ({ kind: "sdk" as const, t: START + n, level: "info" as const, message: `step ${n}` })),
+    ...Array.from({ length: 60 }, (_, n) => action(1000 + n * 10, "click", `button#${n}`)),
+    consoleError(90_000, "TypeError: cart is undefined"),
+  ]
+  const m = buildMaterial({ payload: payloadWith(events), page: { url: "https://shop.test" }, device, includeResponseBodies: false })
+  expect(m.lines.some((line) => line.kind === "error")).toBe(true)
+  expect(m.lines.length).toBeLessThanOrEqual(MAX_LINES)
+})
