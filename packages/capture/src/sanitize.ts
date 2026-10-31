@@ -6,7 +6,7 @@ const ENCODED_REDACTED = encodeURIComponent(REDACTED)
 
 const readable = (serialized: string) => serialized.replaceAll(ENCODED_REDACTED, REDACTED)
 
-const SENSITIVE_KEY = /password|token|secret|api[-_]?key|authorization/i
+const SENSITIVE_KEY = /password|token|secret|api[-_]?key|authorization|credential|bearer|session[-_]?(id|key)|cookies?$|jwt$|^auth$/i
 /** Extra names that only carry secrets in URLs (signed URLs, OAuth codes, Google API keys, session ids). */
 const SENSITIVE_URL_KEY = /^(code|key|sig|signature|session|sid|credential|x-amz-(signature|credential|security-token)|x-goog-(signature|credential))$/i
 const SENSITIVE_HEADERS = new Set(["authorization", "cookie", "set-cookie", "x-api-key", "proxy-authorization"])
