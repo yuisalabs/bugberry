@@ -3,6 +3,7 @@ import {
   consoleEntries,
   filterNetwork,
   MAX_EVENTS,
+  MAX_FIELD_KEYS,
   MAX_TEXT,
   normalizePayload,
   type ViewNetwork,
@@ -67,6 +68,7 @@ describe("normalizePayload", () => {
       environment: null,
       notes: [],
       pauses: [],
+      customFields: null,
     })
     expect(normalizePayload({ events: "nope" }).events).toEqual([])
   })
@@ -229,5 +231,49 @@ describe("recording notes and pauses", () => {
 
   test("an older payload has neither", () => {
     expect(normalizePayload({ events: [] })).toMatchObject({ notes: [], pauses: [] })
+  })
+})
+
+describe("sdk events and custom fields", () => {
+  test("an sdk event is typed and capped; unknown levels become info", () => {
+    const view = normalizePayload({
+      events: [
+        { kind: "sdk", t: 1000, level: "error", message: "Payment declined", data: '{"code":"card_declined"}', stack: "at pay (checkout.js:40)", source: "checkout.js:40" },
+        { kind: "sdk", t: 1001, level: "verbose", message: 42, data: { not: "a string" } },
+      ],
+    })
+    expect(view.events).toEqual([
+      { kind: "sdk", t: 1000, level: "error", message: "Payment declined", data: '{"code":"card_declined"}', stack: "at pay (checkout.js:40)", source: "checkout.js:40" },
+      { kind: "sdk", t: 1001, level: "info", message: "42", data: null, stack: null, source: null },
+    ])
+  })
+
+  test("custom fields keep a plain object, with depth, key and string caps", () => {
+    const deep: Record<string, unknown> = {}
+    let cursor = deep
+    for (let n = 0; n < 12; n++) { cursor.next = {}; cursor = cursor.next as Record<string, unknown> }
+    const wide = Object.fromEntries(Array.from({ length: 300 }, (_, n) => [`k${n}`, n]))
+    const view = normalizePayload({
+      customFields: { fields: { userId: "u1", deep, wide, long: "x".repeat(25_000), fn: "kept as text" }, error: null, droppedKeys: 2, url: "https://shop.test/a", t: 5 },
+    })
+    const fields = view.customFields?.fields ?? {}
+    expect(fields.userId).toBe("u1")
+    expect(JSON.stringify(fields.deep)).toContain('"[Object]"')
+    expect(Object.keys(fields.wide as object)).toHaveLength(MAX_FIELD_KEYS)
+    expect((fields.long as string).length).toBeLessThanOrEqual(MAX_TEXT + 1)
+    expect(view.customFields).toMatchObject({ error: null, droppedKeys: 2, url: "https://shop.test/a" })
+  })
+
+  test("custom fields that are missing or junk give null; a bad url is dropped", () => {
+    expect(normalizePayload({}).customFields).toBeNull()
+    expect(normalizePayload({ customFields: "nope" }).customFields).toBeNull()
+    expect(normalizePayload({ customFields: { fields: [1, 2], error: null, droppedKeys: 0, url: "javascript:x" } }).customFields).toEqual({ fields: null, error: null, droppedKeys: 0, url: null })
+    expect(normalizePayload({ customFields: { fields: null, error: "callback threw: boom", droppedKeys: -3 } }).customFields).toEqual({ fields: null, error: "callback threw: boom", droppedKeys: 0, url: null })
+  })
+
+  test("a forged payload with a huge fields object stays bounded in total, not only per object", () => {
+    const fields = Object.fromEntries(Array.from({ length: 200 }, (_, a) => [`a${a}`, Object.fromEntries(Array.from({ length: 200 }, (_, b) => [`b${b}`, "z".repeat(50)]))]))
+    const view = normalizePayload({ customFields: { fields, error: null, droppedKeys: 0 } })
+    expect(JSON.stringify(view.customFields?.fields).length).toBeLessThan(300_000)
   })
 })

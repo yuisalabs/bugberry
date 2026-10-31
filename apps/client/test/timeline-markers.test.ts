@@ -28,6 +28,7 @@ const view = (events: ViewEvent[], extra: Partial<DebuggerView> = {}): DebuggerV
   environment: null,
   notes: [],
   pauses: [],
+  customFields: null,
   ...extra,
 })
 
