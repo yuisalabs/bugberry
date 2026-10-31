@@ -13,6 +13,7 @@ const fakeSession: CaptureSession = {
   snapshot: () => [{ kind: "console", t: 5, level: "warn", args: ["careful"] }],
   summary: () => ({ logs: 1, errors: 0, requests: 0, failedRequests: 0, actions: 0, incomplete: ["xhr"] }),
   incomplete: ["xhr"],
+  readMetadata: () => ({ fields: null, error: null, droppedKeys: 0 }),
   clear: () => {},
   stop: () => {},
 }
@@ -40,5 +41,13 @@ describe("debugger payload", () => {
     const wrongVersion = await encodeDebuggerPayload({ ...buildDebuggerPayload(fakeSession), version: 2 as 1 })
     await expect(decodeDebuggerPayload(wrongVersion)).rejects.toThrow(/Unsupported debugger payload/)
     await expect(decodeDebuggerPayload(new Blob(["plain text"]))).rejects.toThrow()
+  })
+
+  test("customFields round-trips through encode and decode", async () => {
+    const payload = {
+      ...buildDebuggerPayload(fakeSession, { now: () => 9 }),
+      customFields: { fields: { userId: "u1" }, error: null, droppedKeys: 0, url: null, t: 9 },
+    }
+    expect(await decodeDebuggerPayload(await encodeDebuggerPayload(payload))).toEqual(payload)
   })
 })

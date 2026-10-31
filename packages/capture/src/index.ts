@@ -18,6 +18,7 @@ export { boundMetadata, type MetadataSnapshot, NO_METADATA, readMetadata } from 
 export {
   buildDebuggerPayload,
   type CaptureEnvironment,
+  type CustomFields,
   DEBUGGER_PAYLOAD_VERSION,
   type DebuggerPayload,
   type RecordingNote,

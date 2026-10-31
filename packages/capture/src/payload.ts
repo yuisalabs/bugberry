@@ -1,5 +1,6 @@
 import { DEBUGGER_CONTENT_TYPE } from "@bugberry/shared"
 import type { CaptureEvent } from "./events"
+import type { MetadataSnapshot } from "./metadata"
 import type { CaptureSession } from "./session"
 
 export const DEBUGGER_PAYLOAD_VERSION = 1
@@ -30,6 +31,13 @@ export interface RecordingPause {
   ms: number
 }
 
+/** The app's own state from @bugberry/sdk's metadata callback, one snapshot per report. */
+export interface CustomFields extends MetadataSnapshot {
+  /** When the fields came from an earlier page of the recording, that page's URL; null when from the final page. */
+  url: string | null
+  t: number
+}
+
 /** Contents of `debugger.json.gz`, uploaded next to the screenshot or video. */
 export interface DebuggerPayload {
   version: typeof DEBUGGER_PAYLOAD_VERSION
@@ -43,6 +51,8 @@ export interface DebuggerPayload {
   /** Added within version 1, recordings only. */
   notes?: RecordingNote[]
   pauses?: RecordingPause[]
+  /** Added within version 1: older dashboards ignore it. */
+  customFields?: CustomFields
 }
 
 export function buildDebuggerPayload(
