@@ -107,7 +107,14 @@ export async function notePageFlush(
   if (draft?.captureType !== "video") return
   // Paused events (and an earlier take's) never take room under the caps: they would be dropped at stop anyway.
   const events = keptEvents(page.events, state.startedAt, pausesUntil(state, deps.now()))
-  const record: PageCaptureRecord = { documentId: page.documentId, tabId, events, incomplete: page.incomplete }
+  const record: PageCaptureRecord = {
+    documentId: page.documentId,
+    tabId,
+    events,
+    incomplete: page.incomplete,
+    metadata: page.metadata,
+    ...(page.url ? { url: page.url } : {}),
+  }
   const pages = (draft.pages ?? []).filter((stored) => stored.documentId !== record.documentId)
   await deps.store.put({ ...draft, pages: capPages([...pages, record]) })
 }

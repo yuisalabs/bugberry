@@ -1,8 +1,12 @@
 import {
+  boundMetadata,
   BUFFER_MAX_EVENTS,
   type CaptureEvent,
   DEBUGGER_PAYLOAD_VERSION,
   type DebuggerPayload,
+  MAX_URL_CHARS,
+  type MetadataSnapshot,
+  NO_METADATA,
   redactUrl,
 } from "@bugberry/capture"
 import type { ScreenshotMode } from "./capture-prefs"
@@ -12,7 +16,7 @@ import type { DraftStore } from "../drafts/draft-store"
 import { type AreaPick, type AreaRect, areaPickFrom } from "./select-area"
 
 export type PageCapture =
-  | { status: "ok"; events: CaptureEvent[]; incomplete: string[]; documentId?: string }
+  | { status: "ok"; events: CaptureEvent[]; incomplete: string[]; documentId?: string; metadata: MetadataSnapshot; url: string | null }
   | { status: "missing" }
 
 export interface ActiveTab {
@@ -62,7 +66,7 @@ export type CaptureResult =
    */
   | { ok: false; error: string; code?: "already-recording" | "cancelled" }
 
-const EVENT_KINDS = new Set(["console", "error", "network", "action", "resource", "page"])
+const EVENT_KINDS = new Set(["console", "error", "network", "action", "resource", "page", "sdk"])
 const INCOMPLETE_NAME = /^[a-z0-9-]{1,50}$/
 const DOCUMENT_ID = /^[a-z0-9-]{1,64}$/
 /** Real events stay far below this (bodies are cut to 10 KB at the source); bigger ones are forged. */
@@ -100,10 +104,39 @@ function isEvent(value: unknown): value is CaptureEvent {
   return typeof event.kind === "string" && EVENT_KINDS.has(event.kind) && typeof event.t === "number"
 }
 
+const MAX_METADATA_ERROR_CHARS = 500
+
+/** A page's custom fields as the page sent them; bounded again, since a page can forge them. */
+export function sanitizeMetadata(raw: unknown): MetadataSnapshot {
+  if (typeof raw !== "object" || raw === null) return NO_METADATA
+  const value = raw as { fields?: unknown; error?: unknown; droppedKeys?: unknown }
+  const dropped = typeof value.droppedKeys === "number" && Number.isInteger(value.droppedKeys) && value.droppedKeys >= 0 ? Math.min(value.droppedKeys, 100_000) : 0
+  const error = typeof value.error === "string" ? value.error.slice(0, MAX_METADATA_ERROR_CHARS) : null
+  const plain = typeof value.fields === "object" && value.fields !== null && !Array.isArray(value.fields)
+  if (!plain && error === null) return NO_METADATA
+  if (!plain) return { fields: null, error, droppedKeys: 0 }
+  try {
+    const bounded = boundMetadata(value.fields as Record<string, unknown>)
+    return { fields: bounded.fields, error, droppedKeys: dropped + bounded.droppedKeys }
+  } catch {
+    return NO_METADATA
+  }
+}
+
+function pageUrl(raw: unknown): string | null {
+  if (typeof raw !== "string" || raw.length > MAX_URL_CHARS) return null
+  try {
+    const { protocol } = new URL(raw)
+    return protocol === "http:" || protocol === "https:" ? redactUrl(raw) : null
+  } catch {
+    return null
+  }
+}
+
 /** The page controls this data, so only well-formed events are kept. */
 export function sanitizePageCapture(raw: unknown): PageCapture | null {
   if (typeof raw !== "object" || raw === null) return null
-  const value = raw as { status?: unknown; events?: unknown; incomplete?: unknown; documentId?: unknown }
+  const value = raw as { status?: unknown; events?: unknown; incomplete?: unknown; documentId?: unknown; metadata?: unknown; url?: unknown }
   if (value.status === "missing") return { status: "missing" }
   if (value.status !== "ok" || !Array.isArray(value.events)) return null
   const events = withinBudget(value.events.filter(isEvent).slice(-BUFFER_MAX_EVENTS))
@@ -113,7 +146,14 @@ export function sanitizePageCapture(raw: unknown): PageCapture | null {
         .slice(0, 20)
     : []
   const documentId = typeof value.documentId === "string" && DOCUMENT_ID.test(value.documentId) ? value.documentId : undefined
-  return { status: "ok", events, incomplete, ...(documentId ? { documentId } : {}) }
+  return {
+    status: "ok",
+    events,
+    incomplete,
+    ...(documentId ? { documentId } : {}),
+    metadata: sanitizeMetadata(value.metadata),
+    url: pageUrl(value.url),
+  }
 }
 
 export const UNCAPTURABLE = "This page can't be captured. Open a regular web page (http/https)."

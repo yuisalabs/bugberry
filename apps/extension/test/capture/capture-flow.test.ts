@@ -223,6 +223,30 @@ describe("sanitizePageCapture", () => {
   })
 })
 
+describe("sanitizePageCapture metadata and url", () => {
+  const base = { status: "ok", events: [], incomplete: [], documentId: "doc-1" }
+  test("keeps a well-formed snapshot and redacts the URL", () => {
+    const page = sanitizePageCapture({ ...base, metadata: { fields: { a: 1 }, error: null, droppedKeys: 2 }, url: "https://shop.test/pay?token=abc" })
+    expect(page).toMatchObject({ metadata: { fields: { a: 1 }, error: null, droppedKeys: 2 }, url: "https://shop.test/pay?token=[redacted]" })
+  })
+  test("junk metadata becomes the empty snapshot; a non-http URL is dropped", () => {
+    expect(sanitizePageCapture({ ...base, metadata: "nope", url: "javascript:alert(1)" })).toMatchObject({ metadata: { fields: null, error: null, droppedKeys: 0 }, url: null })
+    expect(sanitizePageCapture({ ...base, metadata: { fields: [1], error: 5, droppedKeys: -1 } })).toMatchObject({ metadata: { fields: null, error: null, droppedKeys: 0 } })
+  })
+  test("a forged snapshot is bounded again: size capped, error cut", () => {
+    const fields = Object.fromEntries(Array.from({ length: 40 }, (_, n) => [`k${n}`, "z".repeat(1000)]))
+    const page = sanitizePageCapture({ ...base, metadata: { fields: { ...fields, password: "hunter2" }, error: "e".repeat(900), droppedKeys: 1 } })
+    if (page?.status !== "ok") throw new Error("expected ok")
+    expect(JSON.stringify(page.metadata.fields).length).toBeLessThanOrEqual(10 * 1024)
+    expect(page.metadata.droppedKeys).toBeGreaterThan(1)
+    expect(page.metadata.error).toHaveLength(500)
+  })
+  test("sdk events pass the kind check", () => {
+    const page = sanitizePageCapture({ ...base, events: [{ kind: "sdk", t: 1, level: "info", message: "hi" }] })
+    expect(page?.status === "ok" ? page.events : []).toHaveLength(1)
+  })
+})
+
 describe("page data limits", () => {
   test("drops malformed incomplete names and oversized events", () => {
     const result = sanitizePageCapture({

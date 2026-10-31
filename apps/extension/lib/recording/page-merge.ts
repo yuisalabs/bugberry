@@ -1,4 +1,4 @@
-import type { CaptureEvent } from "@bugberry/capture"
+import type { CaptureEvent, MetadataSnapshot } from "@bugberry/capture"
 import { withinBudget } from "../capture/capture-flow"
 
 /** One document's capture buffer, as it was when the page went away (or when the recording stopped). */
@@ -8,6 +8,9 @@ export interface PageCaptureRecord {
   tabId?: number
   events: CaptureEvent[]
   incomplete: string[]
+  /** The page's custom fields when it went away, and its redacted address; absent on pages stored by older versions. */
+  metadata?: MetadataSnapshot
+  url?: string
 }
 
 /** A recording across several pages keeps at most this many events, the same cap the dashboard reads. */
