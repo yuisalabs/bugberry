@@ -37,10 +37,13 @@ export const FIREFOX_PERMISSIONS = ["activeTab", "scripting", "storage", "tabs"]
 /** Pinned for good: Firefox identifies the extension (and its signed updates) by this id. */
 export const FIREFOX_GECKO = {
   id: "yuisalabs@gmail.com",
-  // Firefox 130: WebCodecs video, for trimming recordings (and world: "MAIN" content scripts need 128).
-  strict_min_version: "130.0",
+  // Firefox 140: the first to ask for data_collection_permissions on install (trimming recordings needs 130).
+  strict_min_version: "140.0",
   data_collection_permissions: { required: ["websiteContent", "websiteActivity"] },
 }
+
+/** Firefox for Android asks for data_collection_permissions from 142. */
+export const FIREFOX_GECKO_ANDROID = { strict_min_version: "142.0" }
 
 /** Ctrl+Shift+K opens Firefox's Web Console. */
 export const FIREFOX_OPEN_SHORTCUT = "Alt+Shift+B"
@@ -64,7 +67,7 @@ export function manifestFor(target: string, key: string | undefined): Record<str
         ...MANIFEST_COMMANDS,
         _execute_action: { ...MANIFEST_COMMANDS._execute_action, suggested_key: { default: FIREFOX_OPEN_SHORTCUT } },
       },
-      browser_specific_settings: { gecko: FIREFOX_GECKO },
+      browser_specific_settings: { gecko: FIREFOX_GECKO, gecko_android: FIREFOX_GECKO_ANDROID },
     }
   }
   // Today's key order, so the Chrome build's manifest.json stays byte-for-byte the same.

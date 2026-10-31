@@ -2,7 +2,7 @@ import { STORE_LINKS } from "@/lib/store-links"
 
 const STORES = [
   { key: "chrome", name: "Chrome Web Store", note: "Chrome, Edge, Brave, and Opera" },
-  { key: "firefox", name: "Firefox Add-ons", note: "Firefox 128 or newer" },
+  { key: "firefox", name: "Firefox Add-ons", note: "Firefox 140 or newer" },
 ] as const
 
 /** One row per store: a link once the listing is live, "Coming soon" until then. */

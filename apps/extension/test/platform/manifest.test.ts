@@ -91,17 +91,18 @@ describe("manifestFor", () => {
     ])
   })
 
-  test("firefox drops Chrome-only permissions and the key, and adds the gecko block", () => {
+  test("firefox drops Chrome-only permissions and the key, and adds the gecko blocks", () => {
     const manifest = manifestFor("firefox", "KEY") as Record<string, unknown> & {
-      browser_specific_settings: { gecko: unknown }
+      browser_specific_settings: { gecko: unknown; gecko_android: unknown }
     }
     expect(manifest.permissions).toEqual(["activeTab", "scripting", "storage", "tabs"])
     expect("key" in manifest).toBe(false)
     expect(manifest.browser_specific_settings.gecko).toEqual({
       id: "yuisalabs@gmail.com",
-      strict_min_version: "130.0",
+      strict_min_version: "140.0",
       data_collection_permissions: { required: ["websiteContent", "websiteActivity"] },
     })
+    expect(manifest.browser_specific_settings.gecko_android).toEqual({ strict_min_version: "142.0" })
   })
 
   test("firefox opens BugBerry with Alt+Shift+B and keeps the other shortcuts", () => {
