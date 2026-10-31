@@ -18,6 +18,7 @@ COPY packages/ai-write/package.json packages/ai-write/
 COPY packages/capture/package.json packages/capture/
 COPY packages/debugger-view/package.json packages/debugger-view/
 COPY packages/player/package.json packages/player/
+COPY packages/sdk/package.json packages/sdk/
 COPY packages/ui/package.json packages/ui/
 
 # Runs the server from source with production dependencies; migrations ship next to it. The dashboard
