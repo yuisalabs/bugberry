@@ -96,7 +96,7 @@
     },
     "apps/extension": {
       "name": "@bugberry/extension",
-      "version": "0.9.0",
+      "version": "0.9.5",
       "dependencies": {
         "@bugberry/ai-write": "workspace:*",
         "@bugberry/capture": "workspace:*",
@@ -173,6 +173,13 @@
       "peerDependencies": {
         "react": "19.3.1",
         "react-dom": "19.3.1",
+      },
+    },
+    "packages/sdk": {
+      "name": "@bugberry/sdk",
+      "version": "0.1.0",
+      "devDependencies": {
+        "happy-dom": "21.0.1",
       },
     },
     "packages/shared": {
@@ -261,6 +268,8 @@
     "@bugberry/player": ["@bugberry/player@workspace:packages/player"],
 
     "@bugberry/recorder": ["@bugberry/recorder@workspace:apps/agent-recorder"],
+
+    "@bugberry/sdk": ["@bugberry/sdk@workspace:packages/sdk"],
 
     "@bugberry/shared": ["@bugberry/shared@workspace:packages/shared"],
 
