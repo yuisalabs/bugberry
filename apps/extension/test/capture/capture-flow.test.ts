@@ -63,6 +63,17 @@ beforeEach(() => {
 })
 
 describe("startScreenshotReport", () => {
+  test("a screenshot carries the page's custom fields", async () => {
+    deps.readPageCapture = async () => ({ status: "ok", events: [], incomplete: [], metadata: { fields: { plan: "pro" }, error: null, droppedKeys: 0 } })
+    await startScreenshotReport(tab, deps)
+    expect(store.drafts.get("draft-1")?.debuggerPayload?.customFields).toEqual({ fields: { plan: "pro" }, error: null, droppedKeys: 0, url: null, t: 1000 })
+  })
+
+  test("a screenshot of a page without the SDK has no custom fields", async () => {
+    await startScreenshotReport(tab, deps)
+    expect("customFields" in (store.drafts.get("draft-1")?.debuggerPayload ?? {})).toBe(false)
+  })
+
   test("stores a draft with the screenshot, page details and buffered events, then opens the editor", async () => {
     expect(await startScreenshotReport(tab, deps)).toEqual({ ok: true, draftId: "draft-1" })
     const draft = store.drafts.get("draft-1") as ScreenshotDraft | undefined

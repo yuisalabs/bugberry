@@ -374,6 +374,36 @@ describe("stopVideoRecording", () => {
     expect(store.drafts.get("video-1")?.debuggerPayload).toMatchObject({ incomplete: ["page-access"], events: [] })
   })
 
+  test("custom fields from a flushed page survive to the payload when the last page has none", async () => {
+    const controller = createRecordingController(deps)
+    await controller.start(tab, TAB_OPTIONS)
+    await controller.notePageFlush(7, {
+      documentId: "page-1", events: [], incomplete: [],
+      metadata: { fields: { userId: "u1" }, error: null, droppedKeys: 0 }, url: "https://shop.test/checkout",
+    })
+    expect(await controller.stop()).toMatchObject({ ok: true })
+    expect(store.drafts.get("video-1")?.debuggerPayload?.customFields).toMatchObject({ fields: { userId: "u1" }, url: "https://shop.test/checkout" })
+  })
+
+  test("a page with custom fields but no events left is still kept until stop", async () => {
+    const controller = createRecordingController(deps)
+    await controller.start(tab, TAB_OPTIONS)
+    await controller.notePageFlush(7, {
+      documentId: "page-1", events: [], incomplete: [],
+      metadata: { fields: { plan: "pro" }, error: null, droppedKeys: 0 }, url: "https://shop.test/plans",
+    })
+    await controller.notePageFlush(7, { documentId: "page-2", events: [{ kind: "action", t: 1600, type: "click" }], incomplete: [] })
+    expect(await controller.stop()).toMatchObject({ ok: true })
+    expect(store.drafts.get("video-1")?.debuggerPayload?.customFields).toMatchObject({ fields: { plan: "pro" }, url: "https://shop.test/plans" })
+  })
+
+  test("a recording where no page set custom fields has none in the payload", async () => {
+    const controller = createRecordingController(deps)
+    await controller.start(tab, TAB_OPTIONS)
+    expect(await controller.stop()).toMatchObject({ ok: true })
+    expect(store.drafts.get("video-1")?.debuggerPayload && "customFields" in store.drafts.get("video-1")!.debuggerPayload!).toBe(false)
+  })
+
   test("a page that never flushed marks the report navigated", async () => {
     const controller = createRecordingController(deps)
     await controller.start(tab, TAB_OPTIONS)

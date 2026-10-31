@@ -3,6 +3,7 @@ import { type ActiveTab, type CaptureResult, capturable, pagePayloadFor, sanitiz
 import { deviceInfoFrom } from "../capture/device"
 import type { DraftStore } from "../drafts/draft-store"
 import type { CameraChoice, CaptureSource, OffscreenMessage, RecordOptions } from "../shared/messages"
+import { pickCustomFields } from "./custom-fields"
 import { capPages, mergePages, type PageCaptureRecord } from "./page-merge"
 import { applyPauses, keptEvents, type PauseSpan, pauseMarks, videoTime } from "../review/review-data"
 import { MAX_RECORDING_MS, type RecordingEndReason } from "./recorder"
@@ -377,9 +378,9 @@ export async function stopVideoRecording(
   // Pages left during the recording flushed their events on the way out; the pages open now are read here.
   const keep = { since: state.startedAt, pauses }
   const [first, ...others] = logTabs
-  const { payload, documentId } =
+  const { payload, documentId, metadata } =
     first === undefined
-      ? { payload: emptyPayload(state.startedAt, deps.now()), documentId: null }
+      ? { payload: emptyPayload(state.startedAt, deps.now()), documentId: null, metadata: null }
       : await pagePayloadFor(first, deps, state.startedAt, keep)
   const current: PageCaptureRecord[] = documentId ? [{ documentId, tabId: first, events: payload.events, incomplete: payload.incomplete }] : []
   for (const tabId of others) {
@@ -392,11 +393,21 @@ export async function stopVideoRecording(
   const incomplete = [...new Set([...payload.incomplete, ...merged.incomplete])]
   if (state.logs && state.loads > flushedEarlier) incomplete.push("navigated")
   const events = documentId ? merged.events : [...merged.events, ...payload.events].sort((a, b) => a.t - b.t)
+  // The SDK's data describes the app on the recorded tab, so other tabs' pages take no part.
+  const recordedPages = stored.filter((page) => (page.tabId ?? state.tabId) === state.tabId && page.documentId !== documentId)
+  const customFields = pickCustomFields(first === state.tabId && metadata ? { metadata } : null, recordedPages, deps.now())
+  const { customFields: _final, ...pagePayload } = payload
   const { pages: _flushed, liveNotes: _notes, ...rest } = draft
   await deps.store.put({
     ...rest,
     // Nothing from before this take or from a pause is sent; the rest lines up with the cut video.
-    debuggerPayload: { ...payload, events: applyPauses(events, state.startedAt, pauses), incomplete, ...added },
+    debuggerPayload: {
+      ...pagePayload,
+      events: applyPauses(events, state.startedAt, pauses),
+      incomplete,
+      ...added,
+      ...(customFields ? { customFields } : {}),
+    },
     recordingStartedAt: state.startedAt,
     ...stoppedBy,
     status: "editing",

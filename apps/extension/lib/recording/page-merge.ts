@@ -33,7 +33,7 @@ export function capPages(pages: readonly PageCaptureRecord[]): PageCaptureRecord
   const kept = new Set(withinBudget(capEvents(all, MAX_MERGED_EVENTS)))
   return pages
     .map((page) => ({ ...page, events: page.events.filter((event) => kept.has(event)) }))
-    .filter((page, index) => page.events.length > 0 || index === pages.length - 1)
+    .filter((page, index) => page.events.length > 0 || page.metadata?.fields || index === pages.length - 1)
 }
 
 /**

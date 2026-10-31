@@ -13,6 +13,7 @@ import type { ScreenshotMode } from "./capture-prefs"
 import { deviceInfoFrom } from "./device"
 import { environmentFrom } from "./environment"
 import type { DraftStore } from "../drafts/draft-store"
+import { pickCustomFields } from "../recording/custom-fields"
 import { type AreaPick, type AreaRect, areaPickFrom } from "./select-area"
 
 export type PageCapture =
@@ -201,14 +202,14 @@ export async function pagePayloadFor(
   deps: Pick<CaptureFlowDeps, "readPageCapture" | "readEnvironment" | "pageReadTimeoutMs" | "now">,
   recordingStartedAt: number | null = null,
   keep?: CaptureWindow,
-): Promise<{ payload: DebuggerPayload; documentId: string | null }> {
+): Promise<{ payload: DebuggerPayload; documentId: string | null; metadata: MetadataSnapshot | null }> {
   // Read alongside the capture buffer; a page that does not answer only loses the environment.
   const environment = within(() => deps.readEnvironment(tabId), deps.pageReadTimeoutMs ?? PAGE_READ_TIMEOUT_MS).then(
     environmentFrom,
   )
-  const { payload, documentId } = await capturedPayload(tabId, deps, recordingStartedAt, keep)
+  const { payload, documentId, metadata } = await capturedPayload(tabId, deps, recordingStartedAt, keep)
   const described = await environment
-  return { payload: described ? { ...payload, environment: described } : payload, documentId }
+  return { payload: described ? { ...payload, environment: described } : payload, documentId, metadata }
 }
 
 async function capturedPayload(
@@ -216,7 +217,7 @@ async function capturedPayload(
   deps: Pick<CaptureFlowDeps, "readPageCapture" | "pageReadTimeoutMs" | "now">,
   recordingStartedAt: number | null,
   keep?: CaptureWindow,
-): Promise<{ payload: DebuggerPayload; documentId: string | null }> {
+): Promise<{ payload: DebuggerPayload; documentId: string | null; metadata: MetadataSnapshot | null }> {
   const base: Pick<DebuggerPayload, "version" | "capturedAt" | "recordingStartedAt"> = {
     version: DEBUGGER_PAYLOAD_VERSION,
     capturedAt: deps.now(),
@@ -232,16 +233,21 @@ async function capturedPayload(
         timer = setTimeout(() => resolve(timeout), deps.pageReadTimeoutMs ?? PAGE_READ_TIMEOUT_MS)
       }),
     ])
-    if (raw === timeout) return { payload: { ...base, incomplete: ["page-timeout"], events: [] }, documentId: null }
+    if (raw === timeout) return { payload: { ...base, incomplete: ["page-timeout"], events: [] }, documentId: null, metadata: null }
     page = sanitizePageCapture(raw)
   } catch {
     page = null
   } finally {
     clearTimeout(timer)
   }
-  if (!page) return { payload: { ...base, incomplete: ["page-access"], events: [] }, documentId: null }
-  if (page.status === "missing") return { payload: { ...base, incomplete: ["not-injected"], events: [] }, documentId: null }
-  return { payload: { ...base, incomplete: page.incomplete, events: page.events }, documentId: page.documentId ?? null }
+  if (!page) return { payload: { ...base, incomplete: ["page-access"], events: [] }, documentId: null, metadata: null }
+  if (page.status === "missing") return { payload: { ...base, incomplete: ["not-injected"], events: [] }, documentId: null, metadata: null }
+  const customFields = pickCustomFields(page, [], deps.now())
+  return {
+    payload: { ...base, incomplete: page.incomplete, events: page.events, ...(customFields ? { customFields } : {}) },
+    documentId: page.documentId ?? null,
+    metadata: page.metadata,
+  }
 }
 
 export async function startScreenshotReport(
