@@ -19,12 +19,13 @@ const SYSTEM = [
   "The description follows the template's sections in order, and its extra instructions.",
   "Write in the language of the template and its instructions; if they don't show one, in the language of the reporter's hint or notes; otherwise in English.",
   "The reporter's hint says what they meant to report. It is not evidence of what happened.",
+  "Lines marked [app log] and the app state come from the application's own BugBerry SDK instrumentation: they are the most reliable clues to what the app was doing, but still not proof of the cause.",
   'Answer with JSON only: {"title": "...", "description": "..."}.',
 ].join("\n")
 
 function eventList(material: Material): string {
   const lines = material.lines.map((line, index) => {
-    const entry = `${index + 1}. [${clockLabel(line.atMs)}] ${line.text}`
+    const entry = `${index + 1}. [${clockLabel(line.atMs)}] ${line.kind === "sdk" ? "[app log] " : ""}${line.text}`
     return line.body ? `${entry}\n   Response body:\n   ${line.body.replaceAll("\n", "\n   ")}` : entry
   })
   if (material.omitted > 0) lines.push(`(${material.omitted} more events left out)`)
@@ -46,6 +47,7 @@ export function buildMessages(input: {
     "Events:",
     eventList(material),
     "",
+    ...(material.state ? ["App state when the report was made (from the app's BugBerry SDK):", material.state, ""] : []),
     `Template sections:\n${template.skeleton.trim() || "(none: write free text)"}`,
     `Extra instructions:\n${template.instructions.trim() || "(none)"}`,
     "",

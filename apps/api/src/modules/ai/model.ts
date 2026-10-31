@@ -17,7 +17,7 @@ export const settingsBody = t.Object({
 
 const line = t.Object({
   atMs: t.Number(),
-  kind: t.Union([t.Literal("action"), t.Literal("navigate"), t.Literal("error"), t.Literal("request"), t.Literal("note")]),
+  kind: t.Union([t.Literal("action"), t.Literal("navigate"), t.Literal("error"), t.Literal("request"), t.Literal("note"), t.Literal("sdk")]),
   text: t.String({ maxLength: 5000 }),
   body: t.Optional(t.String({ maxLength: 20_000 })),
 })
@@ -29,6 +29,8 @@ export const writeBody = t.Object({
     device: t.Object({ browser: t.String({ maxLength: 200 }), os: t.String({ maxLength: 200 }) }),
     lines: t.Array(line, { maxItems: 400 }),
     omitted: t.Integer({ minimum: 0 }),
+    // Older extensions send no state; 4000 leaves room for the cut marker on 2000 characters.
+    state: t.Optional(t.String({ maxLength: 4000 })),
   }),
   hint: t.Object({ title: t.String({ maxLength: 200 }), description: t.String({ maxLength: 5000 }) }),
 })
