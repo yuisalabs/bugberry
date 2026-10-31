@@ -118,6 +118,19 @@ describe("BugBerry SDK lines", () => {
     expect(texts(consoleRows(withSdk, { ...quiet, level: "error" }))).toEqual(["TypeError: sku", "Payment declined"])
   })
 
+  test("Custom shows only BugBerry lines, even with navigations, network errors and activity turned on", () => {
+    const busy = normalizePayload({
+      events: [
+        { kind: "action", t: 1000, type: "navigate", url: "https://shop.test/cart" },
+        { kind: "sdk", t: 1150, level: "info", message: "Checkout started" },
+        { kind: "action", t: 1200, type: "click", target: "button#pay" },
+        { kind: "network", t: 1300, method: "POST", url: "https://shop.test/api/orders", status: 500 },
+      ],
+    }).events
+    const rows = consoleRows(busy, { ...defaults, level: "custom", activity: true }, { startedAt: 900, durationMs: 1000 })
+    expect(rows.map((row) => row.kind)).toEqual(["log"])
+  })
+
   test("search matches an sdk line's message and data", () => {
     expect(texts(consoleRows(withSdk, { ...quiet, query: "8812" }))).toEqual(['Checkout started {"orderId":8812}'])
   })

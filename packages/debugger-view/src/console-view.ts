@@ -47,7 +47,9 @@ export function consoleRows(
   recording?: { startedAt: number; durationMs: number | null },
 ): ConsoleRow[] {
   const rows: ConsoleRow[] = []
-  if (recording) {
+  // Custom is the app's own trail: the page's navigations, failed requests and markers would bury it.
+  const sdkOnly = options.level === "custom"
+  if (recording && !sdkOnly) {
     rows.push({ key: "start", t: recording.startedAt, kind: "marker", text: "Recording started" })
     if (recording.durationMs !== null) {
       rows.push({ key: "stop", t: recording.startedAt + recording.durationMs, kind: "marker", text: "Recording stopped" })
@@ -60,6 +62,7 @@ export function consoleRows(
     if (shown) rows.push({ key: `e${index}`, kind: "log", ...entry })
   })
   events.forEach((event, index) => {
+    if (sdkOnly) return
     if (event.kind === "action") addAction(rows, event, index, options)
     if (event.kind === "network" && options.networkErrors && isFailedRequest(event)) {
       rows.push({ key: `e${index}`, t: event.t, kind: "network-error", text: networkErrorText(event) })
