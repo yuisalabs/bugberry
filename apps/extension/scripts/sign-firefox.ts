@@ -4,20 +4,27 @@ import { reviewSourcesName } from "./zip-sources"
 /**
  * Signs the Firefox build on addons.mozilla.org's unlisted channel, so the .xpi installs for good in regular
  * Firefox without a public listing. Usage: bun run sign:firefox (with WEB_EXT_API_KEY and WEB_EXT_API_SECRET set).
- * AMO never signs the same version twice: raise `version` in package.json first.
+ * bun run sign:firefox:listed submits to the public Firefox Add-ons listing instead; Mozilla reviews it first.
+ * AMO never takes the same version twice, whatever the channel: raise `version` in package.json first.
  */
 const KEYS = ["WEB_EXT_API_KEY", "WEB_EXT_API_SECRET"] as const
+
+export type Channel = "listed" | "unlisted"
+
+export function channelFrom(argv: string[]): Channel {
+  return argv.includes("--listed") ? "listed" : "unlisted"
+}
 
 export function missingKeys(env: Record<string, string | undefined>): string[] {
   return KEYS.filter((name) => !env[name]?.trim())
 }
 
 /** web-ext's arguments; the sources AMO asks for are the reviewers' zip from scripts/zip-sources.ts. */
-export function signArgs(version: string): string[] {
+export function signArgs(version: string, channel: Channel = "unlisted"): string[] {
   return [
     "sign",
     "--channel",
-    "unlisted",
+    channel,
     "--source-dir",
     ".output/firefox-mv3",
     "--artifacts-dir",
@@ -48,5 +55,5 @@ if (import.meta.main) {
   }
   const { version } = JSON.parse(readFileSync("package.json", "utf8")) as { version: string }
   for (const command of PREPARE_COMMANDS) await run(command)
-  await run(["bun", "x", "web-ext", ...signArgs(version)])
+  await run(["bun", "x", "web-ext", ...signArgs(version, channelFrom(process.argv.slice(2)))])
 }

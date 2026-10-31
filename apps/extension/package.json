@@ -1,6 +1,6 @@
 {
   "name": "@bugberry/extension",
-  "version": "0.9.3",
+  "version": "0.9.4",
   "private": true,
   "license": "AGPL-3.0-only",
   "type": "module",
@@ -22,7 +22,8 @@
     "e2e": "playwright test",
     "docs:screenshots": "bun run --cwd ../client build && bun run build:e2e && playwright test -c playwright.docs.config.ts",
     "lint:firefox": "web-ext lint --source-dir .output/firefox-mv3",
-    "sign:firefox": "bun scripts/sign-firefox.ts"
+    "sign:firefox": "bun scripts/sign-firefox.ts",
+    "sign:firefox:listed": "bun scripts/sign-firefox.ts --listed"
   },
   "dependencies": {
     "@bugberry/ai-write": "workspace:*",

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { missingKeys, PREPARE_COMMANDS, signArgs } from "../../scripts/sign-firefox"
+import { channelFrom, missingKeys, PREPARE_COMMANDS, signArgs } from "../../scripts/sign-firefox"
 
 describe("sign-firefox", () => {
   test("signs the Firefox build on AMO's unlisted channel, with its sources", () => {
@@ -14,6 +14,12 @@ describe("sign-firefox", () => {
       "--upload-source-code",
       ".output/bugberry-0.2.0-review-sources.zip",
     ])
+  })
+
+  test("with --listed, submits to the public Firefox Add-ons listing instead", () => {
+    expect(channelFrom(["--listed"])).toBe("listed")
+    expect(channelFrom([])).toBe("unlisted")
+    expect(signArgs("0.9.4", "listed").slice(0, 3)).toEqual(["sign", "--channel", "listed"])
   })
 
   test("names the API keys that are missing", () => {
