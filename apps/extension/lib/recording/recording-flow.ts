@@ -115,6 +115,7 @@ export async function notePageFlush(
     incomplete: page.incomplete,
     metadata: page.metadata,
     ...(page.url ? { url: page.url } : {}),
+    at: deps.now(),
   }
   const pages = (draft.pages ?? []).filter((stored) => stored.documentId !== record.documentId)
   await deps.store.put({ ...draft, pages: capPages([...pages, record]) })

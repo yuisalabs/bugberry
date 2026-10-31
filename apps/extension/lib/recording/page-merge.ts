@@ -11,6 +11,8 @@ export interface PageCaptureRecord {
   /** The page's custom fields when it went away, and its redacted address; absent on pages stored by older versions. */
   metadata?: MetadataSnapshot
   url?: string
+  /** When the page flushed, so custom fields taken from it carry that time. */
+  at?: number
 }
 
 /** A recording across several pages keeps at most this many events, the same cap the dashboard reads. */

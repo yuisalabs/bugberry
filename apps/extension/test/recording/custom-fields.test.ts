@@ -14,6 +14,9 @@ describe("pickCustomFields", () => {
     const earlier = [page("p1", ok({ step: 1 }), "https://shop.test/a"), page("p2", ok({ step: 2 }), "https://shop.test/b"), page("p3", none, "https://shop.test/c")]
     expect(pickCustomFields({ metadata: none }, earlier, 90)).toEqual({ ...ok({ step: 2 }), url: "https://shop.test/b", t: 90 })
   })
+  test("a snapshot from an earlier page keeps the time that page left", () => {
+    expect(pickCustomFields({ metadata: none }, [{ ...page("p1", ok({ step: 1 }), "https://shop.test/a"), at: 40 }], 90)).toEqual({ ...ok({ step: 1 }), url: "https://shop.test/a", t: 40 })
+  })
   test("rule 3: a failed final page keeps the earlier fields and reports its own error", () => {
     expect(pickCustomFields({ metadata: failed }, [page("p1", ok({ step: 1 }), "https://shop.test/a")], 90)).toEqual({ fields: { step: 1 }, error: "callback threw: boom", droppedKeys: 0, url: "https://shop.test/a", t: 90 })
   })
