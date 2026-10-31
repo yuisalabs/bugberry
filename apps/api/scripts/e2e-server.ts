@@ -128,9 +128,13 @@ button{width:100%;padding:14px;border:0;border-radius:8px;background:#2563eb;col
 <div class="item"><span>Shipping</span><span>Free</span></div>
 <div class="total"><span>Total</span><span>$48.00</span></div>
 <button id="pay">Pay $48.00</button></aside>
-</main><script src="/shop.js"></script></body></html>`
+</main><script type="module" src="/shop.js"></script></body></html>`
 
-const SHOP_SCRIPT = `document.getElementById("pay").addEventListener("click", () => {
+const SHOP_SCRIPT = `import { bugberry } from "/sdk.js"
+bugberry.metadata(() => ({ userId: "cus_4821", plan: "Pro", cart: { items: 2, total: 48 }, flags: { newCheckout: true } }))
+bugberry.log("Checkout opened", { items: 2 })
+document.getElementById("pay").addEventListener("click", () => {
+  bugberry.error("Payment declined", { code: "card_declined" })
   console.error("Payment failed: card_declined")
   fetch("/api/pay", { method: "POST" }).catch(() => {})
 })

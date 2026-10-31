@@ -19,4 +19,6 @@ bugberry.error("Payment declined", { code: "card_declined" })
 
 Without the BugBerry extension in the browser, these calls do nothing: no network, no errors, at most 50 entries kept in memory.
 
+Guide: https://bugberry.yuisalabs.com/docs/guide/custom-logs
+
 MIT licensed.
