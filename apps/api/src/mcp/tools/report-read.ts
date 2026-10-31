@@ -1,5 +1,5 @@
 import type { CaptureType, DebuggerSummary } from "@bugberry/shared"
-import { consoleEntries, environmentRows } from "@bugberry/debugger-view"
+import { consoleEntries, type DebuggerView, environmentRows } from "@bugberry/debugger-view"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { countReportComments } from "../../modules/comments/repository"
 import { loadReportDetail } from "../../modules/reports/detail"
@@ -17,11 +17,15 @@ import { reportArgs } from "./args"
 const MAX_IMAGE_BYTES = 1024 * 1024
 const LINK_SECONDS = 300
 const TOP_ERRORS = 3
+const MAX_FIELDS_CHARS = 10 * 1024
+const SDK_LOGS_STEP = 'getConsoleLogs sources=["sdk"]'
 
 /** What to call next, from what the debugger caught; a video can also be looked at frame by frame. */
-export function nextSteps(summary: DebuggerSummary, captureType: CaptureType = "screenshot"): string[] {
+export function nextSteps(summary: DebuggerSummary, captureType: CaptureType = "screenshot", hasSdkLogs = false): string[] {
   const steps: string[] = []
   if (summary.errors > 0) steps.push('getConsoleLogs levels=["error"]', "getCodeHotspots")
+  // The app's own breadcrumbs say what it was doing, so they come right after the errors.
+  if (hasSdkLogs) steps.push(SDK_LOGS_STEP)
   if (summary.failedRequests > 0) steps.push("getNetworkRequests failedOnly=true")
   if (summary.actions > 0) steps.push("getUserActions")
   steps.push("getTimeline")
@@ -30,6 +34,22 @@ export function nextSteps(summary: DebuggerSummary, captureType: CaptureType = "
 }
 
 const duration = (ms: number | null) => (ms === null ? null : `${Math.round(ms / 100) / 10}s`)
+
+/** getReport's lines for the app's custom fields; none when the app sent none. */
+function customFieldLines(view: DebuggerView | null): string[] {
+  const custom = view?.customFields
+  if (!custom || (custom.fields === null && custom.error === null)) return []
+  if (custom.fields === null) return ["", `Custom fields: not captured (${custom.error})`]
+  const where = custom.url ? `, taken on ${custom.url}, an earlier page` : ""
+  const json = clip(JSON.stringify(custom.fields, null, 2), MAX_FIELDS_CHARS)
+  return [
+    "",
+    `Custom fields (from the app's BugBerry SDK${where}):`,
+    ...json.split("\n").map((line) => `  ${line}`),
+    ...(custom.droppedKeys > 0 ? [`+${custom.droppedKeys} ${custom.droppedKeys === 1 ? "field" : "fields"} over the 10 KB limit`] : []),
+    ...(custom.error ? [`Last page: ${custom.error}`] : []),
+  ]
+}
 
 /** The report as text and data: getReport's answer, also used by ChatGPT's fetch. */
 export async function reportSummary(ctx: McpContext, resolved: ResolvedReport) {
@@ -57,7 +77,9 @@ export async function reportSummary(ctx: McpContext, resolved: ResolvedReport) {
     : []
   const url = reportUrl(deps.config.appUrl, resolved.id)
   const summary = detail.debuggerSummary
-  const steps = nextSteps(summary, detail.captureType)
+  const sdkLogs = view?.events.some((event) => event.kind === "sdk") ?? false
+  const steps = nextSteps(summary, detail.captureType, sdkLogs)
+  const custom = view?.customFields ?? null
 
   const lines = [
     `BB-${detail.number} · ${detail.title}`,
@@ -82,6 +104,7 @@ export async function reportSummary(ctx: McpContext, resolved: ResolvedReport) {
         : NO_DEBUGGER,
     ...(summary.incomplete.length > 0 ? [`Not captured (hooks that could not be installed): ${summary.incomplete.join(", ")}`] : []),
     ...(topErrors.length > 0 ? ["", "Top errors:", ...topErrors.map((text) => `- ${text}`)] : []),
+    ...customFieldLines(view),
     ...(view && view.notes.length > 0
       ? ["", "Reporter's notes:", ...view.notes.map((note) => `- ${offsetLabel(note.atMs)} ${note.text} (${note.author})`)]
       : []),
@@ -118,6 +141,7 @@ export async function reportSummary(ctx: McpContext, resolved: ResolvedReport) {
     hasDebugger: view !== null,
     topErrors,
     notes: view?.notes ?? [],
+    customFields: custom && (custom.fields !== null || custom.error !== null) ? { fields: custom.fields, droppedKeys: custom.droppedKeys, url: custom.url, error: custom.error } : null,
     recordingStartedAt: base,
     trackers: trackers.map((link) => link.url).filter(Boolean),
     nextSteps: steps,
@@ -131,8 +155,8 @@ export function registerReportReadTools(server: McpServer, ctx: McpContext): voi
     {
       title: "Get a bug report",
       description:
-        "Start here. The report's title, status, page, environment, debugger counts, top errors, the reporter's notes " +
-        "and which tools to call next. Accepts a BugBerry link or a number like BB-123.",
+        "Start here. The report's title, status, page, environment, debugger counts, top errors, the app's custom fields " +
+        "(state it sent with its BugBerry SDK), the reporter's notes and which tools to call next. Accepts a BugBerry link or a number like BB-123.",
       inputSchema: reportArgs,
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
