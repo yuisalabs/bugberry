@@ -89,13 +89,13 @@ export function seekTarget(current: number, by: number, durationSeconds: number 
   return durationSeconds === null ? target : Math.min(durationSeconds, target)
 }
 
-/** Something worth seeing on the timeline: a failed request, an error, a note or a pause, at its offset into the video. */
+/** Something worth seeing on the timeline: a failed request, an error, a note, a pause or the app's own log, at its offset into the video. */
 export interface TimelineMarker {
   id: string
   /** Milliseconds since the recording started. */
   atMs: number
-  kind: "network" | "error" | "note" | "pause"
-  /** The short text on the dot: a status code, "xhr", "err", a note's number or "⏸". */
+  kind: "network" | "error" | "note" | "pause" | "sdk"
+  /** The short text on the dot: a status code, "xhr", "err", a note's number, "⏸" or "log". */
   label: string
   /** The longer line shown on hover. */
   detail: string

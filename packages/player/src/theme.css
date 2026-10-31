@@ -134,6 +134,10 @@
 .vjs-bugberry .bb-marker-pause {
   background-color: #635a6b;
 }
+/* The app's own @bugberry/sdk logs, one colour whatever their level, so they read as one trail. */
+.vjs-bugberry .bb-marker-sdk {
+  background-color: #1f6fc5;
+}
 
 /* Along the top: who reported it, and share / download. Fades with the controls. */
 .vjs-bugberry .bb-overlay {
