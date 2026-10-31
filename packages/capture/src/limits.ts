@@ -16,4 +16,7 @@ export const MAX_CONSOLE_ARGS = 20
 export const MAX_RESOURCE_EVENTS = 300
 /** The app's own SDK logs kept per page, so a logging loop never crowds out the rest. */
 export const MAX_SDK_EVENTS = 300
+/** JSON size of the app's custom fields; whole top-level keys past it are dropped and counted. */
+export const MAX_METADATA_CHARS = 10 * 1024
+export const MAX_METADATA_DEPTH = 8
 export const MAX_URL_CHARS = 2048

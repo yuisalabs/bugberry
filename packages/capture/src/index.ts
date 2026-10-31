@@ -13,7 +13,8 @@ export type {
   SdkLevel,
 } from "./events"
 export { SDK_LEVELS } from "./events"
-export { BUFFER_MAX_AGE_MS, BUFFER_MAX_EVENTS, MAX_RESOURCE_EVENTS, MAX_SDK_EVENTS } from "./limits"
+export { BUFFER_MAX_AGE_MS, BUFFER_MAX_EVENTS, MAX_METADATA_CHARS, MAX_RESOURCE_EVENTS, MAX_SDK_EVENTS } from "./limits"
+export { boundMetadata, type MetadataSnapshot, NO_METADATA, readMetadata } from "./metadata"
 export {
   buildDebuggerPayload,
   type CaptureEnvironment,
