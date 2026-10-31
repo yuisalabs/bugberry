@@ -1,6 +1,6 @@
 import { isMaskedValue } from "./action-view"
 import type { DeviceInfo } from "@bugberry/shared"
-import { consoleEntries, type DebuggerView, isFailedRequest, type ViewAction, type ViewEvent } from "./debugger-events"
+import { consoleEntries, type DebuggerView, isFailedRequest, type ViewAction, type ViewCustomFields, type ViewEvent } from "./debugger-events"
 
 export interface VisitedUrl {
   /** Time since the recording started (or since the first page, for a screenshot). */
@@ -97,4 +97,18 @@ export function environmentRows(view: DebuggerView | null, device: DeviceInfo): 
   const language = [environment?.language, environment?.timeZone ? `timezone ${environment.timeZone}` : null].filter(Boolean)
   if (language.length > 0) rows.push({ label: "Language", value: language.join(", ") })
   return rows
+}
+
+/** Whether the Info tab shows Custom fields at all: there are fields, or an error to explain. */
+export function hasCustomFields(fields: ViewCustomFields | null): fields is ViewCustomFields {
+  return fields !== null && (fields.fields !== null || fields.error !== null)
+}
+
+/** The lines under the Custom fields tree, in this order: dropped keys, earlier page, last-page error. */
+export function customFieldNotes(fields: ViewCustomFields): string[] {
+  const notes: string[] = []
+  if (fields.droppedKeys > 0) notes.push(`+${fields.droppedKeys} ${fields.droppedKeys === 1 ? "field" : "fields"} over the 10 KB limit`)
+  if (fields.url) notes.push(`From ${fields.url}, an earlier page of this recording`)
+  if (fields.error) notes.push(`Not captured on the last page: ${fields.error}`)
+  return notes
 }
