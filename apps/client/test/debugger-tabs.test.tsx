@@ -19,6 +19,8 @@ describe("ConsoleTab", () => {
       { kind: "console", t: 1000, level: "log", args: ["hello"] },
       { kind: "console", t: 1001, level: "warn", args: ["careful"] },
       { kind: "error", t: 1002, message: HOSTILE, stack: "at pay (app.js:1)" },
+      { kind: "sdk", t: 1003, level: "info", message: "Checkout started", data: "<img src=x onerror=alert(2)>" },
+      { kind: "sdk", t: 1004, level: "error", message: "Payment declined", source: "checkout.js:40" },
     ],
   })
 
@@ -32,12 +34,25 @@ describe("ConsoleTab", () => {
 
   test("filters by level and text, and counts each level", () => {
     render(<ConsoleTab events={events} base={1000} />)
-    expect(screen.getByText("1 errors")).toBeTruthy()
+    expect(screen.getByText("2 errors")).toBeTruthy()
     choose("Level", "Warnings")
     expect(screen.queryByText("hello")).toBeNull()
     expect(screen.getByText("careful")).toBeTruthy()
     fireEvent.change(screen.getByRole("searchbox", { name: "Filter logs" }), { target: { value: "nothing" } })
     expect(screen.getByText("No logs match.")).toBeTruthy()
+  })
+
+  test("BugBerry lines carry the label, show their data as text, and the Custom level keeps only them", () => {
+    render(<ConsoleTab events={events} base={1000} />)
+    const line = screen.getByText(/Checkout started/).closest("li")
+    expect(within(line as HTMLElement).getByText("BugBerry")).toBeTruthy()
+    expect(document.querySelector("img")).toBeNull()
+    expect(screen.getByText("checkout.js:40")).toBeTruthy()
+    expect(screen.getAllByText("BugBerry")).toHaveLength(2)
+    choose("Level", "Custom")
+    expect(screen.queryByText("hello")).toBeNull()
+    expect(screen.queryByText(HOSTILE)).toBeNull()
+    expect(screen.getAllByText("BugBerry")).toHaveLength(2)
   })
 })
 
