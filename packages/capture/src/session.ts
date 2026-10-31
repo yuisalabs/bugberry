@@ -6,6 +6,7 @@ import { type ConsoleLike, installConsoleHook } from "./hooks/console"
 import { type ErrorHost, installErrorHooks } from "./hooks/errors"
 import { type FetchHost, installFetchHook } from "./hooks/fetch"
 import { installResourceHooks, type ResourceHost } from "./hooks/resources"
+import { installSdkHook, type SdkHost } from "./hooks/sdk"
 import { installWebSocketHook, type WebSocketHost } from "./hooks/websocket"
 import { installXhrHook, type XhrHost } from "./hooks/xhr"
 import { createStackBudget, currentStack } from "./callsite"
@@ -79,6 +80,7 @@ export function startCapture(options: CaptureOptions = {}): CaptureSession {
   const stackOf = createStackBudget(currentStack, now)
   const hooks: Array<[name: string, install: () => Uninstall]> = [
     ["console", () => installConsoleHook(win.console, emit, now, stackOf)],
+    ["sdk", () => installSdkHook(win as unknown as SdkHost, emit, now)],
     ["errors", () => installErrorHooks(win, emit, now)],
     ["fetch", () => installFetchHook(win, emit, now, stackOf)],
     ["xhr", () => installXhrHook(win, emit, now, stackOf)],

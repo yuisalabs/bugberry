@@ -36,6 +36,29 @@ describe("startCapture", () => {
     expect(session.incomplete).toEqual([])
   })
 
+  test("sdk entries queued before capture, and pushed after, land in the buffer", () => {
+    const sdkGlobal = { v: 1, metadata: null, queue: [{ t: Date.now(), level: "info", message: "early" }] as unknown[], push(_entry: unknown) {} }
+    ;(win as unknown as Record<string, unknown>).__bugberry__ = sdkGlobal
+    session = capture()
+    sdkGlobal.push({ t: Date.now(), level: "warn", message: "late" })
+    expect(session.snapshot().filter((event) => event.kind === "sdk").map((event) => (event as { message: string }).message)).toEqual(["early", "late"])
+    expect(session.incomplete).toEqual([])
+  })
+
+  test("a queued sdk entry older than the buffer's age limit is dropped, not stamped as new", () => {
+    const host = win as unknown as Record<string, unknown>
+    const at = 10 * 60 * 1000
+    host.__bugberry__ = { v: 1, metadata: null, queue: [{ t: at - 6 * 60 * 1000, level: "info", message: "stale" }], push() {} }
+    session = startCapture({ window: win as unknown as CaptureWindow, now: () => at })
+    expect(session.snapshot().some((event) => event.kind === "sdk")).toBe(false)
+  })
+
+  test("an unusable SDK global is reported as incomplete sdk", () => {
+    ;(win as unknown as Record<string, unknown>).__bugberry__ = "taken"
+    session = capture()
+    expect(session.incomplete).toEqual(["sdk"])
+  })
+
   test("starting twice on the same page reuses the session and does not double-record", () => {
     session = capture()
     const again = capture()
