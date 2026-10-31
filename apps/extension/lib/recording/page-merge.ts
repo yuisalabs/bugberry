@@ -31,9 +31,15 @@ function capEvents(events: CaptureEvent[], max: number): CaptureEvent[] {
 export function capPages(pages: readonly PageCaptureRecord[]): PageCaptureRecord[] {
   const all = pages.flatMap((page) => page.events)
   const kept = new Set(withinBudget(capEvents(all, MAX_MERGED_EVENTS)))
+  // Only the newest custom fields are ever used, so older pages drop theirs and a page with nothing else goes.
+  const newestFields = pages.findLastIndex((page) => page.metadata?.fields)
   return pages
-    .map((page) => ({ ...page, events: page.events.filter((event) => kept.has(event)) }))
-    .filter((page, index) => page.events.length > 0 || page.metadata?.fields || index === pages.length - 1)
+    .map(({ metadata, ...page }, index) => ({
+      ...page,
+      ...(metadata && index === newestFields ? { metadata } : {}),
+      events: page.events.filter((event) => kept.has(event)),
+    }))
+    .filter((page, index) => page.events.length > 0 || index === newestFields || index === pages.length - 1)
 }
 
 /**

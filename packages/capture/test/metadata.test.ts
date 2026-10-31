@@ -67,6 +67,36 @@ describe("boundMetadata", () => {
     expect(Object.keys(fields)).toEqual(["k0", "k1", "k2", "k3", "k4", "k5"])
     expect(droppedKeys).toBe(4)
   })
+  test("the top level keeps every key that fits, with no cut marker", () => {
+    const value = Object.fromEntries(Array.from({ length: 300 }, (_, n) => [`k${n}`, n]))
+    const { fields, droppedKeys } = boundMetadata(value)
+    expect(Object.keys(fields)).toHaveLength(300)
+    expect("…" in fields).toBe(false)
+    expect(droppedKeys).toBe(0)
+  })
+  test("keys past the 10 KB budget are counted without being read", () => {
+    let reads = 0
+    const value: Record<string, unknown> = {}
+    for (let n = 0; n < 6; n++) value[`k${n}`] = "x".repeat(2000)
+    Object.defineProperty(value, "late", { enumerable: true, get: () => { reads += 1; return 1 } })
+    const { fields, droppedKeys } = boundMetadata(value)
+    expect(Object.keys(fields)).toEqual(["k0", "k1", "k2", "k3", "k4"])
+    expect(droppedKeys).toBe(2)
+    expect(reads).toBe(0)
+  })
+  test("a whole store under one key stops being walked once it is past the budget", () => {
+    let reads = 0
+    const store: Record<string, unknown> = {}
+    for (let a = 0; a < 200; a++) {
+      const slice: Record<string, unknown> = {}
+      for (let b = 0; b < 200; b++) Object.defineProperty(slice, `f${b}`, { enumerable: true, get: () => { reads += 1; return "y".repeat(100) } })
+      store[`s${a}`] = slice
+    }
+    const { fields, droppedKeys } = boundMetadata({ userId: "u1", store })
+    expect(fields).toEqual({ userId: "u1" })
+    expect(droppedKeys).toBe(1)
+    expect(reads).toBeLessThan(500)
+  })
   test("huge nested arrays and objects are cut while walking, not after", () => {
     const { fields } = boundMetadata({ list: Array.from({ length: 5000 }, (_, n) => n) })
     expect((fields.list as unknown[]).length).toBeLessThanOrEqual(101)

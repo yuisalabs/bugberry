@@ -17,7 +17,19 @@ export const NO_METADATA: MetadataSnapshot = Object.freeze({ fields: null, error
 
 const typeName = (value: unknown) => (value === null ? "null" : Array.isArray(value) ? "array" : typeof value)
 
-function bound(value: unknown, depth: number, ancestors: Set<object>): unknown {
+class OverBudget extends Error {}
+
+/** Roughly the JSON size written so far; a walk over budget stops, so a whole store is never read in pagehide. */
+interface Budget {
+  left: number
+}
+
+function charge(budget: Budget, chars: number): void {
+  budget.left -= chars
+  if (budget.left < 0) throw new OverBudget()
+}
+
+function leaf(value: unknown): unknown {
   if (value === null || typeof value === "boolean") return value
   if (typeof value === "number") return Number.isFinite(value) ? value : null
   if (typeof value === "string") return truncate(value, MAX_ARG_CHARS)
@@ -26,21 +38,33 @@ function bound(value: unknown, depth: number, ancestors: Set<object>): unknown {
   if (value instanceof Error) return `${value.name}: ${value.message}`
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? "Invalid Date" : value.toISOString()
   if (isDomNode(value)) return describeNode(value)
-  if (typeof value !== "object") return undefined
+  return undefined
+}
 
+function bound(value: unknown, depth: number, ancestors: Set<object>, budget: Budget): unknown {
+  if (typeof value !== "object" || value === null || value instanceof Error || value instanceof Date || isDomNode(value)) {
+    const result = leaf(value)
+    if (result !== undefined) charge(budget, typeof result === "string" ? result.length + 2 : String(result).length)
+    return result
+  }
   if (ancestors.has(value)) return "[Circular]"
   if (depth > MAX_METADATA_DEPTH) return Array.isArray(value) ? "[Array]" : "[Object]"
+  charge(budget, 2)
   ancestors.add(value)
   try {
     if (Array.isArray(value)) {
-      const items = value.slice(0, MAX_ARRAY_ITEMS).map((item) => bound(item, depth + 1, ancestors) ?? null)
+      const items = value.slice(0, MAX_ARRAY_ITEMS).map((item) => {
+        charge(budget, 1)
+        return bound(item, depth + 1, ancestors, budget) ?? null
+      })
       if (value.length > MAX_ARRAY_ITEMS) items.push(`…${value.length - MAX_ARRAY_ITEMS} more`)
       return items
     }
     const result: Record<string, unknown> = {}
     const keys = Object.keys(value)
     for (const key of keys.slice(0, MAX_OBJECT_KEYS)) {
-      const item = isSensitiveKey(key) ? REDACTED : bound((value as Record<string, unknown>)[key], depth + 1, ancestors)
+      charge(budget, key.length + 4)
+      const item = isSensitiveKey(key) ? REDACTED : bound((value as Record<string, unknown>)[key], depth + 1, ancestors, budget)
       if (item !== undefined) result[key] = item
     }
     if (keys.length > MAX_OBJECT_KEYS) result["…"] = `${keys.length - MAX_OBJECT_KEYS} more keys`
@@ -50,22 +74,36 @@ function bound(value: unknown, depth: number, ancestors: Set<object>): unknown {
   }
 }
 
-/** Redaction, string cap, depth and cycles, then the 10 KB cap by whole top-level keys. Getters run, so this can throw. */
+/**
+ * Redaction, string cap, depth and cycles, then the 10 KB cap by whole top-level keys, in order: the first key
+ * that does not fit and every key after it are dropped and counted without being read. Getters run, so this can throw.
+ */
 export function boundMetadata(value: Record<string, unknown>): { fields: Record<string, unknown>; droppedKeys: number } {
-  const all = bound(value, 0, new Set()) as Record<string, unknown>
   const fields: Record<string, unknown> = {}
-  const entries = Object.entries(all)
+  const keys = Object.keys(value)
+  const ancestors = new Set<object>([value])
   // "{}" plus each kept pair and the comma before it.
   let size = 2
   let kept = 0
-  for (const [key, item] of entries) {
-    const pair = JSON.stringify({ [key]: item }).length - 2 + (kept ? 1 : 0)
+  for (const key of keys) {
+    let item: unknown
+    try {
+      item = isSensitiveKey(key) ? REDACTED : bound(value[key], 1, ancestors, { left: MAX_METADATA_CHARS - size })
+    } catch (error) {
+      if (error instanceof OverBudget) break
+      throw error
+    }
+    if (item === undefined) {
+      kept += 1
+      continue
+    }
+    const pair = JSON.stringify({ [key]: item }).length - 2 + (Object.keys(fields).length ? 1 : 0)
     if (size + pair > MAX_METADATA_CHARS) break
     fields[key] = item
     size += pair
     kept += 1
   }
-  return { fields, droppedKeys: entries.length - kept }
+  return { fields, droppedKeys: keys.length - kept }
 }
 
 function messageOf(error: unknown): string {

@@ -1,9 +1,22 @@
 import { describe, expect, test } from "bun:test"
 import type { CaptureEvent } from "@bugberry/capture"
-import { MAX_MERGED_EVENTS, mergePages } from "../../lib/recording/page-merge"
+import { capPages, MAX_MERGED_EVENTS, mergePages } from "../../lib/recording/page-merge"
 
 const log = (t: number, text = "x"): CaptureEvent => ({ kind: "console", t, level: "log", args: [text] })
 const resource = (t: number): CaptureEvent => ({ kind: "resource", t, url: `https://shop.test/${t}.png`, initiatorType: "img" })
+
+describe("capPages and custom fields", () => {
+  test("only the newest page with fields keeps them, so a reloading page cannot grow the draft", () => {
+    const fields = (n: number) => ({ fields: { load: n }, error: null, droppedKeys: 0 })
+    const pages = [
+      ...Array.from({ length: 50 }, (_, n) => ({ documentId: `p${n}`, events: [], incomplete: [], metadata: fields(n), url: `https://shop.test/${n}` })),
+      { documentId: "last", events: [log(10)], incomplete: [] },
+    ]
+    const kept = capPages(pages)
+    expect(kept.filter((page) => page.metadata?.fields)).toEqual([expect.objectContaining({ documentId: "p49", metadata: fields(49) })])
+    expect(kept.map((page) => page.documentId)).toEqual(["p49", "last"])
+  })
+})
 
 describe("mergePages", () => {
   test("pages are merged in time order and the current read replaces its stored copy", () => {
