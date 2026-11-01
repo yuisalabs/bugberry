@@ -91,10 +91,6 @@ Nothing happens. The SDK makes no network requests and never throws. It keeps at
 
 <Callout>Redaction goes by key name only. A secret stored under another name, such as `value` or `data`, is kept, so leave secrets out of what `metadata` returns.</Callout>
 
-## Coming from Jam
-
-`jam.metadata(cb)` becomes `bugberry.metadata(cb)`; the function has the same shape. BugBerry adds the `log`, `info`, `warn` and `error` lines, which Jam does not have, with their timeline dots, the flagged box and MCP access.
-
 ## For AI agents
 
 Agents see the same data over MCP: `getReport` includes the custom fields, and `getConsoleLogs` lists your lines (pass `sources: ["sdk"]` for only those). [Write with AI](/guide/ai-writing) reads them too. See [AI agents](/guide/ai-agents) to connect one.

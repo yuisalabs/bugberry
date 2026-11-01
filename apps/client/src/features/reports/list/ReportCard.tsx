@@ -13,7 +13,7 @@ import { shareUrl } from "../../../lib/urls"
 import { StatusBadge } from "./StatusBadge"
 import type { ReportListItem } from "../queries"
 
-/** One report as a Jam-style card: preview, who reported it, how long, what and when. No link, so it renders without a router. */
+/** One report as a card: preview, who reported it, how long, what and when. No link, so it renders without a router. */
 export function ReportCardBody({
   item,
   now,

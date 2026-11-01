@@ -162,7 +162,7 @@
   opacity: 0;
 }
 
-/* Like Jam: the timeline runs the full width just above the buttons, so markers have room. */
+/* The timeline runs the full width just above the buttons, so markers have room. */
 .vjs-bugberry .vjs-control-bar {
   height: 4em;
   padding: 0 0.6em;
