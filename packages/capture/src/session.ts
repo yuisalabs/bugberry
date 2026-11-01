@@ -6,9 +6,11 @@ import { type ConsoleLike, installConsoleHook } from "./hooks/console"
 import { type ErrorHost, installErrorHooks } from "./hooks/errors"
 import { type FetchHost, installFetchHook } from "./hooks/fetch"
 import { installResourceHooks, type ResourceHost } from "./hooks/resources"
+import { installSdkHook, type SdkHost } from "./hooks/sdk"
 import { installWebSocketHook, type WebSocketHost } from "./hooks/websocket"
 import { installXhrHook, type XhrHost } from "./hooks/xhr"
 import { createStackBudget, currentStack } from "./callsite"
+import { type MetadataSnapshot, readMetadata } from "./metadata"
 import { safely } from "./safe"
 import { summarize } from "./summary"
 
@@ -44,6 +46,8 @@ export interface CaptureSession {
   /** Ordered copy of the buffered events. */
   snapshot(): CaptureEvent[]
   summary(): DebuggerSummary
+  /** Calls the page's metadata callback now. On failure also records one sdk warn event, so the Console tab shows it in context. */
+  readMetadata(): MetadataSnapshot
   /** Hooks that could not be installed on this page. */
   readonly incomplete: readonly string[]
   clear(): void
@@ -79,6 +83,7 @@ export function startCapture(options: CaptureOptions = {}): CaptureSession {
   const stackOf = createStackBudget(currentStack, now)
   const hooks: Array<[name: string, install: () => Uninstall]> = [
     ["console", () => installConsoleHook(win.console, emit, now, stackOf)],
+    ["sdk", () => installSdkHook(win as unknown as SdkHost, emit, now)],
     ["errors", () => installErrorHooks(win, emit, now)],
     ["fetch", () => installFetchHook(win, emit, now, stackOf)],
     ["xhr", () => installXhrHook(win, emit, now, stackOf)],
@@ -99,7 +104,9 @@ export function startCapture(options: CaptureOptions = {}): CaptureSession {
   const onFlushRequest = () =>
     safely(() => {
       const Custom = (win as unknown as { CustomEvent?: typeof CustomEvent }).CustomEvent ?? CustomEvent
-      const detail = JSON.stringify({ documentId, events: buffer.snapshot(), incomplete })
+      // Metadata first, so its failure line is in the events sent with it.
+      const metadata = session.readMetadata()
+      const detail = JSON.stringify({ documentId, metadata, events: buffer.snapshot(), incomplete })
       win.document.dispatchEvent(new Custom(FLUSH_EVENT, { detail }))
     })
   win.document.addEventListener(FLUSH_REQUEST_EVENT, onFlushRequest)
@@ -114,6 +121,11 @@ export function startCapture(options: CaptureOptions = {}): CaptureSession {
     documentId,
     snapshot: () => buffer.snapshot(),
     summary: () => summarize(buffer.snapshot(), incomplete),
+    readMetadata: () => {
+      const snapshot = readMetadata(win as unknown as SdkHost)
+      if (snapshot.error) emit({ kind: "sdk", t: now(), level: "warn", message: `metadata callback failed: ${snapshot.error}` })
+      return snapshot
+    },
     incomplete,
     clear: () => buffer.clear(),
     stop: () => {

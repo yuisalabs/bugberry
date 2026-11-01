@@ -1,4 +1,4 @@
-import type { CaptureEvent } from "@bugberry/capture"
+import type { CaptureEvent, MetadataSnapshot } from "@bugberry/capture"
 import { withinBudget } from "../capture/capture-flow"
 
 /** One document's capture buffer, as it was when the page went away (or when the recording stopped). */
@@ -8,6 +8,11 @@ export interface PageCaptureRecord {
   tabId?: number
   events: CaptureEvent[]
   incomplete: string[]
+  /** The page's custom fields when it went away, and its redacted address; absent on pages stored by older versions. */
+  metadata?: MetadataSnapshot
+  url?: string
+  /** When the page flushed, so custom fields taken from it carry that time. */
+  at?: number
 }
 
 /** A recording across several pages keeps at most this many events, the same cap the dashboard reads. */
@@ -28,9 +33,15 @@ function capEvents(events: CaptureEvent[], max: number): CaptureEvent[] {
 export function capPages(pages: readonly PageCaptureRecord[]): PageCaptureRecord[] {
   const all = pages.flatMap((page) => page.events)
   const kept = new Set(withinBudget(capEvents(all, MAX_MERGED_EVENTS)))
+  // Only the newest custom fields are ever used, so older pages drop theirs and a page with nothing else goes.
+  const newestFields = pages.findLastIndex((page) => page.metadata?.fields)
   return pages
-    .map((page) => ({ ...page, events: page.events.filter((event) => kept.has(event)) }))
-    .filter((page, index) => page.events.length > 0 || index === pages.length - 1)
+    .map(({ metadata, ...page }, index) => ({
+      ...page,
+      ...(metadata && index === newestFields ? { metadata } : {}),
+      events: page.events.filter((event) => kept.has(event)),
+    }))
+    .filter((page, index) => page.events.length > 0 || index === newestFields || index === pages.length - 1)
 }
 
 /**

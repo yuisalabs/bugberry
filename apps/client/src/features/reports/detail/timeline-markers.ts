@@ -14,7 +14,8 @@ function shortUrl(url: string): string {
 
 /**
  * What the video timeline marks: failed requests (their status, or "xhr" when the request never got
- * an answer) and errors ("err"), at their offset from the start of the recording.
+ * an answer), errors ("err") and every log the app wrote with @bugberry/sdk ("log"), at their offset
+ * from the start of the recording.
  */
 export function timelineMarkers(view: DebuggerView): TimelineMarker[] {
   const base = eventBase(view)
@@ -34,6 +35,8 @@ export function timelineMarkers(view: DebuggerView): TimelineMarker[] {
       markers.push({ id, atMs, kind: "error", label: "err", detail: event.text })
     } else if (event.kind === "error") {
       markers.push({ id, atMs, kind: "error", label: "err", detail: event.message })
+    } else if (event.kind === "sdk") {
+      markers.push({ id, atMs, kind: "sdk", label: "log", detail: event.data ? `${event.message} ${event.data}` : event.message })
     }
   })
   // Notes and pauses are stored in video time already.

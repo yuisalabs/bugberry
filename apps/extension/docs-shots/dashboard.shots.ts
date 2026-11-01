@@ -59,6 +59,23 @@ test("report details and a comment", async () => {
   await page.close()
 })
 
+test("custom logs", async () => {
+  const page = await dashboardPage(h, `/app/r/${reportId}`, { width: 1600, height: 1000 })
+  await page.getByRole("tab", { name: /^DevTools/ }).click()
+  await page.getByRole("tab", { name: /^Console/ }).click()
+  await page.getByRole("button", { name: /Level/ }).click()
+  await page.getByRole("option", { name: "Custom" }).click()
+  await expect(page.getByRole("tabpanel").getByText(/Payment declined/).first()).toBeVisible()
+  await page.mouse.move(4, 4)
+  await shot(page, "custom-logs/console.png")
+  await page.getByRole("tab", { name: /^Overview/ }).click()
+  const custom = page.locator("section").filter({ has: page.getByRole("heading", { name: "Custom fields" }) })
+  await expect(custom.getByText("cus_4821", { exact: true })).toBeVisible()
+  await custom.scrollIntoViewIfNeeded()
+  await shot(custom, "custom-logs/custom-fields.png")
+  await page.close()
+})
+
 test("who can see a report", async () => {
   const page = await dashboardPage(h, `/app/r/${reportId}`, { width: 1600, height: 1000 })
   await page.getByRole("button", { name: "Share settings" }).click()

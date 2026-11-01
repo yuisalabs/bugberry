@@ -1,0 +1,19 @@
+{
+  "name": "@bugberry/sdk",
+  "version": "0.1.0",
+  "description": "Add your app's own logs and state to BugBerry bug reports. Does nothing without the BugBerry extension.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "files": ["dist", "README.md", "LICENSE"],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js", "require": "./dist/index.cjs" } },
+  "scripts": {
+    "build": "bun scripts/build.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "devDependencies": { "happy-dom": "21.0.1" }
+}

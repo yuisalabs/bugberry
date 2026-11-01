@@ -31,7 +31,8 @@ export interface Harness {
 
 const extensionPath = fileURLToPath(new URL("../.output/chrome-mv3", import.meta.url))
 const statePath = fileURLToPath(new URL("./.state.json", import.meta.url))
-const DEBUG_PORT = 9333
+// Windows reserves ranges of ports (Hyper-V, WSL); DOCS_SHOTS_DEBUG_PORT picks another where 9333 is one of them.
+const DEBUG_PORT = Number(process.env.DOCS_SHOTS_DEBUG_PORT ?? 9333)
 const OUT = fileURLToPath(new URL("../../docs/public/screenshots/", import.meta.url))
 /** A reporter at their desk, drawn: the camera bubble's picture in the guide. */
 const FACE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480">

@@ -1,4 +1,4 @@
-import type { ConsoleLevel } from "@bugberry/capture"
+import { type ConsoleLevel, SDK_LEVELS, type SdkLevel } from "@bugberry/capture"
 
 /**
  * debugger.json.gz is written by a page we do not control, so only `kind` and `t` are trusted.
@@ -102,7 +102,31 @@ export interface ViewAction {
   via: NavigationVia | null
 }
 
-export type ViewEvent = ViewConsole | ViewError | ViewNetwork | ViewAction | ViewResource | ViewPage
+/** A log line the app wrote with @bugberry/sdk. */
+export interface ViewSdk {
+  kind: "sdk"
+  t: number
+  level: SdkLevel
+  message: string
+  /** The data object as the console shows an argument: JSON text. */
+  data: string | null
+  stack: string | null
+  /** "checkout.js:40": the app code that called the SDK. */
+  source: string | null
+}
+
+export type ViewEvent = ViewConsole | ViewError | ViewNetwork | ViewAction | ViewResource | ViewPage | ViewSdk
+
+export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
+
+/** The app's state from @bugberry/sdk's metadata callback. */
+export interface ViewCustomFields {
+  fields: { [key: string]: JsonValue } | null
+  error: string | null
+  droppedKeys: number
+  /** Set when the fields came from an earlier page of the recording. */
+  url: string | null
+}
 
 export interface ViewNote {
   n: number
@@ -129,6 +153,8 @@ export interface DebuggerView {
   /** Numbered notes pinned while recording; empty for screenshots and older reports. */
   notes: ViewNote[]
   pauses: ViewPause[]
+  /** Null when the app does not use @bugberry/sdk, or for older reports. */
+  customFields: ViewCustomFields | null
 }
 
 export const MAX_EVENTS = 5000
@@ -139,6 +165,12 @@ const MAX_INCOMPLETE = 20
 const MAX_SHORT = 200
 const DAY_MS = 86_400_000
 const MAX_BYTES = 10_000_000_000
+export const MAX_FIELD_DEPTH = 8
+export const MAX_FIELD_KEYS = 200
+/** Values in the whole custom fields tree; per-object caps alone still allow 200 × 200 × … of them. */
+const MAX_FIELD_NODES = 2000
+/** The callback's error, as capture cuts it. */
+const MAX_FIELD_ERROR = 500
 
 type Raw = Record<string, unknown>
 
@@ -280,8 +312,56 @@ function normalizeEvent(raw: unknown): ViewEvent | null {
         loadMs: boundedInt(event.loadMs, DAY_MS),
         transferSize: boundedInt(event.transferSize, MAX_BYTES),
       }
+    case "sdk":
+      return {
+        kind: "sdk",
+        t,
+        level: oneOf(event.level, SDK_LEVELS) ?? "info",
+        message: text(event.message) ?? "",
+        data: typeof event.data === "string" ? truncate(event.data) : null,
+        stack: text(event.stack),
+        source: shortText(event.source),
+      }
     default:
       return null
+  }
+}
+
+function jsonValue(raw: unknown, depth: number, budget: { left: number }): JsonValue {
+  budget.left -= 1
+  if (budget.left < 0) return "…"
+  if (raw === null || typeof raw === "boolean") return raw
+  if (typeof raw === "number") return Number.isFinite(raw) ? raw : null
+  if (typeof raw === "string") return truncate(raw)
+  if (typeof raw !== "object") return null
+  if (depth >= MAX_FIELD_DEPTH) return Array.isArray(raw) ? "[Array]" : "[Object]"
+  if (Array.isArray(raw)) return raw.slice(0, MAX_ENTRIES).map((item) => jsonValue(item, depth + 1, budget))
+  return Object.fromEntries(
+    Object.entries(raw)
+      .slice(0, MAX_FIELD_KEYS)
+      .map(([key, item]) => [key.slice(0, MAX_NAME), jsonValue(item, depth + 1, budget)]),
+  )
+}
+
+function httpUrl(value: unknown): string | null {
+  if (typeof value !== "string" || value.length > MAX_TEXT) return null
+  try {
+    const { protocol } = new URL(value)
+    return protocol === "http:" || protocol === "https:" ? value : null
+  } catch {
+    return null
+  }
+}
+
+function customFieldsOf(value: unknown): ViewCustomFields | null {
+  if (typeof value !== "object" || value === null) return null
+  const raw = value as Raw
+  const plain = typeof raw.fields === "object" && raw.fields !== null && !Array.isArray(raw.fields)
+  return {
+    fields: plain ? (jsonValue(raw.fields, 0, { left: MAX_FIELD_NODES }) as { [key: string]: JsonValue }) : null,
+    error: typeof raw.error === "string" && raw.error ? raw.error.slice(0, MAX_FIELD_ERROR) : null,
+    droppedKeys: boundedInt(raw.droppedKeys, 100_000) ?? 0,
+    url: httpUrl(raw.url),
   }
 }
 
@@ -330,6 +410,7 @@ export function normalizePayload(payload: unknown): DebuggerView {
     environment: environmentOf(raw.environment),
     notes: notesOf(raw.notes),
     pauses: pausesOf(raw.pauses),
+    customFields: customFieldsOf(raw.customFields),
   }
 }
 
@@ -342,16 +423,22 @@ export interface ConsoleEntry {
   uncaught: boolean
   /** "cart.js:88": where it came from, when known. */
   source: string | null
+  /** A line the app wrote with @bugberry/sdk, shown with the BugBerry label. */
+  sdk: boolean
 }
 
-/** A console call or a page error as a console line; null for any other event. */
+/** A console call, a page error or an SDK log as a console line; null for any other event. */
 export function consoleEntry(event: ViewEvent): ConsoleEntry | null {
   if (event.kind === "console") {
-    return { t: event.t, level: event.level, text: event.text, stack: event.stack, uncaught: false, source: event.source }
+    return { t: event.t, level: event.level, text: event.text, stack: event.stack, uncaught: false, source: event.source, sdk: false }
+  }
+  if (event.kind === "sdk") {
+    const text = event.data ? `${event.message} ${event.data}` : event.message
+    return { t: event.t, level: event.level, text, stack: event.stack, uncaught: false, source: event.source, sdk: true }
   }
   if (event.kind === "error") {
     const message = event.source ? `${event.message} (${event.source})` : event.message
-    return { t: event.t, level: "error", text: message, stack: event.stack, uncaught: true, source: null }
+    return { t: event.t, level: "error", text: message, stack: event.stack, uncaught: true, source: null, sdk: false }
   }
   return null
 }

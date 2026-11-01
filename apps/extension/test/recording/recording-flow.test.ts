@@ -374,6 +374,65 @@ describe("stopVideoRecording", () => {
     expect(store.drafts.get("video-1")?.debuggerPayload).toMatchObject({ incomplete: ["page-access"], events: [] })
   })
 
+  test("custom fields from a flushed page survive to the payload when the last page has none", async () => {
+    const controller = createRecordingController(deps)
+    await controller.start(tab, TAB_OPTIONS)
+    clock = 1500
+    await controller.notePageFlush(7, {
+      documentId: "page-1", events: [], incomplete: [],
+      metadata: { fields: { userId: "u1" }, error: null, droppedKeys: 0 }, url: "https://shop.test/checkout",
+    })
+    clock = 6000
+    expect(await controller.stop()).toMatchObject({ ok: true })
+    expect(store.drafts.get("video-1")?.debuggerPayload?.customFields).toMatchObject({ fields: { userId: "u1" }, url: "https://shop.test/checkout", t: 1500 })
+  })
+
+  test("the last page's custom fields win over a flushed page's, with no url", async () => {
+    deps.readPageCapture = async () => ({ status: "ok", events: [], incomplete: [], metadata: { fields: { step: 3 }, error: null, droppedKeys: 0 } })
+    const controller = createRecordingController(deps)
+    await controller.start(tab, TAB_OPTIONS)
+    await controller.notePageFlush(7, {
+      documentId: "page-1", events: [], incomplete: [],
+      metadata: { fields: { step: 1 }, error: null, droppedKeys: 0 }, url: "https://shop.test/cart",
+    })
+    clock = 6000
+    expect(await controller.stop()).toMatchObject({ ok: true })
+    expect(store.drafts.get("video-1")?.debuggerPayload?.customFields).toEqual({ fields: { step: 3 }, error: null, droppedKeys: 0, url: null, t: 6000 })
+  })
+
+  test("a last page whose callback failed keeps a flushed page's fields and shows its own error", async () => {
+    deps.readPageCapture = async () => ({ status: "ok", events: [], incomplete: [], metadata: { fields: null, error: "callback threw: boom", droppedKeys: 0 } })
+    const controller = createRecordingController(deps)
+    await controller.start(tab, TAB_OPTIONS)
+    clock = 1500
+    await controller.notePageFlush(7, {
+      documentId: "page-1", events: [], incomplete: [],
+      metadata: { fields: { step: 1 }, error: null, droppedKeys: 0 }, url: "https://shop.test/cart",
+    })
+    clock = 6000
+    expect(await controller.stop()).toMatchObject({ ok: true })
+    expect(store.drafts.get("video-1")?.debuggerPayload?.customFields).toEqual({ fields: { step: 1 }, error: "callback threw: boom", droppedKeys: 0, url: "https://shop.test/cart", t: 1500 })
+  })
+
+  test("a page with custom fields but no events left is still kept until stop", async () => {
+    const controller = createRecordingController(deps)
+    await controller.start(tab, TAB_OPTIONS)
+    await controller.notePageFlush(7, {
+      documentId: "page-1", events: [], incomplete: [],
+      metadata: { fields: { plan: "pro" }, error: null, droppedKeys: 0 }, url: "https://shop.test/plans",
+    })
+    await controller.notePageFlush(7, { documentId: "page-2", events: [{ kind: "action", t: 1600, type: "click" }], incomplete: [] })
+    expect(await controller.stop()).toMatchObject({ ok: true })
+    expect(store.drafts.get("video-1")?.debuggerPayload?.customFields).toMatchObject({ fields: { plan: "pro" }, url: "https://shop.test/plans" })
+  })
+
+  test("a recording where no page set custom fields has none in the payload", async () => {
+    const controller = createRecordingController(deps)
+    await controller.start(tab, TAB_OPTIONS)
+    expect(await controller.stop()).toMatchObject({ ok: true })
+    expect(store.drafts.get("video-1")?.debuggerPayload && "customFields" in store.drafts.get("video-1")!.debuggerPayload!).toBe(false)
+  })
+
   test("a page that never flushed marks the report navigated", async () => {
     const controller = createRecordingController(deps)
     await controller.start(tab, TAB_OPTIONS)

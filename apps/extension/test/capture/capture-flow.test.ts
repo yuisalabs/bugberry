@@ -63,6 +63,17 @@ beforeEach(() => {
 })
 
 describe("startScreenshotReport", () => {
+  test("a screenshot carries the page's custom fields", async () => {
+    deps.readPageCapture = async () => ({ status: "ok", events: [], incomplete: [], metadata: { fields: { plan: "pro" }, error: null, droppedKeys: 0 } })
+    await startScreenshotReport(tab, deps)
+    expect(store.drafts.get("draft-1")?.debuggerPayload?.customFields).toEqual({ fields: { plan: "pro" }, error: null, droppedKeys: 0, url: null, t: 1000 })
+  })
+
+  test("a screenshot of a page without the SDK has no custom fields", async () => {
+    await startScreenshotReport(tab, deps)
+    expect("customFields" in (store.drafts.get("draft-1")?.debuggerPayload ?? {})).toBe(false)
+  })
+
   test("stores a draft with the screenshot, page details and buffered events, then opens the editor", async () => {
     expect(await startScreenshotReport(tab, deps)).toEqual({ ok: true, draftId: "draft-1" })
     const draft = store.drafts.get("draft-1") as ScreenshotDraft | undefined
@@ -220,6 +231,42 @@ describe("sanitizePageCapture", () => {
     expect(sanitizePageCapture({ status: "missing" })).toEqual({ status: "missing" })
     expect(sanitizePageCapture("junk")).toBeNull()
     expect(sanitizePageCapture({ status: "ok", events: {} })).toBeNull()
+  })
+})
+
+describe("sanitizePageCapture metadata and url", () => {
+  const base = { status: "ok", events: [], incomplete: [], documentId: "doc-1" }
+  test("keeps a well-formed snapshot and redacts the URL", () => {
+    const page = sanitizePageCapture({ ...base, metadata: { fields: { a: 1 }, error: null, droppedKeys: 2 }, url: "https://shop.test/pay?token=abc" })
+    expect(page).toMatchObject({ metadata: { fields: { a: 1 }, error: null, droppedKeys: 2 }, url: "https://shop.test/pay?token=[redacted]" })
+  })
+  test("junk metadata becomes the empty snapshot; a non-http URL is dropped", () => {
+    expect(sanitizePageCapture({ ...base, metadata: "nope", url: "javascript:alert(1)" })).toMatchObject({ metadata: { fields: null, error: null, droppedKeys: 0 }, url: null })
+    expect(sanitizePageCapture({ ...base, metadata: { fields: [1], error: 5, droppedKeys: -1 } })).toMatchObject({ metadata: { fields: null, error: null, droppedKeys: 0 } })
+  })
+  test("a forged snapshot is bounded again: size capped, error cut", () => {
+    const fields = Object.fromEntries(Array.from({ length: 40 }, (_, n) => [`k${n}`, "z".repeat(1000)]))
+    const page = sanitizePageCapture({ ...base, metadata: { fields: { ...fields, password: "hunter2" }, error: "e".repeat(900), droppedKeys: 1 } })
+    if (page?.status !== "ok") throw new Error("expected ok")
+    expect(JSON.stringify(page.metadata.fields).length).toBeLessThanOrEqual(10 * 1024)
+    expect(page.metadata.droppedKeys).toBeGreaterThan(1)
+    expect(page.metadata.error).toHaveLength(500)
+  })
+  test("a snapshot sent as JSON text keeps the app's key order, nested ones too", () => {
+    const metadata = JSON.stringify({ fields: { userId: "u1", flags: { zeta: 1, alpha: 2 } }, error: null, droppedKeys: 0 })
+    const page = sanitizePageCapture({ ...base, metadata })
+    if (page?.status !== "ok") throw new Error("expected ok")
+    expect(Object.keys(page.metadata.fields ?? {})).toEqual(["userId", "flags"])
+    expect(Object.keys((page.metadata.fields?.flags ?? {}) as object)).toEqual(["zeta", "alpha"])
+  })
+  test("snapshot text that is not JSON, or far too long, is the empty snapshot", () => {
+    expect(sanitizePageCapture({ ...base, metadata: "{not json" })).toMatchObject({ metadata: { fields: null, error: null, droppedKeys: 0 } })
+    const huge = JSON.stringify({ fields: { blob: "x".repeat(200_000) }, error: null, droppedKeys: 0 })
+    expect(sanitizePageCapture({ ...base, metadata: huge })).toMatchObject({ metadata: { fields: null, error: null, droppedKeys: 0 } })
+  })
+  test("sdk events pass the kind check", () => {
+    const page = sanitizePageCapture({ ...base, events: [{ kind: "sdk", t: 1, level: "info", message: "hi" }] })
+    expect(page?.status === "ok" ? page.events : []).toHaveLength(1)
   })
 })
 

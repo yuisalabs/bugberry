@@ -33,6 +33,27 @@ describe("writeWithAi", () => {
     expect(aiWrite).toHaveBeenCalledWith("w1", { templateId: "t1", material, hint: { title: "pay", description: "" } })
   })
 
+  test("a server older than the SDK gets the material again without the app's lines and state", async () => {
+    const withSdk: Material = {
+      ...material,
+      lines: [{ atMs: 1, kind: "sdk", text: "Cart saved" }, { atMs: 2, kind: "error", text: "boom" }],
+      state: '{"userId":"u-1"}',
+    }
+    const aiWrite = mock(async (_id: string, body: { material: Material }) =>
+      body.material.lines.some((line) => line.kind === "sdk") ? Promise.reject(new ApiError(422, "validation", "Invalid request")) : { title: "T", description: "D" },
+    )
+    const result = await writeWithAi({ path: "team", api: { aiWrite }, sendMessage: mock(), workspaceId: "w1" }, { ...input, material: withSdk })
+    expect(result).toEqual({ title: "T", description: "D" })
+    expect(aiWrite).toHaveBeenCalledTimes(2)
+    expect(aiWrite.mock.calls[1]![1].material).toEqual({ ...material, lines: [{ atMs: 2, kind: "error", text: "boom" }], omitted: 1 })
+  })
+
+  test("a validation error without SDK material is not retried", async () => {
+    const aiWrite = mock(async () => Promise.reject(new ApiError(422, "validation", "Invalid request")))
+    await expect(writeWithAi({ path: "team", api: { aiWrite }, sendMessage: mock(), workspaceId: "w1" }, input)).rejects.toThrow("Invalid request")
+    expect(aiWrite).toHaveBeenCalledTimes(1)
+  })
+
   test("the team path shows the server's message when it fails", async () => {
     const aiWrite = mock(async () => Promise.reject(new ApiError(502, "ai_quota", "Your AI provider says the quota is used up.")))
     await expect(writeWithAi({ path: "team", api: { aiWrite }, sendMessage: mock(), workspaceId: "w1" }, input)).rejects.toThrow(

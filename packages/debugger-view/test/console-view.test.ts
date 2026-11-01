@@ -36,7 +36,7 @@ describe("consoleRows", () => {
 
   test("the level filter keeps only that level's logs", () => {
     const rows = consoleRows(events, { ...defaults, level: "warn", navigations: false, networkErrors: false })
-    expect(rows).toEqual([{ key: "e6", t: 1500, kind: "log", level: "warn", text: "careful", stack: null, uncaught: false, source: null }])
+    expect(rows).toEqual([{ key: "e6", t: 1500, kind: "log", level: "warn", text: "careful", stack: null, uncaught: false, source: null, sdk: false }])
   })
 
   test("the query filter matches any row's text, ignoring case", () => {
@@ -96,5 +96,46 @@ describe("recording markers, sources and how a page was reached", () => {
       "Navigated to https://shop.test/cart via back/forward",
       "Navigated to https://shop.test/cart#top",
     ])
+  })
+})
+
+describe("BugBerry SDK lines", () => {
+  const { events: withSdk } = normalizePayload({
+    events: [
+      { kind: "console", t: 1100, level: "log", args: ["[cart] restored"] },
+      { kind: "sdk", t: 1150, level: "info", message: "Checkout started", data: '{"orderId":8812}' },
+      { kind: "error", t: 1400, message: "TypeError: sku" },
+      { kind: "sdk", t: 1550, level: "error", message: "Payment declined", source: "checkout.js:40" },
+    ],
+  })
+  const quiet = { ...defaults, navigations: false, networkErrors: false }
+  const texts = (rows: ReturnType<typeof consoleRows>) => rows.map((row) => (row.kind === "log" ? row.text : row.kind))
+
+  test("the Custom level keeps only BugBerry lines; a level keeps its sdk lines too", () => {
+    const custom = consoleRows(withSdk, { ...quiet, level: "custom" })
+    expect(texts(custom)).toEqual(['Checkout started {"orderId":8812}', "Payment declined"])
+    expect(custom.every((row) => row.kind === "log" && row.sdk)).toBe(true)
+    expect(texts(consoleRows(withSdk, { ...quiet, level: "error" }))).toEqual(["TypeError: sku", "Payment declined"])
+  })
+
+  test("Custom shows only BugBerry lines, even with navigations, network errors and activity turned on", () => {
+    const busy = normalizePayload({
+      events: [
+        { kind: "action", t: 1000, type: "navigate", url: "https://shop.test/cart" },
+        { kind: "sdk", t: 1150, level: "info", message: "Checkout started" },
+        { kind: "action", t: 1200, type: "click", target: "button#pay" },
+        { kind: "network", t: 1300, method: "POST", url: "https://shop.test/api/orders", status: 500 },
+      ],
+    }).events
+    const rows = consoleRows(busy, { ...defaults, level: "custom", activity: true }, { startedAt: 900, durationMs: 1000 })
+    expect(rows.map((row) => row.kind)).toEqual(["log"])
+  })
+
+  test("search matches an sdk line's message and data", () => {
+    expect(texts(consoleRows(withSdk, { ...quiet, query: "8812" }))).toEqual(['Checkout started {"orderId":8812}'])
+  })
+
+  test("sdk lines are counted by level", () => {
+    expect(consoleCounts(withSdk)).toEqual({ errors: 2, warnings: 0, info: 2 })
   })
 })

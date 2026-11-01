@@ -1,0 +1,100 @@
+---
+title: Custom logs and fields
+description: Add your app's own logs and state to every report with the @bugberry/sdk package.
+---
+
+A report shows what the browser saw: console, network, clicks. With two lines in your app, it also shows what the app knew: which user was signed in, which feature flags were on, and that checkout reached step 3 before the request failed.
+
+Your logs appear in the Console tab with a **BugBerry** label, as dots on the video timeline, and in **BugBerry flagged** when they are errors. Your app's state appears under **Custom fields** in the Overview tab. The SDK itself sends nothing anywhere: the BugBerry extension reads it when someone records a bug.
+
+<Screenshot src="/screenshots/custom-logs/console.png" alt="A report's Console tab with the Custom level chosen: Checkout opened and three Payment declined lines, each with the BugBerry label and shop.js as the source" />
+
+## Install
+
+<Tabs items={["npm", "pnpm", "yarn", "bun"]}>
+<Tab value="npm">
+
+```bash
+npm install @bugberry/sdk
+```
+
+</Tab>
+<Tab value="pnpm">
+
+```bash
+pnpm add @bugberry/sdk
+```
+
+</Tab>
+<Tab value="yarn">
+
+```bash
+yarn add @bugberry/sdk
+```
+
+</Tab>
+<Tab value="bun">
+
+```bash
+bun add @bugberry/sdk
+```
+
+</Tab>
+</Tabs>
+
+The package is MIT licensed, has no dependencies, and ships ESM, CommonJS and TypeScript types.
+
+## Custom fields
+
+Call `bugberry.metadata` once, where your app starts:
+
+```ts
+import { bugberry } from "@bugberry/sdk"
+
+bugberry.metadata(() => ({ userId: store.user.id, flags: store.flags }))
+```
+
+BugBerry calls your function when a report is made, and also when a page is left during a recording, so the fields are what the app held at that moment. If you call `metadata` again, the last function wins.
+
+- Return a plain object. Arrays, strings and class instances at the top level are not used.
+- The fields are capped at 10 KB. Top-level keys are kept in order until the limit; the rest are left out and counted, and Overview says how many.
+- Keys that look like secrets are replaced by `[redacted]`: names containing `password`, `token`, `secret`, `apiKey`, `authorization`, `credential` or `bearer`, session ids, cookies, JWTs, and a key named `auth`.
+- If the function throws or returns something else, the report is still made. Overview says why the fields are missing, and the Console tab gets one BugBerry warning line.
+- When the last page of a recording has no fields but an earlier page did, the report keeps the earlier page's fields and says which page they came from.
+
+<Screenshot src="/screenshots/custom-logs/custom-fields.png" alt="The Custom fields section in Overview: userId cus_4821, plan Pro, cart with items 2 and total 48, flags with newCheckout true, and a Copy JSON button" width={480} />
+
+## Custom logs
+
+```ts
+bugberry.log("Checkout started", { orderId: 8812 })
+bugberry.info("Coupon applied", { code: "SPRING" })
+bugberry.warn("Retrying payment", { attempt: 2 })
+bugberry.error("Payment declined", { code: "card_declined" })
+```
+
+`log` and `info` are the same level. Each line keeps the time it was written and the file and line in your code that wrote it.
+
+- The data object is shown the way a console argument is, cut at 2 KB.
+- A report keeps your newest 300 lines, so a logging loop never pushes out the page's own console, network and actions.
+- `error` lines join **BugBerry flagged**.
+- The Console's **Custom** level shows only these lines.
+
+## Without the extension
+
+Nothing happens. The SDK makes no network requests and never throws. It keeps at most 50 lines in memory, waiting for the extension, and drops the oldest. On a server, where there is no `window`, it keeps nothing.
+
+## Limits
+
+- Only the top frame is read. Calls from inside an iframe are not seen.
+- During a recording, your `metadata` function runs as each page is left, so a slow function delays leaving the page by its own run time.
+
+<Callout>Redaction goes by key name only. A secret stored under another name, such as `value` or `data`, is kept, so leave secrets out of what `metadata` returns.</Callout>
+
+## Coming from Jam
+
+`jam.metadata(cb)` becomes `bugberry.metadata(cb)`; the function has the same shape. BugBerry adds the `log`, `info`, `warn` and `error` lines, which Jam does not have, with their timeline dots, the flagged box and MCP access.
+
+## For AI agents
+
+Agents see the same data over MCP: `getReport` includes the custom fields, and `getConsoleLogs` lists your lines (pass `sources: ["sdk"]` for only those). [Write with AI](/guide/ai-writing) reads them too. See [AI agents](/guide/ai-agents) to connect one.

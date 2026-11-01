@@ -14,6 +14,7 @@ import { ACTIVE_ROW, FOLLOW_STICKY_ATTRIBUTE, useVirtualRows } from "./useVirtua
 
 const LEVEL_OPTIONS: Array<[ConsoleOptions["level"], string]> = [
   ["all", "All levels"],
+  ["custom", "Custom"],
   ["error", "Errors"],
   ["warn", "Warnings"],
   ["info", "Info"],
@@ -212,6 +213,11 @@ const ConsoleLine = memo(function ConsoleLine({
             <p className="flex gap-2">
               <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">
                 {row.uncaught && <span className="mr-1 font-semibold">Uncaught</span>}
+                {row.sdk && (
+                  <span className="mr-1.5 rounded bg-primary-subtle px-1 font-sans text-[10px] font-semibold text-primary-subtle-foreground">
+                    BugBerry
+                  </span>
+                )}
                 {row.text}
               </span>
               {row.source && <span className="shrink-0 text-muted-foreground">{row.source}</span>}

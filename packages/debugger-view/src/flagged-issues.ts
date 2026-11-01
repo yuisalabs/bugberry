@@ -52,7 +52,7 @@ function pathOf(url: string): string {
 
 /**
  * Every problem in a recording, merged and ranked for the "BugBerry flagged" box: uncaught errors,
- * then 5xx responses, then requests without an answer and rage clicks, then 4xx and console.error.
+ * then 5xx responses, then requests without an answer and rage clicks, then 4xx, console.error and the app's SDK errors.
  * `video` is null for screenshots; times are offsets into the video, or a label when outside it.
  */
 export function flaggedIssues(
@@ -121,6 +121,8 @@ export function flaggedIssues(
         target: { tab: "console" },
         rage: false,
       }))
+    } else if (event.kind === "sdk" && event.level === "error") {
+      add(`sdk:${event.message}`, event.t, () => ({ level: 4, base: event.message, source: event.source, target: { tab: "console" }, rage: false }))
     } else if (event.kind === "network") {
       addRequest(event)
     } else if (event.kind === "action" && event.type === "rage-click") {

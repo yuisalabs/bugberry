@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { createReadyReport, createUserWithToken, setupTestApp } from "./helpers"
-import { callTool, mcpClient, putDebugger, samplePayload } from "./mcp-helpers"
+import { callTool, mcpClient, putDebugger, samplePayload, T0 } from "./mcp-helpers"
 
 let ctx: Awaited<ReturnType<typeof setupTestApp>>
 let client: Client
@@ -106,5 +106,44 @@ describe("unreadable debugger data", () => {
     await createReadyReport(ctx.db, { id, reporterId: ana.user.id, debuggerKey: await putDebugger(ctx, id, "not json {") })
     const result = await callTool(await mcpClient(ctx.app, ana.headers), "getTimeline", { report: id })
     expect(result).toMatchObject({ isError: false, text: "This report's debugger data could not be read" })
+  })
+})
+
+describe("sdk lines", () => {
+  const SDK_EVENTS = [
+    { kind: "sdk" as const, t: T0 + 12_000, level: "info" as const, message: "Checkout started", data: '{"orderId":8812}', source: "checkout.js:40" },
+    { kind: "sdk" as const, t: T0 + 13_000, level: "error" as const, message: "Payment declined", data: '{"code":"card_declined"}', source: "checkout.js:52" },
+  ]
+  let sdkReportId: string
+
+  beforeEach(async () => {
+    sdkReportId = crypto.randomUUID()
+    const payload = samplePayload()
+    const ana = await createUserWithToken(ctx.db)
+    client = await mcpClient(ctx.app, ana.headers)
+    await createReadyReport(ctx.db, {
+      id: sdkReportId,
+      reporterId: ana.user.id,
+      debuggerKey: await putDebugger(ctx, sdkReportId, { ...payload, events: [...payload.events, ...SDK_EVENTS] }),
+    })
+  })
+
+  test("getConsoleLogs lists BugBerry lines with the console ones, and sources filters them", async () => {
+    const all = await callTool(client, "getConsoleLogs", { report: sdkReportId })
+    expect(all.text).toContain('+00:12.0 [BugBerry info] Checkout started {"orderId":8812} (checkout.js:40)')
+    expect(all.text).toContain('+00:13.0 [BugBerry error] Payment declined {"code":"card_declined"} (checkout.js:52)')
+    const sdkOnly = await callTool(client, "getConsoleLogs", { report: sdkReportId, sources: ["sdk"] })
+    expect(lines(sdkOnly.text).filter((line) => /^[+-]\d\d:/.test(line))).toHaveLength(2)
+    const consoleOnly = await callTool(client, "getConsoleLogs", { report: sdkReportId, sources: ["console"] })
+    expect(consoleOnly.text).not.toContain("BugBerry")
+    const errors = await callTool(client, "getConsoleLogs", { report: sdkReportId, levels: ["error"], sources: ["sdk"] })
+    expect(lines(errors.text).filter((line) => /^[+-]\d\d:/.test(line))).toHaveLength(1)
+  })
+
+  test("getTimeline always shows sdk entries, and kinds can pick them alone", async () => {
+    const { text } = await callTool(client, "getTimeline", { report: sdkReportId })
+    expect(text).toContain('+00:12.0  SDK         [info] Checkout started {"orderId":8812} (checkout.js:40)')
+    const only = await callTool(client, "getTimeline", { report: sdkReportId, kinds: ["sdk"] })
+    expect(lines(only.text).filter((line) => /^[+-]\d\d:/.test(line))).toHaveLength(2)
   })
 })

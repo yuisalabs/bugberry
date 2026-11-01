@@ -1,13 +1,13 @@
 import type { CaptureEvent } from "./events"
-import { BUFFER_MAX_AGE_MS, BUFFER_MAX_EVENTS, MAX_RESOURCE_EVENTS } from "./limits"
+import { BUFFER_MAX_AGE_MS, BUFFER_MAX_EVENTS, MAX_RESOURCE_EVENTS, MAX_SDK_EVENTS } from "./limits"
 
-const isResource = (event: CaptureEvent) => event.kind === "resource"
+const countOf = (events: CaptureEvent[], kind: CaptureEvent["kind"]) => events.filter((event) => event.kind === kind).length
 
-/** Drops the oldest resources until at most `keep` are left. */
-function dropResources(events: CaptureEvent[], keep: number): CaptureEvent[] {
-  let excess = events.filter(isResource).length - keep
+/** Drops the oldest events of `kind` until at most `keep` are left. */
+function dropKind(events: CaptureEvent[], kind: CaptureEvent["kind"], keep: number): CaptureEvent[] {
+  let excess = countOf(events, kind) - keep
   if (excess <= 0) return events
-  return events.filter((event) => !(isResource(event) && excess-- > 0))
+  return events.filter((event) => !(event.kind === kind && excess-- > 0))
 }
 
 export interface EventBuffer {
@@ -35,9 +35,12 @@ export function createEventBuffer(
   const prune = () => {
     const cutoff = now() - maxAgeMs
     if (events.some((event) => event.t < cutoff)) events = events.filter((event) => event.t >= cutoff)
-    events = dropResources(events, MAX_RESOURCE_EVENTS)
-    // Over the limit, resources go first; logs, errors and actions only when nothing else is left.
-    if (events.length > maxEvents) events = dropResources(events, Math.max(0, events.filter(isResource).length - (events.length - maxEvents)))
+    events = dropKind(events, "resource", MAX_RESOURCE_EVENTS)
+    events = dropKind(events, "sdk", MAX_SDK_EVENTS)
+    // Over the limit, resources go first, then the app's SDK logs; logs, errors and actions only when nothing else is left.
+    for (const kind of ["resource", "sdk"] as const) {
+      if (events.length > maxEvents) events = dropKind(events, kind, Math.max(0, countOf(events, kind) - (events.length - maxEvents)))
+    }
     if (events.length > maxEvents) events = events.slice(events.length - maxEvents)
   }
 

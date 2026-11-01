@@ -3,6 +3,7 @@ import {
   ACTION_TYPES,
   actionSentence,
   CONSOLE_LEVELS,
+  type ConsoleEntry,
   consoleEntries,
   type DebuggerView,
   eventBase,
@@ -21,7 +22,8 @@ import { pageArgs, reportArgs } from "./args"
 import { noteAgentRead } from "../activity"
 
 const SLOW_REQUEST_MS = 1000
-const TIMELINE_KINDS = ["action", "navigation", "console", "error", "network", "note", "pause"] as const
+const TIMELINE_KINDS = ["action", "navigation", "console", "error", "network", "note", "pause", "sdk"] as const
+const CONSOLE_SOURCES = ["console", "sdk"] as const
 type TimelineKind = (typeof TIMELINE_KINDS)[number]
 
 interface TimelineEntry {
@@ -43,6 +45,12 @@ export function requestLine(request: ViewNetwork): string {
   const duration = request.durationMs !== null ? ` (${Math.round(request.durationMs)} ms)` : ""
   const initiator = request.initiator ? ` initiator ${request.initiator}` : ""
   return `${request.method} ${clip(request.url, 300)} → ${outcome}${duration}${initiator}`
+}
+
+/** "[BugBerry error] Payment declined {…} (checkout.js:52)" for an SDK line, "[error] …" for a console one. */
+export function consoleHead(entry: ConsoleEntry): string {
+  const level = entry.sdk ? `BugBerry ${entry.level}` : entry.level
+  return `[${level}] ${clip(entry.text)}${entry.source ? ` (${entry.source})` : ""}`
 }
 
 /** Everything that happened, in time order, as one list of entries. */
@@ -70,6 +78,12 @@ export function timelineEntries(view: DebuggerView, includeAll: boolean): Timeli
       case "error":
         entries.push({ t: event.t, kind: "error", text: `${clip(event.message, 500)}${event.source ? ` (${event.source})` : ""}` })
         break
+      // The app put these there on purpose and they are few, so they are shown whatever includeAll says.
+      case "sdk": {
+        const text = event.data ? `${event.message} ${event.data}` : event.message
+        entries.push({ t: event.t, kind: "sdk", text: `[${event.level}] ${clip(text, 500)}${event.source ? ` (${event.source})` : ""}` })
+        break
+      }
       case "network":
         if (includeAll || isFailedRequest(event) || (event.durationMs ?? 0) >= SLOW_REQUEST_MS) {
           entries.push({ t: event.t, kind: "network", text: requestLine(event) })
@@ -99,7 +113,8 @@ export function registerEventTools(server: McpServer, ctx: McpContext): void {
       title: "Get the report timeline",
       description:
         "What happened, in order: user actions, page loads and navigations, console warnings and errors, uncaught errors, " +
-        "failed or slow requests (1 s or more), the reporter's notes and recording pauses. The best way to see cause and effect.",
+        "failed or slow requests (1 s or more), the app's custom logs (from its BugBerry SDK), the reporter's notes and recording pauses. " +
+        "The best way to see cause and effect.",
       inputSchema: {
         ...reportArgs,
         kinds: z.array(z.enum(TIMELINE_KINDS)).optional().describe("Only these kinds of entries."),
@@ -141,10 +156,15 @@ export function registerEventTools(server: McpServer, ctx: McpContext): void {
     {
       title: "Get console logs",
       description:
-        "Console messages and uncaught errors with their level, time, source file:line and stack trace. Filter by level or text.",
+        "Console messages, uncaught errors, and the app's own BugBerry SDK logs (marked [BugBerry <level>]), with their level, time, " +
+        "source file:line and stack trace. Filter by level, source or text.",
       inputSchema: {
         ...reportArgs,
         levels: z.array(z.enum(CONSOLE_LEVELS as unknown as [ConsoleLevel, ...ConsoleLevel[]])).optional().describe("Only these levels."),
+        sources: z
+          .array(z.enum(CONSOLE_SOURCES))
+          .optional()
+          .describe(`Only these sources: "console" (the page's console and errors) or "sdk" (logs the app wrote with @bugberry/sdk).`),
         search: z.string().max(200).optional().describe("Only messages containing this text (case-insensitive)."),
         ...pageArgs,
       },
@@ -160,13 +180,14 @@ export function registerEventTools(server: McpServer, ctx: McpContext): void {
         const entries = consoleEntries(view.events).filter(
           (entry) =>
             (!args.levels || args.levels.includes(entry.level)) &&
+            (!args.sources || args.sources.includes(entry.sdk ? "sdk" : "console")) &&
             (!search || entry.text.toLowerCase().includes(search) || (entry.stack ?? "").toLowerCase().includes(search)),
         )
         const page = paginate(entries, args.limit, args.cursor)
         if (page.items.length === 0) return textResult("No console messages match.")
         const text = [
           ...page.items.map((entry) => {
-            const head = `${offset(entry.t)} [${entry.level}] ${clip(entry.text)}${entry.source ? ` (${entry.source})` : ""}`
+            const head = `${offset(entry.t)} ${consoleHead(entry)}`
             const stack = entry.stack && entry.stack !== entry.text ? `\n    ${clip(entry.stack).replaceAll("\n", "\n    ")}` : ""
             return head + stack
           }),

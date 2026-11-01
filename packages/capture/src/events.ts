@@ -86,7 +86,23 @@ export interface PageEvent {
   transferSize?: number
 }
 
-export type CaptureEvent = ConsoleEvent | PageErrorEvent | NetworkEvent | ActionEvent | ResourceEvent | PageEvent
+export type SdkLevel = "info" | "warn" | "error"
+export const SDK_LEVELS: readonly SdkLevel[] = ["info", "warn", "error"]
+
+/** A log line the app itself wrote with @bugberry/sdk. */
+export interface SdkEvent {
+  kind: "sdk"
+  t: number
+  level: SdkLevel
+  message: string
+  /** The data object, rendered the way a console argument is. */
+  data?: string
+  stack?: string
+  /** "checkout.js:40": the app code that called the SDK. */
+  source?: string
+}
+
+export type CaptureEvent = ConsoleEvent | PageErrorEvent | NetworkEvent | ActionEvent | ResourceEvent | PageEvent | SdkEvent
 
 export type Emit = (event: CaptureEvent) => void
 export type Uninstall = () => void

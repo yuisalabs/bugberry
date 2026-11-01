@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { CaptureEvent, DebuggerPayload } from "@bugberry/capture"
-import { buildMaterial, MAX_BODY_CHARS, MAX_LINES, MAX_MATERIAL_CHARS, type Material, restrictMaterial } from "../src/material"
+import { buildMaterial, MAX_BODY_CHARS, MAX_LINES, MAX_MATERIAL_CHARS, MAX_STATE_CHARS, type Material, restrictMaterial } from "../src/material"
 
 const START = 1_000_000
 const device = { browser: "Chrome 141", os: "macOS" }
@@ -145,4 +145,65 @@ describe("restrictMaterial", () => {
     expect(JSON.stringify(out).length).toBeLessThanOrEqual(MAX_MATERIAL_CHARS)
     expect(out.omitted).toBeGreaterThanOrEqual(1000 - MAX_LINES)
   })
+})
+
+describe("the app's BugBerry SDK", () => {
+  test("sdk logs become lines of every level, and custom fields become the state", () => {
+    const m = buildMaterial({
+      payload: {
+        ...payloadWith([
+          { kind: "sdk", t: START + 1000, level: "info", message: "Checkout started", data: '{"orderId":8812}' },
+          { kind: "sdk", t: START + 2000, level: "error", message: "Payment declined" },
+        ]),
+        customFields: { fields: { userId: "u-1", flags: { newCheckout: true } }, error: null, droppedKeys: 0, url: null, t: START },
+      },
+      page: { url: "https://shop.test/checkout" }, device, includeResponseBodies: false,
+    })
+    expect(m.lines).toEqual([
+      { atMs: 1000, kind: "sdk", text: 'Checkout started {"orderId":8812}' },
+      { atMs: 2000, kind: "sdk", text: "Payment declined" },
+    ])
+    expect(m.state).toBe(JSON.stringify({ userId: "u-1", flags: { newCheckout: true } }, null, 2))
+  })
+
+  test("state is clipped, kept by restrictMaterial, and absent without custom fields", () => {
+    const big = { fields: { blob: "x".repeat(5000) }, error: null, droppedKeys: 0, url: null, t: START }
+    const m = buildMaterial({ payload: { ...payloadWith([]), customFields: big }, page: { url: "https://shop.test" }, device, includeResponseBodies: false })
+    expect(m.state!.length).toBeLessThanOrEqual(MAX_STATE_CHARS + "…[cut]".length)
+    expect(restrictMaterial(m, { includeResponseBodies: false }).state).toBe(m.state)
+    expect(buildMaterial({ payload: payloadWith([]), page: { url: "https://shop.test" }, device, includeResponseBodies: false }).state).toBeUndefined()
+  })
+
+  test("an sdk line keeps its data after an address's query string", () => {
+    const data = '{"returnTo":"https://shop.test/pay?session=abc","items":3}'
+    const m = buildMaterial({ payload: payloadWith([{ kind: "sdk", t: START, level: "info", message: "Cart saved", data }]), page: { url: "https://shop.test" }, device, includeResponseBodies: false })
+    expect(m.lines[0]!.text).toBe('Cart saved {"returnTo":"https://shop.test/pay","items":3}')
+  })
+
+  test("state loses query strings like every other line", () => {
+    const fields = { returnTo: "https://shop.test/pay?session=abc#t=1" }
+    const m = buildMaterial({ payload: { ...payloadWith([]), customFields: { fields, error: null, droppedKeys: 0, url: null, t: START } }, page: { url: "https://shop.test" }, device, includeResponseBodies: false })
+    expect(m.state).toContain('"https://shop.test/pay"')
+    expect(m.state).not.toContain("session=abc")
+  })
+
+  test("sdk lines are key lines: kept before clicks when the recording is long", () => {
+    const events = [
+      ...Array.from({ length: MAX_LINES }, (_, n) => action(n * 10, "click", `button#${n}`)),
+      { kind: "sdk" as const, t: START + 99_999, level: "error" as const, message: "Payment declined" },
+    ]
+    const m = buildMaterial({ payload: payloadWith(events), page: { url: "https://shop.test" }, device, includeResponseBodies: false })
+    expect(m.lines.some((line) => line.kind === "sdk")).toBe(true)
+  })
+})
+
+test("a chatty app's early SDK lines never push out the page's own error", () => {
+  const events = [
+    ...Array.from({ length: 300 }, (_, n) => ({ kind: "sdk" as const, t: START + n, level: "info" as const, message: `step ${n}` })),
+    ...Array.from({ length: 60 }, (_, n) => action(1000 + n * 10, "click", `button#${n}`)),
+    consoleError(90_000, "TypeError: cart is undefined"),
+  ]
+  const m = buildMaterial({ payload: payloadWith(events), page: { url: "https://shop.test" }, device, includeResponseBodies: false })
+  expect(m.lines.some((line) => line.kind === "error")).toBe(true)
+  expect(m.lines.length).toBeLessThanOrEqual(MAX_LINES)
 })

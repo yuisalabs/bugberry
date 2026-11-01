@@ -2,7 +2,9 @@ import type { ReactNode } from "react"
 import { Button as AriaButton } from "react-aria-components"
 import type { DebuggerView, VisitedUrl } from "@bugberry/debugger-view"
 import { formatOffset, formatTimestamp } from "../../../lib/format"
-import { environmentRows, maskedCount, visitedUrls } from "@bugberry/debugger-view"
+import { environmentRows, hasCustomFields, maskedCount, visitedUrls } from "@bugberry/debugger-view"
+import { CustomFields } from "./CustomFields"
+import { Section } from "./InfoSection"
 import type { Playback } from "./timeline"
 import { VisitedUrls } from "./VisitedUrls"
 import type { ReportDetail } from "../queries"
@@ -15,18 +17,6 @@ const INCOMPLETE_LABELS: Record<string, string> = {
   "not-web-page": "This wasn't a regular web page, so there is no console, network or action data.",
   navigated:
     "The tab navigated to another page during the recording, so console, network and action data from the earlier page is missing.",
-}
-
-function Section({ title, count, children }: { title: string; count?: number; children: ReactNode }) {
-  return (
-    <section className="flex flex-col gap-2">
-      <h3 className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-        {title}
-        {count !== undefined && <span className="rounded-full bg-muted px-1.5 text-[11px] text-muted-foreground">{count}</span>}
-      </h3>
-      {children}
-    </section>
-  )
 }
 
 function Facts({ rows }: { rows: Array<[string, ReactNode]> }) {
@@ -122,6 +112,7 @@ export function InfoTab({
           ])}
         />
       </Section>
+      {view && hasCustomFields(view.customFields) && <CustomFields fields={view.customFields} />}
       {masked > 0 && (
         <Section title="Privacy">
           <p className="text-xs text-foreground">

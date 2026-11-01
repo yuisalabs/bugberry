@@ -5,6 +5,8 @@ export interface FlushHost {
   /** The page's document, shared with the capture script in the MAIN world. */
   document: EventTarget
   window: EventTarget
+  /** Sent raw with the flush; the background redacts it. Absent in hosts that have no address. */
+  location?: { href: string }
 }
 
 /**
@@ -58,6 +60,9 @@ export function installPageFlush(
       documentId: String(value.documentId),
       events: Array.isArray(value.events) ? value.events : [],
       incomplete: Array.isArray(value.incomplete) ? value.incomplete : [],
+      // As text: Chrome sorts the keys of objects in runtime messages, and the app's field order must survive.
+      ...(value.metadata !== undefined ? { metadata: JSON.stringify(value.metadata) } : {}),
+      ...(host.location ? { url: host.location.href } : {}),
     })
   })
 }

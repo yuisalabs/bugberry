@@ -15,7 +15,7 @@ import {
  * filtered, and a list keyed by it keeps the lines that stay instead of rebuilding them all.
  */
 export type ConsoleRow = { key: string } & (
-  | { t: number; kind: "log"; level: ConsoleLevel; text: string; stack: string | null; uncaught: boolean; source: string | null }
+  | { t: number; kind: "log"; level: ConsoleLevel; text: string; stack: string | null; uncaught: boolean; source: string | null; sdk: boolean }
   | { t: number; kind: "navigation"; url: string; via: NavigationVia | null }
   | { t: number; kind: "marker"; text: "Recording started" | "Recording stopped" }
   | { t: number; kind: "network-error"; text: string }
@@ -23,7 +23,8 @@ export type ConsoleRow = { key: string } & (
 )
 
 export interface ConsoleOptions {
-  level: ConsoleLevel | "all"
+  /** "custom" keeps only the app's BugBerry SDK lines. */
+  level: ConsoleLevel | "all" | "custom"
   query: string
   navigations: boolean
   networkErrors: boolean
@@ -46,7 +47,9 @@ export function consoleRows(
   recording?: { startedAt: number; durationMs: number | null },
 ): ConsoleRow[] {
   const rows: ConsoleRow[] = []
-  if (recording) {
+  // Custom is the app's own trail: the page's navigations, failed requests and markers would bury it.
+  const sdkOnly = options.level === "custom"
+  if (recording && !sdkOnly) {
     rows.push({ key: "start", t: recording.startedAt, kind: "marker", text: "Recording started" })
     if (recording.durationMs !== null) {
       rows.push({ key: "stop", t: recording.startedAt + recording.durationMs, kind: "marker", text: "Recording stopped" })
@@ -54,9 +57,12 @@ export function consoleRows(
   }
   events.forEach((event, index) => {
     const entry = consoleEntry(event)
-    if (entry && (options.level === "all" || entry.level === options.level)) rows.push({ key: `e${index}`, kind: "log", ...entry })
+    if (!entry) return
+    const shown = options.level === "all" || (options.level === "custom" ? entry.sdk : entry.level === options.level)
+    if (shown) rows.push({ key: `e${index}`, kind: "log", ...entry })
   })
   events.forEach((event, index) => {
+    if (sdkOnly) return
     if (event.kind === "action") addAction(rows, event, index, options)
     if (event.kind === "network" && options.networkErrors && isFailedRequest(event)) {
       rows.push({ key: `e${index}`, t: event.t, kind: "network-error", text: networkErrorText(event) })

@@ -1,18 +1,23 @@
 import {
+  boundMetadata,
   BUFFER_MAX_EVENTS,
   type CaptureEvent,
   DEBUGGER_PAYLOAD_VERSION,
   type DebuggerPayload,
+  MAX_URL_CHARS,
+  type MetadataSnapshot,
+  NO_METADATA,
   redactUrl,
 } from "@bugberry/capture"
 import type { ScreenshotMode } from "./capture-prefs"
 import { deviceInfoFrom } from "./device"
 import { environmentFrom } from "./environment"
 import type { DraftStore } from "../drafts/draft-store"
+import { pickCustomFields } from "../recording/custom-fields"
 import { type AreaPick, type AreaRect, areaPickFrom } from "./select-area"
 
 export type PageCapture =
-  | { status: "ok"; events: CaptureEvent[]; incomplete: string[]; documentId?: string }
+  | { status: "ok"; events: CaptureEvent[]; incomplete: string[]; documentId?: string; metadata: MetadataSnapshot; url: string | null }
   | { status: "missing" }
 
 export interface ActiveTab {
@@ -62,7 +67,7 @@ export type CaptureResult =
    */
   | { ok: false; error: string; code?: "already-recording" | "cancelled" }
 
-const EVENT_KINDS = new Set(["console", "error", "network", "action", "resource", "page"])
+const EVENT_KINDS = new Set(["console", "error", "network", "action", "resource", "page", "sdk"])
 const INCOMPLETE_NAME = /^[a-z0-9-]{1,50}$/
 const DOCUMENT_ID = /^[a-z0-9-]{1,64}$/
 /** Real events stay far below this (bodies are cut to 10 KB at the source); bigger ones are forged. */
@@ -100,10 +105,50 @@ function isEvent(value: unknown): value is CaptureEvent {
   return typeof event.kind === "string" && EVENT_KINDS.has(event.kind) && typeof event.t === "number"
 }
 
+const MAX_METADATA_ERROR_CHARS = 500
+/** The snapshot arrives as JSON text; a real one is about 10 KB, so anything far past that is forged. */
+const MAX_METADATA_TEXT = 64 * 1024
+
+/** A page's custom fields as the page sent them; bounded again, since a page can forge them. */
+export function sanitizeMetadata(raw: unknown): MetadataSnapshot {
+  // Sent as text, since Chrome sorts the keys of objects it passes between page and extension.
+  if (typeof raw === "string") {
+    if (raw.length > MAX_METADATA_TEXT) return NO_METADATA
+    try {
+      raw = JSON.parse(raw)
+    } catch {
+      return NO_METADATA
+    }
+  }
+  if (typeof raw !== "object" || raw === null) return NO_METADATA
+  const value = raw as { fields?: unknown; error?: unknown; droppedKeys?: unknown }
+  const dropped = typeof value.droppedKeys === "number" && Number.isInteger(value.droppedKeys) && value.droppedKeys >= 0 ? Math.min(value.droppedKeys, 100_000) : 0
+  const error = typeof value.error === "string" ? value.error.slice(0, MAX_METADATA_ERROR_CHARS) : null
+  const plain = typeof value.fields === "object" && value.fields !== null && !Array.isArray(value.fields)
+  if (!plain && error === null) return NO_METADATA
+  if (!plain) return { fields: null, error, droppedKeys: 0 }
+  try {
+    const bounded = boundMetadata(value.fields as Record<string, unknown>)
+    return { fields: bounded.fields, error, droppedKeys: dropped + bounded.droppedKeys }
+  } catch {
+    return NO_METADATA
+  }
+}
+
+function pageUrl(raw: unknown): string | null {
+  if (typeof raw !== "string" || raw.length > MAX_URL_CHARS) return null
+  try {
+    const { protocol } = new URL(raw)
+    return protocol === "http:" || protocol === "https:" ? redactUrl(raw) : null
+  } catch {
+    return null
+  }
+}
+
 /** The page controls this data, so only well-formed events are kept. */
 export function sanitizePageCapture(raw: unknown): PageCapture | null {
   if (typeof raw !== "object" || raw === null) return null
-  const value = raw as { status?: unknown; events?: unknown; incomplete?: unknown; documentId?: unknown }
+  const value = raw as { status?: unknown; events?: unknown; incomplete?: unknown; documentId?: unknown; metadata?: unknown; url?: unknown }
   if (value.status === "missing") return { status: "missing" }
   if (value.status !== "ok" || !Array.isArray(value.events)) return null
   const events = withinBudget(value.events.filter(isEvent).slice(-BUFFER_MAX_EVENTS))
@@ -113,7 +158,14 @@ export function sanitizePageCapture(raw: unknown): PageCapture | null {
         .slice(0, 20)
     : []
   const documentId = typeof value.documentId === "string" && DOCUMENT_ID.test(value.documentId) ? value.documentId : undefined
-  return { status: "ok", events, incomplete, ...(documentId ? { documentId } : {}) }
+  return {
+    status: "ok",
+    events,
+    incomplete,
+    ...(documentId ? { documentId } : {}),
+    metadata: sanitizeMetadata(value.metadata),
+    url: pageUrl(value.url),
+  }
 }
 
 export const UNCAPTURABLE = "This page can't be captured. Open a regular web page (http/https)."
@@ -161,14 +213,14 @@ export async function pagePayloadFor(
   deps: Pick<CaptureFlowDeps, "readPageCapture" | "readEnvironment" | "pageReadTimeoutMs" | "now">,
   recordingStartedAt: number | null = null,
   keep?: CaptureWindow,
-): Promise<{ payload: DebuggerPayload; documentId: string | null }> {
+): Promise<{ payload: DebuggerPayload; documentId: string | null; metadata: MetadataSnapshot | null }> {
   // Read alongside the capture buffer; a page that does not answer only loses the environment.
   const environment = within(() => deps.readEnvironment(tabId), deps.pageReadTimeoutMs ?? PAGE_READ_TIMEOUT_MS).then(
     environmentFrom,
   )
-  const { payload, documentId } = await capturedPayload(tabId, deps, recordingStartedAt, keep)
+  const { payload, documentId, metadata } = await capturedPayload(tabId, deps, recordingStartedAt, keep)
   const described = await environment
-  return { payload: described ? { ...payload, environment: described } : payload, documentId }
+  return { payload: described ? { ...payload, environment: described } : payload, documentId, metadata }
 }
 
 async function capturedPayload(
@@ -176,7 +228,7 @@ async function capturedPayload(
   deps: Pick<CaptureFlowDeps, "readPageCapture" | "pageReadTimeoutMs" | "now">,
   recordingStartedAt: number | null,
   keep?: CaptureWindow,
-): Promise<{ payload: DebuggerPayload; documentId: string | null }> {
+): Promise<{ payload: DebuggerPayload; documentId: string | null; metadata: MetadataSnapshot | null }> {
   const base: Pick<DebuggerPayload, "version" | "capturedAt" | "recordingStartedAt"> = {
     version: DEBUGGER_PAYLOAD_VERSION,
     capturedAt: deps.now(),
@@ -192,16 +244,21 @@ async function capturedPayload(
         timer = setTimeout(() => resolve(timeout), deps.pageReadTimeoutMs ?? PAGE_READ_TIMEOUT_MS)
       }),
     ])
-    if (raw === timeout) return { payload: { ...base, incomplete: ["page-timeout"], events: [] }, documentId: null }
+    if (raw === timeout) return { payload: { ...base, incomplete: ["page-timeout"], events: [] }, documentId: null, metadata: null }
     page = sanitizePageCapture(raw)
   } catch {
     page = null
   } finally {
     clearTimeout(timer)
   }
-  if (!page) return { payload: { ...base, incomplete: ["page-access"], events: [] }, documentId: null }
-  if (page.status === "missing") return { payload: { ...base, incomplete: ["not-injected"], events: [] }, documentId: null }
-  return { payload: { ...base, incomplete: page.incomplete, events: page.events }, documentId: page.documentId ?? null }
+  if (!page) return { payload: { ...base, incomplete: ["page-access"], events: [] }, documentId: null, metadata: null }
+  if (page.status === "missing") return { payload: { ...base, incomplete: ["not-injected"], events: [] }, documentId: null, metadata: null }
+  const customFields = pickCustomFields(page, [], deps.now())
+  return {
+    payload: { ...base, incomplete: page.incomplete, events: page.events, ...(customFields ? { customFields } : {}) },
+    documentId: page.documentId ?? null,
+    metadata: page.metadata,
+  }
 }
 
 export async function startScreenshotReport(

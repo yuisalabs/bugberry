@@ -20,21 +20,32 @@ export function toActiveTab(tab: Browser.tabs.Tab | undefined): ActiveTab | null
  */
 function readCaptureSession(keep: { since: number; pauses: Array<{ start: number; end: number }> } | null) {
   const key = Symbol.for("bugberry.capture.session")
-  const session = (window as unknown as Record<symbol, { snapshot(): unknown[]; incomplete: readonly string[] } | undefined>)[key]
+  const session = (
+    window as unknown as Record<symbol, { snapshot(): unknown[]; incomplete: readonly string[]; readMetadata?: () => unknown } | undefined>
+  )[key]
   const kept = (event: unknown) => {
     const t = (event as { t?: unknown }).t
     if (!keep || typeof t !== "number") return true
     return t >= keep.since && !keep.pauses.some((pause) => t >= pause.start && t < pause.end)
   }
+  if (!session) return { status: "missing" }
+  // Before the snapshot, so a failing callback's warn line is in it. Sessions from older capture scripts have no readMetadata.
+  let metadata: unknown
+  try {
+    // As text: Chrome sorts the keys of objects in executeScript results, and the app's field order must survive.
+    metadata = typeof session.readMetadata === "function" ? JSON.stringify(session.readMetadata()) : undefined
+  } catch {
+    // The page can replace this object; losing the fields must not lose the events.
+  }
   // 1000 = BUFFER_MAX_EVENTS; this function runs in the page and cannot import it.
-  return session
-    ? {
-        status: "ok",
-        events: session.snapshot().filter(kept).slice(-1000),
-        incomplete: [...session.incomplete],
-        documentId: (session as { documentId?: unknown }).documentId,
-      }
-    : { status: "missing" }
+  return {
+    status: "ok",
+    metadata,
+    url: location.href,
+    events: session.snapshot().filter(kept).slice(-1000),
+    incomplete: [...session.incomplete],
+    documentId: (session as { documentId?: unknown }).documentId,
+  }
 }
 
 /** Runs in the page's MAIN world: must be self-contained. The extension checks every field it returns. */

@@ -9,6 +9,10 @@ export function summarize(events: readonly CaptureEvent[], incomplete: readonly 
         summary.logs += 1
         if (event.level === "error") summary.errors += 1
         break
+      case "sdk":
+        summary.logs += 1
+        if (event.level === "error") summary.errors += 1
+        break
       case "error":
         summary.errors += 1
         break

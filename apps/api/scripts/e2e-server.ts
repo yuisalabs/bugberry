@@ -79,14 +79,26 @@ withDashboard(api, fileURLToPath(new URL("../../client/dist", import.meta.url)))
 const DEMO_PAGE = `<!doctype html><html><head><title>Demo checkout</title></head><body>
 <button id="pay">Bayar</button>
 <img src="/logo.png" alt="">
-<script src="/demo.js"></script></body></html>`
+<script type="module" src="/demo.js"></script></body></html>`
 
-// Its own file, so the console call has a call site ("demo.js:2") and the script shows in the Network tab.
-const DEMO_SCRIPT = `document.getElementById("pay").addEventListener("click", () => {
+// Its own file, so the console call has a call site ("demo.js:6") and the script shows in the Network tab.
+const DEMO_SCRIPT = `import { bugberry } from "/sdk.js"
+bugberry.metadata(() => ({ userId: "u-e2e", flags: { newCheckout: true }, token: "secret" }))
+bugberry.log("Checkout opened", { items: 2 })
+document.getElementById("pay").addEventListener("click", () => {
+  bugberry.error("Payment declined", { code: "card_declined" })
   console.error("checkout failed")
   fetch("/api/price").catch(() => {})
 })
 `
+// @bugberry/sdk from source, so the demo page uses the package exactly as an app would.
+const sdkBuild = await Bun.build({
+  entrypoints: [fileURLToPath(new URL("../../../packages/sdk/src/index.ts", import.meta.url))],
+  format: "esm",
+  target: "browser",
+})
+if (!sdkBuild.success || !sdkBuild.outputs[0]) throw new Error("could not build @bugberry/sdk for the demo page")
+const SDK_SCRIPT = await sdkBuild.outputs[0].text()
 /** A 1x1 transparent PNG. */
 const DEMO_LOGO = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
@@ -116,9 +128,13 @@ button{width:100%;padding:14px;border:0;border-radius:8px;background:#2563eb;col
 <div class="item"><span>Shipping</span><span>Free</span></div>
 <div class="total"><span>Total</span><span>$48.00</span></div>
 <button id="pay">Pay $48.00</button></aside>
-</main><script src="/shop.js"></script></body></html>`
+</main><script type="module" src="/shop.js"></script></body></html>`
 
-const SHOP_SCRIPT = `document.getElementById("pay").addEventListener("click", () => {
+const SHOP_SCRIPT = `import { bugberry } from "/sdk.js"
+bugberry.metadata(() => ({ userId: "cus_4821", plan: "Pro", cart: { items: 2, total: 48 }, flags: { newCheckout: true } }))
+bugberry.log("Checkout opened", { items: 2 })
+document.getElementById("pay").addEventListener("click", () => {
+  bugberry.error("Payment declined", { code: "card_declined" })
   console.error("Payment failed: card_declined")
   fetch("/api/pay", { method: "POST" }).catch(() => {})
 })
@@ -133,6 +149,7 @@ Bun.serve({
     if (path === "/api/pay") return Response.json({ error: "card_declined" }, { status: 500 })
     if (path === "/api/price") return Response.json({ error: "boom" }, { status: 500 })
     if (path === "/demo.js") return new Response(DEMO_SCRIPT, { headers: { "content-type": "text/javascript" } })
+    if (path === "/sdk.js") return new Response(SDK_SCRIPT, { headers: { "content-type": "text/javascript" } })
     if (path === "/logo.png") return new Response(DEMO_LOGO, { headers: { "content-type": "image/png" } })
     return new Response(DEMO_PAGE, { headers: { "content-type": "text/html" } })
   },

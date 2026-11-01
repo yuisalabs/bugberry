@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { normalizePayload } from "../src/debugger-events"
-import { environmentRows, maskedCount, visitedUrls } from "../src/info-view"
+import { customFieldNotes, environmentRows, hasCustomFields, maskedCount, visitedUrls } from "../src/info-view"
 
 describe("visitedUrls", () => {
   test("lists the pages in time order from 0, each with the stretch of events it covers", () => {
@@ -121,4 +121,28 @@ describe("environmentRows", () => {
       { label: "Window size", value: "1440 × 900" },
     ])
   })
+})
+
+describe("customFieldNotes", () => {
+  const base = { fields: { a: 1 }, error: null, droppedKeys: 0, url: null }
+  test("nothing to note", () => expect(customFieldNotes(base)).toEqual([]))
+  test("dropped keys, an earlier page, and a last-page error, in that order", () => {
+    expect(customFieldNotes({ ...base, droppedKeys: 3, url: "https://shop.test/checkout", error: "callback threw: boom" })).toEqual([
+      "+3 fields over the 10 KB limit",
+      "From https://shop.test/checkout, an earlier page of this recording",
+      "Not captured on the last page: callback threw: boom",
+    ])
+    expect(customFieldNotes({ ...base, droppedKeys: 1 })).toEqual(["+1 field over the 10 KB limit"])
+  })
+  test("an empty object says the app sent no fields, unless every key was dropped", () => {
+    expect(customFieldNotes({ ...base, fields: {} })).toEqual(["The app's metadata callback returned no fields"])
+    expect(customFieldNotes({ ...base, fields: {}, droppedKeys: 2 })).toEqual(["+2 fields over the 10 KB limit"])
+  })
+})
+
+test("hasCustomFields wants fields or an error", () => {
+  expect(hasCustomFields(null)).toBe(false)
+  expect(hasCustomFields({ fields: null, error: null, droppedKeys: 0, url: null })).toBe(false)
+  expect(hasCustomFields({ fields: null, error: "callback threw: boom", droppedKeys: 0, url: null })).toBe(true)
+  expect(hasCustomFields({ fields: {}, error: null, droppedKeys: 0, url: null })).toBe(true)
 })

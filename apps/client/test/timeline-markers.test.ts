@@ -28,10 +28,24 @@ const view = (events: ViewEvent[], extra: Partial<DebuggerView> = {}): DebuggerV
   environment: null,
   notes: [],
   pauses: [],
+  customFields: null,
   ...extra,
 })
 
 describe("timelineMarkers", () => {
+  test("every sdk event is a dot, whatever its level", () => {
+    const markers = timelineMarkers(
+      view([
+        { kind: "sdk", t: 2_000, level: "info", message: "Checkout started", data: '{"orderId":8812}', stack: null, source: null },
+        { kind: "sdk", t: 3_000, level: "error", message: "Payment declined", data: null, stack: null, source: "checkout.js:40" },
+      ]),
+    )
+    expect(markers).toEqual([
+      { id: "0", atMs: 1_000, kind: "sdk", label: "log", detail: 'Checkout started {"orderId":8812}' },
+      { id: "1", atMs: 2_000, kind: "sdk", label: "log", detail: "Payment declined" },
+    ])
+  })
+
   test("failed requests show their status, network errors show xhr, errors show err", () => {
     const markers = timelineMarkers(
       view([

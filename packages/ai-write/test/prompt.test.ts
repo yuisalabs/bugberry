@@ -91,3 +91,18 @@ test("two built-in templates: Steps to reproduce, then Short", () => {
   expect(BUILT_IN_TEMPLATES[0]?.skeleton).toContain("## Expected")
   expect(BUILT_IN_TEMPLATES[0]?.skeleton).toContain("## Actual")
 })
+
+test("app logs are marked and the app state has its own block", () => {
+  const [system, user] = buildMessages({
+    material: { ...material, lines: [...material.lines, { atMs: 500, kind: "sdk", text: "Checkout started" }], state: '{\n  "userId": "u-1"\n}' },
+    template: BUILT_IN_TEMPLATES[0]!, hint: { title: "", description: "" },
+  })
+  expect(user?.content).toContain("[0:00] [app log] Checkout started")
+  expect(user?.content).toContain(`App state when the report was made (from the app's BugBerry SDK):\n{\n  "userId": "u-1"\n}`)
+  expect(system?.content).toContain("[app log]")
+})
+
+test("without state the block is absent", () => {
+  const [, user] = buildMessages({ material, template: BUILT_IN_TEMPLATES[0]!, hint: { title: "", description: "" } })
+  expect(user?.content).not.toContain("App state")
+})

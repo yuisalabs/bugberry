@@ -6,7 +6,7 @@ import { newId } from "../src/lib/ids"
 import { nextSteps } from "../src/mcp/tools/report-read"
 import type { LocalStorageDriver } from "../src/storage/local"
 import { createProject, createReadyReport, createUserWithToken, setupTestApp } from "./helpers"
-import { callTool, mcpClient, putDebugger, samplePayload } from "./mcp-helpers"
+import { callTool, mcpClient, putDebugger, samplePayload, T0 } from "./mcp-helpers"
 
 let ctx: Awaited<ReturnType<typeof setupTestApp>>
 let ana: Awaited<ReturnType<typeof createUserWithToken>>
@@ -186,5 +186,66 @@ describe("getReport with unreadable debugger data", () => {
     expect(isError).toBe(false)
     expect(text).toContain("This report's debugger data could not be read")
     expect(text).not.toContain("This report has no captured debugger data")
+  })
+})
+
+describe("getReport and the app's BugBerry SDK", () => {
+  const SDK_EVENTS = [
+    { kind: "sdk" as const, t: T0 + 12_000, level: "info" as const, message: "Checkout started", data: '{"orderId":8812}', source: "checkout.js:40" },
+    { kind: "sdk" as const, t: T0 + 13_000, level: "error" as const, message: "Payment declined", source: "checkout.js:52" },
+  ]
+  async function reportWith(extra: Record<string, unknown>) {
+    const id = crypto.randomUUID()
+    const payload = { ...samplePayload(), ...extra }
+    await sampleReport({ id, debuggerKey: await putDebugger(ctx, id, payload) })
+    return id
+  }
+
+  test("getReport prints the custom fields and suggests the SDK logs", async () => {
+    const id = await reportWith({
+      events: [...samplePayload().events, ...SDK_EVENTS],
+      customFields: { fields: { userId: "u-1", flags: { newCheckout: true } }, error: null, droppedKeys: 1, url: "https://shop.test/checkout", t: T0 },
+    })
+    const { text, structured } = await callTool(client, "getReport", { report: id })
+    expect(text).toContain("Custom fields (from the app's BugBerry SDK, taken on https://shop.test/checkout, an earlier page):")
+    expect(text).toContain('  "userId": "u-1"')
+    expect(text).toContain("+1 field over the 10 KB limit")
+    expect(text).toContain('getConsoleLogs sources=["sdk"]')
+    expect((structured as { customFields: unknown }).customFields).toEqual({ fields: { userId: "u-1", flags: { newCheckout: true } }, clipped: false, droppedKeys: 1, url: "https://shop.test/checkout", error: null })
+  })
+
+  test("fields from the last page and an error from it are both shown", async () => {
+    const id = await reportWith({ customFields: { fields: { plan: "pro" }, error: "callback threw: late", droppedKeys: 0, url: null, t: T0 } })
+    const { text } = await callTool(client, "getReport", { report: id })
+    expect(text).toContain("Custom fields (from the app's BugBerry SDK):")
+    expect(text).toContain("Last page: callback threw: late")
+  })
+
+  test("a report without custom fields has no block and no SDK hint", async () => {
+    const { id } = await sampleReport()
+    const { text, structured } = await callTool(client, "getReport", { report: id })
+    expect(text).not.toContain("Custom fields")
+    expect(text).not.toContain('sources=["sdk"]')
+    expect((structured as { customFields: unknown }).customFields).toBeNull()
+  })
+
+  test("structured custom fields over 10 KB are left out, like the text that is cut", async () => {
+    const fields = Object.fromEntries(Array.from({ length: 50 }, (_, n) => [`k${n}`, "z".repeat(1000)]))
+    const id = await reportWith({ customFields: { fields, error: null, droppedKeys: 0, url: null, t: T0 } })
+    const { structured } = await callTool(client, "getReport", { report: id })
+    const custom = (structured as { customFields: { fields: unknown; clipped: boolean } }).customFields
+    expect(custom.fields).toBeNull()
+    expect(custom.clipped).toBe(true)
+  })
+
+  test("a failed callback is reported in words", async () => {
+    const id = await reportWith({ customFields: { fields: null, error: "callback threw: store not ready", droppedKeys: 0, url: null, t: T0 } })
+    const { text } = await callTool(client, "getReport", { report: id })
+    expect(text).toContain("Custom fields: not captured (callback threw: store not ready)")
+  })
+
+  test("nextSteps puts the SDK logs right after the error steps, or first", () => {
+    expect(nextSteps(SUMMARY, "screenshot", true).slice(0, 3)).toEqual(['getConsoleLogs levels=["error"]', "getCodeHotspots", 'getConsoleLogs sources=["sdk"]'])
+    expect(nextSteps({ ...SUMMARY, errors: 0 }, "screenshot", true)[0]).toBe('getConsoleLogs sources=["sdk"]')
   })
 })

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { Window } from "happy-dom"
-import { CAPTURE_PAUSE_EVENT, type CaptureSession, type CaptureWindow, startCapture } from "../src/session"
+import { CAPTURE_PAUSE_EVENT, type CaptureSession, type CaptureWindow, FLUSH_EVENT, FLUSH_REQUEST_EVENT, startCapture } from "../src/session"
 
 let win: Window
 let session: CaptureSession
@@ -34,6 +34,29 @@ describe("startCapture", () => {
     expect(kinds).toEqual(["page", "action", "console", "network", "action"])
     expect(session.summary()).toMatchObject({ logs: 1, errors: 1, requests: 1, failedRequests: 1, actions: 2 })
     expect(session.incomplete).toEqual([])
+  })
+
+  test("sdk entries queued before capture, and pushed after, land in the buffer", () => {
+    const sdkGlobal = { v: 1, metadata: null, queue: [{ t: Date.now(), level: "info", message: "early" }] as unknown[], push(_entry: unknown) {} }
+    ;(win as unknown as Record<string, unknown>).__bugberry__ = sdkGlobal
+    session = capture()
+    sdkGlobal.push({ t: Date.now(), level: "warn", message: "late" })
+    expect(session.snapshot().filter((event) => event.kind === "sdk").map((event) => (event as { message: string }).message)).toEqual(["early", "late"])
+    expect(session.incomplete).toEqual([])
+  })
+
+  test("a queued sdk entry older than the buffer's age limit is dropped, not stamped as new", () => {
+    const host = win as unknown as Record<string, unknown>
+    const at = 10 * 60 * 1000
+    host.__bugberry__ = { v: 1, metadata: null, queue: [{ t: at - 6 * 60 * 1000, level: "info", message: "stale" }], push() {} }
+    session = startCapture({ window: win as unknown as CaptureWindow, now: () => at })
+    expect(session.snapshot().some((event) => event.kind === "sdk")).toBe(false)
+  })
+
+  test("an unusable SDK global is reported as incomplete sdk", () => {
+    ;(win as unknown as Record<string, unknown>).__bugberry__ = "taken"
+    session = capture()
+    expect(session.incomplete).toEqual(["sdk"])
   })
 
   test("starting twice on the same page reuses the session and does not double-record", () => {
@@ -88,6 +111,41 @@ describe("startCapture", () => {
     expect(session.documentId).toMatch(/^[a-z0-9-]{8,64}$/)
     expect(flushed.events.some((event) => event.kind === "action")).toBe(true)
     expect(flushed.incomplete).toEqual([])
+  })
+
+  test("readMetadata calls the page's callback, and a failure leaves one sdk warn line behind", () => {
+    const host = win as unknown as Record<string, unknown>
+    host.__bugberry__ = { v: 1, metadata: () => ({ userId: "u1" }), queue: [], push() {} }
+    session = capture()
+    expect(session.readMetadata()).toEqual({ fields: { userId: "u1" }, error: null, droppedKeys: 0 })
+    ;(host.__bugberry__ as { metadata: unknown }).metadata = () => { throw new Error("store not ready") }
+    expect(session.readMetadata().error).toBe("callback threw: store not ready")
+    const warn = session.snapshot().find((event) => event.kind === "sdk")
+    expect(warn).toMatchObject({ kind: "sdk", level: "warn", message: "metadata callback failed: callback threw: store not ready" })
+  })
+
+  test("a flush answer carries the metadata snapshot, even when the callback throws", () => {
+    const host = win as unknown as Record<string, unknown>
+    host.__bugberry__ = { v: 1, metadata: () => { throw new Error("boom") }, queue: [], push() {} }
+    session = capture()
+    win.console.log("before leaving")
+    let detail: string | undefined
+    win.document.addEventListener(FLUSH_EVENT, (event) => { detail = (event as unknown as CustomEvent<string>).detail })
+    win.document.dispatchEvent(new win.CustomEvent(FLUSH_REQUEST_EVENT))
+    const answer = JSON.parse(detail ?? "{}") as { events: Array<{ kind: string; message?: string }>; metadata: { error: string | null } }
+    expect(answer.metadata.error).toBe("callback threw: boom")
+    expect(answer.events.some((event) => event.kind === "console")).toBe(true)
+    expect(answer.events.some((event) => event.kind === "sdk" && event.message === "metadata callback failed: callback threw: boom")).toBe(true)
+  })
+
+  test("without the SDK, a flush answer carries the empty snapshot and no warn line", () => {
+    session = capture()
+    let detail: string | undefined
+    win.document.addEventListener(FLUSH_EVENT, (event) => { detail = (event as unknown as CustomEvent<string>).detail })
+    win.document.dispatchEvent(new win.CustomEvent(FLUSH_REQUEST_EVENT))
+    const answer = JSON.parse(detail ?? "{}") as { events: Array<{ kind: string }>; metadata: unknown }
+    expect(answer.metadata).toEqual({ fields: null, error: null, droppedKeys: 0 })
+    expect(answer.events.some((event) => event.kind === "sdk")).toBe(false)
   })
 
   test("clear empties the buffer", () => {

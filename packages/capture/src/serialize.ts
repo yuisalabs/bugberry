@@ -6,7 +6,7 @@ const MAX_DEPTH = 6
 const MAX_ARRAY_ITEMS = 100
 const MAX_OBJECT_KEYS = 50
 
-function isDomNode(value: unknown): value is Node {
+export function isDomNode(value: unknown): value is Node {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -15,11 +15,11 @@ function isDomNode(value: unknown): value is Node {
   )
 }
 
-function describeNode(node: Node): string {
+export function describeNode(node: Node): string {
   return node.nodeType === 1 ? `<${describeElement(node as Element)}>` : `[${node.nodeName}]`
 }
 
-function functionLabel(fn: Function): string {
+export function functionLabel(fn: Function): string {
   return `[Function ${fn.name || "anonymous"}]`
 }
 

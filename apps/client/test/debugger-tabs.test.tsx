@@ -19,6 +19,8 @@ describe("ConsoleTab", () => {
       { kind: "console", t: 1000, level: "log", args: ["hello"] },
       { kind: "console", t: 1001, level: "warn", args: ["careful"] },
       { kind: "error", t: 1002, message: HOSTILE, stack: "at pay (app.js:1)" },
+      { kind: "sdk", t: 1003, level: "info", message: "Checkout started", data: "<img src=x onerror=alert(2)>" },
+      { kind: "sdk", t: 1004, level: "error", message: "Payment declined", source: "checkout.js:40" },
     ],
   })
 
@@ -32,12 +34,25 @@ describe("ConsoleTab", () => {
 
   test("filters by level and text, and counts each level", () => {
     render(<ConsoleTab events={events} base={1000} />)
-    expect(screen.getByText("1 errors")).toBeTruthy()
+    expect(screen.getByText("2 errors")).toBeTruthy()
     choose("Level", "Warnings")
     expect(screen.queryByText("hello")).toBeNull()
     expect(screen.getByText("careful")).toBeTruthy()
     fireEvent.change(screen.getByRole("searchbox", { name: "Filter logs" }), { target: { value: "nothing" } })
     expect(screen.getByText("No logs match.")).toBeTruthy()
+  })
+
+  test("BugBerry lines carry the label, show their data as text, and the Custom level keeps only them", () => {
+    render(<ConsoleTab events={events} base={1000} />)
+    const line = screen.getByText(/Checkout started/).closest("li")
+    expect(within(line as HTMLElement).getByText("BugBerry")).toBeTruthy()
+    expect(document.querySelector("img")).toBeNull()
+    expect(screen.getByText("checkout.js:40")).toBeTruthy()
+    expect(screen.getAllByText("BugBerry")).toHaveLength(2)
+    choose("Level", "Custom")
+    expect(screen.queryByText("hello")).toBeNull()
+    expect(screen.queryByText(HOSTILE)).toBeNull()
+    expect(screen.getAllByText("BugBerry")).toHaveLength(2)
   })
 })
 
@@ -391,6 +406,56 @@ describe("InfoTab", () => {
   test("members see the reporter's city", () => {
     render(<InfoTab report={reportFixture({ location: "Jakarta, Indonesia" })} view={view} />)
     expect(screen.getByText("Jakarta, Indonesia")).toBeTruthy()
+  })
+
+  test("Custom fields: a collapsible tree as text, Copy JSON, and the notes", async () => {
+    const writeText = mock(async () => {})
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true })
+    const withFields = normalizePayload({
+      customFields: {
+        fields: { userId: "<b>u1</b>", flags: { newCheckout: true, nested: { deep: { deeper: 1 } } } },
+        error: "callback threw: boom", droppedKeys: 2, url: "https://shop.test/checkout",
+      },
+    })
+    render(<InfoTab report={reportFixture()} view={withFields} />)
+    const section = screen.getByRole("heading", { name: "Custom fields" }).closest("section") as HTMLElement
+    expect(within(section).getByText("<b>u1</b>")).toBeTruthy()
+    expect(section.querySelector("b")).toBeNull()
+    expect(within(section).getByText("+2 fields over the 10 KB limit")).toBeTruthy()
+    expect(within(section).getByText("From https://shop.test/checkout, an earlier page of this recording")).toBeTruthy()
+    expect(within(section).getByText("Not captured on the last page: callback threw: boom")).toBeTruthy()
+    // Depth 2 and below start collapsed: "deeper" is not in the page until "deep" is opened.
+    expect(within(section).queryByText("deeper")).toBeNull()
+    fireEvent.click(within(section).getByRole("button", { name: /^deep/ }))
+    expect(within(section).getByText("deeper")).toBeTruthy()
+    fireEvent.click(within(section).getByRole("button", { name: "Copy JSON" }))
+    expect(writeText).toHaveBeenCalledWith(JSON.stringify(withFields.customFields?.fields, null, 2))
+  })
+
+  test("Custom fields with only an error show that line and no Copy JSON", () => {
+    render(<InfoTab report={reportFixture()} view={normalizePayload({ customFields: { fields: null, error: "callback threw: boom", droppedKeys: 0 } })} />)
+    const section = screen.getByRole("heading", { name: "Custom fields" }).closest("section") as HTMLElement
+    expect(within(section).getByText("Not captured on the last page: callback threw: boom")).toBeTruthy()
+    expect(within(section).queryByRole("button", { name: "Copy JSON" })).toBeNull()
+  })
+
+  test("Custom fields with an empty object show a note and no box or Copy JSON", () => {
+    render(<InfoTab report={reportFixture()} view={normalizePayload({ customFields: { fields: {}, error: null, droppedKeys: 0 } })} />)
+    const section = screen.getByRole("heading", { name: "Custom fields" }).closest("section") as HTMLElement
+    within(section).getByText("The app's metadata callback returned no fields")
+    expect(within(section).queryByRole("list")).toBeNull()
+    expect(within(section).queryByRole("button", { name: "Copy JSON" })).toBeNull()
+  })
+
+  test("Custom fields are absent when the payload has none to show", () => {
+    render(<InfoTab report={reportFixture()} view={normalizePayload({ customFields: { fields: null, error: null, droppedKeys: 0 } })} />)
+    expect(screen.queryByRole("heading", { name: "Custom fields" })).toBeNull()
+  })
+
+  test("Copy JSON without a clipboard says so and does not throw", () => {
+    Object.defineProperty(navigator, "clipboard", { value: undefined, configurable: true })
+    render(<InfoTab report={reportFixture()} view={normalizePayload({ customFields: { fields: { a: 1 }, error: null, droppedKeys: 0 } })} />)
+    expect(() => fireEvent.click(screen.getByRole("button", { name: "Copy JSON" }))).not.toThrow()
   })
 
   test("share viewers see the name only, and no Privacy without masked fields", () => {

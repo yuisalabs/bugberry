@@ -26,6 +26,19 @@ const BUFFER = JSON.stringify({ documentId: "doc-1", events: [{ kind: "action", 
 const FLUSH = { type: "bugberry:page-flush", documentId: "doc-1", events: [{ kind: "action", t: 1 }], incomplete: [] }
 
 describe("installPageFlush", () => {
+  test("the flush message carries the page's metadata snapshot and its URL", () => {
+    const sent: unknown[] = []
+    const withMetadata = JSON.stringify({ documentId: "doc-1", events: [], incomplete: [], metadata: { fields: { userId: "u1" }, error: null, droppedKeys: 0 } })
+    const { document, window, hide } = page(withMetadata)
+    const location = { href: "https://shop.test/checkout?token=abc" }
+    installPageFlush({ document, window, location }, (message) => sent.push(message), recordingState(true).watch)
+    hide()
+    const message = sent.at(-1) as { metadata: string }
+    expect(message).toMatchObject({ type: "bugberry:page-flush", url: "https://shop.test/checkout?token=abc" })
+    // As text: Chrome sorts the keys of objects in runtime messages, and the app's order must survive.
+    expect(JSON.parse(message.metadata)).toEqual({ fields: { userId: "u1" }, error: null, droppedKeys: 0 })
+  })
+
   test("a page loaded during a recording says so, and sends its buffer as it goes away", () => {
     const sent: unknown[] = []
     const tab = page(BUFFER)

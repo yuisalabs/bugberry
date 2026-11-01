@@ -3,7 +3,8 @@ import type { CaptureEvent, DebuggerPayload, NetworkEvent } from "@bugberry/capt
 /** One thing that happened in the recording, as the AI reads it. `atMs` is from the start of the video. */
 export interface MaterialLine {
   atMs: number
-  kind: "action" | "navigate" | "error" | "request" | "note"
+  /** "sdk": a log the app itself wrote with @bugberry/sdk. */
+  kind: "action" | "navigate" | "error" | "request" | "note" | "sdk"
   text: string
   /** A failed request's response body, cut short; only when the workspace sends bodies. */
   body?: string
@@ -16,15 +17,20 @@ export interface Material {
   lines: MaterialLine[]
   /** Lines left out to stay under the caps. */
   omitted: number
+  /** The app's custom fields from @bugberry/sdk, as pretty JSON, cut short; absent when the app sent none. */
+  state?: string
 }
 
 export const MAX_LINES = 200
 export const MAX_BODY_CHARS = 1000
 export const MAX_LINE_CHARS = 500
 export const MAX_MATERIAL_CHARS = 40_000
+export const MAX_STATE_CHARS = 2000
 
 /** Lines that explain the bug: kept first when a recording is too long. */
-const KEY_KINDS = new Set<MaterialLine["kind"]>(["error", "request", "note"])
+const KEY_KINDS = new Set<MaterialLine["kind"]>(["error", "request", "note", "sdk"])
+/** Among key lines, the page's own errors and the reporter's notes come before the app's SDK lines, which can be many. */
+const isPrimary = (line: MaterialLine) => KEY_KINDS.has(line.kind) && line.kind !== "sdk"
 
 const cut = (text: string, max: number) => (text.length <= max ? text : `${text.slice(0, max)}…[cut]`)
 
@@ -64,6 +70,8 @@ function lineOf(event: CaptureEvent, atMs: number, includeResponseBodies: boolea
       return event.level === "error" ? { atMs, kind: "error", text: event.args.join(" ") } : null
     case "error":
       return { atMs, kind: "error", text: event.message }
+    case "sdk":
+      return { atMs, kind: "sdk", text: event.data ? `${event.message} ${event.data}` : event.message }
     case "network": {
       if (!isFailed(event)) return null
       const request = `${event.method.toUpperCase()} ${pathOf(event.url)}`
@@ -84,14 +92,19 @@ function fit(material: Material): Material {
   let lines = byTime
   if (lines.length > MAX_LINES) {
     // Steps need the reporter's actions as much as the errors: key lines take at most half when both are many.
-    const key = byTime.filter((line) => KEY_KINDS.has(line.kind))
+    const primary = byTime.filter(isPrimary)
+    const sdk = byTime.filter((line) => line.kind === "sdk")
     const others = byTime.filter((line) => !KEY_KINDS.has(line.kind))
-    const keyCount = Math.min(key.length, Math.max(MAX_LINES - others.length, MAX_LINES / 2))
-    lines = [...key.slice(0, keyCount), ...others.slice(0, MAX_LINES - keyCount)].sort((a, b) => a.atMs - b.atMs)
+    const keyCount = Math.min(primary.length + sdk.length, Math.max(MAX_LINES - others.length, MAX_LINES / 2))
+    const keptPrimary = primary.slice(0, keyCount)
+    // The app's newest lines: the ones nearest the failure.
+    const sdkCount = keyCount - keptPrimary.length
+    const keptSdk = sdkCount > 0 ? sdk.slice(-sdkCount) : []
+    lines = [...keptPrimary, ...keptSdk, ...others.slice(0, MAX_LINES - keyCount)].sort((a, b) => a.atMs - b.atMs)
   }
   let omitted = material.omitted + byTime.length - lines.length
   let fitted: Material = { ...material, lines, omitted }
-  // Bodies give way first, then whole lines from the end: the others before the key ones.
+  // Bodies give way first, then whole lines from the end: the others, then the app's SDK lines, then the rest.
   for (const max of [200, 0]) {
     if (sizeOf(fitted) <= MAX_MATERIAL_CHARS) return fitted
     fitted = {
@@ -101,7 +114,8 @@ function fit(material: Material): Material {
   }
   while (sizeOf(fitted) > MAX_MATERIAL_CHARS && fitted.lines.length > 0) {
     const others = fitted.lines.findLastIndex((line) => !KEY_KINDS.has(line.kind))
-    const drop = others >= 0 ? others : fitted.lines.length - 1
+    const sdk = fitted.lines.findLastIndex((line) => line.kind === "sdk")
+    const drop = others >= 0 ? others : sdk >= 0 ? sdk : fitted.lines.length - 1
     omitted += 1
     fitted = { ...fitted, lines: fitted.lines.filter((_, index) => index !== drop), omitted }
   }
@@ -110,10 +124,18 @@ function fit(material: Material): Material {
 
 /** Full addresses anywhere in a text, without their query string or fragment. */
 const withoutQueries = (text: string) => text.replace(/(https?:\/\/[^\s?#]*)[?#]\S*/g, "$1")
+/** The same inside JSON text, where an address ends at its closing quote. */
+const withoutQueriesInJson = (text: string) => text.replace(/(https?:\/\/[^\s?#"]*)[?#][^\s"]*/g, "$1")
 
 function tidy(line: MaterialLine, includeResponseBodies: boolean): MaterialLine {
   // Request and page lines hold bare paths too ("GET /x?token=1 → 500").
-  const text = line.kind === "request" || line.kind === "navigate" ? line.text.replace(/[?#]\S*/g, "") : withoutQueries(line.text)
+  // An SDK line's data is JSON text, so its addresses end at a quote.
+  const text =
+    line.kind === "request" || line.kind === "navigate"
+      ? line.text.replace(/[?#]\S*/g, "")
+      : line.kind === "sdk"
+        ? withoutQueriesInJson(line.text)
+        : withoutQueries(line.text)
   const tidied: MaterialLine = { atMs: line.atMs, kind: line.kind, text: cut(text, MAX_LINE_CHARS) }
   if (includeResponseBodies && line.kind === "request" && line.body) tidied.body = cut(line.body, MAX_BODY_CHARS)
   return tidied
@@ -134,8 +156,10 @@ export function buildMaterial(input: {
     if (line) lines.push(line)
   }
   for (const note of payload.notes ?? []) lines.push({ atMs: note.atMs, kind: "note", text: `Note ${note.n}: ${note.text}` })
+  const fields = payload.customFields?.fields
+  const state = fields ? { state: JSON.stringify(fields, null, 2) } : {}
   return restrictMaterial(
-    { page: { url: input.page.url, title: input.page.title ?? null }, device: input.device, lines, omitted: 0 },
+    { page: { url: input.page.url, title: input.page.title ?? null }, device: input.device, lines, omitted: 0, ...state },
     { includeResponseBodies },
   )
 }
@@ -147,5 +171,7 @@ export function restrictMaterial(material: Material, opts: { includeResponseBodi
     device: { browser: cut(material.device.browser, 100), os: cut(material.device.os, 100) },
     lines: material.lines.map((line) => tidy(line, opts.includeResponseBodies)),
     omitted: material.omitted,
+    // App state the developer chose to expose: sent whatever the response-body setting, but without query strings.
+    ...(material.state ? { state: cut(withoutQueriesInJson(material.state), MAX_STATE_CHARS) } : {}),
   })
 }

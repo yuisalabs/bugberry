@@ -9,11 +9,16 @@ export type {
   PageEvent,
   ResourceEvent,
   ResourceTimingDetail,
+  SdkEvent,
+  SdkLevel,
 } from "./events"
-export { BUFFER_MAX_AGE_MS, BUFFER_MAX_EVENTS, MAX_RESOURCE_EVENTS } from "./limits"
+export { SDK_LEVELS } from "./events"
+export { BUFFER_MAX_AGE_MS, BUFFER_MAX_EVENTS, MAX_METADATA_CHARS, MAX_RESOURCE_EVENTS, MAX_SDK_EVENTS, MAX_URL_CHARS } from "./limits"
+export { boundMetadata, type MetadataSnapshot, NO_METADATA, readMetadata } from "./metadata"
 export {
   buildDebuggerPayload,
   type CaptureEnvironment,
+  type CustomFields,
   DEBUGGER_PAYLOAD_VERSION,
   type DebuggerPayload,
   type RecordingNote,

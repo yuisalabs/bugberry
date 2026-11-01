@@ -50,6 +50,20 @@ describe("POST /workspaces/:id/ai/write", () => {
     expect(sent.messages[1].content).toContain('Clicked button "Pay"')
   })
 
+  test("the app's SDK lines and state reach the provider, also with response bodies off", async () => {
+    await saveTeamKey()
+    const withApp: Material = {
+      ...material(),
+      lines: [...material().lines, { atMs: 1800, kind: "sdk", text: "Payment declined" }],
+      state: '{ "plan": "pro" }',
+    }
+    const res = await base().write.post({ templateId: templates[0]!.id, material: withApp, hint }, { headers: member.headers })
+    expect(res.status).toBe(200)
+    const prompt = (await ai.last()!.json()).messages[1].content as string
+    expect(prompt).toContain("[app log] Payment declined")
+    expect(prompt).toContain('{ "plan": "pro" }')
+  })
+
   test("with the switch off the server drops response bodies the extension sent", async () => {
     await saveTeamKey()
     await base().write.post({ templateId: templates[0]!.id, material: material("SECRET-BODY"), hint }, { headers: member.headers })
