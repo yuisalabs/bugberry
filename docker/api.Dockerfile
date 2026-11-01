@@ -27,6 +27,8 @@ FROM manifests AS runtime
 ENV NODE_ENV=production
 RUN bun install --frozen-lockfile --production --ignore-scripts --filter @bugberry/api
 COPY packages/shared packages/shared
+# debugger-view imports SDK_LEVELS from capture at runtime, not only its types.
+COPY packages/capture packages/capture
 COPY packages/ai-write packages/ai-write
 COPY packages/debugger-view packages/debugger-view
 COPY apps/api/drizzle apps/api/drizzle
