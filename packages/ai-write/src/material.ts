@@ -129,7 +129,13 @@ const withoutQueriesInJson = (text: string) => text.replace(/(https?:\/\/[^\s?#"
 
 function tidy(line: MaterialLine, includeResponseBodies: boolean): MaterialLine {
   // Request and page lines hold bare paths too ("GET /x?token=1 → 500").
-  const text = line.kind === "request" || line.kind === "navigate" ? line.text.replace(/[?#]\S*/g, "") : withoutQueries(line.text)
+  // An SDK line's data is JSON text, so its addresses end at a quote.
+  const text =
+    line.kind === "request" || line.kind === "navigate"
+      ? line.text.replace(/[?#]\S*/g, "")
+      : line.kind === "sdk"
+        ? withoutQueriesInJson(line.text)
+        : withoutQueries(line.text)
   const tidied: MaterialLine = { atMs: line.atMs, kind: line.kind, text: cut(text, MAX_LINE_CHARS) }
   if (includeResponseBodies && line.kind === "request" && line.body) tidied.body = cut(line.body, MAX_BODY_CHARS)
   return tidied

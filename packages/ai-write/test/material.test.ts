@@ -174,6 +174,12 @@ describe("the app's BugBerry SDK", () => {
     expect(buildMaterial({ payload: payloadWith([]), page: { url: "https://shop.test" }, device, includeResponseBodies: false }).state).toBeUndefined()
   })
 
+  test("an sdk line keeps its data after an address's query string", () => {
+    const data = '{"returnTo":"https://shop.test/pay?session=abc","items":3}'
+    const m = buildMaterial({ payload: payloadWith([{ kind: "sdk", t: START, level: "info", message: "Cart saved", data }]), page: { url: "https://shop.test" }, device, includeResponseBodies: false })
+    expect(m.lines[0]!.text).toBe('Cart saved {"returnTo":"https://shop.test/pay","items":3}')
+  })
+
   test("state loses query strings like every other line", () => {
     const fields = { returnTo: "https://shop.test/pay?session=abc#t=1" }
     const m = buildMaterial({ payload: { ...payloadWith([]), customFields: { fields, error: null, droppedKeys: 0, url: null, t: START } }, page: { url: "https://shop.test" }, device, includeResponseBodies: false })
