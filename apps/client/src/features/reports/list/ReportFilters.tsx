@@ -69,7 +69,7 @@ function FilterMenu({
 }
 
 /**
- * Jam-style filter row: type, status, reporter (and project on the all-reports page) as menus, the
+ * Filter row: type, status, reporter (and project on the all-reports page) as menus, the
  * rarer filters behind "More filters". `trailing` sits on the right (the order menu and the layout switch).
  */
 export function ReportFilters({

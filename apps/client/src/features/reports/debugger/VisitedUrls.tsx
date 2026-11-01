@@ -22,7 +22,7 @@ function Count({ label, onPress }: { label: string; onPress?: () => void }) {
 }
 
 /**
- * The Overview tab's pages, as in Jam: closed it shows one page (where the player is; before it plays, the first
+ * The Overview tab's pages: closed it shows one page (where the player is; before it plays, the first
  * page where something went wrong, else the one the report was made on), open it lists them all. Each page counts
  * its errors and failed requests, which open that page's events; a time moves the player there.
  */
