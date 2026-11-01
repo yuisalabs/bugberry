@@ -192,7 +192,6 @@ DRY_RUN=false
 [[ "${1:-}" == "--dry-run" ]] && DRY_RUN=true
 SDK_DIR="packages/sdk"
 PACKAGE="@bugberry/sdk"
-VERSION=$(node -p "require('./$SDK_DIR/package.json').version")
 
 # run CMD...: prints the command, then runs it. Tokens never appear: npm reads them from its own config.
 run() {
@@ -209,6 +208,14 @@ stop() {
 [[ -f "$SDK_DIR/package.json" ]] || stop "Run this from the repo root: bash $SDK_DIR/scripts/publish.sh"
 # The sign-in and scope steps wait for you in a loop; without a terminal they would never stop.
 [[ -t 0 ]] || stop "Run this in a terminal: it waits for your answers."
+command -v node >/dev/null 2>&1 || stop "Install Node.js first: npm comes with it."
+VERSION=$(node -p "require('./$SDK_DIR/package.json').version")
+
+# The template's finish() says "Setup complete"; this wizard publishes, so it closes with its own line.
+closing() {
+  _clear
+  printf '\n%s%s  ✓ %s%s\n\n' "$BOLD" "$GREEN" "$1" "$RESET"
+}
 
 if $DRY_RUN; then TOTAL_STAGES=5; else TOTAL_STAGES=7; fi
 
@@ -259,8 +266,8 @@ say "It should hold only dist/, README.md, LICENSE and package.json."
 confirm "Is that what the list shows?" || stop "Fix \"files\" in $SDK_DIR/package.json, then run this again."
 
 if $DRY_RUN; then
-  finish
-  note "Dry run: nothing was published. Run without --dry-run to publish $PACKAGE $VERSION."
+  closing "Dry run complete"
+  note "Nothing was published. Run without --dry-run to publish $PACKAGE $VERSION."
   exit 0
 fi
 
@@ -277,5 +284,5 @@ open_url "https://www.npmjs.com/package/$PACKAGE"
 say "The version should be $VERSION and the license MIT."
 pause
 
-finish
+closing "Published"
 note "$PACKAGE $VERSION is on npm."
