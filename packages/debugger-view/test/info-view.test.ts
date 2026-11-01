@@ -134,6 +134,10 @@ describe("customFieldNotes", () => {
     ])
     expect(customFieldNotes({ ...base, droppedKeys: 1 })).toEqual(["+1 field over the 10 KB limit"])
   })
+  test("an empty object says the app sent no fields, unless every key was dropped", () => {
+    expect(customFieldNotes({ ...base, fields: {} })).toEqual(["The app's metadata callback returned no fields"])
+    expect(customFieldNotes({ ...base, fields: {}, droppedKeys: 2 })).toEqual(["+2 fields over the 10 KB limit"])
+  })
 })
 
 test("hasCustomFields wants fields or an error", () => {

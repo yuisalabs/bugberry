@@ -439,6 +439,14 @@ describe("InfoTab", () => {
     expect(within(section).queryByRole("button", { name: "Copy JSON" })).toBeNull()
   })
 
+  test("Custom fields with an empty object show a note and no box or Copy JSON", () => {
+    render(<InfoTab report={reportFixture()} view={normalizePayload({ customFields: { fields: {}, error: null, droppedKeys: 0 } })} />)
+    const section = screen.getByRole("heading", { name: "Custom fields" }).closest("section") as HTMLElement
+    within(section).getByText("The app's metadata callback returned no fields")
+    expect(within(section).queryByRole("list")).toBeNull()
+    expect(within(section).queryByRole("button", { name: "Copy JSON" })).toBeNull()
+  })
+
   test("Custom fields are absent when the payload has none to show", () => {
     render(<InfoTab report={reportFixture()} view={normalizePayload({ customFields: { fields: null, error: null, droppedKeys: 0 } })} />)
     expect(screen.queryByRole("heading", { name: "Custom fields" })).toBeNull()

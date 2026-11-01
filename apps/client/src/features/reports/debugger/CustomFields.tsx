@@ -1,7 +1,7 @@
 import { RiArrowRightSLine } from "@remixicon/react"
 import { useState } from "react"
 import { Button as AriaButton } from "react-aria-components"
-import { customFieldNotes, type JsonValue, type ViewCustomFields } from "@bugberry/debugger-view"
+import { customFieldNotes, hasFieldTree, type JsonValue, type ViewCustomFields } from "@bugberry/debugger-view"
 import { CopyButton } from "../../../components/ui/copy-button"
 import { Section } from "./InfoSection"
 
@@ -65,7 +65,7 @@ export function CustomFields({ fields }: { fields: ViewCustomFields }) {
   const notes = customFieldNotes(fields)
   return (
     <Section title="Custom fields">
-      {fields.fields && (
+      {fields.fields && hasFieldTree(fields) && (
         <div className="flex flex-col gap-2">
           <div className="overflow-x-auto rounded-md border border-border bg-muted/50 p-2 font-mono text-xs">
             <Tree entries={Object.entries(fields.fields)} depth={0} />

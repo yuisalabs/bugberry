@@ -104,9 +104,13 @@ export function hasCustomFields(fields: ViewCustomFields | null): fields is View
   return fields !== null && (fields.fields !== null || fields.error !== null)
 }
 
-/** The lines under the Custom fields tree, in this order: dropped keys, earlier page, last-page error. */
+/** Whether there is a tree to show: an empty object has nothing to open or copy. */
+export const hasFieldTree = (fields: ViewCustomFields) => fields.fields !== null && Object.keys(fields.fields).length > 0
+
+/** The lines under the Custom fields tree, in this order: no fields, dropped keys, earlier page, last-page error. */
 export function customFieldNotes(fields: ViewCustomFields): string[] {
   const notes: string[] = []
+  if (fields.fields !== null && !hasFieldTree(fields) && fields.droppedKeys === 0) notes.push("The app's metadata callback returned no fields")
   if (fields.droppedKeys > 0) notes.push(`+${fields.droppedKeys} ${fields.droppedKeys === 1 ? "field" : "fields"} over the 10 KB limit`)
   if (fields.url) notes.push(`From ${fields.url}, an earlier page of this recording`)
   if (fields.error) notes.push(`Not captured on the last page: ${fields.error}`)
