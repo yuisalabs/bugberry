@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { getRouteApi, useLocation, useNavigate } from "@tanstack/react-router"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { NotificationBell } from "../../notifications/NotificationBell"
 import { CopyLinkButton } from "../share/CopyLinkButton"
 import { MoreMenu } from "./MoreMenu"
@@ -20,6 +20,7 @@ import { projectQueries } from "../../projects/queries"
 import { workspaceQueries } from "../../workspaces/queries"
 import { type ReportPatch, reportQueries, updateReport, useAddFix, useRemoveFix } from "../queries"
 import { FixedInRow } from "./FixedInRow"
+import { ResolveWithLinkDialog } from "./ResolveWithLinkDialog"
 import { qk } from "../../../lib/query/keys"
 
 const routeApi = getRouteApi("/_authed/app/r/$reportId")
@@ -70,6 +71,7 @@ export function ReportPage() {
   })
 
   const addFix = useAddFix(reportId)
+  const [resolving, setResolving] = useState(false)
   const removeFix = useRemoveFix(reportId)
 
   // Someone outside the workspace who may still read the report is sent to its share link.
@@ -109,6 +111,7 @@ export function ReportPage() {
           report={report.data}
           members={members.data}
           onChange={(patch) => update.mutate(patch)}
+          onResolveWithLink={() => setResolving(true)}
           rows
         />
       }
@@ -129,6 +132,7 @@ export function ReportPage() {
       startAtSeconds={t}
     >
       <ReportComments reportId={report.data.id} workspaceId={report.data.workspaceId} />
+      <ResolveWithLinkDialog reportId={report.data.id} open={resolving} onClose={() => setResolving(false)} />
     </ReportView>
   )
 }
