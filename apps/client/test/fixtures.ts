@@ -28,6 +28,7 @@ export function reportFixture(overrides: Partial<ReportDetail> = {}): ReportDeta
     reporterEmail: "ana@kantor.test",
     location: null,
     assignee: null,
+    fixes: [],
     mediaUrl: "https://files.test/media-1.png",
     debuggerUrl: "https://files.test/debugger-1.gz",
     ...overrides,
