@@ -6,6 +6,13 @@ description: What changed in BugBerry, newest first.
 Each entry is named after the browser extension's version. Changes to the dashboard and the server ship with it. A
 release with no extension change still gets its own entry, and the entry says that the extension stays as it is.
 
+## 0.11.0 · 2 November 2026
+
+- **A Playwright test from any report, for AI agents.** Over MCP, `getReproductionScript` turns what the reporter
+  clicked and typed into a test that fails while the bug is there and passes once it's fixed. What was typed is never
+  stored, so those values come back as TODOs. Nothing runs on the server. See [AI agents](/guide/ai-agents#playwright-test).
+- **Self-hosting:** update the server (MCP changed). The extension stays at 0.10.0.
+
 ## 0.10.0 · 1 November 2026
 
 - **Your app's own logs and state in every report, with `@bugberry/sdk`.** Add two lines to your app.

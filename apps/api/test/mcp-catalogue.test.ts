@@ -9,6 +9,7 @@ const READ = [
   "getNetworkRequests",
   "getNetworkRequest",
   "getUserActions",
+  "getReproductionScript",
   "getFrustrationSignals",
   "getPerformance",
   "getCodeHotspots",

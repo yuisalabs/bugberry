@@ -16,8 +16,9 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { z } from "zod"
 import { type McpContext, runTool } from "../context"
 import { requireDebuggerView } from "../debugger"
-import { clip, moreLine, offsetLabel, paginate, textResult } from "../format"
+import { clip, moreLine, offsetLabel, paginate, reportUrl, textResult } from "../format"
 import { resolveReportRef } from "../refs"
+import { reproductionScript } from "../repro"
 import { pageArgs, reportArgs } from "./args"
 import { noteAgentRead } from "../activity"
 
@@ -221,6 +222,35 @@ export function registerEventTools(server: McpServer, ctx: McpContext): void {
         const page = paginate(actions, args.limit, args.cursor)
         if (page.items.length === 0) return textResult("No user actions match.")
         return textResult([...page.items.map((action) => `${offset(action.t)} ${actionText(action)}`), ...moreLine(page)].join("\n"))
+      }),
+  )
+
+  server.registerTool(
+    "getReproductionScript",
+    {
+      title: "Get a Playwright repro script",
+      description:
+        "A Playwright test (TypeScript) that replays what the person clicked and typed, and fails while the report's errors " +
+        "and failed requests come back, so it passes once the bug is fixed. Typed values are never stored, so they are TODOs; " +
+        "add sign-in setup if the page needs it. Nothing is run or kept on the server.",
+      inputSchema: { ...reportArgs },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    (args) =>
+      runTool(async () => {
+        const resolved = await resolveReportRef(ctx, args.report, args.workspace)
+        await noteAgentRead(ctx, resolved, "actions")
+        const view = await requireDebuggerView(ctx, resolved)
+        const { row } = resolved
+        const result = reproductionScript(view, {
+          number: row.number,
+          title: row.title,
+          url: reportUrl(ctx.deps.config.appUrl, resolved.id),
+          pageUrl: row.pageUrl,
+          captureType: row.captureType,
+        })
+        if (!result) return textResult("This report has no user actions to replay.")
+        return textResult(result.script, { filename: result.filename, script: result.script, warnings: result.warnings })
       }),
   )
 }

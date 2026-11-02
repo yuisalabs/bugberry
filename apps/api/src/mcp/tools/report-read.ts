@@ -27,7 +27,7 @@ export function nextSteps(summary: DebuggerSummary, captureType: CaptureType = "
   // The app's own breadcrumbs say what it was doing, so they come right after the errors.
   if (hasSdkLogs) steps.push(SDK_LOGS_STEP)
   if (summary.failedRequests > 0) steps.push("getNetworkRequests failedOnly=true")
-  if (summary.actions > 0) steps.push("getUserActions")
+  if (summary.actions > 0) steps.push("getUserActions", "getReproductionScript")
   steps.push("getTimeline")
   if (captureType === "video") steps.push("getRecording")
   return steps

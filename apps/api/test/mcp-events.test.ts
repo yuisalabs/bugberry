@@ -147,3 +147,35 @@ describe("sdk lines", () => {
     expect(lines(only.text).filter((line) => /^[+-]\d\d:/.test(line))).toHaveLength(2)
   })
 })
+
+describe("getReproductionScript", () => {
+  test("answers the script with filename and warnings", async () => {
+    const result = await callTool(client, "getReproductionScript", { report: reportId })
+    expect(result.isError).toBe(false)
+    expect(result.text).toContain('test("BB-')
+    expect(result.text).toContain('await page.getByRole("button", { name: "Pay now", exact: true }).click()')
+    expect(result.structured).toMatchObject({
+      filename: expect.stringMatching(/^bb-\d+-button-does-nothing\.spec\.ts$/),
+      script: result.text,
+      warnings: expect.any(Array),
+    })
+  })
+
+  test("a report without actions says so, without an error", async () => {
+    const id = crypto.randomUUID()
+    const ana = await createUserWithToken(ctx.db)
+    await createReadyReport(ctx.db, { id, reporterId: ana.user.id, debuggerKey: await putDebugger(ctx, id, { events: [] }) })
+    const result = await callTool(await mcpClient(ctx.app, ana.headers), "getReproductionScript", { report: id })
+    expect(result.isError).toBe(false)
+    expect(result.text).toBe("This report has no user actions to replay.")
+  })
+
+  test("a report without debugger data says so, without an error", async () => {
+    const id = crypto.randomUUID()
+    const ana = await createUserWithToken(ctx.db)
+    await createReadyReport(ctx.db, { id, reporterId: ana.user.id })
+    const result = await callTool(await mcpClient(ctx.app, ana.headers), "getReproductionScript", { report: id })
+    expect(result.isError).toBe(false)
+    expect(result.text).toBe("This report has no captured debugger data")
+  })
+})
