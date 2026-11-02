@@ -114,3 +114,40 @@ export const useEditComment = (reportId: string) =>
 export const useDeleteComment = (reportId: string) => useCommentMutation(reportId, (id: string) => deleteComment(id))
 export const useReact = (reportId: string) =>
   useCommentMutation(reportId, ({ commentId, emoji }: { commentId: string; emoji: string }) => react(commentId, emoji))
+
+export const addFix = (reportId: string, url: string) => unwrap(eden.api.reports({ id: reportId }).fixes.post({ url }))
+export const removeFix = (reportId: string, fixId: string) => unwrap(eden.api.reports({ id: reportId }).fixes({ fixId }).delete())
+export const resolveReport = (reportId: string, input: { links: string[]; note?: string }) =>
+  unwrap(eden.api.reports({ id: reportId }).resolve.post(input))
+
+/** A "Fixed in" link: a PR, merge request or commit. Members only. */
+export type ReportFix = NonNullable<ReportDetail["fixes"]>[number]
+
+/** Fix links show on the report and in its activity, and resolving changes the lists' status counts. */
+function useFixMutation<T, R>(reportId: string, request: (input: T) => Promise<R>, onDone?: (result: R) => void) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: request,
+    onSuccess: (result) => {
+      onDone?.(result)
+      void queryClient.invalidateQueries({ queryKey: qk.report(reportId) })
+      void queryClient.invalidateQueries({ queryKey: qk.activity(reportId) })
+      void queryClient.invalidateQueries({ queryKey: qk.reports.all })
+    },
+  })
+}
+
+export const useAddFix = (reportId: string) => useFixMutation(reportId, (url: string) => addFix(reportId, url))
+export const useRemoveFix = (reportId: string) => useFixMutation(reportId, (fixId: string) => removeFix(reportId, fixId))
+export function useResolveReport(reportId: string) {
+  const queryClient = useQueryClient()
+  return useFixMutation(
+    reportId,
+    (input: { links: string[]; note?: string }) => resolveReport(reportId, input),
+    (result) => {
+      queryClient.setQueryData(qk.report(reportId), result.detail)
+      // A note posted with it is a comment.
+      void queryClient.invalidateQueries({ queryKey: qk.comments(reportId) })
+    },
+  )
+}
