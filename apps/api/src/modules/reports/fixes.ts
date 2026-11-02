@@ -1,0 +1,165 @@
+import { cleanFixUrl, type FixProvider, fixLinkLabel, MAX_FIXES_PER_REPORT } from "@bugberry/shared"
+import { type Db, withTransaction } from "../../db/client"
+import type { ReportFixRow } from "../../db/schema"
+import type { AppDeps } from "../../deps"
+import { createEmailSender } from "../../lib/email/sender"
+import { notFound, unprocessable } from "../../lib/errors"
+import type { CurrentUser } from "../../plugins/auth"
+import { recordActivity } from "../activity/repository"
+import { findReportHeading, userEmails } from "../comments/repository"
+import { createCommentsService } from "../comments/service"
+import { memberRole, requireReportMember } from "../workspaces/access"
+import { loadReportDetail, type ReportDetail } from "./detail"
+import {
+  deleteFix,
+  findReportStatus,
+  insertFix,
+  insertResolvedNotification,
+  listReportFixes,
+  markResolved,
+} from "./fixes-repository"
+import { resolvedEmail } from "./resolved-email"
+
+export interface FixView {
+  id: string
+  url: string
+  label: string
+  provider: FixProvider
+  addedById: string | null
+  viaAgent: string | null
+  createdAt: Date
+}
+
+export function toFixViews(rows: ReportFixRow[]): FixView[] {
+  return rows.map((row) => ({
+    id: row.id,
+    url: row.url,
+    ...fixLinkLabel(row.url),
+    addedById: row.addedBy,
+    viaAgent: row.viaAgent,
+    createdAt: row.createdAt,
+  }))
+}
+
+function cleanLinks(urls: string[]): string[] {
+  if (urls.length === 0) throw unprocessable("fix_url_invalid", "Add at least one fix link")
+  return urls.map((value) => {
+    const url = cleanFixUrl(value)
+    if (!url) throw unprocessable("fix_url_invalid", "Enter an http or https link")
+    return url
+  })
+}
+
+/** Adds what isn't on the report yet, each with its activity line; a link already there is left alone. */
+async function addLinks(db: Db, caller: CurrentUser, reportId: string, urls: string[], viaAgent: string | null): Promise<void> {
+  const present = new Set((await listReportFixes(db, reportId)).map((row) => row.url))
+  for (const url of urls) {
+    if (present.has(url)) continue
+    if (present.size >= MAX_FIXES_PER_REPORT) {
+      throw unprocessable("fix_limit", `A report can have at most ${MAX_FIXES_PER_REPORT} fix links`)
+    }
+    const row = await insertFix(db, { reportId, url, addedBy: caller.id, viaAgent })
+    present.add(url)
+    if (row) await recordActivity(db, { reportId, kind: "fix", detail: { action: "added", url }, actorId: caller.id, viaAgent })
+  }
+}
+
+/** Any member may add a fix link; adding one that is already there changes nothing. */
+export async function addFix(
+  { db }: Pick<AppDeps, "db">,
+  caller: CurrentUser,
+  reportId: string,
+  url: string,
+  opts: { viaAgent?: string } = {},
+): Promise<FixView[]> {
+  await requireReportMember(db, caller.id, reportId)
+  const [clean] = cleanLinks([url])
+  await withTransaction(db, () => addLinks(db, caller, reportId, [clean as string], opts.viaAgent ?? null))
+  return toFixViews(await listReportFixes(db, reportId))
+}
+
+export async function removeFix({ db }: Pick<AppDeps, "db">, caller: CurrentUser, reportId: string, fixId: string): Promise<FixView[]> {
+  await requireReportMember(db, caller.id, reportId)
+  await withTransaction(db, async () => {
+    const removed = await deleteFix(db, reportId, fixId)
+    if (!removed) throw notFound("fix_not_found", "Fix link not found")
+    await recordActivity(db, { reportId, kind: "fix", detail: { action: "removed", url: removed.url }, actorId: caller.id, viaAgent: null })
+  })
+  return toFixViews(await listReportFixes(db, reportId))
+}
+
+/** Sent after the work is saved; a failed email is only logged. */
+function emailReporter(
+  deps: AppDeps,
+  input: { reporterId: string; reportId: string; actorName: string; links: string[]; note: string | null; viaAgent: string | null },
+): void {
+  const sender = deps.email ?? (deps.config.email ? createEmailSender(deps.config.email) : null)
+  if (!sender) return
+  const task = (async () => {
+    const heading = await findReportHeading(deps.db, input.reportId)
+    const [person] = await userEmails(deps.db, [input.reporterId])
+    if (!heading || !person) return
+    const email = resolvedEmail({
+      actorName: input.actorName,
+      reportNumber: heading.number,
+      reportTitle: heading.title,
+      links: input.links,
+      note: input.note,
+      url: `${deps.config.appUrl}/app/r/${input.reportId}`,
+      viaAgent: input.viaAgent,
+    })
+    await sender.send({ to: person.email, ...email })
+  })().catch((error) => console.error("resolved email failed", error))
+  deps.background?.(task)
+}
+
+/**
+ * Resolves the report with where it was fixed. The reporter hears about it once, in the bell and by email, unless
+ * they did it themselves, left the workspace, or the report was already resolved.
+ */
+export async function resolveReport(
+  deps: AppDeps,
+  caller: CurrentUser,
+  reportId: string,
+  input: { links: string[]; note?: string },
+  opts: { viaAgent?: string } = {},
+): Promise<{ detail: ReportDetail; links: FixView[]; notified: boolean }> {
+  const { db } = deps
+  const target = await requireReportMember(db, caller.id, reportId)
+  const urls = cleanLinks(input.links)
+  const viaAgent = opts.viaAgent ?? null
+
+  const notified = await withTransaction(db, async () => {
+    await addLinks(db, caller, reportId, urls, viaAgent)
+    const before = await findReportStatus(db, reportId)
+    if (!(await markResolved(db, reportId))) return false
+    await recordActivity(db, { reportId, kind: "status", detail: { from: before, to: "resolved" }, actorId: caller.id, viaAgent })
+    const tell = target.reporterId !== caller.id && (await memberRole(db, target.reporterId, target.workspaceId)) !== null
+    if (tell) await insertResolvedNotification(db, { userId: target.reporterId, reportId, actorId: caller.id })
+    return tell
+  })
+
+  // After the commit: the comments service starts its mention emails in the background, which must not run on a closed transaction.
+  const note = input.note?.trim() || null
+  if (note) {
+    // The resolved notification already carries the note, so the reporter gets no mention for it as well.
+    await createCommentsService(deps).create(caller, reportId, note, {
+      viaAgent: opts.viaAgent,
+      quietFor: notified ? [target.reporterId] : [],
+    })
+  }
+  const links = toFixViews(await listReportFixes(db, reportId))
+  if (notified) {
+    emailReporter(deps, {
+      reporterId: target.reporterId,
+      reportId,
+      actorName: caller.name,
+      links: links.map((link) => link.url),
+      note,
+      viaAgent,
+    })
+  }
+  const detail = await loadReportDetail(deps, { id: reportId }, { forMember: true })
+  if (!detail) throw notFound("report_not_found", "Report not found")
+  return { detail, links, notified }
+}

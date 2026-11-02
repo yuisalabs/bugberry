@@ -143,15 +143,23 @@ export function createCommentsService(deps: AppDeps) {
         .reverse()
         .map((root) => ({ ...root, replies: replies.get(root.id) ?? [] }))
     },
-    /** `viaAgent` is set only by MCP tools; REST never passes it. `replyTo` files the comment in that one's thread. */
-    async create(current: CurrentUser, reportId: string, body: string, opts: { viaAgent?: string; replyTo?: string } = {}) {
+    /**
+     * `viaAgent` is set only by MCP tools; REST never passes it. `replyTo` files the comment in that one's thread.
+     * `quietFor` gets no mention notification or email from it.
+     */
+    async create(
+      current: CurrentUser,
+      reportId: string,
+      body: string,
+      opts: { viaAgent?: string; replyTo?: string; quietFor?: string[] } = {},
+    ) {
       const workspaceId = await requireReport(current.id, reportId)
       const id = newId()
       const text = cleanBody(body)
       const viaAgent = opts.viaAgent ?? null
       const parentId = opts.replyTo ? await threadRootOf(reportId, opts.replyTo) : null
       await insertComment(db, { id, reportId, authorId: current.id, body: text, viaAgent, parentId })
-      const notified = await notifyMentions(db, { commentId: id, reportId, workspaceId, actorId: current.id, body: text })
+      const notified = await notifyMentions(db, { commentId: id, reportId, workspaceId, actorId: current.id, body: text, skip: opts.quietFor })
       if (parentId) await notifyReplies(db, { commentId: id, reportId, workspaceId, actorId: current.id, rootId: parentId })
       emailMentions({ userIds: notified, commentId: id, reportId, workspaceId, actorName: current.name, body: text, viaAgent })
       return loadComment(id, workspaceId)
