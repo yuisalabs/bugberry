@@ -18,6 +18,7 @@ const WHAT_HAPPENED = {
   mention: { verb: "mentioned you", on: "in" },
   reply_to_you: { verb: "replied to your comment", on: "in" },
   reply_in_thread: { verb: "replied in a thread you're in", on: "on" },
+  resolved: { verb: "resolved", on: "" },
 } as const
 
 export function NotificationBadge({ count }: { count: number }) {

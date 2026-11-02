@@ -5,7 +5,10 @@ import { user } from "./auth"
 import { report } from "./reports"
 import { comment } from "./comments"
 
-/** "Someone mentioned you": one row per person and comment, so edits never notify anyone twice. */
+/**
+ * A bell notification. Comment kinds have one row per person and comment, so edits never notify anyone twice;
+ * a "resolved" row has no comment.
+ */
 export const notification = pgTable(
   "notification",
   {
@@ -13,9 +16,7 @@ export const notification = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    commentId: text("comment_id")
-      .notNull()
-      .references(() => comment.id, { onDelete: "cascade" }),
+    commentId: text("comment_id").references(() => comment.id, { onDelete: "cascade" }),
     reportId: text("report_id")
       .notNull()
       .references(() => report.id, { onDelete: "cascade" }),

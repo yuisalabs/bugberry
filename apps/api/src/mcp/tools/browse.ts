@@ -56,6 +56,7 @@ const NOTIFICATION_VERBS = {
   mention: "mentioned you",
   reply_to_you: "replied to your comment",
   reply_in_thread: "replied in a thread you're in",
+  resolved: "resolved",
 } as const
 
 export function registerBrowseTools(server: McpServer, ctx: McpContext): void {
