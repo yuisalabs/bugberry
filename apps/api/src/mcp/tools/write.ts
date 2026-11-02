@@ -1,9 +1,10 @@
-import { PRIORITIES, REPORT_STATUSES } from "@bugberry/shared"
+import { MAX_FIX_URL_LENGTH, MAX_FIXES_PER_REPORT, PRIORITIES, REPORT_STATUSES } from "@bugberry/shared"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { z } from "zod"
 import { findProjectByRef } from "../../modules/projects/repository"
 import { createCommentsService } from "../../modules/comments/service"
 import { markAllNotificationsRead, markNotificationRead } from "../../modules/notifications/service"
+import { resolveReport } from "../../modules/reports/fixes"
 import { updateReport, type UpdateReportInput } from "../../modules/reports/service"
 import { agentLabel, type McpContext, McpToolError, requireWrite, runTool } from "../context"
 import { reportUrl, textResult } from "../format"
@@ -117,6 +118,47 @@ export function registerWriteTools(server: McpServer, ctx: McpContext): void {
         const detail = await updateReport(ctx.deps, ctx.caller.user, resolved.id, input, { viaAgent: agentLabel(ctx.caller) })
         return textResult(
           `Updated BB-${detail.number}: ${detail.status}/${detail.priority}, assignee ${detail.assignee?.name ?? "nobody"}. ${reportUrl(appUrl, detail.id)}`,
+        )
+      }),
+  )
+
+  server.registerTool(
+    "resolveReport",
+    {
+      title: "Resolve a report with its fix",
+      description:
+        "Mark a report resolved and record where it was fixed: links to the pull request, merge request or commit. " +
+        "The reporter gets a notification and an email, once, unless they resolved it themselves. An optional note is posted as your comment. " +
+        "Calling it again on a resolved report only adds links, and posts the note again if you give one.",
+      inputSchema: {
+        ...reportArgs,
+        links: z
+          .array(z.string().min(1).max(MAX_FIX_URL_LENGTH))
+          .min(1)
+          .max(MAX_FIXES_PER_REPORT)
+          .describe("http(s) links to the PR, MR or commit that fixed it."),
+        note: z.string().max(5000).optional().describe("A note for the reporter, posted as a comment."),
+      },
+      annotations: writeAnnotations,
+    },
+    (args) =>
+      runTool(async () => {
+        requireWrite(ctx)
+        const resolved = await resolveReportRef(ctx, args.report, args.workspace)
+        requireMemberAccess(resolved)
+        const result = await resolveReport(
+          ctx.deps,
+          ctx.caller.user,
+          resolved.id,
+          { links: args.links, note: args.note },
+          { viaAgent: agentLabel(ctx.caller) },
+        )
+        const told = result.notified
+          ? "Reporter notified."
+          : "Reporter not notified (their own report, a former member, or it was already resolved)."
+        return textResult(
+          `Resolved BB-${result.detail.number} with ${result.links.length} fix link(s): ${result.links.map((link) => link.label).join(", ")}. ${told} ${reportUrl(appUrl, resolved.id)}`,
+          { status: result.detail.status, notified: result.notified, links: result.links.map(({ url, label }) => ({ url, label })) },
         )
       }),
   )

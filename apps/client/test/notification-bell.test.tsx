@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
-import { NotificationBadge, NotificationBellView } from "../src/features/notifications/NotificationBell"
+import { NotificationBadge, NotificationBellView, notificationTarget } from "../src/features/notifications/NotificationBell"
 import type { Notifications } from "../src/features/notifications/queries"
 
 const NOW = new Date("2026-10-18T10:00:00Z").getTime()
@@ -58,10 +58,30 @@ describe("NotificationBell", () => {
     unmount()
   })
 
-  test("No mentions yet", () => {
+  test("opening a comment notification lands on the comment, a resolved one on the report", () => {
+    expect(notificationTarget(item(7))).toEqual({ to: "/app/r/$reportId", params: { reportId: "r7" }, hash: "comment-c7" })
+    expect(notificationTarget(item(8, { kind: "resolved", commentId: null }))).toEqual({
+      to: "/app/r/$reportId",
+      params: { reportId: "r8" },
+      hash: undefined,
+    })
+  })
+
+  test("No notifications yet", () => {
     view({ items: [], unreadCount: 0 })
-    expect(screen.getByText("No mentions yet")).toBeTruthy()
+    expect(screen.getByText("Notifications")).toBeTruthy()
+    expect(screen.getByText("No notifications yet")).toBeTruthy()
     expect(screen.queryByRole("button", { name: "Mark all as read" })).toBeNull()
+  })
+
+  test("a resolved report reads 'resolved BB-n' and opens like the rest", () => {
+    const resolved = item(7, { kind: "resolved", commentId: null, actor: { id: "u2", name: "Budi", image: null }, viaAgent: "Claude Code", snippet: "Fixed in PR #42 · shop/web" })
+    const { onOpen } = view({ items: [resolved], unreadCount: 1 })
+    const [row] = screen.getAllByRole("button", { name: /resolved/ })
+    expect(row?.textContent).toContain("Budi resolved (via Claude Code) BB-7 · Pay button fails")
+    expect(row?.textContent).toContain("Fixed in PR #42 · shop/web")
+    fireEvent.click(row as HTMLElement)
+    expect(onOpen).toHaveBeenCalledWith(resolved)
   })
 
   test("bell rows are plain text", () => {

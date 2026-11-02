@@ -4,6 +4,7 @@ import { comment, notification } from "../src/db/schema"
 import { newId } from "../src/lib/ids"
 import { addMember, createProject, createReadyReport, createUserWithToken, createWorkspaceRow, setupTestApp } from "./helpers"
 import { callTool, mcpClient } from "./mcp-helpers"
+import { resolveReport } from "../src/modules/reports/fixes"
 
 let ctx: Awaited<ReturnType<typeof setupTestApp>>
 let ana: Awaited<ReturnType<typeof createUserWithToken>>
@@ -106,5 +107,17 @@ describe("ChatGPT search and fetch", () => {
     const doc = JSON.parse(fetched.text)
     expect(doc).toMatchObject({ id: report.id, title: `BB-${report.number} · Pay fails`, url, metadata: { status: "open", priority: "none" } })
     expect(doc.text).toContain("Pay fails")
+  })
+})
+
+describe("getNotifications for a resolved report", () => {
+  test("says who resolved it and where it was fixed", async () => {
+    const report = await createReadyReport(ctx.db, { reporterId: ana.user.id, title: "Pay fails" })
+    await resolveReport(ctx, budi.user, report.id, { links: ["https://github.com/shop/web/pull/42"] }, { viaAgent: "Claude Code" })
+    const { text } = await callTool(client, "getNotifications")
+    expect(text).toContain(`Budi (via Claude Code) resolved BB-${report.number} · Pay fails`)
+    expect(text).toContain("Fixed in PR #42 · shop/web")
+    expect(text.split("\n").at(-1)?.trim()).toBe(`http://localhost:3000/app/r/${report.id}`)
+    expect(text).not.toContain("#comment-null")
   })
 })

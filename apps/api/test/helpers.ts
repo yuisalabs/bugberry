@@ -49,6 +49,7 @@ const TABLES = [
   "oauth_client",
   "jwks",
   "notification",
+  "report_fix",
   "pending_avatar",
   "pending_logo",
   "join_request",

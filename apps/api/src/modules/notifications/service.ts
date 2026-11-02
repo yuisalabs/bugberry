@@ -1,12 +1,14 @@
 import type { AppDeps } from "../../deps"
 import type { CurrentUser } from "../../plugins/auth"
 import { notFound } from "../../lib/errors"
+import { fixLinkLabel } from "@bugberry/shared"
 import { mentionedIds, snippetOf } from "../comments/mentions"
+import { listFixesOf } from "../reports/repository"
 import { countVisibleUnread, findOwnNotification, listVisibleNotifications, markAllRead, markRead, memberNames } from "./repository"
 
 const LIMIT = 50
 
-/** The bell: mentions of the caller and replies in their threads, only in workspaces they still belong to. */
+/** The bell: mentions, replies in the caller's threads and their resolved reports, only in workspaces they still belong to. */
 export async function listNotifications(
   { db }: Pick<AppDeps, "db">,
   current: CurrentUser,
@@ -19,11 +21,21 @@ export async function listNotifications(
   const unreadCount = await countVisibleUnread(db, current.id)
 
   // Names are looked up per workspace: a token only shows a name for a member of that workspace.
-  const ids = [...new Set(rows.flatMap((row) => mentionedIds(row.body)))]
+  // A note kept for its replies has its text wiped; it reads as no note at all.
+  const noteOf = (row: (typeof rows)[number]) => (row.noteDeletedAt === null ? (row.noteBody ?? "") : "")
+  const ids = [...new Set(rows.flatMap((row) => [...mentionedIds(row.body ?? ""), ...mentionedIds(noteOf(row))]))]
   const workspaces = [...new Set(rows.map((row) => row.workspaceId))]
   const members = ids.length === 0 ? [] : await memberNames(db, workspaces, ids)
   const namesIn = (workspaceId: string) =>
     new Map(members.filter((member) => member.workspaceId === workspaceId).map((member) => [member.id, member.name]))
+
+  // A resolved row says where the report was fixed, as it stands now.
+  const resolvedIds = [...new Set(rows.filter((row) => row.kind === "resolved").map((row) => row.report.id))]
+  const fixes = await listFixesOf(db, resolvedIds)
+  const fixedIn = (reportId: string) => {
+    const labels = fixes.filter((fix) => fix.reportId === reportId).map((fix) => fixLinkLabel(fix.url).label)
+    return labels.length > 0 ? `Fixed in ${labels.join(", ")}` : "Resolved"
+  }
 
   return {
     items: rows.map((row) => ({
@@ -34,8 +46,13 @@ export async function listNotifications(
       actor: row.actorId ? { id: row.actorId, name: row.actorName ?? "", image: row.actorImage ?? null } : null,
       report: row.report,
       commentId: row.commentId,
-      snippet: snippetOf(row.body, namesIn(row.workspaceId)),
-      viaAgent: row.viaAgent,
+      snippet:
+        row.kind === "resolved"
+          ? noteOf(row)
+            ? snippetOf(`${fixedIn(row.report.id)}. ${noteOf(row)}`, namesIn(row.workspaceId))
+            : fixedIn(row.report.id)
+          : snippetOf(row.body ?? "", namesIn(row.workspaceId)),
+      viaAgent: row.notificationViaAgent ?? row.commentViaAgent,
     })),
     unreadCount,
   }

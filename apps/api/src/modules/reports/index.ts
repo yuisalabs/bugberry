@@ -1,7 +1,8 @@
 import { Elysia } from "elysia"
 import type { AppDeps } from "../../deps"
 import { authPlugin } from "../../plugins/auth"
-import { listReportsQuery, reportLocationBody, updateReportBody } from "./model"
+import { addFixBody, listReportsQuery, reportLocationBody, resolveReportBody, updateReportBody } from "./model"
+import { addFix, removeFix, resolveReport } from "./fixes"
 import {
   countReportsByStatus,
   listReports,
@@ -27,6 +28,16 @@ export function reportsModule(deps: AppDeps) {
     .patch("/reports/:id", ({ user: current, params, body }) => updateReport(deps, current, params.id, body), {
       auth: true,
       body: updateReportBody,
+    })
+    .post("/reports/:id/fixes", ({ user: current, params, body }) => addFix(deps, current, params.id, body.url), {
+      auth: true,
+      body: addFixBody,
+    })
+    .delete("/reports/:id/fixes/:fixId", ({ user: current, params }) => removeFix(deps, current, params.id, params.fixId), { auth: true })
+    // Resolving with a link tells the reporter; changing the status with PATCH doesn't.
+    .post("/reports/:id/resolve", ({ user: current, params, body }) => resolveReport(deps, current, params.id, body), {
+      auth: true,
+      body: resolveReportBody,
     })
     .post(
       "/reports/:id/location",

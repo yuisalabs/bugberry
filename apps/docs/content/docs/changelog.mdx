@@ -11,7 +11,13 @@ release with no extension change still gets its own entry, and the entry says th
 - **A Playwright test from any report, for AI agents.** Over MCP, `getReproductionScript` turns what the reporter
   clicked and typed into a test that fails while the bug is there and passes once it's fixed. What was typed is never
   stored, so those values come back as TODOs. Nothing runs on the server. See [AI agents](/guide/ai-agents#playwright-test).
-- **Self-hosting:** update the server (MCP changed). The extension stays at 0.10.0.
+- **Resolve a report with the fix that closed it.** **Resolve with link…** in the Status menu, or `resolveReport`
+  over MCP, marks the report resolved with links to the pull request, merge request or commit. They show under
+  **Fixed in**, members only. The person who reported the bug gets one notification in the bell and an email. The bell
+  now holds more than mentions.
+- **Self-hosting:** update the server and the dashboard. Migrations `0032` and `0033` run when the server
+  starts. The extension
+  stays at 0.10.0.
 
 ## 0.10.0 · 1 November 2026
 

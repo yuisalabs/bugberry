@@ -1,4 +1,4 @@
-import { type IntegrationProvider, issueReference, PROVIDER_LABELS, type Priority, type ReportStatus } from "@bugberry/shared"
+import { fixLinkLabel, type IntegrationProvider, issueReference, PROVIDER_LABELS, type Priority, type ReportStatus } from "@bugberry/shared"
 import { reportedVia } from "../detail/ReportMeta"
 import { PRIORITY_LABELS, STATUS_LABELS } from "../list/labels"
 import type { Activity, CommentThread } from "../queries"
@@ -93,6 +93,10 @@ export function activitySentence(item: Activity): string {
       const where = `${PROVIDER_LABELS[provider] ?? "the tracker"} as ${issueReference(provider, String(detail.externalId))}`
       // Only sends marked automatic say so; older ones never stored who sent them.
       return detail.automatic ? `sent automatically to ${where}` : `sent this to ${where}`
+    }
+    case "fix": {
+      const label = fixLinkLabel(String(detail.url ?? "")).label
+      return detail.action === "removed" ? `removed a fix link: ${label}` : `added a fix link: ${label}`
     }
     case "agent_read":
       return `read ${listOf(((detail.parts as string[] | undefined) ?? []).map((part) => READ_PARTS[part] ?? part))}`

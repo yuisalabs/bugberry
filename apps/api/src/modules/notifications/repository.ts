@@ -5,6 +5,7 @@ import { comment, notification, report, user, workspaceMember } from "../../db/s
 
 const actor = alias(user, "actor")
 const callerMember = alias(workspaceMember, "caller")
+const note = alias(comment, "note")
 
 /** Rows of the caller's that sit in a workspace the caller is still a member of. */
 const visible = (userId: string) =>
@@ -19,7 +20,10 @@ export function listVisibleNotifications(db: Db, userId: string, opts: { unreadO
       createdAt: notification.createdAt,
       commentId: notification.commentId,
       body: comment.body,
-      viaAgent: comment.viaAgent,
+      commentViaAgent: comment.viaAgent,
+      notificationViaAgent: notification.viaAgent,
+      noteBody: note.body,
+      noteDeletedAt: note.deletedAt,
       workspaceId: report.workspaceId,
       report: { id: report.id, number: report.number, title: report.title },
       actorId: actor.id,
@@ -29,7 +33,9 @@ export function listVisibleNotifications(db: Db, userId: string, opts: { unreadO
     .from(notification)
     .innerJoin(report, eq(report.id, notification.reportId))
     .innerJoin(callerMember, eq(callerMember.workspaceId, report.workspaceId))
-    .innerJoin(comment, eq(comment.id, notification.commentId))
+    // A resolved notification has no comment.
+    .leftJoin(comment, eq(comment.id, notification.commentId))
+    .leftJoin(note, eq(note.id, notification.noteCommentId))
     .leftJoin(actor, eq(actor.id, notification.actorId))
     .where(opts.unreadOnly ? and(visible(userId), isNull(notification.readAt)) : visible(userId))
     .orderBy(desc(notification.createdAt), desc(notification.id))

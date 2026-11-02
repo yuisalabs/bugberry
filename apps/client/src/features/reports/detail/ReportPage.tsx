@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { getRouteApi, useLocation, useNavigate } from "@tanstack/react-router"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { NotificationBell } from "../../notifications/NotificationBell"
 import { CopyLinkButton } from "../share/CopyLinkButton"
 import { MoreMenu } from "./MoreMenu"
@@ -18,7 +18,9 @@ import { useCurrentWorkspace } from "../../workspaces/workspace"
 import { ApiError, errorMessage } from "../../../lib/query/unwrap"
 import { projectQueries } from "../../projects/queries"
 import { workspaceQueries } from "../../workspaces/queries"
-import { type ReportPatch, reportQueries, updateReport } from "../queries"
+import { type ReportPatch, reportQueries, updateReport, useAddFix, useRemoveFix } from "../queries"
+import { FixedInRow } from "./FixedInRow"
+import { ResolveWithLinkDialog } from "./ResolveWithLinkDialog"
 import { qk } from "../../../lib/query/keys"
 
 const routeApi = getRouteApi("/_authed/app/r/$reportId")
@@ -68,6 +70,10 @@ export function ReportPage() {
     },
   })
 
+  const addFix = useAddFix(reportId)
+  const [resolving, setResolving] = useState(false)
+  const removeFix = useRemoveFix(reportId)
+
   // Someone outside the workspace who may still read the report is sent to its share link.
   const shareSlug =
     report.error instanceof ApiError && report.error.code === "use_share_link" ? report.error.body.shareSlug : undefined
@@ -105,7 +111,19 @@ export function ReportPage() {
           report={report.data}
           members={members.data}
           onChange={(patch) => update.mutate(patch)}
+          onResolveWithLink={() => setResolving(true)}
           rows
+        />
+      }
+      fixedIn={
+        <FixedInRow
+          fixes={report.data.fixes ?? []}
+          onAdd={(url) => addFix.mutateAsync(url)}
+          onRemove={(fixId) =>
+            removeFix.mutate(fixId, { onError: (error) => toast({ title: errorMessage(error), tone: "error" }) })
+          }
+          saving={addFix.isPending}
+          error={addFix.error ? errorMessage(addFix.error) : null}
         />
       }
       title={<ReportTitle title={report.data.title} editable onSave={(title) => update.mutate({ title })} />}
@@ -114,6 +132,7 @@ export function ReportPage() {
       startAtSeconds={t}
     >
       <ReportComments reportId={report.data.id} workspaceId={report.data.workspaceId} />
+      <ResolveWithLinkDialog reportId={report.data.id} open={resolving} onClose={() => setResolving(false)} />
     </ReportView>
   )
 }

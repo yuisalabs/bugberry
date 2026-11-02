@@ -40,12 +40,13 @@ export function mentionsOf(body: string, names: Map<string, string>): Array<{ id
 /**
  * Notifies the members a comment mentions, except its author, and returns who was notified now. Someone already
  * mentioned in it is skipped, so edits never notify twice; one with only a reply notification gets the mention.
+ * `skip` leaves out people already told about this comment another way.
  */
 export async function notifyMentions(
   db: Db,
-  input: { commentId: string; reportId: string; workspaceId: string; actorId: string; body: string },
+  input: { commentId: string; reportId: string; workspaceId: string; actorId: string; body: string; skip?: string[] },
 ): Promise<string[]> {
-  const ids = mentionedIds(input.body).filter((id) => id !== input.actorId)
+  const ids = mentionedIds(input.body).filter((id) => id !== input.actorId && !input.skip?.includes(id))
   const members = [...(await memberNames(db, input.workspaceId, ids)).keys()]
   if (members.length === 0) return []
   const target = { commentId: input.commentId, reportId: input.reportId, actorId: input.actorId }

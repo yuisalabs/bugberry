@@ -9,6 +9,8 @@ import type { ReportDetail, ReportPatch } from "../queries"
 
 /** "Unassigned" in the assignee list; a list key can't be empty. */
 const NOBODY = "__nobody"
+/** The status list's last option: it opens the Resolve with link dialog and leaves the status as it is until then. */
+export const RESOLVE_WITH_LINK = "__resolve_with_link"
 
 /** A small Intent Select with an icon on the left, as in the report page's field row. */
 function CompactSelect({
@@ -60,11 +62,14 @@ export function ReportFields({
   report,
   members,
   onChange,
+  onResolveWithLink,
   rows = false,
 }: {
   report: Pick<ReportDetail, "status" | "priority" | "assignee">
   members: Member[] | undefined
   onChange(patch: ReportPatch): void
+  /** Offers Resolve with link… in the status list; it tells the reporter, which a plain status change doesn't. */
+  onResolveWithLink?(): void
   /** One field per row, label on the left: the report sidebar's Properties. */
   rows?: boolean
 }) {
@@ -84,8 +89,11 @@ export function ReportFields({
         label="Status"
         icon={<span className={`block size-2 rounded-full ${STATUS_DOT_STYLES[report.status]}`} />}
         value={report.status}
-        onChange={(status) => onChange({ status: status as ReportStatus })}
-        options={REPORT_STATUSES.map((status) => ({ id: status, label: STATUS_LABELS[status] }))}
+        onChange={(status) => (status === RESOLVE_WITH_LINK ? onResolveWithLink?.() : onChange({ status: status as ReportStatus }))}
+        options={[
+          ...REPORT_STATUSES.map((status) => ({ id: status, label: STATUS_LABELS[status] })),
+          ...(onResolveWithLink ? [{ id: RESOLVE_WITH_LINK, label: "Resolve with link…" }] : []),
+        ]}
         rows={rows}
       />
       <CompactSelect

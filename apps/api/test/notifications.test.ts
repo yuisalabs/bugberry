@@ -5,6 +5,7 @@ import { renderMentions } from "../src/modules/comments/mentions"
 import { createCommentsService } from "../src/modules/comments/service"
 import { createProject, createReadyReport, createUserWithToken, setupTestApp } from "./helpers"
 import { callTool, mcpClient } from "./mcp-helpers"
+import { removeFix, resolveReport } from "../src/modules/reports/fixes"
 
 let ctx: Awaited<ReturnType<typeof setupTestApp>>
 let ana: Awaited<ReturnType<typeof createUserWithToken>>
@@ -157,3 +158,29 @@ describe("getNotifications over MCP", () => {
     expect(result.text).toContain("Budi replied to your comment in BB-")
   })
 })
+
+describe("resolved notifications", () => {
+  test("list without a comment, with a Fixed in snippet and the agent", async () => {
+    const result = await resolveReport(ctx, budi.user, reportId, { links: ["https://github.com/shop/web/pull/42"] }, { viaAgent: "Claude Code" })
+    const { data } = await list(ana)
+    expect(data?.unreadCount).toBe(1)
+    expect(data?.items).toMatchObject([
+      { kind: "resolved", commentId: null, snippet: "Fixed in PR #42 · shop/web", actor: { name: "Budi" }, viaAgent: "Claude Code", report: { id: reportId } },
+    ])
+    await removeFix(ctx, budi.user, reportId, result.links[0]?.id ?? "")
+    expect((await list(ana)).data?.items[0]?.snippet).toBe("Resolved")
+  })
+
+  test("the note shows in the bell while it exists, with names for mentions", async () => {
+    await resolveReport(ctx, budi.user, reportId, {
+      links: ["https://github.com/shop/web/pull/42"],
+      note: `Stock check fixed, thanks ${tag(ana.user.id)}`,
+    })
+    const [item] = (await list(ana)).data?.items ?? []
+    expect(item).toMatchObject({ kind: "resolved", commentId: null, snippet: "Fixed in PR #42 · shop/web. Stock check fixed, thanks @Ana" })
+    const [note] = (await createCommentsService(ctx).list(budi.user, reportId)) ?? []
+    await createCommentsService(ctx).remove(budi.user, note?.id ?? "")
+    expect((await list(ana)).data?.items[0]?.snippet).toBe("Fixed in PR #42 · shop/web")
+  })
+})
+
