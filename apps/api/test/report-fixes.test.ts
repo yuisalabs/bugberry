@@ -162,7 +162,7 @@ describe("who sees Fixed in", () => {
     await addFix(deps, budi.user, reportId, PR)
     const mine = await ctx.api.api.reports({ id: reportId }).get({ headers: budi.headers })
     expect(mine.data?.fixes).toMatchObject([{ label: "PR #42 · shop/web", provider: "github", url: PR }])
-    const outsider = await createUserWithToken(ctx.db, { email: "x@elsewhere.test", workspaceId: null })
+    const outsider = await createUserWithToken(ctx.db, { email: "dewi@kantor.test", workspaceId: null })
     const shared = await ctx.api.api.share({ slug: shareSlug }).get({ headers: outsider.headers })
     expect(shared.status).toBe(200)
     expect(shared.data).not.toHaveProperty("fixes")
@@ -188,7 +188,7 @@ describe("REST", () => {
   })
 
   test("an outsider can't touch fix links", async () => {
-    const outsider = await createUserWithToken(ctx.db, { email: "x@elsewhere.test", workspaceId: null })
+    const outsider = await createUserWithToken(ctx.db, { email: "dewi@kantor.test", workspaceId: null })
     expect([403, 404]).toContain((await reportApi().fixes.post({ url: PR }, { headers: outsider.headers })).status)
     expect([403, 404]).toContain((await reportApi().resolve.post({ links: [PR] }, { headers: outsider.headers })).status)
     expect(await fixesOf()).toHaveLength(0)

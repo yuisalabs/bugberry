@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm"
 import { comment, project, workspace } from "../src/db/schema"
 import { newId } from "../src/lib/ids"
 import { nextSteps } from "../src/mcp/tools/report-read"
+import { addFix } from "../src/modules/reports/fixes"
 import type { LocalStorageDriver } from "../src/storage/local"
 import { createProject, createReadyReport, createUserWithToken, setupTestApp } from "./helpers"
 import { callTool, mcpClient, putDebugger, samplePayload, T0 } from "./mcp-helpers"
@@ -248,5 +249,19 @@ describe("getReport and the app's BugBerry SDK", () => {
   test("nextSteps puts the SDK logs right after the error steps, or first", () => {
     expect(nextSteps(SUMMARY, "screenshot", true).slice(0, 3)).toEqual(['getConsoleLogs levels=["error"]', "getCodeHotspots", 'getConsoleLogs sources=["sdk"]'])
     expect(nextSteps({ ...SUMMARY, errors: 0 }, "screenshot", true)[0]).toBe('getConsoleLogs sources=["sdk"]')
+  })
+})
+
+describe("Fixed in", () => {
+  test("getReport lists fix links for members and not for viewers", async () => {
+    const report = await sampleReport({ visibility: "public" })
+    await addFix(ctx, ana.user, report.id, "https://github.com/shop/web/pull/42")
+    const mine = await callTool(client, "getReport", { report: report.id })
+    expect(mine.text).toContain("Fixed in:\n- PR #42 · shop/web https://github.com/shop/web/pull/42")
+    expect(mine.structured).toMatchObject({ fixes: ["https://github.com/shop/web/pull/42"] })
+    const outsider = await createUserWithToken(ctx.db, { email: "dewi@kantor.test", workspaceId: null })
+    const theirs = await callTool(await mcpClient(ctx.app, outsider.headers), "getReport", { report: report.id })
+    expect(theirs.text).not.toContain("Fixed in")
+    expect(theirs.structured).toMatchObject({ fixes: [] })
   })
 })

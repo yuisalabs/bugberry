@@ -193,7 +193,8 @@ export function registerBrowseTools(server: McpServer, ctx: McpContext): void {
     {
       title: "Get your notifications",
       description:
-        "Comments where someone mentioned you or replied in your threads, newest first (unread only by default), with the notification id for markNotificationsRead.",
+        "Comments where someone mentioned you or replied in your threads, and your reports someone resolved, newest first " +
+        "(unread only by default), with the notification id for markNotificationsRead.",
       inputSchema: {
         unreadOnly: z.boolean().optional().describe("Only unread ones (default true)."),
         limit: z.number().int().min(1).max(50).optional(),
@@ -209,10 +210,12 @@ export function registerBrowseTools(server: McpServer, ctx: McpContext): void {
         if (items.length === 0) return textResult(`No notifications. ${unreadCount} unread.`)
         const lines = items.map((item) => {
           const actor = `${item.actor?.name ?? "Someone"}${item.viaAgent ? ` (via ${item.viaAgent})` : ""}`
+          const where = item.kind === "resolved" ? "" : " in"
+          const link = reportUrl(config.appUrl, item.report.id)
           return [
-            `[${item.id}]${item.read ? "" : " (unread)"} ${actor} ${NOTIFICATION_VERBS[item.kind]} in BB-${item.report.number} · ${item.report.title}`,
+            `[${item.id}]${item.read ? "" : " (unread)"} ${actor} ${NOTIFICATION_VERBS[item.kind]}${where} BB-${item.report.number} · ${item.report.title}`,
             `    ${item.snippet}`,
-            `    ${reportUrl(config.appUrl, item.report.id)}#comment-${item.commentId}`,
+            `    ${item.commentId ? `${link}#comment-${item.commentId}` : link}`,
           ].join("\n")
         })
         return textResult([`${unreadCount} unread.`, ...lines].join("\n"))

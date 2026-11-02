@@ -3,6 +3,8 @@ import { consoleEntries, type DebuggerView, environmentRows } from "@bugberry/de
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { countReportComments } from "../../modules/comments/repository"
 import { loadReportDetail } from "../../modules/reports/detail"
+import { listReportFixes } from "../../modules/reports/fixes-repository"
+import { toFixViews } from "../../modules/reports/fix-view"
 import { findReportPlace } from "../../modules/reports/repository"
 import { listLinks } from "../../modules/trackers/repository"
 import { createCommentsService } from "../../modules/comments/service"
@@ -74,6 +76,8 @@ export async function reportSummary(ctx: McpContext, resolved: ResolvedReport) {
   const workspaceSlug = member ? (place?.workspaceSlug ?? null) : null
   const links = member ? await listLinks(deps.db, resolved.id) : []
   const trackers = links.map((link) => ({ url: link.externalUrl, error: link.error }))
+  // Repository links may be private, so share-link viewers never see them.
+  const fixes = member ? toFixViews(await listReportFixes(deps.db, resolved.id)) : []
   const comments = member ? { value: await countReportComments(deps.db, resolved.id) } : undefined
   const base = view ? (view.recordingStartedAt ?? view.capturedAt) : null
   const topErrors = view
@@ -118,6 +122,7 @@ export async function reportSummary(ctx: McpContext, resolved: ResolvedReport) {
     ...(trackers.length > 0
       ? ["", "Trackers:", ...trackers.map((link) => `- ${link.url ?? `failed: ${link.error ?? "sending"}`}`)]
       : []),
+    ...(fixes.length > 0 ? ["", "Fixed in:", ...fixes.map((fix) => `- ${fix.label} ${fix.url}`)] : []),
     ...(member ? ["", `Comments: ${comments?.value ?? 0} (getComments)`] : []),
     "",
     `Next steps: ${steps.join(", ")}`,
@@ -151,6 +156,7 @@ export async function reportSummary(ctx: McpContext, resolved: ResolvedReport) {
     customFields: structuredCustomFields(custom),
     recordingStartedAt: base,
     trackers: trackers.map((link) => link.url).filter(Boolean),
+    fixes: fixes.map((fix) => fix.url),
     nextSteps: steps,
   }
   return { text: lines.join("\n"), structured }

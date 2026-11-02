@@ -5,6 +5,8 @@ import { comment, notification, report } from "../src/db/schema"
 import { newId } from "../src/lib/ids"
 import { createProject, createReadyReport, createUserWithToken, setupTestApp } from "./helpers"
 import { callTool, directClient, mcpClient, testMcpContext } from "./mcp-helpers"
+import { MEMBER_ONLY } from "../src/mcp/refs"
+import { READ_ONLY_MESSAGE } from "../src/mcp/context"
 
 let ctx: Awaited<ReturnType<typeof setupTestApp>>
 let ana: Awaited<ReturnType<typeof createUserWithToken>>
@@ -130,5 +132,44 @@ describe("who may write", () => {
     })
     expect(await commentsOf()).toHaveLength(0)
     expect((await callTool(readOnly, "getReport", { report: reportId })).isError).toBe(false)
+  })
+})
+
+describe("resolveReport", () => {
+  const PR = "https://github.com/shop/web/pull/42"
+  const statusOf = async () => (await ctx.db.select({ status: report.status }).from(report).where(eq(report.id, reportId)))[0]?.status
+
+  test("resolves with links and a note, and says the reporter was told", async () => {
+    const budiClient = await mcpClient(ctx.app, budi.headers)
+    const result = await callTool(budiClient, "resolveReport", { report: reportId, links: [PR], note: "Stock check fixed" })
+    expect(result.isError).toBe(false)
+    expect(result.text).toContain("Resolved BB-")
+    expect(result.text).toContain("PR #42 · shop/web")
+    expect(result.text).toContain("Reporter notified.")
+    expect(result.structured).toMatchObject({ status: "resolved", notified: true, links: [{ url: PR }] })
+    expect(await statusOf()).toBe("resolved")
+    const [note] = await commentsOf()
+    expect(note?.viaAgent).toBe("AI agent")
+  })
+
+  test("resolving your own report says the reporter wasn't told", async () => {
+    const result = await callTool(client, "resolveReport", { report: reportId, links: [PR] })
+    expect(result.text).toContain("Reporter not notified")
+    expect(result.structured).toMatchObject({ notified: false })
+  })
+
+  test("needs the write scope and membership", async () => {
+    const readOnly = await directClient(testMcpContext(ctx, budi.user, { caller: { scopes: new Set(["bugberry:read"]) } }))
+    expect(await callTool(readOnly, "resolveReport", { report: reportId, links: [PR] })).toMatchObject({ isError: true, text: READ_ONLY_MESSAGE })
+    const outsider = await createUserWithToken(ctx.db, { email: "dewi@kantor.test", workspaceId: null })
+    const outsiderClient = await mcpClient(ctx.app, outsider.headers)
+    expect(await callTool(outsiderClient, "resolveReport", { report: reportId, links: [PR] })).toMatchObject({ isError: true, text: MEMBER_ONLY })
+    expect(await statusOf()).toBe("open")
+  })
+
+  test("a bad link changes nothing", async () => {
+    const result = await callTool(client, "resolveReport", { report: reportId, links: ["javascript:x"] })
+    expect(result.isError).toBe(true)
+    expect(await statusOf()).toBe("open")
   })
 })
