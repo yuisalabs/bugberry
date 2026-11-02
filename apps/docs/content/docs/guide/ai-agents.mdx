@@ -26,6 +26,7 @@ Paste a report link, or a number like `BB-123`, into the agent. It can:
 
 - read the report: details, timeline, console, network, user actions, performance, the files and lines that failed, the screenshot, comments, and the app's custom logs and fields (see [Custom logs and fields](/guide/custom-logs));
 - look at a recording frame by frame (see below);
+- turn the steps into a Playwright test that fails while the bug is there and passes once it's fixed (see below);
 - search reports;
 - comment (shown with a **via AI** badge);
 - change status, priority, or assignee;
@@ -45,6 +46,16 @@ Claude Code, Cursor, or VS Code, downloads the video, cuts the frames, looks at 
 It needs [ffmpeg](https://ffmpeg.org/download.html) installed.
 
 Apps that can't run commands, such as ChatGPT or Claude.ai, still get the recording's thumbnail.
+
+### Playwright test
+
+Ask the agent for a test of the bug. It gets a Playwright test that opens the page, repeats what was clicked and
+typed, and checks that the report's errors and failed requests don't come back:
+
+- the test fails while the bug is there and passes once it's fixed;
+- what was typed is never stored, so those values are left as `TODO`;
+- if the page needs a signed-in user, add your own login setup;
+- nothing runs on the BugBerry server, and the test isn't kept there.
 
 ### Let the agent record
 
