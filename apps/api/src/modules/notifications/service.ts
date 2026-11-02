@@ -3,7 +3,7 @@ import type { CurrentUser } from "../../plugins/auth"
 import { notFound } from "../../lib/errors"
 import { fixLinkLabel } from "@bugberry/shared"
 import { mentionedIds, snippetOf } from "../comments/mentions"
-import { listFixesOf } from "../reports/fixes-repository"
+import { listFixesOf } from "../reports/repository"
 import { countVisibleUnread, findOwnNotification, listVisibleNotifications, markAllRead, markRead, memberNames } from "./repository"
 
 const LIMIT = 50

@@ -17,7 +17,7 @@ import {
   insertResolvedNotification,
   listReportFixes,
   markResolved,
-} from "./fixes-repository"
+} from "./repository"
 import { resolvedEmail } from "./resolved-email"
 
 function cleanLinks(urls: string[]): string[] {

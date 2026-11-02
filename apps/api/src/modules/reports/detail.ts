@@ -1,8 +1,7 @@
 import { DEBUGGER_CONTENT_TYPE, FREE_EMAIL_DOMAINS } from "@bugberry/shared"
 import type { AppDeps } from "../../deps"
-import { findDetailRow, type ReportKey } from "./repository"
+import { findDetailRow, listReportFixes, type ReportKey } from "./repository"
 import { toFixViews } from "./fix-view"
-import { listReportFixes } from "./fixes-repository"
 
 export interface PersonSummary {
   id: string
