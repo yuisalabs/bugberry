@@ -12,11 +12,17 @@ function parsed(value: string): URL | null {
   }
 }
 
+/** The link as stored, or why it can't be: not an http(s) URL, or too long once normalized. */
+export function checkFixUrl(value: string): { url: string } | { problem: "invalid" | "too_long" } {
+  const url = parsed(value.trim())
+  if (!url || (url.protocol !== "http:" && url.protocol !== "https:")) return { problem: "invalid" }
+  return url.href.length <= MAX_FIX_URL_LENGTH ? { url: url.href } : { problem: "too_long" }
+}
+
 /** The link as stored, or null unless it is an http(s) URL within the length cap. */
 export function cleanFixUrl(value: string): string | null {
-  const url = parsed(value.trim())
-  if (!url || (url.protocol !== "http:" && url.protocol !== "https:")) return null
-  return url.href.length <= MAX_FIX_URL_LENGTH ? url.href : null
+  const checked = checkFixUrl(value)
+  return "url" in checked ? checked.url : null
 }
 
 const cut = (text: string) => (text.length > MAX_LABEL ? `${text.slice(0, MAX_LABEL - 1)}…` : text)

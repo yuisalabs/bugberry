@@ -129,7 +129,7 @@ export function registerWriteTools(server: McpServer, ctx: McpContext): void {
       description:
         "Mark a report resolved and record where it was fixed: links to the pull request, merge request or commit. " +
         "The reporter gets a notification and an email, once, unless they resolved it themselves. An optional note is posted as your comment. " +
-        "Calling it again on a resolved report only adds links.",
+        "Calling it again on a resolved report only adds links, and posts the note again if you give one.",
       inputSchema: {
         ...reportArgs,
         links: z
@@ -139,7 +139,7 @@ export function registerWriteTools(server: McpServer, ctx: McpContext): void {
           .describe("http(s) links to the PR, MR or commit that fixed it."),
         note: z.string().max(5000).optional().describe("A note for the reporter, posted as a comment."),
       },
-      annotations: { ...writeAnnotations, idempotentHint: true },
+      annotations: writeAnnotations,
     },
     (args) =>
       runTool(async () => {

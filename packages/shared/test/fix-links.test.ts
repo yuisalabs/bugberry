@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { cleanFixUrl, fixLinkLabel } from "../src/fix-links"
+import { checkFixUrl, cleanFixUrl, fixLinkLabel } from "../src/fix-links"
 
 describe("cleanFixUrl", () => {
   test("http(s) only, trimmed, at most 2000", () => {
@@ -9,6 +9,16 @@ describe("cleanFixUrl", () => {
     expect(cleanFixUrl("ftp://x.test")).toBeNull()
     expect(cleanFixUrl("not a url")).toBeNull()
     expect(cleanFixUrl(`https://x.test/${"a".repeat(2000)}`)).toBeNull()
+  })
+})
+
+describe("checkFixUrl", () => {
+  test("says whether a link is unusable or only too long", () => {
+    expect(checkFixUrl("https://x.test/a")).toEqual({ url: "https://x.test/a" })
+    expect(checkFixUrl("javascript:alert(1)")).toEqual({ problem: "invalid" })
+    expect(checkFixUrl(`https://x.test/${"a".repeat(2000)}`)).toEqual({ problem: "too_long" })
+    // Spaces are percent-encoded, so a link under the cap as typed can pass it once stored.
+    expect(checkFixUrl(`https://x.test/${" ".repeat(700)}a`)).toEqual({ problem: "too_long" })
   })
 })
 

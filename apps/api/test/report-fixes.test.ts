@@ -63,9 +63,22 @@ describe("addFix / removeFix", () => {
 
   test("rejects non-http URLs, overlong URLs and the 11th link", async () => {
     await expect(addFix(deps, budi.user, reportId, "javascript:alert(1)")).rejects.toMatchObject({ status: 422, code: "fix_url_invalid" })
-    await expect(addFix(deps, budi.user, reportId, `https://x.test/${"a".repeat(2000)}`)).rejects.toMatchObject({ status: 422 })
+    await expect(addFix(deps, budi.user, reportId, `https://x.test/${"a".repeat(2000)}`)).rejects.toMatchObject({
+      status: 422,
+      code: "fix_url_too_long",
+    })
     for (let n = 0; n < 10; n++) await addFix(deps, budi.user, reportId, `https://x.test/${n}`)
     await expect(addFix(deps, budi.user, reportId, "https://x.test/10")).rejects.toMatchObject({ status: 422, code: "fix_limit" })
+  })
+
+  test("two links added at once at nine never make eleven", async () => {
+    for (let n = 0; n < 9; n++) await addFix(deps, budi.user, reportId, `https://x.test/${n}`)
+    const results = await Promise.allSettled([
+      addFix(deps, budi.user, reportId, "https://x.test/a"),
+      addFix(deps, cici.user, reportId, "https://x.test/b"),
+    ])
+    expect(await fixesOf()).toHaveLength(10)
+    expect(results.filter((result) => result.status === "rejected")).toMatchObject([{ reason: { code: "fix_limit" } }])
   })
 
   test("removing an unknown link is not found", async () => {

@@ -1,4 +1,4 @@
-import { cleanFixUrl, MAX_FIXES_PER_REPORT } from "@bugberry/shared"
+import { checkFixUrl, MAX_FIX_URL_LENGTH, MAX_FIXES_PER_REPORT } from "@bugberry/shared"
 import { type Db, withTransaction } from "../../db/client"
 import type { AppDeps } from "../../deps"
 import { createEmailSender } from "../../lib/email/sender"
@@ -17,6 +17,7 @@ import {
   insertFix,
   insertResolvedNotification,
   listReportFixes,
+  lockReport,
   markResolved,
 } from "./repository"
 import { resolvedEmail } from "./resolved-email"
@@ -31,14 +32,17 @@ async function requireReadyReport(db: Db, userId: string, reportId: string) {
 function cleanLinks(urls: string[]): string[] {
   if (urls.length === 0) throw unprocessable("fix_url_invalid", "Add at least one fix link")
   return urls.map((value) => {
-    const url = cleanFixUrl(value)
-    if (!url) throw unprocessable("fix_url_invalid", "Enter an http or https link")
-    return url
+    const checked = checkFixUrl(value)
+    if ("url" in checked) return checked.url
+    if (checked.problem === "too_long") throw unprocessable("fix_url_too_long", `A link can be at most ${MAX_FIX_URL_LENGTH} characters`)
+    throw unprocessable("fix_url_invalid", "Enter an http or https link")
   })
 }
 
 /** Adds what isn't on the report yet, each with its activity line; a link already there is left alone. */
 async function addLinks(db: Db, caller: CurrentUser, reportId: string, urls: string[], viaAgent: string | null): Promise<void> {
+  // Two calls at nine links would each see room for one more without the lock.
+  await lockReport(db, reportId)
   const present = new Set((await listReportFixes(db, reportId)).map((row) => row.url))
   for (const url of urls) {
     if (present.has(url)) continue

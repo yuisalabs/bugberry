@@ -356,6 +356,11 @@ export async function findReportStatus(db: Db, reportId: string) {
 }
 
 /** True only for the call that changed it: a concurrent one waits on the row lock, then matches nothing. */
+/** Until the transaction ends, other writers to this report's fix links wait here. */
+export async function lockReport(db: Db, reportId: string): Promise<void> {
+  await executor(db).select({ id: report.id }).from(report).where(eq(report.id, reportId)).for("update")
+}
+
 export async function markResolved(db: Db, reportId: string): Promise<boolean> {
   const rows = await executor(db)
     .update(report)

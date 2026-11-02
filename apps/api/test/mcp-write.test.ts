@@ -167,6 +167,11 @@ describe("resolveReport", () => {
     expect(await statusOf()).toBe("open")
   })
 
+  test("is not marked idempotent: a note posts a new comment on every call", async () => {
+    const { tools } = await client.listTools()
+    expect(tools.find((tool) => tool.name === "resolveReport")?.annotations).toMatchObject({ readOnlyHint: false, idempotentHint: false })
+  })
+
   test("a bad link changes nothing", async () => {
     const result = await callTool(client, "resolveReport", { report: reportId, links: ["javascript:x"] })
     expect(result.isError).toBe(true)
