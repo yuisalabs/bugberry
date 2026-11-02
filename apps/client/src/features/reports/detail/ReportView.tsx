@@ -44,6 +44,7 @@ export function ReportView({
   report,
   header,
   fields,
+  fixedIn,
   title,
   issues = [],
   refreshReport,
@@ -56,6 +57,8 @@ export function ReportView({
   header: ReactNode
   /** Status, priority and assignee, one per row; the share page has none. */
   fields?: ReactNode
+  /** Under the fields: where the report was fixed. Members only, so the share page has none. */
+  fixedIn?: ReactNode
   title: ReactNode
   issues?: SentIssue[]
   refreshReport: () => Promise<ReportDetail | undefined>
@@ -222,6 +225,7 @@ export function ReportView({
                   Properties
                 </h2>
                 {fields}
+                {fixedIn}
                 <PropertyRow label="Reporter">
                   <Avatar
                     src={report.reporter.image}
