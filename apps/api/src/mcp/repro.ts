@@ -44,9 +44,15 @@ export function parseTargetLabel(label: string): TargetLabel | null {
   }
 }
 
+const LINE_BREAKS = /[\r\n\u2028\u2029]+/g
+const ESCAPED_BREAKS: Record<string, string> = { "\n": "\\n", "\r": "\\r", "\u2028": "\\u2028", "\u2029": "\\u2029" }
+/** Captured text goes into `//` comments; a line break there would turn the rest of it into code. */
+const oneLine = (value: string) => value.replace(LINE_BREAKS, " ")
 const quote = (value: string) => JSON.stringify(value)
-const singleQuote = (value: string) => `'${value.replace(/[\\']/g, (char) => `\\${char}`)}'`
-const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")
+const singleQuote = (value: string) =>
+  `'${value.replace(/[\\'\r\n\u2028\u2029]/g, (char) => ESCAPED_BREAKS[char] ?? `\\${char}`)}'`
+const escapeRegex = (value: string) =>
+  value.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&").replace(/[\r\n\u2028\u2029]/g, (char) => ESCAPED_BREAKS[char] ?? char)
 const regexPrefix = (value: string) => `/^${escapeRegex(value)}/`
 
 /** A Playwright locator for the label, the most specific part first; null when the label can't be read. */
@@ -90,10 +96,13 @@ const ERROR_KEY_CHARS = 120
 const REPLAYED: ReadonlySet<ViewActionType> = new Set(["click", "rage-click", "input", "submit", "navigate"])
 const CAUSES_NAVIGATION: ReadonlySet<ViewActionType> = new Set(["click", "rage-click", "submit"])
 const REDACTED = "[redacted]"
+/** What the browser and the capture put before an uncaught error; Playwright's pageerror has neither. */
+const UNCAUGHT_PREFIX = /^(?:Uncaught (?:\(in promise\) )?|Unhandled rejection: )/
+const SETTLE = "await page.waitForTimeout(1000) // errors from the last step can arrive after it"
 
 const COLLECTORS = [
   "const errors: string[] = []",
-  'page.on("pageerror", (error) => errors.push(error.message))',
+  'page.on("pageerror", (error) => errors.push(`${error.name}: ${error.message}`))',
   'page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()) })',
   "const failed: string[] = []",
   'page.on("response", (response) => { if (response.status() >= 400) failed.push(`${response.request().method()} ${new URL(response.url()).pathname} ${response.status()}`) })',
@@ -124,6 +133,8 @@ interface Step {
   line: string
   /** Set on a fill, so a later input on the same field replaces it. */
   field?: string
+  /** Set on a click, so a rage click that follows doesn't press it all over again. */
+  clicked?: string
   todoValue?: boolean
   ambiguous?: boolean
   skipped?: boolean
@@ -155,7 +166,7 @@ function urlCheck(url: string): string | null {
 function elementStep(action: ViewAction, call: (locator: string) => string, comment: string | null, extra: Partial<Step> = {}): Step | null {
   if (!action.target) return null
   const locator = locatorFor(action.target)
-  if (!locator) return { line: `// TODO: step skipped, BugBerry could not read this element: ${action.target}`, skipped: true }
+  if (!locator) return { line: `// TODO: step skipped, BugBerry could not read this element: ${oneLine(action.target)}`, skipped: true }
   const notes = [comment, locator.todo ? `TODO: ${locator.todo}` : null].filter(Boolean).join(". ")
   return { line: `${call(locator.code)}${notes ? ` // ${notes}` : ""}`, ambiguous: locator.todo !== null, ...extra }
 }
@@ -173,7 +184,8 @@ function inputStep(action: ViewAction): Step | null {
           ? `typed ${MASK_CAP}+ characters`
           : `typed ${length} character${length === 1 ? "" : "s"}`
         : null
-  return elementStep(action, (locator) => `await ${locator}.fill("TODO")`, comment, { ...field, todoValue: true })
+  const method = parseTargetLabel(action.target ?? "")?.tag === "select" ? "selectOption" : "fill"
+  return elementStep(action, (locator) => `await ${locator}.${method}("TODO")`, comment, { ...field, todoValue: true })
 }
 
 function navigationStep(action: ViewAction, previous: ViewActionType | null): Step | null {
@@ -192,18 +204,22 @@ function navigationStep(action: ViewAction, previous: ViewActionType | null): St
   return check ? { line: check } : null
 }
 
-function stepFor(action: ViewAction, previous: ViewActionType | null): Step | null {
+function stepFor(action: ViewAction, previous: ViewActionType | null, last: Step | undefined): Step | null {
   switch (action.type) {
     case "click":
-      return elementStep(action, (locator) => `await ${locator}.click()`, null)
+      return elementStep(action, (locator) => `await ${locator}.click()`, null, { clicked: action.target ?? "" })
     case "rage-click": {
       const presses = Number.parseInt(action.value ?? "", 10) || 3
+      // Presses that fired click are already steps; only a disabled element's presses are missing.
+      if (action.target && last?.clicked === action.target) {
+        return { line: `// rage click: ${oneLine(action.target)} pressed ${presses} times, as the clicks above`, clicked: action.target }
+      }
       return elementStep(action, (locator) => `await ${locator}.click({ clickCount: ${presses} })`, `rage click: pressed ${presses} times`)
     }
     case "input":
       return inputStep(action)
     case "submit":
-      return { line: `// form submitted: ${action.target ?? "a form"}` }
+      return { line: `// form submitted: ${oneLine(action.target ?? "a form")}` }
     case "navigate":
       return navigationStep(action, previous)
     default:
@@ -220,41 +236,52 @@ export function reproductionScript(view: DebuggerView, meta: ReproMeta): ReproSc
   if (actions.length === 0) return null
 
   const firstPage = view.events.find((event) => event.kind === "page")
-  const opening = !firstPage && actions[0]?.type === "navigate" && actions[0].url ? actions[0] : null
+  const first = actions[0]
+  // Every page load is both a page event and a navigate action; the first one is the goto at the top.
+  const opening = first?.type === "navigate" && first.url && (!firstPage || first.url === firstPage.url) ? first : null
   const start = firstPage?.url ?? opening?.url ?? meta.pageUrl
 
   const steps: Step[] = []
   let previous: ViewActionType | null = opening ? "navigate" : null
   for (const action of actions) {
     if (action === opening) continue
-    const step = stepFor(action, previous)
+    const step = stepFor(action, previous, steps.at(-1))
     previous = action.type
     if (!step) continue
     if (step.field !== undefined && steps.at(-1)?.field === step.field) steps.pop()
     steps.push(step)
   }
 
+  const origin = parsedUrl(start)?.origin ?? null
   const errorKeys = topKeys(
     view.events.flatMap((event) => {
-      const text = event.kind === "error" ? event.message : event.kind === "console" && event.level === "error" ? event.text : null
-      const key = text?.split("\n")[0]?.trim().slice(0, ERROR_KEY_CHARS)
+      // An error thrown by another origin's script (analytics, an extension) isn't this page's bug.
+      const foreign = event.kind === "error" && event.source !== null && (parsedUrl(event.source)?.origin ?? origin) !== origin
+      const text = event.kind === "error" && !foreign ? event.message : event.kind === "console" && event.level === "error" ? event.text : null
+      const key = text?.split(LINE_BREAKS)[0]?.replace(UNCAUGHT_PREFIX, "").trim().slice(0, ERROR_KEY_CHARS)
       return key ? [{ key, item: null }] : []
     }),
   )
-  const origin = parsedUrl(start)?.origin ?? null
   const requestKeys = topKeys(
     view.events.flatMap((event) => {
       if (event.kind !== "network" || !isFailedRequest(event)) return []
       const url = parsedUrl(event.url)
       if (!url || origin === null || url.origin !== origin) return []
       const outcome = event.status !== null && event.status >= 400 ? String(event.status) : "failed"
-      return [{ key: `${event.method} ${url.pathname}`, item: outcome }]
+      return [{ key: `${oneLine(event.method)} ${url.pathname}`, item: { method: event.method, path: url.pathname, outcome } }]
     }),
   )
+  const waits = [
+    ...requestKeys.map(
+      ({ item }) =>
+        `await page.waitForResponse((response) => response.request().method() === ${quote(item.method)} && new URL(response.url()).pathname === ${quote(item.path)}, { timeout: 10_000 }).catch(() => {})`,
+    ),
+    ...(errorKeys.length + requestKeys.length > 0 ? [SETTLE] : []),
+  ]
   const assertions = [
-    ...errorKeys.flatMap(({ key }) => [`// In the report: ${key}`, `expect(errors.filter((text) => text.includes(${quote(key)}))).toEqual([])`]),
+    ...errorKeys.flatMap(({ key }) => [`// In the report: ${oneLine(key)}`, `expect(errors.filter((text) => text.includes(${quote(key)}))).toEqual([])`]),
     ...requestKeys.flatMap(({ key, item }) => [
-      `// In the report: ${key} → ${item}`,
+      `// In the report: ${key} → ${item.outcome}`,
       `expect(failed.filter((line) => line.startsWith(${quote(`${key} `)}))).toEqual([])`,
     ]),
   ]
@@ -283,11 +310,12 @@ export function reproductionScript(view: DebuggerView, meta: ReproMeta): ReproSc
     gotoLine(start),
     ...steps.map((step) => step.line),
     "",
+    ...waits,
     ...(assertions.length > 0 ? assertions : [NOTHING_TO_ASSERT]),
   ]
   const script = [
     `// Save as ${filename}`,
-    `// Reproduces BB-${meta.number} "${title}" – ${meta.url}`,
+    `// Reproduces BB-${meta.number} "${title}" – ${oneLine(meta.url)}`,
     "// Generated by BugBerry. Fails while the bug is there; passes once it's fixed.",
     "// Before running:",
     ...warnings.map((warning) => `//  - ${warning}`),

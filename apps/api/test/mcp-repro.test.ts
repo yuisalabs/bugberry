@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { normalizePayload } from "@bugberry/debugger-view"
 import { locatorFor, parseTargetLabel, reproductionScript, scriptFilename } from "../src/mcp/repro"
 import { samplePayload } from "./mcp-helpers"
+import ts from "typescript"
 
 describe("parseTargetLabel", () => {
   test("tag, id, classes, attribute and text", () => {
@@ -93,7 +94,7 @@ describe("reproductionScript", () => {
     expect(lines).toContain('await page.goto("https://shop.test/checkout")')
     expect(lines).toContain('await page.locator("#email").fill("TODO") // typed 6 characters')
     expect(lines).toContain('await page.getByRole("button", { name: "Pay now" }).click()')
-    expect(lines).toContain('await page.getByRole("button", { name: "Pay now" }).click({ clickCount: 3 }) // rage click: pressed 3 times')
+    expect(lines).toContain('// rage click: button "Pay now" pressed 3 times, as the clicks above')
     expect(lines).toContain(String.raw`await expect(page).toHaveURL(/^https:\/\/shop\.test\/cart(?:[?#].*)?$/)`)
     expect(lines).toContain('expect(errors.filter((text) => text.includes("Order failed"))).toEqual([])')
     expect(lines).toContain('expect(errors.filter((text) => text.includes("TypeError: x is undefined"))).toEqual([])')
@@ -221,3 +222,116 @@ describe("reproductionScript", () => {
     )
   })
 })
+
+/** Calls to `pwned()` that parse as code, and syntax errors: captured text must stay inside comments and strings. */
+function injected(script: string): { calls: number; syntaxErrors: number } {
+  const { diagnostics = [] } = ts.transpileModule(script, { reportDiagnostics: true, compilerOptions: { target: ts.ScriptTarget.ES2022 } })
+  const source = ts.createSourceFile("x.ts", script, ts.ScriptTarget.ES2022)
+  let calls = 0
+  const visit = (node: ts.Node) => {
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "pwned") calls += 1
+    ts.forEachChild(node, visit)
+  }
+  visit(source)
+  return { calls, syntaxErrors: diagnostics.length }
+}
+
+describe("reproductionScript after review", () => {
+  test("captured text can't break out of a comment or a string", () => {
+    for (const breaker of ["\n", "\r", "\u2028", "\u2029", "\r\n"]) {
+      const result = reproductionScript(
+        view([
+          { kind: "page", t: 1, url: "https://a.test/", via: "load" },
+          { kind: "action", t: 2, type: "click", target: `div#a b${breaker}pwned() "x"` },
+          { kind: "action", t: 3, type: "input", target: `input[name="a${breaker}pwned()"]`, value: "•" },
+          { kind: "action", t: 4, type: "submit", target: `form[name="x${breaker}pwned()//"]` },
+          { kind: "error", t: 5, message: `Boom${breaker}pwned()` },
+          { kind: "console", t: 6, level: "error", args: [`Bad${breaker}pwned()`] },
+          { kind: "network", t: 7, method: "POST", url: "https://a.test/api/x", status: 500 },
+        ]),
+        { ...meta, title: `T${breaker}pwned()`, url: `https://bb.test/r${breaker}pwned()` },
+      )
+      expect(injected(result?.script ?? "")).toEqual({ calls: 0, syntaxErrors: 0 })
+    }
+  })
+
+  test("uncaught errors are matched the way Playwright reports them", () => {
+    const result = reproductionScript(
+      view([
+        { kind: "page", t: 1, url: "https://a.test/", via: "load" },
+        { kind: "action", t: 2, type: "click", target: 'button "Go"' },
+        { kind: "error", t: 3, message: "Uncaught TypeError: Cannot read properties of null (reading 'x')" },
+        { kind: "error", t: 4, message: "Uncaught (in promise) Error: nope" },
+        { kind: "error", t: 5, message: "Unhandled rejection: stock gone" },
+      ]),
+      meta,
+    )
+    const lines = bodyLines(result?.script)
+    expect(lines).toContain('page.on("pageerror", (error) => errors.push(`${error.name}: ${error.message}`))')
+    expect(lines).toContain(`expect(errors.filter((text) => text.includes("TypeError: Cannot read properties of null (reading 'x')"))).toEqual([])`)
+    expect(lines).toContain('expect(errors.filter((text) => text.includes("Error: nope"))).toEqual([])')
+    expect(lines).toContain('expect(errors.filter((text) => text.includes("stock gone"))).toEqual([])')
+  })
+
+  test("errors from scripts on other origins are not asserted", () => {
+    const result = reproductionScript(
+      view([
+        { kind: "page", t: 1, url: "https://a.test/", via: "load" },
+        { kind: "action", t: 2, type: "click", target: 'button "Go"' },
+        { kind: "error", t: 3, message: "Tracker blew up", source: "https://cdn.analytics.test/t.js:1:1" },
+        { kind: "error", t: 4, message: "Ext error", source: "chrome-extension://abc/x.js:1:1" },
+        { kind: "error", t: 5, message: "Mine", source: "https://a.test/app.js:9:1" },
+      ]),
+      meta,
+    )
+    expect(result?.script).not.toContain("Tracker blew up")
+    expect(result?.script).not.toContain("Ext error")
+    expect(result?.script).toContain('text.includes("Mine")')
+  })
+
+  test("waits for the failed requests and late errors before asserting", () => {
+    const lines = bodyLines(reproductionScript(normalizePayload(samplePayload()), meta)?.script)
+    const wait = lines.indexOf(
+      'await page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/orders", { timeout: 10_000 }).catch(() => {})',
+    )
+    const settle = lines.indexOf("await page.waitForTimeout(1000) // errors from the last step can arrive after it")
+    const firstAssertion = lines.findIndex((line) => line.startsWith("expect("))
+    expect(wait).toBeGreaterThan(0)
+    expect(settle).toBeGreaterThan(wait)
+    expect(firstAssertion).toBeGreaterThan(settle)
+  })
+
+  test("the capture's own navigate for the first page is not replayed again", () => {
+    for (const via of ["load", "back-forward", "reload"]) {
+      const lines = bodyLines(
+        reproductionScript(
+          view([
+            { kind: "page", t: 1, url: "https://a.test/start", via: "load" },
+            { kind: "action", t: 2, type: "navigate", url: "https://a.test/start", via },
+            { kind: "action", t: 3, type: "click", target: 'button "Go"' },
+          ]),
+          meta,
+        )?.script,
+      )
+      expect(lines.filter((line) => line.startsWith("await page."))).toEqual([
+        'await page.goto("https://a.test/start")',
+        'await page.getByRole("button", { name: "Go" }).click()',
+      ])
+    }
+  })
+
+  test("a rage click with no click before it keeps its presses", () => {
+    const lines = bodyLines(
+      reproductionScript(view([{ kind: "action", t: 1, type: "rage-click", target: 'button "Pay"', value: "4" }]), meta)?.script,
+    )
+    expect(lines).toContain('await page.getByRole("button", { name: "Pay" }).click({ clickCount: 4 }) // rage click: pressed 4 times')
+  })
+
+  test("a select gets selectOption", () => {
+    const lines = bodyLines(
+      reproductionScript(view([{ kind: "action", t: 1, type: "input", target: 'select[name="size"]', value: "••" }]), meta)?.script,
+    )
+    expect(lines).toContain(`await page.locator('select[name="size"]').selectOption("TODO") // typed 2 characters`)
+  })
+})
+
