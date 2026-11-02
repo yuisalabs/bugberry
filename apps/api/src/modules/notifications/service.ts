@@ -21,7 +21,9 @@ export async function listNotifications(
   const unreadCount = await countVisibleUnread(db, current.id)
 
   // Names are looked up per workspace: a token only shows a name for a member of that workspace.
-  const ids = [...new Set(rows.flatMap((row) => mentionedIds(row.body ?? "")))]
+  // A note kept for its replies has its text wiped; it reads as no note at all.
+  const noteOf = (row: (typeof rows)[number]) => (row.noteDeletedAt === null ? (row.noteBody ?? "") : "")
+  const ids = [...new Set(rows.flatMap((row) => [...mentionedIds(row.body ?? ""), ...mentionedIds(noteOf(row))]))]
   const workspaces = [...new Set(rows.map((row) => row.workspaceId))]
   const members = ids.length === 0 ? [] : await memberNames(db, workspaces, ids)
   const namesIn = (workspaceId: string) =>
@@ -44,7 +46,12 @@ export async function listNotifications(
       actor: row.actorId ? { id: row.actorId, name: row.actorName ?? "", image: row.actorImage ?? null } : null,
       report: row.report,
       commentId: row.commentId,
-      snippet: row.kind === "resolved" ? fixedIn(row.report.id) : snippetOf(row.body ?? "", namesIn(row.workspaceId)),
+      snippet:
+        row.kind === "resolved"
+          ? noteOf(row)
+            ? snippetOf(`${fixedIn(row.report.id)}. ${noteOf(row)}`, namesIn(row.workspaceId))
+            : fixedIn(row.report.id)
+          : snippetOf(row.body ?? "", namesIn(row.workspaceId)),
       viaAgent: row.notificationViaAgent ?? row.commentViaAgent,
     })),
     unreadCount,

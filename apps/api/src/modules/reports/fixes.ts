@@ -15,6 +15,7 @@ import {
   findReadyReportByRef,
   findReportStatus,
   insertFix,
+  attachResolvedNote,
   insertResolvedNotification,
   listReportFixes,
   lockReport,
@@ -120,15 +121,16 @@ export async function resolveReport(
   const urls = cleanLinks(input.links)
   const viaAgent = opts.viaAgent ?? null
 
-  const notified = await withTransaction(db, async () => {
+  const notification = await withTransaction(db, async (): Promise<string | null> => {
     await addLinks(db, caller, reportId, urls, viaAgent)
     const before = await findReportStatus(db, reportId)
-    if (!(await markResolved(db, reportId))) return false
+    if (!(await markResolved(db, reportId))) return null
     await recordActivity(db, { reportId, kind: "status", detail: { from: before, to: "resolved" }, actorId: caller.id, viaAgent })
     const tell = target.reporterId !== caller.id && (await memberRole(db, target.reporterId, target.workspaceId)) !== null
-    if (tell) await insertResolvedNotification(db, { userId: target.reporterId, reportId, actorId: caller.id, viaAgent })
-    return tell
+    if (!tell) return null
+    return insertResolvedNotification(db, { userId: target.reporterId, reportId, actorId: caller.id, viaAgent })
   })
+  const notified = notification !== null
 
   // After the commit: the comments service starts its mention emails in the background, which must not run on a closed transaction.
   const note = input.note?.trim() || null
@@ -146,10 +148,11 @@ export async function resolveReport(
   }
   if (note) {
     // The resolved notification already carries the note, so the reporter gets no mention for it as well.
-    await createCommentsService(deps).create(caller, reportId, note, {
+    const posted = await createCommentsService(deps).create(caller, reportId, note, {
       viaAgent: opts.viaAgent,
       quietFor: notified ? [target.reporterId] : [],
     })
+    if (notification) await attachResolvedNote(db, notification, posted.id)
   }
   const detail = await loadReportDetail(deps, { id: reportId }, { forMember: true })
   if (!detail) throw notFound("report_not_found", "Report not found")

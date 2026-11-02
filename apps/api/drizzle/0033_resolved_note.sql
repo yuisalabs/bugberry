@@ -1,0 +1,2 @@
+ALTER TABLE "notification" ADD COLUMN "note_comment_id" text;--> statement-breakpoint
+ALTER TABLE "notification" ADD CONSTRAINT "notification_note_comment_id_comment_id_fk" FOREIGN KEY ("note_comment_id") REFERENCES "public"."comment"("id") ON DELETE set null ON UPDATE no action;

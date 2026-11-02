@@ -373,8 +373,14 @@ export async function markResolved(db: Db, reportId: string): Promise<boolean> {
 export async function insertResolvedNotification(
   db: Db,
   values: { userId: string; reportId: string; actorId: string; viaAgent: string | null },
-): Promise<void> {
+): Promise<string> {
+  const id = newId()
   await executor(db)
     .insert(notification)
-    .values({ id: newId(), kind: "resolved", commentId: null, ...values })
+    .values({ id, kind: "resolved", commentId: null, ...values })
+  return id
+}
+
+export async function attachResolvedNote(db: Db, notificationId: string, commentId: string): Promise<void> {
+  await executor(db).update(notification).set({ noteCommentId: commentId }).where(eq(notification.id, notificationId))
 }

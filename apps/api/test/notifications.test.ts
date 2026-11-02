@@ -170,5 +170,17 @@ describe("resolved notifications", () => {
     await removeFix(ctx, budi.user, reportId, result.links[0]?.id ?? "")
     expect((await list(ana)).data?.items[0]?.snippet).toBe("Resolved")
   })
+
+  test("the note shows in the bell while it exists, with names for mentions", async () => {
+    await resolveReport(ctx, budi.user, reportId, {
+      links: ["https://github.com/shop/web/pull/42"],
+      note: `Stock check fixed, thanks ${tag(ana.user.id)}`,
+    })
+    const [item] = (await list(ana)).data?.items ?? []
+    expect(item).toMatchObject({ kind: "resolved", commentId: null, snippet: "Fixed in PR #42 · shop/web. Stock check fixed, thanks @Ana" })
+    const [note] = (await createCommentsService(ctx).list(budi.user, reportId)) ?? []
+    await createCommentsService(ctx).remove(budi.user, note?.id ?? "")
+    expect((await list(ana)).data?.items[0]?.snippet).toBe("Fixed in PR #42 · shop/web")
+  })
 })
 

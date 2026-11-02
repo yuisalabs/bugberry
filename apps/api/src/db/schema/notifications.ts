@@ -24,6 +24,8 @@ export const notification = pgTable(
     kind: notificationKindEnum("kind").notNull().default("mention"),
     /** The AI app that resolved the report; comment kinds take it from their comment. */
     viaAgent: text("via_agent"),
+    /** A resolved row's note, shown while the comment holding it exists. */
+    noteCommentId: text("note_comment_id").references(() => comment.id, { onDelete: "set null" }),
     createdAt: createdAt(),
     readAt: timestamp("read_at", { withTimezone: true }),
   },
