@@ -73,6 +73,12 @@ describe("activitySentence", () => {
     expect(activitySentence(activityFixture({ kind: "assignee", detail: { from: budi, to: null } }))).toBe("unassigned Budi")
   })
 
+  test("fix links added and removed", () => {
+    const url = "https://github.com/shop/web/pull/42"
+    expect(activitySentence(activityFixture({ kind: "fix", detail: { action: "added", url } }))).toBe("added a fix link: PR #42 · shop/web")
+    expect(activitySentence(activityFixture({ kind: "fix", detail: { action: "removed", url } }))).toBe("removed a fix link: PR #42 · shop/web")
+  })
+
   test("tracker sends, by someone or automatically", () => {
     const detail = { provider: "github", externalId: "142", externalUrl: "https://github.com/a/b/issues/142" }
     expect(activitySentence(activityFixture({ kind: "tracker", detail }))).toBe("sent this to GitHub as #142")

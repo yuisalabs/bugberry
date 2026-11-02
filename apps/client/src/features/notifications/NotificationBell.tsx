@@ -30,7 +30,7 @@ export function NotificationBadge({ count }: { count: number }) {
   )
 }
 
-/** The list inside the bell: newest mentions first, unread ones marked. Everything is plain text. */
+/** The list inside the bell: newest first, unread ones marked. Everything is plain text. */
 export function NotificationBellView({
   data,
   now,
@@ -45,7 +45,7 @@ export function NotificationBellView({
   return (
     <div className="flex w-[min(22rem,calc(100vw-24px))] flex-col">
       <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2.5">
-        <p className="text-sm font-semibold text-foreground">Mentions</p>
+        <p className="text-sm font-semibold text-foreground">Notifications</p>
         {data.unreadCount > 0 && (
           <AriaButton onPress={onReadAll} className="text-xs font-semibold text-primary hover:underline">
             Mark all as read
@@ -53,7 +53,7 @@ export function NotificationBellView({
         )}
       </div>
       {data.items.length === 0 ? (
-        <p className="px-4 py-6 text-center text-sm text-muted-foreground">No mentions yet</p>
+        <p className="px-4 py-6 text-center text-sm text-muted-foreground">No notifications yet</p>
       ) : (
         <ul className="max-h-96 overflow-y-auto">
           {data.items.map((item) => (
@@ -69,7 +69,8 @@ export function NotificationBellView({
                 <span className="flex min-w-0 flex-col gap-0.5">
                   <span className="text-sm text-foreground">
                     <span className="font-semibold">{item.actor?.name ?? "Someone"}</span> {WHAT_HAPPENED[item.kind].verb}
-                    {item.viaAgent ? ` (via ${item.viaAgent})` : ""} {WHAT_HAPPENED[item.kind].on}{" "}
+                    {item.viaAgent ? ` (via ${item.viaAgent})` : ""}
+                    {WHAT_HAPPENED[item.kind].on ? ` ${WHAT_HAPPENED[item.kind].on}` : ""}{" "}
                     <span className="font-semibold">BB-{item.report.number}</span> · {item.report.title}
                   </span>
                   <span className="line-clamp-2 text-xs text-muted-foreground">{item.snippet}</span>
@@ -88,8 +89,8 @@ export function NotificationBellView({
 }
 
 /**
- * The bell for @mentions: polls for new ones, and opening one lands on that comment. `placement` says which edge of
- * the bell the list lines up with: its right edge by default, its left where the bell sits on the left of the page.
+ * The bell for mentions, replies and resolved reports: polls for new ones, and opening one lands on that comment or
+ * report. `placement` says which edge of the bell the list lines up with: its right edge by default, its left where the bell sits on the left of the page.
  */
 export function NotificationBell({ placement = "bottom end" }: { placement?: "bottom start" | "bottom end" }) {
   const navigate = useNavigate()
@@ -103,7 +104,8 @@ export function NotificationBell({ placement = "bottom end" }: { placement?: "bo
   const openItem = (item: Item) => {
     setOpen(false)
     if (!item.read) read.mutate(item.id)
-    void navigate({ to: "/app/r/$reportId", params: { reportId: item.report.id }, hash: `comment-${item.commentId}` })
+    // A resolved report has no comment to land on.
+    void navigate({ to: "/app/r/$reportId", params: { reportId: item.report.id }, hash: item.commentId ? `comment-${item.commentId}` : undefined })
   }
 
   return (

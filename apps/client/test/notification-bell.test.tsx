@@ -58,10 +58,21 @@ describe("NotificationBell", () => {
     unmount()
   })
 
-  test("No mentions yet", () => {
+  test("No notifications yet", () => {
     view({ items: [], unreadCount: 0 })
-    expect(screen.getByText("No mentions yet")).toBeTruthy()
+    expect(screen.getByText("Notifications")).toBeTruthy()
+    expect(screen.getByText("No notifications yet")).toBeTruthy()
     expect(screen.queryByRole("button", { name: "Mark all as read" })).toBeNull()
+  })
+
+  test("a resolved report reads 'resolved BB-n' and opens like the rest", () => {
+    const resolved = item(7, { kind: "resolved", commentId: null, actor: { id: "u2", name: "Budi", image: null }, viaAgent: "Claude Code", snippet: "Fixed in PR #42 · shop/web" })
+    const { onOpen } = view({ items: [resolved], unreadCount: 1 })
+    const [row] = screen.getAllByRole("button", { name: /resolved/ })
+    expect(row?.textContent).toContain("Budi resolved (via Claude Code) BB-7 · Pay button fails")
+    expect(row?.textContent).toContain("Fixed in PR #42 · shop/web")
+    fireEvent.click(row as HTMLElement)
+    expect(onOpen).toHaveBeenCalledWith(resolved)
   })
 
   test("bell rows are plain text", () => {
