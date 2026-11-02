@@ -153,7 +153,7 @@ describe("getReproductionScript", () => {
     const result = await callTool(client, "getReproductionScript", { report: reportId })
     expect(result.isError).toBe(false)
     expect(result.text).toContain('test("BB-')
-    expect(result.text).toContain('await page.getByRole("button", { name: "Pay now" }).click()')
+    expect(result.text).toContain('await page.getByRole("button", { name: "Pay now", exact: true }).click()')
     expect(result.structured).toMatchObject({
       filename: expect.stringMatching(/^bb-\d+-button-does-nothing\.spec\.ts$/),
       script: result.text,

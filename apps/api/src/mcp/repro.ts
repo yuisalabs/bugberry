@@ -68,7 +68,9 @@ export function locatorFor(label: string): Locator | null {
   if (name !== null) return { code: `page.locator(${singleQuote(`${tag}[name="${name}"]`)})`, todo: null }
   if (text !== null) {
     const role = tag === "button" ? "button" : tag === "a" ? "link" : null
-    if (role) return { code: `page.getByRole(${quote(role)}, { name: ${truncated ? regexPrefix(text) : quote(text)} })`, todo: null }
+    // Exact unless cut short: by default "Pay" would also match "Pay later" and trip strict mode.
+    const name = truncated ? regexPrefix(text) : `${quote(text)}, exact: true`
+    if (role) return { code: `page.getByRole(${quote(role)}, { name: ${name} })`, todo: null }
     return { code: `page.getByText(${quote(text)}, { exact: ${!truncated} })`, todo: null }
   }
   const plainClasses = classes.filter((className) => PLAIN_CSS_NAME.test(className))
@@ -160,7 +162,8 @@ function gotoLine(url: string): string {
 function urlCheck(url: string): string | null {
   const parsed = parsedUrl(url)
   if (!parsed) return null
-  return `await expect(page).toHaveURL(/^${escapeRegex(`${parsed.origin}${parsed.pathname}`)}(?:[?#].*)?$/)`
+  // Not `origin`: a file:// page's origin is the string "null".
+  return `await expect(page).toHaveURL(/^${escapeRegex(`${parsed.protocol}//${parsed.host}${parsed.pathname}`)}(?:[?#].*)?$/)`
 }
 
 function elementStep(action: ViewAction, call: (locator: string) => string, comment: string | null, extra: Partial<Step> = {}): Step | null {

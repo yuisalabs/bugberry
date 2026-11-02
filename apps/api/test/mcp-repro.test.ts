@@ -32,8 +32,8 @@ describe("locatorFor", () => {
     expect(locatorFor('button#buy[data-testid="pay"] "Pay"')).toEqual({ code: 'page.getByTestId("pay")', todo: null })
     expect(locatorFor('button#buy "Pay"')).toEqual({ code: 'page.locator("#buy")', todo: null })
     expect(locatorFor('input[name="email"]')).toEqual({ code: `page.locator('input[name="email"]')`, todo: null })
-    expect(locatorFor('button "Pay now"')).toEqual({ code: 'page.getByRole("button", { name: "Pay now" })', todo: null })
-    expect(locatorFor('a "Terms"')).toEqual({ code: 'page.getByRole("link", { name: "Terms" })', todo: null })
+    expect(locatorFor('button "Pay now"')).toEqual({ code: 'page.getByRole("button", { name: "Pay now", exact: true })', todo: null })
+    expect(locatorFor('a "Terms"')).toEqual({ code: 'page.getByRole("link", { name: "Terms", exact: true })', todo: null })
     expect(locatorFor('span "Total"')).toEqual({ code: 'page.getByText("Total", { exact: true })', todo: null })
   })
 
@@ -51,7 +51,7 @@ describe("locatorFor", () => {
   })
 
   test("strings are escaped for TypeScript and regexes", () => {
-    expect(locatorFor('button "It\'s $5"')?.code).toBe(`page.getByRole("button", { name: "It's $5" })`)
+    expect(locatorFor('button "It\'s $5"')?.code).toBe(`page.getByRole("button", { name: "It's $5", exact: true })`)
     expect(locatorFor('button "A (b)…"')?.code).toBe('page.getByRole("button", { name: /^A \\(b\\)/ })')
     expect(locatorFor("div#a b")).toBeNull()
   })
@@ -93,7 +93,7 @@ describe("reproductionScript", () => {
     const lines = bodyLines(script)
     expect(lines).toContain('await page.goto("https://shop.test/checkout")')
     expect(lines).toContain('await page.locator("#email").fill("TODO") // typed 6 characters')
-    expect(lines).toContain('await page.getByRole("button", { name: "Pay now" }).click()')
+    expect(lines).toContain('await page.getByRole("button", { name: "Pay now", exact: true }).click()')
     expect(lines).toContain('// rage click: button "Pay now" pressed 3 times, as the clicks above')
     expect(lines).toContain(String.raw`await expect(page).toHaveURL(/^https:\/\/shop\.test\/cart(?:[?#].*)?$/)`)
     expect(lines).toContain('expect(errors.filter((text) => text.includes("Order failed"))).toEqual([])')
@@ -315,7 +315,7 @@ describe("reproductionScript after review", () => {
       )
       expect(lines.filter((line) => line.startsWith("await page."))).toEqual([
         'await page.goto("https://a.test/start")',
-        'await page.getByRole("button", { name: "Go" }).click()',
+        'await page.getByRole("button", { name: "Go", exact: true }).click()',
       ])
     }
   })
@@ -324,7 +324,21 @@ describe("reproductionScript after review", () => {
     const lines = bodyLines(
       reproductionScript(view([{ kind: "action", t: 1, type: "rage-click", target: 'button "Pay"', value: "4" }]), meta)?.script,
     )
-    expect(lines).toContain('await page.getByRole("button", { name: "Pay" }).click({ clickCount: 4 }) // rage click: pressed 4 times')
+    expect(lines).toContain('await page.getByRole("button", { name: "Pay", exact: true }).click({ clickCount: 4 }) // rage click: pressed 4 times')
+  })
+
+  test("a local file page checks its own path, not the opaque 'null' origin", () => {
+    const lines = bodyLines(
+      reproductionScript(
+        view([
+          { kind: "page", t: 1, url: "file:///C:/shop/index.html", via: "load" },
+          { kind: "action", t: 2, type: "click", target: 'button "Go"' },
+          { kind: "action", t: 3, type: "navigate", url: "file:///C:/shop/done.html", via: "history" },
+        ]),
+        meta,
+      )?.script,
+    )
+    expect(lines).toContain(String.raw`await expect(page).toHaveURL(/^file:\/\/\/C:\/shop\/done\.html(?:[?#].*)?$/)`)
   })
 
   test("a select gets selectOption", () => {
