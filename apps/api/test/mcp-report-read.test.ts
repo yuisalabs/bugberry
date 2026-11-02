@@ -123,6 +123,7 @@ describe("nextSteps", () => {
       "getCodeHotspots",
       "getNetworkRequests failedOnly=true",
       "getUserActions",
+      "getReproductionScript",
       "getTimeline",
     ])
   })

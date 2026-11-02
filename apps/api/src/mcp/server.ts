@@ -16,6 +16,7 @@ const INSTRUCTIONS =
   "BugBerry holds bug reports recorded in the browser: a screenshot or video plus console logs, network requests, " +
   "user actions and performance data. Start with getReport (it accepts a report link or a number like BB-123), " +
   "then follow its next steps. getCodeHotspots names the files and lines in the page's code that failed. " +
+  "getReproductionScript turns the report's clicks and typing into a Playwright test that fails while the bug is there. " +
   "For a video report, getRecording gives the video and the moments worth a frame, to cut with ffmpeg and look at. " +
   "To file a recording made with the BugBerry recorder (@bugberry/recorder), call createUpload after its stopRecording."
 
