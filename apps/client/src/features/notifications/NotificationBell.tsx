@@ -90,7 +90,8 @@ export function NotificationBellView({
 
 /**
  * The bell for mentions, replies and resolved reports: polls for new ones, and opening one lands on that comment or
- * report. `placement` says which edge of the bell the list lines up with: its right edge by default, its left where the bell sits on the left of the page.
+ * report. `placement` says which edge of the bell the list lines up with: its right edge by default, its left where
+ * the bell sits on the left of the page.
  */
 export function NotificationBell({ placement = "bottom end" }: { placement?: "bottom start" | "bottom end" }) {
   const navigate = useNavigate()
