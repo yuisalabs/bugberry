@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
-import { NotificationBadge, NotificationBellView } from "../src/features/notifications/NotificationBell"
+import { NotificationBadge, NotificationBellView, notificationTarget } from "../src/features/notifications/NotificationBell"
 import type { Notifications } from "../src/features/notifications/queries"
 
 const NOW = new Date("2026-10-18T10:00:00Z").getTime()
@@ -56,6 +56,15 @@ describe("NotificationBell", () => {
     const { unmount } = render(<NotificationBellView data={{ items: [item(2, { read: true })], unreadCount: 0 }} now={NOW} onOpen={mock()} onReadAll={mock()} />)
     expect(screen.getAllByRole("button", { name: "Mark all as read" })).toHaveLength(1)
     unmount()
+  })
+
+  test("opening a comment notification lands on the comment, a resolved one on the report", () => {
+    expect(notificationTarget(item(7))).toEqual({ to: "/app/r/$reportId", params: { reportId: "r7" }, hash: "comment-c7" })
+    expect(notificationTarget(item(8, { kind: "resolved", commentId: null }))).toEqual({
+      to: "/app/r/$reportId",
+      params: { reportId: "r8" },
+      hash: undefined,
+    })
   })
 
   test("No notifications yet", () => {

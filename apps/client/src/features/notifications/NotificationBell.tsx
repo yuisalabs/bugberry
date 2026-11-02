@@ -12,7 +12,6 @@ import { notificationQueries, type Notifications, useReadAllNotifications, useRe
 
 type Item = Notifications["items"][number]
 
-/** The red unread count on the bell; nothing when everything is read. */
 /** What a bell row says happened, and the word before the report. */
 const WHAT_HAPPENED = {
   mention: { verb: "mentioned you", on: "in" },
@@ -21,6 +20,16 @@ const WHAT_HAPPENED = {
   resolved: { verb: "resolved", on: "" },
 } as const
 
+/** Where opening a row leads: its comment, or the report itself for a resolved report, which has none. */
+export function notificationTarget(item: Item) {
+  return {
+    to: "/app/r/$reportId" as const,
+    params: { reportId: item.report.id },
+    hash: item.commentId ? `comment-${item.commentId}` : undefined,
+  }
+}
+
+/** The red unread count on the bell; nothing when everything is read. */
 export function NotificationBadge({ count }: { count: number }) {
   if (count <= 0) return null
   return (
@@ -105,8 +114,7 @@ export function NotificationBell({ placement = "bottom end" }: { placement?: "bo
   const openItem = (item: Item) => {
     setOpen(false)
     if (!item.read) read.mutate(item.id)
-    // A resolved report has no comment to land on.
-    void navigate({ to: "/app/r/$reportId", params: { reportId: item.report.id }, hash: item.commentId ? `comment-${item.commentId}` : undefined })
+    void navigate(notificationTarget(item))
   }
 
   return (
