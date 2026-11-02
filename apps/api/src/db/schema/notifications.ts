@@ -22,6 +22,8 @@ export const notification = pgTable(
       .references(() => report.id, { onDelete: "cascade" }),
     actorId: text("actor_id").references(() => user.id, { onDelete: "set null" }),
     kind: notificationKindEnum("kind").notNull().default("mention"),
+    /** The AI app that resolved the report; comment kinds take it from their comment. */
+    viaAgent: text("via_agent"),
     createdAt: createdAt(),
     readAt: timestamp("read_at", { withTimezone: true }),
   },

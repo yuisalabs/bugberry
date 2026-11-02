@@ -1,6 +1,8 @@
 import { DEBUGGER_CONTENT_TYPE, FREE_EMAIL_DOMAINS } from "@bugberry/shared"
 import type { AppDeps } from "../../deps"
 import { findDetailRow, type ReportKey } from "./repository"
+import { toFixViews } from "./fix-view"
+import { listReportFixes } from "./fixes-repository"
 
 export interface PersonSummary {
   id: string
@@ -53,6 +55,8 @@ export async function loadReportDetail(
     /** "City, Country" for members only; share viewers never get it. */
     location: opts.forMember ? r.location : undefined,
     assignee,
+    /** Where it was fixed; members only, since repository links may be private. */
+    fixes: opts.forMember ? toFixViews(await listReportFixes(db, r.id)) : undefined,
     mediaUrl: ready
       ? await storage.getReadUrl(r.mediaKey, { contentType: r.mediaType, expiresInSeconds: opts.readTtlSeconds })
       : null,

@@ -1,6 +1,5 @@
-import { cleanFixUrl, type FixProvider, fixLinkLabel, MAX_FIXES_PER_REPORT } from "@bugberry/shared"
+import { cleanFixUrl, MAX_FIXES_PER_REPORT } from "@bugberry/shared"
 import { type Db, withTransaction } from "../../db/client"
-import type { ReportFixRow } from "../../db/schema"
 import type { AppDeps } from "../../deps"
 import { createEmailSender } from "../../lib/email/sender"
 import { notFound, unprocessable } from "../../lib/errors"
@@ -10,6 +9,7 @@ import { findReportHeading, userEmails } from "../comments/repository"
 import { createCommentsService } from "../comments/service"
 import { memberRole, requireReportMember } from "../workspaces/access"
 import { loadReportDetail, type ReportDetail } from "./detail"
+import { type FixView, toFixViews } from "./fix-view"
 import {
   deleteFix,
   findReportStatus,
@@ -19,27 +19,6 @@ import {
   markResolved,
 } from "./fixes-repository"
 import { resolvedEmail } from "./resolved-email"
-
-export interface FixView {
-  id: string
-  url: string
-  label: string
-  provider: FixProvider
-  addedById: string | null
-  viaAgent: string | null
-  createdAt: Date
-}
-
-export function toFixViews(rows: ReportFixRow[]): FixView[] {
-  return rows.map((row) => ({
-    id: row.id,
-    url: row.url,
-    ...fixLinkLabel(row.url),
-    addedById: row.addedBy,
-    viaAgent: row.viaAgent,
-    createdAt: row.createdAt,
-  }))
-}
 
 function cleanLinks(urls: string[]): string[] {
   if (urls.length === 0) throw unprocessable("fix_url_invalid", "Add at least one fix link")
@@ -135,7 +114,7 @@ export async function resolveReport(
     if (!(await markResolved(db, reportId))) return false
     await recordActivity(db, { reportId, kind: "status", detail: { from: before, to: "resolved" }, actorId: caller.id, viaAgent })
     const tell = target.reporterId !== caller.id && (await memberRole(db, target.reporterId, target.workspaceId)) !== null
-    if (tell) await insertResolvedNotification(db, { userId: target.reporterId, reportId, actorId: caller.id })
+    if (tell) await insertResolvedNotification(db, { userId: target.reporterId, reportId, actorId: caller.id, viaAgent })
     return tell
   })
 

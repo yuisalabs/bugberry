@@ -12,6 +12,7 @@ let ana: Awaited<ReturnType<typeof createUserWithToken>>
 let budi: Awaited<ReturnType<typeof createUserWithToken>>
 let cici: Awaited<ReturnType<typeof createUserWithToken>>
 let reportId: string
+let shareSlug: string
 let sent: EmailMessage[]
 let tasks: Promise<unknown>[]
 /** setupTestApp hands email and background to the app only; services called directly need them too. */
@@ -35,7 +36,9 @@ beforeEach(async () => {
   ana = await createUserWithToken(ctx.db, { name: "Ana", email: "ana@kantor.test" })
   budi = await createUserWithToken(ctx.db, { name: "Budi", email: "budi@kantor.test" })
   cici = await createUserWithToken(ctx.db, { name: "Cici", email: "cici@kantor.test" })
-  reportId = (await createReadyReport(ctx.db, { reporterId: ana.user.id, title: "Pay button fails", visibility: "public" })).id
+  const created = await createReadyReport(ctx.db, { reporterId: ana.user.id, title: "Pay button fails", visibility: "public" })
+  reportId = created.id
+  shareSlug = created.shareSlug
 })
 
 const notesFor = (userId: string) => ctx.db.select().from(notification).where(eq(notification.userId, userId))
@@ -153,3 +156,43 @@ describe("resolveReport", () => {
     expect(await notesFor(ana.user.id)).toHaveLength(0)
   })
 })
+
+describe("who sees Fixed in", () => {
+  test("members get fixes in the report detail; the share page does not", async () => {
+    await addFix(deps, budi.user, reportId, PR)
+    const mine = await ctx.api.api.reports({ id: reportId }).get({ headers: budi.headers })
+    expect(mine.data?.fixes).toMatchObject([{ label: "PR #42 · shop/web", provider: "github", url: PR }])
+    const outsider = await createUserWithToken(ctx.db, { email: "x@elsewhere.test", workspaceId: null })
+    const shared = await ctx.api.api.share({ slug: shareSlug }).get({ headers: outsider.headers })
+    expect(shared.status).toBe(200)
+    expect(shared.data).not.toHaveProperty("fixes")
+  })
+})
+
+describe("REST", () => {
+  const reportApi = () => ctx.api.api.reports({ id: reportId })
+
+  test("add and remove a fix link", async () => {
+    const added = await reportApi().fixes.post({ url: PR }, { headers: budi.headers })
+    expect(added.data).toMatchObject([{ label: "PR #42 · shop/web" }])
+    const bad = await reportApi().fixes.post({ url: "javascript:x" }, { headers: budi.headers })
+    expect(bad.status).toBe(422)
+    const removed = await reportApi().fixes({ fixId: added.data?.[0]?.id ?? "" }).delete(undefined, { headers: budi.headers })
+    expect(removed.data).toEqual([])
+  })
+
+  test("resolve with links and a note", async () => {
+    const result = await reportApi().resolve.post({ links: [PR], note: "Fixed" }, { headers: budi.headers })
+    expect(result.data).toMatchObject({ notified: true, links: [{ url: PR }], detail: { status: "resolved", fixes: [{ url: PR }] } })
+    expect((await reportApi().resolve.post({ links: [] }, { headers: budi.headers })).status).toBe(422)
+  })
+
+  test("an outsider can't touch fix links", async () => {
+    const outsider = await createUserWithToken(ctx.db, { email: "x@elsewhere.test", workspaceId: null })
+    expect([403, 404]).toContain((await reportApi().fixes.post({ url: PR }, { headers: outsider.headers })).status)
+    expect([403, 404]).toContain((await reportApi().resolve.post({ links: [PR] }, { headers: outsider.headers })).status)
+    expect(await fixesOf()).toHaveLength(0)
+    expect(await status()).toBe("open")
+  })
+})
+

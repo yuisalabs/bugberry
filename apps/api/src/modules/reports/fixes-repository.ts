@@ -54,7 +54,10 @@ export async function markResolved(db: Db, reportId: string): Promise<boolean> {
   return rows.length > 0
 }
 
-export async function insertResolvedNotification(db: Db, values: { userId: string; reportId: string; actorId: string }): Promise<void> {
+export async function insertResolvedNotification(
+  db: Db,
+  values: { userId: string; reportId: string; actorId: string; viaAgent: string | null },
+): Promise<void> {
   await executor(db)
     .insert(notification)
     .values({ id: newId(), kind: "resolved", commentId: null, ...values })

@@ -1,4 +1,13 @@
-import { CAPTURE_TYPES, MAX_PER_PAGE, MAX_THUMBNAIL_BYTES, PRIORITIES, REPORT_STATUSES, VISIBILITIES } from "@bugberry/shared"
+import {
+  CAPTURE_TYPES,
+  MAX_FIX_URL_LENGTH,
+  MAX_FIXES_PER_REPORT,
+  MAX_PER_PAGE,
+  MAX_THUMBNAIL_BYTES,
+  PRIORITIES,
+  REPORT_STATUSES,
+  VISIBILITIES,
+} from "@bugberry/shared"
 import { t } from "elysia"
 import { oneOf } from "../../lib/schema"
 
@@ -88,4 +97,11 @@ export const updateReportBody = t.Object({
   assigneeId: t.Optional(t.Nullable(t.String({ minLength: 1 }))),
   /** Null takes the report out of its project. Moving never auto-sends to trackers. */
   projectId: t.Optional(t.Nullable(t.String({ minLength: 1 }))),
+})
+
+export const addFixBody = t.Object({ url: t.String({ minLength: 1, maxLength: MAX_FIX_URL_LENGTH }) })
+
+export const resolveReportBody = t.Object({
+  links: t.Array(t.String({ minLength: 1, maxLength: MAX_FIX_URL_LENGTH }), { maxItems: MAX_FIXES_PER_REPORT }),
+  note: t.Optional(t.String({ maxLength: 5000 })),
 })

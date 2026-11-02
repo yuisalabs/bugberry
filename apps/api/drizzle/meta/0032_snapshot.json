@@ -1,5 +1,5 @@
 {
-  "id": "98db55e7-2380-4e3f-a4d2-9ddb1ad6e45e",
+  "id": "643097f3-2197-45b6-8bdc-056f54ee2390",
   "prevId": "1911eec9-5b52-4a77-9781-de894c73d25b",
   "version": "7",
   "dialect": "postgresql",
@@ -1058,6 +1058,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'mention'"
+        },
+        "via_agent": {
+          "name": "via_agent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
