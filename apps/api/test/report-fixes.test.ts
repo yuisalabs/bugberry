@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, test } from "bun:test"
+import { beforeEach, describe, expect, spyOn, test } from "bun:test"
 import { and, eq } from "drizzle-orm"
 import { comment, notification, report, reportActivity, reportFix, workspaceMember } from "../src/db/schema"
 import type { AppDeps } from "../src/deps"
 import type { EmailMessage } from "../src/lib/email/sender"
+import * as commentsService from "../src/modules/comments/service"
 import { createCommentsService } from "../src/modules/comments/service"
 import { addFix, removeFix, resolveReport } from "../src/modules/reports/fixes"
 import { createReadyReport, createUserWithToken, setupTestApp } from "./helpers"
@@ -148,6 +149,28 @@ describe("resolveReport", () => {
     await expect(resolveReport(deps, budi.user, reportId, { links: [PR, "ftp://x"] })).rejects.toMatchObject({ status: 422 })
     expect(await status()).toBe("open")
     expect(await fixesOf()).toHaveLength(0)
+  })
+
+  test("the reporter's email still goes out when posting the note fails", async () => {
+    const spy = spyOn(commentsService, "createCommentsService").mockImplementation(
+      () => ({ create: () => Promise.reject(new Error("db down")) }) as unknown as ReturnType<typeof commentsService.createCommentsService>,
+    )
+    try {
+      await expect(resolveReport(deps, budi.user, reportId, { links: [PR], note: "done" })).rejects.toThrow("db down")
+    } finally {
+      spy.mockRestore()
+    }
+    await Promise.all(tasks)
+    expect(sent.map((mail) => mail.to)).toEqual(["ana@kantor.test"])
+    expect(sent[0]?.text).toContain("done")
+  })
+
+  test("a report that hasn't finished uploading can't be resolved or given links", async () => {
+    const pending = (await createReadyReport(ctx.db, { reporterId: ana.user.id, uploadStatus: "uploading" })).id
+    await expect(resolveReport(deps, budi.user, pending, { links: [PR] })).rejects.toMatchObject({ status: 404 })
+    await expect(addFix(deps, budi.user, pending, PR)).rejects.toMatchObject({ status: 404 })
+    expect(await notesFor(ana.user.id)).toHaveLength(0)
+    expect((await ctx.db.select({ status: report.status }).from(report).where(eq(report.id, pending)))[0]?.status).toBe("open")
   })
 
   test("the status dropdown does not notify", async () => {

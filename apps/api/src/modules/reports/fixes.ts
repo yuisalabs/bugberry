@@ -12,6 +12,7 @@ import { loadReportDetail, type ReportDetail } from "./detail"
 import { type FixView, toFixViews } from "./fix-view"
 import {
   deleteFix,
+  findReadyReportByRef,
   findReportStatus,
   insertFix,
   insertResolvedNotification,
@@ -19,6 +20,13 @@ import {
   markResolved,
 } from "./repository"
 import { resolvedEmail } from "./resolved-email"
+
+/** A report the caller works on that has finished uploading; anything else is "not found", as on the report page. */
+async function requireReadyReport(db: Db, userId: string, reportId: string) {
+  const target = await requireReportMember(db, userId, reportId)
+  if (!(await findReadyReportByRef(db, { id: reportId }))) throw notFound("report_not_found", "Report not found")
+  return target
+}
 
 function cleanLinks(urls: string[]): string[] {
   if (urls.length === 0) throw unprocessable("fix_url_invalid", "Add at least one fix link")
@@ -51,14 +59,14 @@ export async function addFix(
   url: string,
   opts: { viaAgent?: string } = {},
 ): Promise<FixView[]> {
-  await requireReportMember(db, caller.id, reportId)
+  await requireReadyReport(db, caller.id, reportId)
   const [clean] = cleanLinks([url])
   await withTransaction(db, () => addLinks(db, caller, reportId, [clean as string], opts.viaAgent ?? null))
   return toFixViews(await listReportFixes(db, reportId))
 }
 
 export async function removeFix({ db }: Pick<AppDeps, "db">, caller: CurrentUser, reportId: string, fixId: string): Promise<FixView[]> {
-  await requireReportMember(db, caller.id, reportId)
+  await requireReadyReport(db, caller.id, reportId)
   await withTransaction(db, async () => {
     const removed = await deleteFix(db, reportId, fixId)
     if (!removed) throw notFound("fix_not_found", "Fix link not found")
@@ -104,7 +112,7 @@ export async function resolveReport(
   opts: { viaAgent?: string } = {},
 ): Promise<{ detail: ReportDetail; links: FixView[]; notified: boolean }> {
   const { db } = deps
-  const target = await requireReportMember(db, caller.id, reportId)
+  const target = await requireReadyReport(db, caller.id, reportId)
   const urls = cleanLinks(input.links)
   const viaAgent = opts.viaAgent ?? null
 
@@ -120,14 +128,8 @@ export async function resolveReport(
 
   // After the commit: the comments service starts its mention emails in the background, which must not run on a closed transaction.
   const note = input.note?.trim() || null
-  if (note) {
-    // The resolved notification already carries the note, so the reporter gets no mention for it as well.
-    await createCommentsService(deps).create(caller, reportId, note, {
-      viaAgent: opts.viaAgent,
-      quietFor: notified ? [target.reporterId] : [],
-    })
-  }
   const links = toFixViews(await listReportFixes(db, reportId))
+  // Before the note: a retry finds the report resolved and won't notify again, so a failed note must not cost the email.
   if (notified) {
     emailReporter(deps, {
       reporterId: target.reporterId,
@@ -136,6 +138,13 @@ export async function resolveReport(
       links: links.map((link) => link.url),
       note,
       viaAgent,
+    })
+  }
+  if (note) {
+    // The resolved notification already carries the note, so the reporter gets no mention for it as well.
+    await createCommentsService(deps).create(caller, reportId, note, {
+      viaAgent: opts.viaAgent,
+      quietFor: notified ? [target.reporterId] : [],
     })
   }
   const detail = await loadReportDetail(deps, { id: reportId }, { forMember: true })

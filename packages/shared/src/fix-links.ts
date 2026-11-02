@@ -21,12 +21,10 @@ export function cleanFixUrl(value: string): string | null {
 
 const cut = (text: string) => (text.length > MAX_LABEL ? `${text.slice(0, MAX_LABEL - 1)}…` : text)
 
-function providerOf(host: string): FixProvider {
-  if (host.includes("github")) return "github"
-  if (host.includes("gitlab")) return "gitlab"
-  if (host.includes("bitbucket")) return "bitbucket"
-  return "other"
-}
+/** Exact hosts only: a look-alike host would otherwise wear a forge's mark and a "PR #42" label in the reporter's email. */
+const FORGES: Record<string, FixProvider> = { "github.com": "github", "gitlab.com": "gitlab", "bitbucket.org": "bitbucket" }
+
+const providerOf = (host: string): FixProvider => FORGES[host] ?? "other"
 
 /** "PR #42 · shop/web" for the forges people link fixes from; host and path for anything else. */
 export function fixLinkLabel(value: string): { label: string; provider: FixProvider } {

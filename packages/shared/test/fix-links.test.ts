@@ -22,6 +22,12 @@ describe("fixLinkLabel", () => {
     expect(fixLinkLabel(`https://x.test/${"a".repeat(80)}`).label).toHaveLength(60)
   })
 
+  test("only the forges' own hosts get their label and mark, so a look-alike host shows as itself", () => {
+    expect(fixLinkLabel("https://github.evil.test/shop/web/pull/42")).toEqual({ label: "github.evil.test/shop/web/pull/42", provider: "other" })
+    expect(fixLinkLabel("https://mygitlab.test/a/-/merge_requests/1")).toEqual({ label: "mygitlab.test/a/-/merge_requests/1", provider: "other" })
+    expect(fixLinkLabel("https://notbitbucket.org/ws/repo/pull-requests/3").provider).toBe("other")
+  })
+
   test("a GitHub link that isn't a PR or commit, or an unreadable one, still gets a label", () => {
     expect(fixLinkLabel("https://github.com/shop/web/tree/main")).toEqual({ label: "github.com/shop/web/tree/main", provider: "github" })
     expect(fixLinkLabel("nope")).toEqual({ label: "nope", provider: "other" })
