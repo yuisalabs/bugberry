@@ -1,3 +1,4 @@
+import { decodeReplayMedia, type ReplayEvent, type ReplayFrame, replayFrames } from "@bugberry/shared"
 import type { Project, Workspace } from "../server/api"
 import { isSignedOut } from "../drafts/popup"
 import { signInUrl } from "../server/session"
@@ -25,6 +26,8 @@ export type EditorState =
       draft: ReportDraft
       videoUrl: string | null
       image: ImageBitmap | null
+      /** A replay draft's stream, decoded once for the player and its strip; null for a screenshot or video. */
+      replay: { events: ReplayEvent[]; frames: ReplayFrame[] } | null
       workspaces: Workspace[]
       /** Where the report goes; null when the person has no workspace (or the list did not load). */
       workspaceId: string | null
@@ -74,7 +77,16 @@ export async function loadEditor(draftId: string, deps: EditorDeps, isCancelled:
 
   let videoUrl: string | null = null
   let image: ImageBitmap | null = null
-  if (draft.captureType === "video") {
+  let replay: { events: ReplayEvent[]; frames: ReplayFrame[] } | null = null
+  if (draft.captureType === "replay") {
+    try {
+      const { events } = await decodeReplayMedia(draft.replay)
+      replay = { events, frames: replayFrames(events) }
+    } catch {
+      return { kind: "error", message: "This replay couldn't be read. Delete the draft from the BugBerry popup." }
+    }
+    if (isCancelled()) return null
+  } else if (draft.captureType === "video") {
     if (!draft.video) {
       return {
         kind: "error",
@@ -95,6 +107,7 @@ export async function loadEditor(draftId: string, deps: EditorDeps, isCancelled:
     draft,
     videoUrl,
     image,
+    replay,
     ...(await loadDestination(settings, draft, deps)),
     interrupted: draft.status === "uploading",
   }

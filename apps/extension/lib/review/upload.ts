@@ -149,7 +149,7 @@ async function submitUnlocked(
   }
 
   const payload = options.payload ?? draft.debuggerPayload
-  const durationMs = options.durationMs ?? (draft.captureType === "video" ? draft.durationMs : null)
+  const durationMs = options.durationMs ?? (draft.captureType === "screenshot" ? null : draft.durationMs)
   if (payload && !draft.debuggerGzip) {
     await save({ debuggerGzip: await encodeDebuggerPayload(payload) })
   }
@@ -182,7 +182,7 @@ async function submitUnlocked(
         mediaSize: media.size,
         debuggerSize: draft.debuggerGzip?.size,
         ...(thumbnail ? { thumbnailSize: thumbnail.size } : {}),
-        durationMs: draft.captureType === "video" ? (durationMs ?? undefined) : undefined,
+        durationMs: draft.captureType === "screenshot" ? undefined : (durationMs ?? undefined),
         pageUrl: draft.page.url.slice(0, 2048),
         pageTitle: draft.page.title.slice(0, 500),
         device: draft.device,

@@ -2,7 +2,7 @@ import type { RecordingNote } from "@bugberry/capture"
 import { matchProject, type Visibility } from "@bugberry/shared"
 import { Button } from "@bugberry/ui/button"
 import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@bugberry/ui/dialog"
-import { RiCameraLine, RiCloseLine, RiCursorLine, RiDeleteBinLine, RiGlobalLine, RiTerminalBoxLine, RiVideoOnLine, RiWindowLine } from "@remixicon/react"
+import { RiCameraLine, RiCloseLine, RiCursorLine, RiDeleteBinLine, RiGlobalLine, RiHistoryLine, RiTerminalBoxLine, RiVideoOnLine, RiWindowLine } from "@remixicon/react"
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
 import type { TemplateText } from "@bugberry/ai-write"
 import type { AiPath } from "../../lib/ai/ai-assist"
@@ -201,6 +201,7 @@ export function ReviewView(props: ReviewViewProps) {
   }, [form, notes, onChange])
 
   const isVideo = draft.captureType === "video"
+  const isReplay = draft.captureType === "replay"
   const durationMs = draft.captureType === "video" ? (draft.durationMs ?? 0) : 0
   const startedAt = draft.captureType === "video" ? (draft.recordingStartedAt ?? draft.debuggerPayload?.recordingStartedAt ?? 0) : 0
   const trim = isTrimmed(props.trim, durationMs) ? props.trim : null
@@ -229,8 +230,9 @@ export function ReviewView(props: ReviewViewProps) {
   const shell = props.embedded
     ? "fixed inset-0 flex items-center justify-center bg-foreground/45 p-4 sm:p-6"
     : "flex min-h-screen items-center justify-center bg-muted p-4 sm:p-6"
-  const kind = isVideo ? "Video" : "Screenshot"
-  const KindIcon = isVideo ? RiVideoOnLine : RiCameraLine
+  const kind = isVideo ? "Video" : isReplay ? "Replay" : "Screenshot"
+  const KindIcon = isVideo ? RiVideoOnLine : isReplay ? RiHistoryLine : RiCameraLine
+  const againLabel = isVideo ? "Record again" : isReplay ? "Capture again" : "Retake"
 
   return (
     <div className={shell}>
@@ -252,7 +254,7 @@ export function ReviewView(props: ReviewViewProps) {
                 <KindIcon size={14} aria-hidden />
               </span>
               <span className="font-semibold">{kind}</span>
-              {!isVideo && props.mediaSize && (
+              {draft.captureType === "screenshot" && props.mediaSize && (
                 <span className="text-muted-foreground">
                   · {props.mediaSize.width} × {props.mediaSize.height}
                 </span>
@@ -261,7 +263,13 @@ export function ReviewView(props: ReviewViewProps) {
           </header>
 
           <div className="flex min-h-64 flex-1 items-center justify-center overflow-hidden rounded-2xl bg-muted p-4 sm:p-6">
-            <div className={isVideo ? "w-full overflow-hidden rounded-xl bg-foreground shadow-lg" : "flex h-full w-full items-center justify-center"}>{props.media}</div>
+            <div
+              className={
+                isVideo ? "w-full overflow-hidden rounded-xl bg-foreground shadow-lg" : isReplay ? "w-full" : "flex h-full w-full items-center justify-center"
+              }
+            >
+              {props.media}
+            </div>
           </div>
 
           {isVideo && !sent && (
@@ -306,7 +314,7 @@ export function ReviewView(props: ReviewViewProps) {
               onVisibilityChange={props.onVisibilityChange}
               onSendToTracker={props.onSendToTracker}
               onAnother={props.onAnother}
-              anotherLabel={isVideo ? "Record another" : "Take another"}
+              anotherLabel={isVideo ? "Record another" : isReplay ? "Capture another" : "Take another"}
               onDone={() => props.onClose(null)}
             />
           ) : (
@@ -342,7 +350,7 @@ export function ReviewView(props: ReviewViewProps) {
               {sending && props.preparing != null ? (
                 <PreparingBar fraction={props.preparing} />
               ) : (
-                sending && props.uploadProgress && <UploadBar progress={props.uploadProgress} isVideo={isVideo} />
+                sending && props.uploadProgress && <UploadBar progress={props.uploadProgress} kind={draft.captureType} />
               )}
               <footer className="mx-5 flex items-center justify-between gap-2 border-t border-border py-5 sm:mx-7">
                 <Button intent="plain" onPress={() => setConfirm("discard")} className="text-danger-subtle-foreground *:[svg]:text-danger-subtle-foreground">
@@ -351,7 +359,7 @@ export function ReviewView(props: ReviewViewProps) {
                 </Button>
                 <span className="flex gap-2">
                   <Button intent="outline" onPress={() => setConfirm("again")}>
-                    {isVideo ? "Record again" : "Retake"}
+                    {againLabel}
                   </Button>
                   {props.signInUrl ? (
                     <Button onPress={() => window.open(props.signInUrl ?? "", "_blank", "noreferrer")}>Sign in to send</Button>
@@ -383,10 +391,14 @@ export function ReviewView(props: ReviewViewProps) {
                 : asked === "again"
                   ? isVideo
                     ? "Record again?"
-                    : "Retake the screenshot?"
+                    : isReplay
+                      ? "Capture again?"
+                      : "Retake the screenshot?"
                   : isVideo
                     ? "Delete this recording?"
-                    : "Delete this screenshot?"}
+                    : isReplay
+                      ? "Delete this replay?"
+                      : "Delete this screenshot?"}
             </DialogTitle>
             <DialogDescription>
               {asked === "close"
@@ -394,7 +406,9 @@ export function ReviewView(props: ReviewViewProps) {
                 : asked === "again"
                   ? isVideo
                     ? "This recording won't be saved. A new one starts on the same page."
-                    : "This screenshot won't be saved. A new one is taken of the same page."
+                    : isReplay
+                      ? "This replay won't be saved. The tab's last seconds are captured again."
+                      : "This screenshot won't be saved. A new one is taken of the same page."
                   : "It won't be saved, and it can't be brought back."}
             </DialogDescription>
           </DialogHeader>
@@ -414,7 +428,7 @@ export function ReviewView(props: ReviewViewProps) {
                   props.onAgain()
                 }}
               >
-                {isVideo ? "Record again" : "Retake"}
+                {againLabel}
               </Button>
             ) : (
               <Button

@@ -1,5 +1,5 @@
 import type { RecordingNote } from "@bugberry/capture"
-import { VideoPlayer } from "@bugberry/player/video-player"
+import type { ReplayEvent, ReplayFrame } from "@bugberry/shared"
 import { BUILT_IN_TEMPLATES, buildMaterial, templateFor } from "@bugberry/ai-write"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { browser } from "wxt/browser"
@@ -19,7 +19,7 @@ import { draftKept, draftWithNotes, trimLocked } from "../../lib/review/review-d
 import { createReviewLimits, type LimitNote, NO_LIMIT_NOTE, openDashboardFor } from "../../lib/review/review-limits"
 import { signInUrl } from "../../lib/server/session"
 import { loadSettings, type Settings } from "../../lib/server/settings"
-import { makeThumbnail } from "../../lib/review/thumbnail"
+import { lastFrameJpeg, makeThumbnail } from "../../lib/review/thumbnail"
 import { browserThumbnailDeps } from "../../lib/review/thumbnail-browser"
 import { type PreparedMedia, prepareVideo } from "../../lib/review/trim-send"
 import { whenBack } from "../../lib/shared/when-back"
@@ -27,7 +27,8 @@ import type { trimVideo as TrimVideo } from "../../lib/review/trim-video"
 import type { ReportDraft } from "../../lib/shared/types"
 import { LOCKED, putFile, type ReportForm, submitDraft, type UploadProgress } from "../../lib/review/upload"
 import { videoFrames } from "../../lib/review/video-frames"
-import { AnnotationCanvas, type AnnotationCanvasHandle } from "./AnnotationCanvas"
+import type { AnnotationCanvasHandle } from "./AnnotationCanvas"
+import { ReviewMedia } from "./ReviewMedia"
 import { type Assignable, ReviewView, type ReviewStatus } from "./ReviewView"
 import { useAiSetup } from "./use-ai-setup"
 import { useSentReport } from "./use-sent-report"
@@ -67,6 +68,7 @@ type Loaded = {
   draft: ReportDraft
   videoUrl: string | null
   image: ImageBitmap | null
+  replay: { events: ReplayEvent[]; frames: ReplayFrame[] } | null
   workspaces: Workspace[]
   workspaceId: string | null
   email: string | null
@@ -191,11 +193,12 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       loaded && !loaded.signedOut
         ? createReviewLimits(
             {
-              kind: loaded.draft.captureType,
+              // A replay counts as a recording, as on the server.
+              kind: loaded.draft.captureType === "screenshot" ? "screenshot" : "video",
               // The part of the recording that is sent; the server checks the length again.
               durationMs:
-                loaded.draft.captureType !== "video" ? 0 : trim ? trim.endMs - trim.startMs : (loaded.draft.durationMs ?? 0),
-              fullDurationMs: loaded.draft.captureType === "video" ? (loaded.draft.durationMs ?? 0) : 0,
+                loaded.draft.captureType === "screenshot" ? 0 : trim ? trim.endMs - trim.startMs : (loaded.draft.durationMs ?? 0),
+              fullDurationMs: loaded.draft.captureType === "screenshot" ? 0 : (loaded.draft.durationMs ?? 0),
               workspaces: loaded.workspaces,
               fetchLimits: async (workspaceId) => {
                 const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
@@ -312,7 +315,13 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
         }
       }
       if (prepared) setLocked(true)
-      let media: Blob | null = prepared ? prepared.media : current.captureType === "video" ? current.video : null
+      let media: Blob | null = prepared
+        ? prepared.media
+        : current.captureType === "video"
+          ? current.video
+          : current.captureType === "replay"
+            ? current.replay
+            : null
       if (current.captureType === "screenshot" && canvas.current) {
         // Saved first, so a draft reopened after a failure still carries its blur.
         await saveAnnotations(store, draftId, canvas.current.getShapes())
@@ -321,7 +330,11 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       if (!media) throw new Error("The report's media isn't available")
       const thumbnail = await makeThumbnail(
         media,
-        { captureType: current.captureType, durationMs: prepared ? prepared.durationMs : current.captureType === "video" ? current.durationMs : null },
+        {
+          captureType: current.captureType,
+          durationMs: prepared ? prepared.durationMs : current.captureType === "screenshot" ? null : current.durationMs,
+          lastFrame: lastFrameJpeg(loaded.replay?.frames),
+        },
         browserThumbnailDeps,
       )
       // Over someone else's page the city can't be asked for, so only the tab version sends one.
@@ -350,7 +363,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
   if (!loaded) return embedded ? null : <p className="p-6">Loading…</p>
   const { draft } = loaded
   const sent = typeof status === "object" && "sent" in status ? status.sent : null
-  const startedAt = draft.captureType === "video" ? (draft.recordingStartedAt ?? draft.debuggerPayload?.recordingStartedAt ?? 0) : 0
+  const startedAt = draft.captureType === "screenshot" ? 0 : (draft.recordingStartedAt ?? draft.debuggerPayload?.recordingStartedAt ?? 0)
   // Markers stay where they are in the uncut video; those in the parts cut off go.
   const payload = draft.debuggerPayload
   const markerEvents = payload && trim ? trimPayload(payload, startedAt, trim).events : (payload?.events ?? [])
@@ -391,22 +404,20 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       embedded={embedded}
       draft={draft}
       media={
-        draft.captureType === "video" && loaded.videoUrl ? (
-          <VideoPlayer
-            src={loaded.videoUrl}
-            durationMs={draft.durationMs}
-            markers={reviewMarkers(markerEvents, startedAt)}
-            videoRef={video}
-            range={trim}
-            onTime={(ms) => {
-              setPosition(ms)
-              setPlaying(Boolean(video.current && !video.current.paused))
-            }}
-            className="w-full"
-          />
-        ) : loaded.image ? (
-          <AnnotationCanvas ref={canvas} image={loaded.image} initialShapes={draft.captureType === "screenshot" ? draft.annotations : []} />
-        ) : null
+        <ReviewMedia
+          draft={draft}
+          videoUrl={loaded.videoUrl}
+          image={loaded.image}
+          replay={loaded.replay}
+          markers={reviewMarkers(markerEvents, startedAt)}
+          videoRef={video}
+          canvasRef={canvas}
+          range={trim}
+          onVideoTime={(ms) => {
+            setPosition(ms)
+            setPlaying(Boolean(video.current && !video.current.paused))
+          }}
+        />
       }
       workspaces={loaded.workspaces}
       workspaceId={loaded.workspaceId}

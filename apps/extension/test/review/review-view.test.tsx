@@ -49,6 +49,16 @@ const screenshot = {
   debuggerPayload: { version: 1, capturedAt: 50_000, recordingStartedAt: null, incomplete: [], events: [] },
 } as ReportDraft
 
+const replay = {
+  ...base,
+  captureType: "replay",
+  replay: new Blob(["gz"]),
+  durationMs: 40_000,
+  recordingStartedAt: 1000,
+  frames: [0, 5_000],
+  debuggerPayload: { version: 1, capturedAt: 50_000, recordingStartedAt: 1000, incomplete: [], events },
+} as ReportDraft
+
 function view(overrides: Partial<ReviewViewProps> = {}) {
   const props: ReviewViewProps = {
     embedded: false,
@@ -515,5 +525,30 @@ describe("the strip's preview", () => {
   test("each edge is a handle with a grip", () => {
     const { container } = view()
     expect(container.querySelectorAll("[data-grip]")).toHaveLength(2)
+  })
+})
+
+describe("a replay", () => {
+  test("shows its kind, no trim, and is captured again rather than recorded", () => {
+    const { props } = view({ draft: replay })
+    expect(screen.getByText("Replay")).toBeTruthy()
+    expect(screen.queryByLabelText("Trim start")).toBeNull()
+    expect((screen.getByLabelText("Title") as HTMLInputElement).placeholder).toBe("Bugflash by Dana")
+    fireEvent.click(button("Capture again"))
+    expect(screen.getByText("Capture again?")).toBeTruthy()
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Capture again" }))
+    expect(props.onAgain).toHaveBeenCalledTimes(1)
+  })
+
+  test("after sending, Capture another", () => {
+    const onAnother = mock()
+    view({ draft: replay, status: { sent: { id: "r1", reportUrl: "https://b.test/app/r/1", shareUrl: "https://b.test/s/x" } }, onAnother })
+    fireEvent.click(button("Capture another"))
+    expect(onAnother).toHaveBeenCalledTimes(1)
+  })
+
+  test("the upload bar names a replay", () => {
+    view({ draft: replay, status: "sending", uploadProgress: { sent: 1, total: 10 } })
+    expect(screen.getByRole("progressbar", { name: "Uploading replay" })).toBeTruthy()
   })
 })

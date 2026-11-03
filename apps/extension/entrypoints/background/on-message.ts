@@ -1,3 +1,4 @@
+import type { CaptureType } from "@bugberry/shared"
 import { browser } from "wxt/browser"
 import { handleAiTest, handleAiWrite, isAiTestRequest, isAiWriteRequest } from "../../lib/ai/ai-relay"
 import { browserAiKeyStorage } from "../../lib/ai/browser-ai-key"
@@ -66,7 +67,7 @@ export interface MessageListenerDeps {
   screenshot(tab: ActiveTab | null, mode?: ScreenshotMode): Promise<CaptureResult>
   record(tab: ActiveTab | null, options?: RecordOptions, caps?: { maxBytes: number; maxMs: number }): Promise<CaptureResult>
   takeAgain: ReturnType<typeof createTakeAgain>
-  takeAnother(captureType: "screenshot" | "video", tabId: number, mode: ScreenshotMode): Promise<CaptureResult>
+  takeAnother(captureType: CaptureType, tabId: number, mode: ScreenshotMode): Promise<CaptureResult>
   author(): Promise<string>
   barAction(message: Exclude<BarRequest, { type: "bugberry:me-name" }>): Promise<unknown>
   popupAction(action: PopupRecordingAction): Promise<unknown>

@@ -11,10 +11,12 @@ export interface TakeAgainDeps {
   showReview(draftId: string, tabId: number): Promise<void>
   screenshot(tab: ActiveTab, mode: ScreenshotMode): Promise<CaptureResult>
   record(tab: ActiveTab): Promise<CaptureResult>
+  /** Captures the armed tab's buffer again; the tab is still armed after the first capture. */
+  replay(tab: ActiveTab): Promise<CaptureResult>
 }
 
 /**
- * "Record again" and "Retake": the same kind of capture on the draft's tab. The old draft is deleted only
+ * "Record again", "Retake" and "Capture again": the same kind of capture on the draft's tab. The old draft is deleted only
  * once the new capture started; if it can't (another recording runs, the picker was cancelled), the old
  * review comes back, so nothing is lost.
  */
@@ -26,7 +28,12 @@ export function createTakeAgain(deps: TakeAgainDeps): (draftId: string) => Promi
     const tab = await deps.getTab(draft.tabId)
     if (!tab) return { ok: false, error: "The page this came from was closed." }
     await deps.hideReview(tab.id)
-    const result = draft.captureType === "screenshot" ? await deps.screenshot(tab, draft.screenshotMode ?? "visible") : await deps.record(tab)
+    const result =
+      draft.captureType === "screenshot"
+        ? await deps.screenshot(tab, draft.screenshotMode ?? "visible")
+        : draft.captureType === "replay"
+          ? await deps.replay(tab)
+          : await deps.record(tab)
     if (result.ok) await deps.deleteDraft(draftId)
     else await deps.showReview(draftId, tab.id)
     return result

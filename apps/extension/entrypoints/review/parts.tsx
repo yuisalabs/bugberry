@@ -1,4 +1,4 @@
-import { type Priority, sizeLabel } from "@bugberry/shared"
+import { type CaptureType, type Priority, sizeLabel } from "@bugberry/shared"
 import type { RemixiconComponentType } from "@remixicon/react"
 import { ProgressBar } from "react-aria-components"
 import type { UploadProgress } from "../../lib/review/upload"
@@ -39,10 +39,10 @@ export function PreparingBar({ fraction }: { fraction: number }) {
 }
 
 /** Above the footer while sending: how far the upload is, then that the server is making the report. */
-export function UploadBar({ progress, isVideo }: { progress: UploadProgress; isVideo: boolean }) {
+export function UploadBar({ progress, kind }: { progress: UploadProgress; kind: CaptureType }) {
   const done = progress.sent >= progress.total
   const percent = progress.total > 0 ? Math.min(100, Math.floor((progress.sent / progress.total) * 100)) : 100
-  const label = done ? "Creating report…" : isVideo ? "Uploading video" : "Uploading screenshot"
+  const label = done ? "Creating report…" : `Uploading ${kind}`
   return (
     <ProgressBar
       value={percent}

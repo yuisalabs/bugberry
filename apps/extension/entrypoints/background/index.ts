@@ -1,3 +1,4 @@
+import type { CaptureType } from "@bugberry/shared"
 import { browser } from "wxt/browser"
 import { createFailureFlag } from "../../lib/platform/badge"
 import { createBridge } from "../../lib/server/bridge"
@@ -309,6 +310,26 @@ export default defineBackground(() => {
   }
 
   /** "Record again" and "Retake": the same kind of capture on the draft's tab; the old draft goes once it started. */
+  // Chrome and Opera only for now; on Firefox nothing of replay is wired.
+  const replay = hasReplay(import.meta.env)
+    ? createReplayController(
+        createBrowserReplayDeps({
+          capture: (tab, snapshot, maxMs) => startReplayReport(tab, snapshot, screenshotDeps, maxMs),
+          maxMs: async () => (await recordingCaps()).maxMs,
+          isRecording: async () => (await browserRecordingState.get()) !== null,
+        }),
+      )
+    : null
+  if (replay) {
+    browser.tabs.onUpdated.addListener((tabId, info) => {
+      if (info.status === "complete") void replay.pageLoaded(tabId)
+    })
+    browser.tabs.onRemoved.addListener((tabId) => void replay.tabClosed(tabId))
+    browser.storage.onChanged.addListener((changes, area) => {
+      if (area === "session" && "recording" in changes) void replay.recordingChanged(Boolean(changes.recording?.newValue))
+    })
+  }
+
   const takeAgainDeps: Parameters<typeof createTakeAgain>[0] = {
     getDraft: (id) => store.get(id),
     getTab: async (tabId) => toActiveTab(await browser.tabs.get(tabId).catch(() => undefined)),
@@ -322,14 +343,16 @@ export default defineBackground(() => {
     showReview: openReview,
     screenshot: (tab, mode) => screenshot(tab, mode),
     record: (tab) => record(tab),
+    replay: async (tab) => (replay ? replay.capture(tab) : { ok: false, error: "Replay isn't available in this browser" }),
   }
   const takeAgain = createTakeAgain(takeAgainDeps)
 
   /** "Record another": a new capture of the same kind on the tab the sent report came from. */
-  const takeAnother = async (captureType: "screenshot" | "video", tabId: number, mode: ScreenshotMode): Promise<CaptureResult> => {
+  const takeAnother = async (captureType: CaptureType, tabId: number, mode: ScreenshotMode): Promise<CaptureResult> => {
     const tab = toActiveTab(await browser.tabs.get(tabId).catch(() => undefined))
     if (!tab) return { ok: false, error: "The page this came from was closed." }
     await takeAgainDeps.hideReview(tab.id)
+    if (captureType === "replay") return takeAgainDeps.replay(tab)
     return captureType === "screenshot" ? screenshot(tab, mode) : record(tab)
   }
 
@@ -406,26 +429,6 @@ export default defineBackground(() => {
     browser.windows.onRemoved.addListener(async (windowId) => {
       if (!(await windowHost.windowRemoved(windowId))) return
       await onRecorderClosed({ status: () => recordings.status(), discard: () => recordings.discard(), flag: flagFailure })
-    })
-  }
-
-  // Chrome and Opera only for now; on Firefox nothing of replay is wired.
-  const replay = hasReplay(import.meta.env)
-    ? createReplayController(
-        createBrowserReplayDeps({
-          capture: (tab, snapshot, maxMs) => startReplayReport(tab, snapshot, screenshotDeps, maxMs),
-          maxMs: async () => (await recordingCaps()).maxMs,
-          isRecording: async () => (await browserRecordingState.get()) !== null,
-        }),
-      )
-    : null
-  if (replay) {
-    browser.tabs.onUpdated.addListener((tabId, info) => {
-      if (info.status === "complete") void replay.pageLoaded(tabId)
-    })
-    browser.tabs.onRemoved.addListener((tabId) => void replay.tabClosed(tabId))
-    browser.storage.onChanged.addListener((changes, area) => {
-      if (area === "session" && "recording" in changes) void replay.recordingChanged(Boolean(changes.recording?.newValue))
     })
   }
 
