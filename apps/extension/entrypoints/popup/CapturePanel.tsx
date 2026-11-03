@@ -97,7 +97,7 @@ export function Tiles(props: {
 }
 
 /** A rounded chip under the dial: pink when on, white with an outline when off. */
-const chip = (on: boolean) =>
+export const chip = (on: boolean) =>
   `flex h-8 cursor-pointer items-center gap-1.5 rounded-full px-3 text-sm font-semibold outline-hidden transition-colors focus-visible:ring-2 focus-visible:ring-ring/40 ${
     on ? "bg-primary-subtle text-primary" : "border border-border bg-background text-muted-foreground hover:bg-muted"
   }`

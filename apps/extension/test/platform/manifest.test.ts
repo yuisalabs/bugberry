@@ -47,6 +47,13 @@ describe("MANIFEST_COMMANDS", () => {
     // Chrome allows four suggested shortcuts per extension.
     expect(Object.values(MANIFEST_COMMANDS).filter((command) => "suggested_key" in command)).toHaveLength(4)
   })
+
+  test("capture-replay has a description and no suggested key: all four are taken", () => {
+    expect(MANIFEST_COMMANDS["capture-replay"]).toEqual({ description: "Capture the last seconds of the armed tab" })
+    expect(MANIFEST_COMMANDS["take-screenshot"].suggested_key).toEqual({ default: "Alt+Shift+C" })
+    expect(MANIFEST_COMMANDS["start-recording"].suggested_key).toEqual({ default: "Alt+Shift+R" })
+    expect(MANIFEST_COMMANDS["stop-recording"].suggested_key).toEqual({ default: "Alt+Shift+S" })
+  })
 })
 
 describe("manifest pages and permissions", () => {
@@ -111,6 +118,11 @@ describe("manifestFor", () => {
     expect(commands["take-screenshot"]).toEqual(MANIFEST_COMMANDS["take-screenshot"])
     expect(commands["start-recording"]).toEqual(MANIFEST_COMMANDS["start-recording"])
     expect(commands["stop-recording"]).toEqual(MANIFEST_COMMANDS["stop-recording"])
+  })
+
+  test("firefox has no replay, so no capture-replay command", () => {
+    const commands = (manifestFor("firefox", undefined) as { commands: Record<string, unknown> }).commands
+    expect(commands["capture-replay"]).toBeUndefined()
   })
 })
 
