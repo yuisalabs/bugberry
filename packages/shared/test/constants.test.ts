@@ -9,12 +9,16 @@ describe("shared constants", () => {
     expect(defaultReportTitle("screenshot", "x".repeat(300))).toHaveLength(200)
   })
 
+  test("an untitled replay is a Bugflash", () => {
+    expect(defaultReportTitle("replay", "Ana")).toBe("Bugflash by Ana")
+  })
+
   test("priority rank follows PRIORITIES order", () => {
     expect(PRIORITIES.map((priority) => PRIORITY_RANK[priority])).toEqual([0, 1, 2, 3, 4])
   })
 
   test("each capture type has exactly one media type", () => {
-    expect(MEDIA_TYPES).toEqual({ screenshot: "image/png", video: "video/webm" })
+    expect(MEDIA_TYPES).toEqual({ screenshot: "image/png", video: "video/webm", replay: "application/gzip" })
   })
 
   test("share slug length", () => {
