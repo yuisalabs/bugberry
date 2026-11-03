@@ -2,7 +2,7 @@ import { beforeEach, expect, test } from "bun:test"
 import { mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { encodeReplayMedia, type ReplayEvent } from "@bugberry/shared"
+import { encodeReplayMedia, MAX_REPLAY_FRAMES, REPLAY_FRAME_INTERVAL_MS, REPLAY_WINDOWS_MS, type ReplayEvent } from "@bugberry/shared"
 import { reportObjectKeys, unpackReplayFrames } from "../src/modules/reports/replay-frames"
 import { LocalStorageDriver } from "../src/storage/local"
 
@@ -62,6 +62,18 @@ test("media over the decompressed cap is too large", async () => {
   await putMedia([META, SNAP, frame(15_000)])
   expect(await unpackReplayFrames(storage, "r1", MEDIA_KEY, 64)).toEqual({ ok: false, reason: "Replay recording is too large" })
   expect(await storage.head("reports/r1/frames/000.jpg")).toBeNull()
+})
+
+test("more frames than the cap is too large, and nothing is written", async () => {
+  await putMedia([META, SNAP, frame(15_000), frame(20_000)])
+  expect(await unpackReplayFrames(storage, "r1", MEDIA_KEY, undefined, 1)).toEqual({ ok: false, reason: "Replay recording is too large" })
+  expect(await storage.head("reports/r1/frames/000.jpg")).toBeNull()
+})
+
+test("the frame cap fits the three-digit frame keys", () => {
+  expect(MAX_REPLAY_FRAMES).toBeLessThanOrEqual(1000)
+  // Two windows of the longest length, a frame every interval, plus the one at the start.
+  expect(MAX_REPLAY_FRAMES).toBeGreaterThan((2 * Math.max(...REPLAY_WINDOWS_MS)) / REPLAY_FRAME_INTERVAL_MS + 1)
 })
 
 test("a storage error part way removes the frames already written", async () => {

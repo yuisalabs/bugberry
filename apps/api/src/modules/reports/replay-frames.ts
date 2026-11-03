@@ -1,4 +1,4 @@
-import { isReplayMedia, MAX_REPLAY_DECOMPRESSED_BYTES, replayFrames, THUMBNAIL_CONTENT_TYPE } from "@bugberry/shared"
+import { isReplayMedia, MAX_REPLAY_DECOMPRESSED_BYTES, MAX_REPLAY_FRAMES, replayFrames, THUMBNAIL_CONTENT_TYPE } from "@bugberry/shared"
 import { replayFrameKeyFor, replayFrameKeys, thumbnailKeyFor } from "../../storage/keys"
 import type { StorageDriver } from "../../storage/types"
 import { DecompressedTooLargeError, gunzipLimited } from "../trackers/debugger-errors"
@@ -6,6 +6,7 @@ import { DecompressedTooLargeError, gunzipLimited } from "../trackers/debugger-e
 export type UnpackResult = { ok: true; frames: number[] } | { ok: false; reason: string }
 
 const NOT_READABLE = "Replay recording is not readable"
+const TOO_LARGE = "Replay recording is too large"
 
 /**
  * Reads reports/<id>/media.json.gz, writes one frames/NNN.jpg per embedded frame, returns their times. The whole
@@ -16,6 +17,7 @@ export async function unpackReplayFrames(
   reportId: string,
   mediaKey: string,
   maxBytes = MAX_REPLAY_DECOMPRESSED_BYTES,
+  maxFrames = MAX_REPLAY_FRAMES,
 ): Promise<UnpackResult> {
   let media: unknown
   try {
@@ -23,12 +25,13 @@ export async function unpackReplayFrames(
     if (!blob) return { ok: false, reason: NOT_READABLE }
     media = JSON.parse(await gunzipLimited(blob, maxBytes))
   } catch (error) {
-    if (error instanceof DecompressedTooLargeError) return { ok: false, reason: "Replay recording is too large" }
+    if (error instanceof DecompressedTooLargeError) return { ok: false, reason: TOO_LARGE }
     return { ok: false, reason: NOT_READABLE }
   }
   if (!isReplayMedia(media)) return { ok: false, reason: NOT_READABLE }
 
   const frames = replayFrames(media.events)
+  if (frames.length > maxFrames) return { ok: false, reason: TOO_LARGE }
   const written: string[] = []
   try {
     for (const [index, frame] of frames.entries()) {

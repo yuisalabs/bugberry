@@ -8,6 +8,8 @@ export const REPLAY_FRAME_INTERVAL_MS = 5_000
 export const REPLAY_FRAME_QUALITY = 60
 export const REPLAY_BUFFER_MAX_BYTES = 30 * 1024 * 1024
 export const MAX_REPLAY_DECOMPRESSED_BYTES = 64 * 1024 * 1024
+/** Two 120 s windows hold 49 frames; the cap leaves room and stays within the three-digit frame keys. */
+export const MAX_REPLAY_FRAMES = 100
 /** The rrweb custom event tag of a screenshot embedded in the stream. */
 export const REPLAY_FRAME_TAG = "bugberry:frame"
 export const REPLAY_MEDIA_VERSION = 1

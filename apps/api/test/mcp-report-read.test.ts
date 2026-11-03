@@ -198,8 +198,17 @@ describe("getScreenshot", () => {
     expect(report.text).toContain("Capture: replay, 12s")
   })
 
+  test("a replay whose thumbnail never arrived sends its last frame instead", async () => {
+    const id = crypto.randomUUID()
+    await writeFile(`reports/${id}/frames/001.jpg`, new Uint8Array([255, 216, 255, 1]))
+    const replay = await sampleReport(replayOverrides(id))
+    const result = await callTool(client, "getScreenshot", { report: replay.id })
+    expect(result.images).toEqual([{ mimeType: "image/jpeg", data: Buffer.from([255, 216, 255, 1]).toString("base64") }])
+    expect(result.text).toContain("Last frame of the replay.")
+  })
+
   test("a replay report without frames says so", async () => {
-    const replay = await sampleReport(replayOverrides(crypto.randomUUID()))
+    const replay = await sampleReport({ ...replayOverrides(crypto.randomUUID()), replayFrames: [] })
     const result = await callTool(client, "getScreenshot", { report: replay.id })
     expect(result.images).toEqual([])
     expect(result.text).toContain("This replay has no frames.")

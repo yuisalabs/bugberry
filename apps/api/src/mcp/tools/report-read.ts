@@ -7,6 +7,7 @@ import { toFixViews } from "../../modules/reports/fix-view"
 import { findReportPlace, listReportFixes } from "../../modules/reports/repository"
 import { listLinks } from "../../modules/trackers/repository"
 import { isRecordingType } from "../../modules/workspaces/limits"
+import { replayFrameKeyFor } from "../../storage/keys"
 import { createCommentsService } from "../../modules/comments/service"
 import { renderMentions } from "../../modules/comments/mentions"
 import { type McpContext, McpToolError, RATE_LIMITED, runTool } from "../context"
@@ -247,7 +248,9 @@ export function registerReportReadTools(server: McpServer, ctx: McpContext): voi
         const url = reportUrl(ctx.deps.config.appUrl, resolved.id)
         const recording = isRecordingType(row.captureType)
         const replay = row.captureType === "replay"
-        const key = recording ? row.thumbnailKey : row.mediaKey
+        // The thumbnail is best effort; a replay without one still has its last frame.
+        const lastFrame = replay && row.replayFrames?.length ? replayFrameKeyFor(row.id, row.replayFrames.length - 1) : null
+        const key = recording ? (row.thumbnailKey ?? lastFrame) : row.mediaKey
         const mimeType = recording ? "image/jpeg" : row.mediaType
         const videoLine = recording ? [`Watch the ${replay ? "replay" : "video"} in BugBerry: ${url}`] : []
         const info = key ? await storage.head(key) : null
