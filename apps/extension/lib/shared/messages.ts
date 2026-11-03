@@ -1,4 +1,5 @@
-import type { CameraShape, RecordSource, ScreenshotMode } from "../capture/capture-prefs"
+import { CAPTURE_TYPES, type CaptureType, type ReplayEvent, type ReplayWindowMs } from "@bugberry/shared"
+import { type CameraShape, isReplayWindow, type RecordSource, type ScreenshotMode } from "../capture/capture-prefs"
 import { MAX_RECORDING_MS, type RecordingEndReason } from "../recording/recorder"
 
 export interface ScreenshotRequest {
@@ -347,14 +348,14 @@ export function isReviewAgainRequest(message: unknown): message is ReviewAgainRe
 /** The review → background, after sending: "Record another" takes a new capture of the same kind on that tab. */
 export interface ReviewAnotherRequest {
   type: "bugberry:review-another"
-  captureType: "screenshot" | "video"
+  captureType: CaptureType
   tabId: number
   mode?: ScreenshotMode
 }
 
 export function isReviewAnotherRequest(message: unknown): message is ReviewAnotherRequest {
   const kind = field(message, "captureType")
-  return typeOf(message) === "bugberry:review-another" && (kind === "screenshot" || kind === "video") && typeof field(message, "tabId") === "number"
+  return typeOf(message) === "bugberry:review-another" && (CAPTURE_TYPES as readonly unknown[]).includes(kind) && typeof field(message, "tabId") === "number"
 }
 
 /**
@@ -419,4 +420,68 @@ export function isCameraTicketRequest(message: unknown): message is CameraTicket
     typeof field(message, "token") === "string" &&
     (action === "read" || action === "ready" || action === "failed")
   )
+}
+
+export type ReplayAction = "arm" | "disarm" | "capture" | "status"
+
+/** The popup → background: arm the tab for replay, disarm it, capture its buffer, or ask how it stands. */
+export interface ReplayRequest {
+  type: "bugberry:replay"
+  action: ReplayAction
+  tabId: number
+  /** Only for "arm". */
+  windowMs?: ReplayWindowMs
+}
+
+export type ReplayStatus =
+  | { armed: false }
+  | { armed: true; windowMs: ReplayWindowMs; since: number; degraded: boolean; suspended: boolean }
+
+/** The background → the armed page's recorder. */
+export interface ReplayStartMessage {
+  type: "bugberry:replay-start"
+  windowMs: ReplayWindowMs
+}
+export interface ReplaySnapshotRequest {
+  type: "bugberry:replay-snapshot"
+}
+export interface ReplayStopMessage {
+  type: "bugberry:replay-stop"
+}
+export type ReplayPageMessage = ReplayStartMessage | ReplaySnapshotRequest | ReplayStopMessage
+
+/** The recorder → background: a screenshot for the buffer, answered `{ jpeg: string | null }`. */
+export interface ReplayFrameRequest {
+  type: "bugberry:replay-frame"
+}
+
+/** What the recorder holds, as the page sends it back for a capture. */
+export interface ReplaySnapshot {
+  events: ReplayEvent[]
+  /** The oldest kept checkout. */
+  since: number
+  bytes: number
+  degraded: boolean
+}
+
+const REPLAY_ACTIONS: readonly unknown[] = ["arm", "disarm", "capture", "status"]
+
+export function isReplayRequest(message: unknown): message is ReplayRequest {
+  const windowMs = field(message, "windowMs")
+  return (
+    typeOf(message) === "bugberry:replay" &&
+    REPLAY_ACTIONS.includes(field(message, "action")) &&
+    typeof field(message, "tabId") === "number" &&
+    (windowMs === undefined || isReplayWindow(windowMs))
+  )
+}
+
+export function isReplayFrameRequest(message: unknown): message is ReplayFrameRequest {
+  return typeOf(message) === "bugberry:replay-frame"
+}
+
+export function isReplayPageMessage(message: unknown): message is ReplayPageMessage {
+  const type = typeOf(message)
+  if (type === "bugberry:replay-start") return isReplayWindow(field(message, "windowMs"))
+  return type === "bugberry:replay-snapshot" || type === "bugberry:replay-stop"
 }

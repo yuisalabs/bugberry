@@ -1,3 +1,4 @@
+import { REPLAY_WINDOWS_MS, type ReplayWindowMs } from "@bugberry/shared"
 import type { RecordOptions } from "../shared/messages"
 
 export type ScreenshotMode = "visible" | "area"
@@ -23,6 +24,8 @@ export interface CapturePrefs {
   /** The camera picked in the popup; null is the system's default one. */
   cameraDeviceId: string | null
   cameraShape: CameraShape
+  /** The replay window the popup arms with. */
+  replayWindowMs: ReplayWindowMs
 }
 
 export const DEFAULT_CAPTURE_PREFS: CapturePrefs = {
@@ -36,12 +39,17 @@ export const DEFAULT_CAPTURE_PREFS: CapturePrefs = {
   camera: false,
   cameraDeviceId: null,
   cameraShape: "circle",
+  replayWindowMs: 60_000,
 }
 
 const SCREENSHOT_MODES: readonly string[] = ["visible", "area"]
 const RECORD_SOURCES: readonly string[] = ["tab", "screen", "window"]
 const CAPTURE_KINDS: readonly string[] = ["screenshot", "record"]
 const CAMERA_SHAPES: readonly string[] = ["circle", "rectangle"]
+
+export function isReplayWindow(value: unknown): value is ReplayWindowMs {
+  return (REPLAY_WINDOWS_MS as readonly unknown[]).includes(value)
+}
 
 /** Each missing or unknown field falls back to its default, so an old or damaged value never blocks the popup. */
 export function capturePrefsFrom(raw: unknown): CapturePrefs {
@@ -61,6 +69,7 @@ export function capturePrefsFrom(raw: unknown): CapturePrefs {
     camera: typeof value.camera === "boolean" ? value.camera : DEFAULT_CAPTURE_PREFS.camera,
     cameraDeviceId: typeof value.cameraDeviceId === "string" ? value.cameraDeviceId : DEFAULT_CAPTURE_PREFS.cameraDeviceId,
     cameraShape: CAMERA_SHAPES.includes(value.cameraShape as string) ? (value.cameraShape as CameraShape) : DEFAULT_CAPTURE_PREFS.cameraShape,
+    replayWindowMs: isReplayWindow(value.replayWindowMs) ? value.replayWindowMs : DEFAULT_CAPTURE_PREFS.replayWindowMs,
   }
 }
 

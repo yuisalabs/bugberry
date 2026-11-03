@@ -10,7 +10,11 @@ import {
   isRecordStatusRequest,
   isBarRequest,
   isReviewAgainRequest,
-  isScreenshotRequest, isRecorderReadyNotice, isPopupRecordingRequest, isCameraTicketRequest, isPageUiMessage, isPopupPromptRequest } from "../../lib/shared/messages"
+  isScreenshotRequest, isRecorderReadyNotice, isPopupRecordingRequest, isCameraTicketRequest, isPageUiMessage, isPopupPromptRequest,
+  isReplayFrameRequest,
+  isReplayPageMessage,
+  isReplayRequest,
+  isReviewAnotherRequest } from "../../lib/shared/messages"
 
 describe("messages", () => {
   test("background requests are recognised by type and shape", () => {
@@ -137,4 +141,27 @@ test("the recorder window's ready notice", () => {
   expect(isRecorderReadyNotice({ type: "bugberry:recorder-ready" })).toBe(true)
   expect(isRecorderReadyNotice({ type: "bugberry:recorder-gone" })).toBe(false)
   expect(isRecorderReadyNotice(null)).toBe(false)
+})
+
+test("the popup's replay requests name an action, a tab and a known window", () => {
+  expect(isReplayRequest({ type: "bugberry:replay", action: "arm", tabId: 3, windowMs: 30_000 })).toBe(true)
+  expect(isReplayRequest({ type: "bugberry:replay", action: "status", tabId: 3 })).toBe(true)
+  expect(isReplayRequest({ type: "bugberry:replay", action: "fire", tabId: 3 })).toBe(false)
+  expect(isReplayRequest({ type: "bugberry:replay", action: "arm", tabId: 3, windowMs: 7 })).toBe(false)
+  expect(isReplayRequest({ type: "bugberry:replay", action: "arm" })).toBe(false)
+})
+
+test("the recorder's frame request and the background's messages to the page", () => {
+  expect(isReplayFrameRequest({ type: "bugberry:replay-frame" })).toBe(true)
+  expect(isReplayFrameRequest({ type: "bugberry:replay" })).toBe(false)
+  expect(isReplayPageMessage({ type: "bugberry:replay-start", windowMs: 60_000 })).toBe(true)
+  expect(isReplayPageMessage({ type: "bugberry:replay-start", windowMs: 5 })).toBe(false)
+  expect(isReplayPageMessage({ type: "bugberry:replay-snapshot" })).toBe(true)
+  expect(isReplayPageMessage({ type: "bugberry:replay-stop" })).toBe(true)
+  expect(isReplayPageMessage({ type: "bugberry:replay-frame" })).toBe(false)
+})
+
+test("Capture another takes a replay too", () => {
+  expect(isReviewAnotherRequest({ type: "bugberry:review-another", captureType: "replay", tabId: 3 })).toBe(true)
+  expect(isReviewAnotherRequest({ type: "bugberry:review-another", captureType: "gif", tabId: 3 })).toBe(false)
 })

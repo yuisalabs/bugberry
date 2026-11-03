@@ -107,4 +107,15 @@ export interface VideoDraft extends DraftBase {
   sendStarted?: boolean
 }
 
-export type ReportDraft = ScreenshotDraft | VideoDraft
+export interface ReplayDraft extends DraftBase {
+  captureType: "replay"
+  /** Encoded ReplayMedia (gzip), as it is uploaded. */
+  replay: Blob
+  durationMs: number
+  /** The kept segment's checkout; event offsets in the dashboard are measured from it. */
+  recordingStartedAt: number
+  /** Frame times in ms from recordingStartedAt, for the thumbnail and the review strip. */
+  frames: number[]
+}
+
+export type ReportDraft = ScreenshotDraft | VideoDraft | ReplayDraft
