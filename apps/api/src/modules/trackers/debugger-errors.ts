@@ -5,6 +5,13 @@ const MAX_DECOMPRESSED_BYTES = 16 * 1024 * 1024
 const MAX_ERRORS = 3
 const MAX_ERROR_CHARS = 500
 
+/** Thrown by gunzipLimited past its cap, so a caller can tell an oversized file from a broken one. */
+export class DecompressedTooLargeError extends Error {
+  constructor() {
+    super("Debugger payload is too large")
+  }
+}
+
 export async function gunzipLimited(blob: Blob, maxBytes = MAX_DECOMPRESSED_BYTES): Promise<string> {
   const reader = blob.stream().pipeThrough(new DecompressionStream("gzip")).getReader()
   const chunks: Uint8Array[] = []
@@ -14,7 +21,7 @@ export async function gunzipLimited(blob: Blob, maxBytes = MAX_DECOMPRESSED_BYTE
       const { done, value } = await reader.read()
       if (done) break
       total += value.byteLength
-      if (total > maxBytes) throw new Error("Debugger payload is too large")
+      if (total > maxBytes) throw new DecompressedTooLargeError()
       chunks.push(value)
     }
   } finally {

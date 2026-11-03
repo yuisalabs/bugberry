@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test"
+import { encodeReplayMedia } from "@bugberry/shared"
 import { eq } from "drizzle-orm"
 import { report } from "../src/db/schema"
 import type { LocalStorageDriver } from "../src/storage/local"
@@ -122,6 +123,35 @@ describe("POST /api/reports/:id/finalize", () => {
     const { data } = await ctx.api.api.reports({ id: session.reportId }).finalize.post(undefined, { headers: member.headers })
     expect(data).toEqual({ id: session.reportId, uploadStatus: "ready", reportUrl: session.reportUrl, shareUrl: session.shareUrl })
     expect(await statusOf(session.reportId)).toBe("ready")
+  })
+
+  test("finalize unpacks a replay's frames into objects", async () => {
+    const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xd9]).toString("base64")
+    const frame = (timestamp: number) => ({ type: 5, timestamp, data: { tag: "bugberry:frame", payload: { jpeg } } })
+    const media = new Uint8Array(
+      await (await encodeReplayMedia({ version: 1, events: [{ type: 4, timestamp: 1_000, data: {} }, frame(6_000), frame(11_000)] })).arrayBuffer(),
+    )
+    const session = await startUpload({ captureType: "replay", mediaSize: media.length, durationMs: 10_000, debuggerSize: 2 })
+    expect((await putUpload(ctx.app, session.mediaUpload, media)).status).toBe(200)
+    await putUpload(ctx.app, session.debuggerUpload, new Uint8Array([5, 6]))
+
+    const { data } = await ctx.api.api.reports({ id: session.reportId }).finalize.post(undefined, { headers: member.headers })
+    expect(data?.uploadStatus).toBe("ready")
+    const [row] = await ctx.db.select().from(report).where(eq(report.id, session.reportId))
+    expect(row?.replayFrames).toEqual([5_000, 10_000])
+    expect(await ctx.storage.head(`reports/${session.reportId}/frames/000.jpg`)).toEqual({ size: 4 })
+    expect(await ctx.storage.head(`reports/${session.reportId}/frames/001.jpg`)).toEqual({ size: 4 })
+  })
+
+  test("finalize fails a replay whose media is not a replay, leaving no frames behind", async () => {
+    const session = await startUpload({ captureType: "replay", mediaSize: 4, durationMs: 10_000 })
+    await putUpload(ctx.app, session.mediaUpload, new Uint8Array([1, 2, 3, 4]))
+    const { error } = await ctx.api.api.reports({ id: session.reportId }).finalize.post(undefined, { headers: member.headers })
+    expect(error?.status as number | undefined).toBe(422)
+    expect(error?.value).toMatchObject({ code: "upload_size_mismatch", message: "Replay recording is not readable" })
+    expect(await statusOf(session.reportId)).toBe("failed")
+    expect(await ctx.storage.head(`reports/${session.reportId}/media.json.gz`)).toBeNull()
+    expect(await ctx.storage.head(`reports/${session.reportId}/frames/000.jpg`)).toBeNull()
   })
 
   test("finalize keeps an uploaded thumbnail", async () => {
