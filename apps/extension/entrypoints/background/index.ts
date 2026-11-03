@@ -35,6 +35,7 @@ import { isSignedOut } from "../../lib/drafts/popup"
 import type { RecordingEndReason } from "../../lib/recording/recorder"
 import { pickEditorWorkspace } from "../../lib/review/report-form"
 import { createBrowserReplayDeps } from "../../lib/replay/browser-replay-deps"
+import { startReplayReport } from "../../lib/replay/replay-capture"
 import { createReplayController } from "../../lib/replay/replay-controller"
 import { createMessageListener, RECORDER_BUILD } from "./on-message"
 import { promptTickets } from "./prompt-tickets"
@@ -412,7 +413,7 @@ export default defineBackground(() => {
   const replay = hasReplay(import.meta.env)
     ? createReplayController(
         createBrowserReplayDeps({
-          capture: async () => ({ ok: false, error: "Replay capture isn't available yet" }),
+          capture: (tab, snapshot, maxMs) => startReplayReport(tab, snapshot, screenshotDeps, maxMs),
           maxMs: async () => (await recordingCaps()).maxMs,
           isRecording: async () => (await browserRecordingState.get()) !== null,
         }),
