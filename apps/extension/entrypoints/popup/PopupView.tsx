@@ -91,6 +91,8 @@ export interface PopupViewProps {
   replay: ReplayStatus | null
   /** False in Firefox, which has no replay yet. */
   replayAvailable: boolean
+  /** Where this browser assigns extension shortcuts, for the capture shortcut's hint. */
+  shortcutsPage: string
   onReplay(action: ReplayAction, windowMs?: ReplayWindowMs): void
 }
 
@@ -324,6 +326,7 @@ export function PopupView(props: PopupViewProps) {
             <ReplayPanel
               status={props.replay}
               windowMs={prefs.replayWindowMs}
+              shortcutsPage={props.shortcutsPage}
               busy={props.busy}
               onWindow={(ms) => props.onPrefs({ replayWindowMs: ms })}
               onArm={() => props.onReplay("arm", prefs.replayWindowMs)}

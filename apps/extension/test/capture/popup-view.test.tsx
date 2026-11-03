@@ -45,6 +45,7 @@ function view(overrides: Partial<PopupViewProps> = {}) {
     onAllowHosts: mock(),
     replay: null,
     replayAvailable: false,
+    shortcutsPage: "chrome://extensions/shortcuts",
     onReplay: mock(),
     ...overrides,
   }
@@ -590,6 +591,16 @@ describe("replay", () => {
     expect(props.onReplay).toHaveBeenCalledWith("capture")
     fireEvent.click(button("Disarm"))
     expect(props.onReplay).toHaveBeenCalledWith("disarm")
+  })
+
+  test("the shortcut hint names the browser's own page", () => {
+    view({
+      replay: { armed: true, windowMs: 60_000, since: 1, degraded: false, suspended: false },
+      replayAvailable: true,
+      shortcutsPage: "opera://extensions/shortcuts",
+      onReplay: mock(),
+    })
+    expect(screen.getByText("Add a shortcut at opera://extensions/shortcuts")).toBeTruthy()
   })
 
   test("paused while a recording runs", () => {

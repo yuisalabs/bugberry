@@ -6,7 +6,7 @@ import { createBugberryApi } from "../../lib/server/api"
 import { BUILD_SERVER_ORIGIN, browserSettingsStorage, capturePrefsStorage, lastSessionStorage, lastWorkspaceStorage } from "../../lib/server/browser-settings"
 import { type CameraAccess, cameraAccess, type CameraDevice, cameraDevices } from "../../lib/devices/camera"
 import { capturable } from "../../lib/capture/capture-flow"
-import { hasReplay, hasTabRecorder } from "../../lib/platform/browser-support"
+import { hasReplay, hasTabRecorder, shortcutsPage } from "../../lib/platform/browser-support"
 import { type CapturePrefs, DEFAULT_CAPTURE_PREFS, recordOptionsFor } from "../../lib/capture/capture-prefs"
 import { createIndexedDbDraftStore } from "../../lib/drafts/draft-store"
 import { fullWarning, limitsFor, usageLine } from "../../lib/server/limits"
@@ -385,6 +385,7 @@ export function App() {
         recordWarning={limitNotes.record}
         replay={replay}
         replayAvailable={replayAvailable}
+        shortcutsPage={shortcutsPage(navigator.userAgent)}
         onReplay={(action, windowMs) => void onReplay(action, windowMs)}
       />
     </>

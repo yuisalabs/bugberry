@@ -16,3 +16,9 @@ export function hasTabRecorder(api: RecorderApis): boolean {
 export function hasReplay(env: { FIREFOX?: boolean }): boolean {
   return !env.FIREFOX
 }
+
+/** Where a keyboard shortcut is assigned. Opera and Edge also install the Chrome build, so the browser is read at run time. */
+export function shortcutsPage(userAgent: string): string {
+  const scheme = userAgent.includes(" OPR/") ? "opera" : userAgent.includes(" Edg/") ? "edge" : "chrome"
+  return `${scheme}://extensions/shortcuts`
+}

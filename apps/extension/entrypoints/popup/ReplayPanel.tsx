@@ -10,6 +10,8 @@ import { InfoBox, SectionLabel } from "./parts"
 export function ReplayPanel(props: {
   status: ReplayStatus | null
   windowMs: ReplayWindowMs
+  /** chrome://extensions/shortcuts, or Opera's or Edge's own. */
+  shortcutsPage: string
   onWindow(ms: ReplayWindowMs): void
   onArm(): void
   onDisarm(): void
@@ -36,7 +38,7 @@ export function ReplayPanel(props: {
             </AriaButton>
           </div>
           {status.degraded && <InfoBox>{`Buffer is full; the capture will be shorter than ${status.windowMs / 1000}s.`}</InfoBox>}
-          <p className="text-xs text-muted-foreground">Add a shortcut at chrome://extensions/shortcuts</p>
+          <p className="text-xs text-muted-foreground">{`Add a shortcut at ${props.shortcutsPage}`}</p>
         </>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
