@@ -18,6 +18,7 @@ COPY packages/ai-write/package.json packages/ai-write/
 COPY packages/capture/package.json packages/capture/
 COPY packages/debugger-view/package.json packages/debugger-view/
 COPY packages/player/package.json packages/player/
+COPY packages/replay-player/package.json packages/replay-player/
 COPY packages/sdk/package.json packages/sdk/
 COPY packages/ui/package.json packages/ui/
 
