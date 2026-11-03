@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
 import { Button as AriaButton } from "react-aria-components"
+import { isRecordingType } from "@bugberry/shared"
 import type { DebuggerView, VisitedUrl } from "@bugberry/debugger-view"
 import { formatOffset, formatTimestamp } from "../../../lib/format"
 import { environmentRows, hasCustomFields, maskedCount, visitedUrls } from "@bugberry/debugger-view"
@@ -53,7 +54,9 @@ export function InfoTab({
     ["Reporter", report.reporterEmail ? `${report.reporter.name}, ${report.reporterEmail}` : report.reporter.name],
   ]
   if (report.location) session.push(["Location", report.location])
-  if (report.captureType === "video" && report.durationMs !== null) session.push(["Recording", formatOffset(report.durationMs)])
+  if (isRecordingType(report.captureType) && report.durationMs !== null) {
+    session.push([report.captureType === "replay" ? "Replay" : "Recording", formatOffset(report.durationMs)])
+  }
 
   return (
     <div className="flex flex-col gap-5 p-4 text-sm">

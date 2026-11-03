@@ -75,6 +75,13 @@ describe("ReplayPlayer", () => {
     expect(onMarkerClick).toHaveBeenCalledWith(marker)
   })
 
+  test("a stream rrweb can't play says so instead of building a player", () => {
+    const player = fakePlayer()
+    render(<ReplayPlayer events={EVENTS.slice(0, 1)} durationMs={0} frames={[]} createPlayer={player.createPlayer} />)
+    expect(screen.getByText("This replay is too short to play.")).toBeTruthy()
+    expect(player.createPlayer).not.toHaveBeenCalled()
+  })
+
   test("no frames, no strip", () => {
     const player = fakePlayer()
     render(<ReplayPlayer events={EVENTS} durationMs={12_000} frames={[]} createPlayer={player.createPlayer} />)

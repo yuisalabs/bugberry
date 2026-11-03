@@ -1,4 +1,4 @@
-import { type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { type ComponentType, type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { RiFileListLine, RiHashtag, RiTerminalBoxLine } from "@remixicon/react"
 import { Tab, TabList, TabPanel, Tabs } from "react-aria-components"
 import { Avatar } from "@bugberry/ui/avatar"
@@ -6,6 +6,8 @@ import { clampDevtoolsWidth, type DevtoolsLayout, devtoolsColumn, readDevtools, 
 import { formatDateTime } from "../../../lib/format"
 import { initialsOf } from "../../../lib/people"
 import { flaggedIssues } from "@bugberry/debugger-view"
+import type { ReplayPlayerHandle, ReplayPlayerProps } from "@bugberry/replay-player"
+import { isRecordingType } from "@bugberry/shared"
 import type { SentIssue } from "./report-page"
 import { type Playback, seekSeconds } from "../debugger/timeline"
 import { timelineMarkers } from "./timeline-markers"
@@ -15,7 +17,7 @@ import type { DebuggerFocus } from "../debugger/DebuggerTabs"
 import { MediaViewer } from "./MediaViewer"
 import { FlaggedIssues } from "./FlaggedIssues"
 import { ReportMeta } from "./ReportMeta"
-import { playAt, ReportVideoContext } from "./video-context"
+import { playableVideo, playAt, ReportVideoContext } from "./video-context"
 import { VideoReporter, VideoShareActions } from "./VideoOverlay"
 import type { ReportDetail } from "../queries"
 
@@ -52,6 +54,7 @@ export function ReportView({
   project = null,
   footer,
   children,
+  replayPlayer,
 }: {
   report: ReportDetail
   header: ReactNode
@@ -70,8 +73,14 @@ export function ReportView({
   footer?: ReactNode
   /** Under the Properties in the Details tab: the comments. */
   children?: ReactNode
+  /** The replay player; tests pass a plain one instead of rrweb. */
+  replayPlayer?: ComponentType<ReplayPlayerProps>
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
+  const replayRef = useRef<ReplayPlayerHandle>(null)
+  const mediaBox = useRef<HTMLDivElement>(null)
+  const isRecording = isRecordingType(report.captureType)
+  const isReplay = report.captureType === "replay"
   // The pages pass a new function on every render; the media and the panel get one that stays the same.
   const latestRefresh = useRef(refreshReport)
   latestRefresh.current = refreshReport
@@ -91,34 +100,35 @@ export function ReportView({
   }
   const flagged = useMemo(() => {
     if (!debuggerView.data) return []
-    const video =
-      report.captureType === "video"
-        ? { startedAt: debuggerView.data.recordingStartedAt, durationMs: report.durationMs }
-        : null
+    const video = isRecording ? { startedAt: debuggerView.data.recordingStartedAt, durationMs: report.durationMs } : null
     return flaggedIssues(debuggerView.data, video)
-  }, [debuggerView.data, report.captureType, report.durationMs])
+  }, [debuggerView.data, isRecording, report.durationMs])
   const seek = useCallback(
     (offsetMs: number) => {
+      if (isReplay) {
+        replayRef.current?.seek(offsetMs)
+        return
+      }
       const video = videoRef.current
       if (video) video.currentTime = seekSeconds(offsetMs, report.durationMs)
     },
-    [report.durationMs],
+    [isReplay, report.durationMs],
   )
-  // Only a new position makes a new value, so the panel re-renders for the video and nothing else.
-  const playback: Playback | null = useMemo(
-    () => (report.captureType === "video" ? { currentMs, seek } : null),
-    [report.captureType, currentMs, seek],
-  )
+  // Only a new position makes a new value, so the panel re-renders for the player and nothing else.
+  const playback: Playback | null = useMemo(() => (isRecording ? { currentMs, seek } : null), [isRecording, currentMs, seek])
   const onExpired = useCallback(() => void latestRefresh.current(), [])
-  // A "0:52" in a comment seeks the video; only a video report with a known length offers it.
-  const video = useMemo(
-    () => {
-      const durationMs = report.durationMs
-      if (report.captureType !== "video" || durationMs === null) return null
-      return { seek: (ms: number) => playAt(videoRef.current, ms, durationMs), durationMs }
-    },
-    [report.captureType, report.durationMs],
-  )
+  const refreshMediaUrl = useCallback(async () => (await latestRefresh.current())?.mediaUrl ?? null, [])
+  // A "0:52" in a comment seeks the recording; only one with a known length offers it.
+  const video = useMemo(() => {
+    const durationMs = report.durationMs
+    if (!isRecording || durationMs === null) return null
+    const player = () => {
+      if (!isReplay) return playableVideo(videoRef.current)
+      const replay = replayRef.current
+      return replay ? { seek: replay.seek, play: replay.play, element: mediaBox.current } : null
+    }
+    return { seek: (ms: number) => playAt(player(), ms, durationMs), durationMs }
+  }, [isRecording, isReplay, report.durationMs])
   const reporter = useMemo(() => <VideoReporter reporter={report.reporter} />, [report.reporter])
   const shareActions = useCallback(
     (seconds: number) => <VideoShareActions shareSlug={report.shareSlug} seconds={seconds} mediaUrl={report.mediaUrl} />,
@@ -154,16 +164,21 @@ export function ReportView({
         }`}
       >
         <article className="flex min-w-0 flex-col gap-5">
-          <MediaViewer
-            report={report}
-            onExpired={onExpired}
-            videoRef={videoRef}
-            onTime={setCurrentMs}
-            markers={markers}
-            startAtSeconds={startAtSeconds}
-            topLeft={reporter}
-            topRight={shareActions}
-          />
+          <div ref={mediaBox}>
+            <MediaViewer
+              report={report}
+              onExpired={onExpired}
+              videoRef={videoRef}
+              replayRef={replayRef}
+              replayPlayer={replayPlayer}
+              refreshMediaUrl={refreshMediaUrl}
+              onTime={setCurrentMs}
+              markers={markers}
+              startAtSeconds={startAtSeconds}
+              topLeft={reporter}
+              topRight={shareActions}
+            />
+          </div>
           <section className="flex flex-col gap-3">
             <ReportMeta report={report} issues={issues} part="chips" />
             {/* The priority is in the sidebar's Properties, so the title stands alone. */}

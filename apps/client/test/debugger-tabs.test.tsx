@@ -403,6 +403,13 @@ describe("InfoTab", () => {
     expect(screen.getByText("1440 × 900")).toBeTruthy()
   })
 
+  test("a replay shows its length as Replay, not Recording", () => {
+    render(<InfoTab report={reportFixture({ captureType: "replay", durationMs: 61_000 })} view={view} />)
+    expect(screen.getByText("Replay")).toBeTruthy()
+    expect(screen.getByText("1:01")).toBeTruthy()
+    expect(screen.queryByText("Recording")).toBeNull()
+  })
+
   test("members see the reporter's city", () => {
     render(<InfoTab report={reportFixture({ location: "Jakarta, Indonesia" })} view={view} />)
     expect(screen.getByText("Jakarta, Indonesia")).toBeTruthy()
@@ -578,7 +585,7 @@ describe("onboarding in the DevTools panel", () => {
     render(<OnboardingTestProvider value={onboarding(record)}>{tabs()}</OnboardingTestProvider>)
     expect(screen.getByRole("tab", { name: /Console/ }).hasAttribute("data-onboarding-pulse")).toBe(true)
     expect(screen.getByRole("tab", { name: /Network/ }).hasAttribute("data-onboarding-pulse")).toBe(true)
-    expect(screen.getByText("These errors and requests happened alongside the video. Take a look.")).toBeTruthy()
+    expect(screen.getByText("These errors and requests happened alongside the recording. Take a look.")).toBeTruthy()
     fireEvent.click(screen.getByRole("tab", { name: /Console/ }))
     expect(record).toHaveBeenCalledWith("devtools")
   })

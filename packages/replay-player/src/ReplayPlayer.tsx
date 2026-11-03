@@ -8,6 +8,8 @@ import { REPLAY_FRAME_TAG } from "@bugberry/shared"
 import { activeFrame, frameSrc, playerSize, type ReplayPlayerProps, type RrwebPlayerLike, type RrwebPlayerProps, stripFrames } from "./index"
 
 const FRAME_MARKER_COLOR = "#2563eb"
+/** rrweb's Replayer throws on fewer: a stream needs its Meta event and at least one more. */
+const MIN_EVENTS = 2
 
 function defaultCreatePlayer(target: HTMLElement, props: RrwebPlayerProps): RrwebPlayerLike {
   // rrweb's own event type stays at this boundary; the rest of the app reads ReplayEvent.
@@ -71,7 +73,7 @@ export function ReplayPlayer({
 
   useEffect(() => {
     const target = stage.current
-    if (!target) return
+    if (!target || events.length < MIN_EVENTS) return
     const created = latest.current.createPlayer(target, {
       events,
       ...playerSize({ width: latest.current.width }),
@@ -107,7 +109,11 @@ export function ReplayPlayer({
 
   return (
     <div ref={host} className={`bb-replay ${className ?? ""}`}>
-      <div ref={stage} className="bb-replay-stage" />
+      {events.length < MIN_EVENTS ? (
+        <p className="bb-replay-empty">This replay is too short to play.</p>
+      ) : (
+        <div ref={stage} className="bb-replay-stage" />
+      )}
       {markers.length > 0 && (
         <div className="bb-replay-markers">
           {placeMarkers(markers, durationMs / 1000).map((group) => (

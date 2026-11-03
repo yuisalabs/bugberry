@@ -4,6 +4,15 @@
   gap: 0.5rem;
   min-width: 0;
 }
+.bb-replay-empty {
+  margin: 0;
+  padding: 2.5rem;
+  border-radius: 0.5rem;
+  background-color: #1c1022;
+  color: #ffffff;
+  font-size: 0.875rem;
+  text-align: center;
+}
 .bb-replay-stage {
   overflow: hidden;
   border-radius: 0.5rem;

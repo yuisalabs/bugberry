@@ -127,7 +127,7 @@ export function DebuggerTabs({
         </TabList>
         {guide && (
           <p className="mx-4 mt-2 rounded-lg bg-primary-subtle px-3 py-2 text-xs text-primary-subtle-foreground">
-            These errors and requests happened alongside the video. Take a look.
+            These errors and requests happened alongside the recording. Take a look.
           </p>
         )}
         {tabs.map(({ id }) => (
