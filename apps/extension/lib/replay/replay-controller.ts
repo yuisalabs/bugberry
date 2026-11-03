@@ -56,6 +56,17 @@ export function replaySnapshotFrom(value: unknown): ReplaySnapshot | null {
  * recording runs, and hands its buffer over on Capture. The buffer never leaves the page until then.
  */
 export function createReplayController(deps: ReplayControllerDeps): ReplayController {
+  // Each change reads a tab and writes it back, so changes go one at a time: a degraded notice landing while a
+  // recording pauses the tab would otherwise write the tab back unpaused. Calls from inside a change use the bare one.
+  let queue: Promise<unknown> = Promise.resolve()
+  const serial =
+    <A extends unknown[], T>(change: (...args: A) => Promise<T>) =>
+    (...args: A): Promise<T> => {
+      const next = queue.then(() => change(...args))
+      queue = next.catch(() => {})
+      return next
+    }
+
   const stopPage = (tabId: number) => deps.toPage(tabId, { type: "bugberry:replay-stop" }).catch(() => undefined)
 
   /** Puts a fresh recorder in the page; false when the page can't be scripted. */
@@ -123,9 +134,33 @@ export function createReplayController(deps: ReplayControllerDeps): ReplayContro
     await save(tabId, { ...armed, since: deps.now(), degraded: false })
   }
 
+  const degraded = async (tabId: number, value: boolean) => {
+    const armed = await deps.armed.get(tabId)
+    if (!armed || armed.suspended || armed.degraded === value) return
+    await save(tabId, { ...armed, degraded: value })
+  }
+
+  // The two never run together. The buffer is dropped at the pause: a replay across the gap would show a hole.
+  const recordingChanged = async (recording: boolean) => {
+    const tabs = await deps.armed.all()
+    for (const [id, armed] of Object.entries(tabs)) {
+      const tabId = Number(id)
+      if (recording && !armed.suspended) {
+        await stopPage(tabId)
+        await save(tabId, { ...armed, suspended: true, degraded: false })
+      } else if (!recording && armed.suspended) {
+        await deps.armed.set(tabId, { ...armed, suspended: false })
+        await pageLoaded(tabId)
+      }
+    }
+  }
+
+  const armSerial = serial(arm)
+  const disarmSerial = serial(disarm)
+
   return {
-    arm,
-    disarm,
+    arm: armSerial,
+    disarm: disarmSerial,
     status,
     capture,
     async frame(tabId, windowId) {
@@ -139,35 +174,16 @@ export function createReplayController(deps: ReplayControllerDeps): ReplayContro
         return { jpeg: null }
       }
     },
-    async degraded(tabId, degraded) {
-      const armed = await deps.armed.get(tabId)
-      if (!armed || armed.suspended || armed.degraded === degraded) return
-      await save(tabId, { ...armed, degraded })
-    },
-    pageLoaded,
-    async tabClosed(tabId) {
-      await deps.armed.remove(tabId)
-    },
-    // The two never run together. The buffer is dropped at the pause: a replay across the gap would show a hole.
-    async recordingChanged(recording) {
-      const tabs = await deps.armed.all()
-      for (const [id, armed] of Object.entries(tabs)) {
-        const tabId = Number(id)
-        if (recording && !armed.suspended) {
-          await stopPage(tabId)
-          await save(tabId, { ...armed, suspended: true, degraded: false })
-        } else if (!recording && armed.suspended) {
-          await deps.armed.set(tabId, { ...armed, suspended: false })
-          await pageLoaded(tabId)
-        }
-      }
-    },
+    degraded: serial(degraded),
+    pageLoaded: serial(pageLoaded),
+    tabClosed: serial((tabId: number) => deps.armed.remove(tabId)),
+    recordingChanged: serial(recordingChanged),
     async handle(message, tab) {
       switch (message.action) {
         case "arm":
-          return arm(tab, message.windowMs ?? 60_000)
+          return armSerial(tab, message.windowMs ?? 60_000)
         case "disarm":
-          await disarm(tab.id)
+          await disarmSerial(tab.id)
           return status(tab.id)
         case "capture":
           return capture(tab)

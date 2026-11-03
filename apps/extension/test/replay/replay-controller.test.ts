@@ -203,3 +203,32 @@ describe("handle", () => {
     expect(await c.handle({ type: "bugberry:replay", action: "disarm", tabId: 3 }, tab(3))).toEqual({ armed: false })
   })
 })
+
+describe("one change at a time", () => {
+  test("a degraded notice arriving while a recording pauses the tab can't unpause it", async () => {
+    // Session storage whose writes wait for `open`, so a read can land between another call's read and write.
+    const items = new Map<string, unknown>()
+    let open: () => void = () => {}
+    let gate: Promise<void> = Promise.resolve()
+    const session = {
+      get: async (key: string) => (items.has(key) ? { [key]: structuredClone(items.get(key)) } : {}),
+      set: async (patch: Record<string, unknown>) => {
+        await gate
+        for (const [key, value] of Object.entries(patch)) items.set(key, structuredClone(value))
+      },
+    }
+    const s = setup()
+    const c = createReplayController({ ...s.deps, armed: createArmedStore(session) })
+    await c.arm(tab(3), 60_000)
+    gate = new Promise((resolve) => {
+      open = resolve
+    })
+    const pausing = c.recordingChanged(true)
+    await new Promise((resolve) => setTimeout(resolve, 5))
+    const notice = c.degraded(3, true)
+    await new Promise((resolve) => setTimeout(resolve, 5))
+    open()
+    await Promise.all([pausing, notice])
+    expect(await c.status(3)).toMatchObject({ suspended: true })
+  })
+})
