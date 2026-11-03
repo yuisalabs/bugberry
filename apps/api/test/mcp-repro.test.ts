@@ -79,6 +79,11 @@ describe("scriptFilename", () => {
 })
 
 describe("reproductionScript", () => {
+  test("a replay warns that steps from before its window may be missing", () => {
+    const result = reproductionScript(normalizePayload(samplePayload()), { ...meta, captureType: "replay" })
+    expect(result?.warnings).toContain("Steps from other tabs, or from before the replay window, may be missing.")
+  })
+
   test("null without actions", () => {
     expect(reproductionScript(view([{ kind: "console", t: 1, level: "error", args: ["x"] }]), meta)).toBeNull()
   })

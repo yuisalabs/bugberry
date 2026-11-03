@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { normalizePayload } from "@bugberry/debugger-view"
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js"
+import { eq } from "drizzle-orm"
+import { report } from "../src/db/schema"
 import { codeHotspots, frustrationSignals } from "../src/mcp/tools/insights"
 import { createReadyReport, createUserWithToken, setupTestApp } from "./helpers"
 import { callTool, mcpClient, putDebugger, samplePayload, T0 } from "./mcp-helpers"
@@ -66,6 +68,13 @@ describe("insight tools", () => {
       durationMs: 30_000,
       debuggerKey: await putDebugger(ctx, reportId, samplePayload()),
     })
+  })
+
+  test("a replay's flagged issues carry their offset like a video's", async () => {
+    await ctx.db.update(report).set({ captureType: "replay", mediaKey: `reports/${reportId}/media.json.gz` }).where(eq(report.id, reportId))
+    const { text } = await callTool(client, "getFrustrationSignals", { report: reportId })
+    const flagged = text.split("Signals:")[0] ?? ""
+    expect(flagged).toMatch(/^- \+\d\d:\d\d\.\d .*→ 500/m)
   })
 
   test("getPerformance lists app.js as the slowest and largest resource", async () => {

@@ -132,6 +132,10 @@ describe("nextSteps", () => {
   test("a video report also points to its recording", () => {
     expect(nextSteps({ ...SUMMARY, errors: 0, failedRequests: 0, actions: 0 }, "video")).toEqual(["getTimeline", "getRecording"])
   })
+
+  test("so does a replay report", () => {
+    expect(nextSteps({ ...SUMMARY, errors: 0, failedRequests: 0, actions: 0 }, "replay")).toEqual(["getTimeline", "getRecording"])
+  })
 })
 
 describe("getComments", () => {
@@ -177,6 +181,28 @@ describe("getScreenshot", () => {
     const result = await callTool(client, "getScreenshot", { report: video.id })
     expect(result.images[0]?.mimeType).toBe("image/jpeg")
     expect(result.text).toContain(`Watch the video in BugBerry: http://localhost:3000/app/r/${video.id}`)
+  })
+
+  const replayOverrides = (id: string) => ({ id, captureType: "replay" as const, mediaKey: `reports/${id}/media.json.gz`, mediaType: "application/gzip", replayFrames: [0, 5_000] })
+
+  test("a replay report sends its last frame", async () => {
+    const id = crypto.randomUUID()
+    const thumbnailKey = `reports/${id}/thumbnail.jpg`
+    await writeFile(thumbnailKey, new Uint8Array([255, 216, 255]))
+    const replay = await sampleReport({ ...replayOverrides(id), thumbnailKey, thumbnailSize: 3, durationMs: 12_000 })
+    const result = await callTool(client, "getScreenshot", { report: replay.id })
+    expect(result.images).toEqual([{ mimeType: "image/jpeg", data: Buffer.from([255, 216, 255]).toString("base64") }])
+    expect(result.text).toBe(`Last frame of the replay.\nWatch the replay in BugBerry: http://localhost:3000/app/r/${replay.id}`)
+
+    const report = await callTool(client, "getReport", { report: replay.id })
+    expect(report.text).toContain("Capture: replay, 12s")
+  })
+
+  test("a replay report without frames says so", async () => {
+    const replay = await sampleReport(replayOverrides(crypto.randomUUID()))
+    const result = await callTool(client, "getScreenshot", { report: replay.id })
+    expect(result.images).toEqual([])
+    expect(result.text).toContain("This replay has no frames.")
   })
 })
 

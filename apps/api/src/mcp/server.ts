@@ -18,6 +18,7 @@ const INSTRUCTIONS =
   "then follow its next steps. getCodeHotspots names the files and lines in the page's code that failed. " +
   "getReproductionScript turns the report's clicks and typing into a Playwright test that fails while the bug is there. " +
   "For a video report, getRecording gives the video and the moments worth a frame, to cut with ffmpeg and look at. " +
+  "For a replay report (captured after the bug, from the last seconds), getRecording gives screenshots taken every 5 seconds as links, no ffmpeg needed. " +
   "To file a recording made with the BugBerry recorder (@bugberry/recorder), call createUpload after its stopRecording."
 
 /** A fresh MCP server for one request, with every tool bound to that request's caller. */
