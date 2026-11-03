@@ -142,12 +142,13 @@ describe("the page's replay recorder", () => {
     expect(p.takeFullSnapshot).toHaveBeenCalledTimes(1)
   })
 
-  test("a lone segment over the byte cap gets a fresh checkout so it can be dropped", async () => {
+  test("a lone segment crossing the byte cap gets a fresh checkout at once, not at the next tick", async () => {
     const p = setup({ visible: false, maxBytes: 100 })
     p.send(start)
     p.emit({ type: 4, timestamp: 0, data: {} })
     p.emit({ type: 3, timestamp: 1, data: { s: "x".repeat(200) } })
-    await p.tick()
+    p.emit({ type: 3, timestamp: 2, data: { s: "x".repeat(200) } })
+    await Promise.resolve()
     expect(p.takeFullSnapshot).toHaveBeenCalledTimes(1)
   })
 

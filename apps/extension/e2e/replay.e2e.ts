@@ -1,10 +1,15 @@
 import { readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
+import { REPLAY_BUFFER_MAX_BYTES } from "@bugberry/shared"
 import { type BrowserContext, chromium, expect, type Page, test, type Worker } from "@playwright/test"
 
 declare const chrome: {
-  tabs: { query(filter: { url: string }): Promise<Array<{ id?: number }>> }
-  action: { openPopup(): Promise<void>; getBadgeText(details: { tabId: number }): Promise<string> }
+  action: {
+    openPopup(): Promise<void>
+    getBadgeText(details: { tabId: number }): Promise<string>
+    getBadgeBackgroundColor(details: { tabId: number }): Promise<number[]>
+  }
+  tabs: { query(filter: { url: string }): Promise<Array<{ id?: number }>>; sendMessage(tabId: number, message: unknown): Promise<unknown> }
 }
 
 const extensionPath = fileURLToPath(new URL("../.output/chrome-mv3", import.meta.url))
@@ -137,6 +142,53 @@ test("a replay is armed, survives a reload, is captured, sent, and plays in the 
   await expect(dashboard.locator(".rr-player")).toBeVisible({ timeout: 20_000 })
   await expect(dashboard.getByRole("listitem", { name: /^Screenshot at / }).first()).toBeVisible()
   await expect(dashboard.getByRole("link", { name: "Download replay" })).toBeVisible()
+
+  await context.close()
+})
+
+/** 200 changes a second, each a fresh 20 KB of text, under a 2 MB inline font: about 4 MB of events a second. */
+const HEAVY_PAGE = `<!doctype html><html><head><title>Heavy</title><style>
+@font-face { font-family: Heavy; src: url(data:font/woff2;base64,${"A".repeat(2 * 1024 * 1024)}) }
+body { font-family: Heavy, sans-serif }
+</style></head><body><div id="box"></div><script>
+let n = 0
+const filler = "lorem ipsum ".repeat(1700)
+setInterval(() => { document.getElementById("box").textContent = n++ + filler }, 5)
+</script></body></html>`
+
+test("a page that changes too fast for the window keeps the buffer under its cap, turns the badge amber, and still captures", async () => {
+  test.setTimeout(150_000)
+  const context = await chromium.launchPersistentContext("", {
+    channel: "chromium",
+    args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`],
+  })
+  await context.route("**/heavy", (route) => route.fulfill({ contentType: "text/html", body: HEAVY_PAGE }))
+  const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent("serviceworker"))
+  const state = JSON.parse(readFileSync(statePath, "utf8")) as { demoUrl: string }
+  const heavy = await context.newPage()
+  await heavy.goto(`${state.demoUrl}heavy`)
+  await heavy.bringToFront()
+  const tabId = await worker.evaluate(async (url) => (await chrome.tabs.query({ url }))[0]?.id ?? -1, `${state.demoUrl}heavy`)
+
+  await inPopup(context, worker, heavy, `(await button("30s")).click(); await button("30s", true); (await button("Arm replay")).click(); await button("Capture last ~30s")`)
+  await expect
+    .poll(() => worker.evaluate((id) => chrome.action.getBadgeBackgroundColor({ tabId: id }), tabId), { timeout: 60_000 })
+    .toEqual([217, 119, 6, 255])
+
+  const held = () => worker.evaluate(async (id) => ((await chrome.tabs.sendMessage(id, { type: "bugberry:replay-snapshot" })) as { bytes: number }).bytes, tabId)
+  let most = 0
+  // Long enough for the buffer to fill past the cap at least once (about 4 MB a second).
+  for (let sample = 0; sample < 22; sample++) {
+    most = Math.max(most, await held())
+    await heavy.waitForTimeout(700)
+  }
+  // At most one event over the cap: the change that crossed it, until the checkout it causes drops the older segment.
+  expect(most).toBeLessThanOrEqual(REPLAY_BUFFER_MAX_BYTES + 64 * 1024)
+
+  await inPopup(context, worker, heavy, `(await button("Capture last ~30s")).click()`)
+  await expect.poll(() => heavy.frames().some((frame) => frame.url().includes("/review.html")), { timeout: 30_000 }).toBe(true)
+  const review = heavy.frames().find((frame) => frame.url().includes("/review.html"))
+  await expect(review?.locator(".rr-player") ?? heavy.locator("nothing")).toBeVisible({ timeout: 30_000 })
 
   await context.close()
 })

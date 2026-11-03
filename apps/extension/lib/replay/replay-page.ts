@@ -40,6 +40,7 @@ export function installReplayRecorder(deps: ReplayPageDeps): { stop(): void } {
   let stopRecord: (() => void) | null = null
   let timer: ReturnType<typeof setInterval> | null = null
   let degraded = false
+  let checkoutAsked = false
 
   const stop = () => {
     stopRecord?.()
@@ -52,6 +53,15 @@ export function installReplayRecorder(deps: ReplayPageDeps): { stop(): void } {
 
   const keep = (event: ReplayEvent, isCheckout: boolean) => {
     buffer.push(event, isCheckout)
+    // A lone segment over the cap can't be cut; a checkout right away lets the next push drop it. Queued, since rrweb
+    // is still inside this emit.
+    if (buffer.overCap() && !checkoutAsked) {
+      checkoutAsked = true
+      queueMicrotask(() => {
+        checkoutAsked = false
+        if (stopRecord) deps.takeFullSnapshot()
+      })
+    }
     if (buffer.degraded() === degraded) return
     degraded = buffer.degraded()
     deps.notifyDegraded(degraded)
@@ -60,7 +70,7 @@ export function installReplayRecorder(deps: ReplayPageDeps): { stop(): void } {
   const tick = async (windowMs: number) => {
     // rrweb only checks out on DOM activity, while frames keep a quiet page's segment growing.
     const last = buffer.lastCheckoutAt()
-    if (buffer.overCap() || (last !== null && deps.now() - last >= windowMs)) deps.takeFullSnapshot()
+    if (last !== null && deps.now() - last >= windowMs) deps.takeFullSnapshot()
     if (!deps.visible()) return
     const jpeg = await deps.requestFrame()
     // rrweb throws on a custom event once recording has stopped.
