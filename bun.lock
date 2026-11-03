@@ -110,6 +110,8 @@
         "@fontsource-variable/geist-mono": "5.3.0",
         "@fontsource-variable/sora": "5.3.0",
         "@remixicon/react": "4.9.0",
+        "@rrweb/record": "2.2.0",
+        "@rrweb/types": "2.2.0",
         "cn": "0.5.0",
         "mediabunny": "1.61.2",
         "react": "19.3.1",
@@ -490,6 +492,8 @@
     "@rolldown/pluginutils": ["@rolldown/pluginutils@1.0.1", "", {}, "sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw=="],
 
     "@rrweb/packer": ["@rrweb/packer@2.2.0", "", { "dependencies": { "@rrweb/types": "^2.2.0", "fflate": "^0.4.9" } }, "sha512-NgYYIaXf5sem/0JWsPLpaRBV70cqJKSFZkyvg1MG4wefzWUPtDxufFuWdprblPawg0RdPMSBEzkpQKzcir/sXg=="],
+
+    "@rrweb/record": ["@rrweb/record@2.2.0", "", { "dependencies": { "@rrweb/types": "^2.2.0", "@rrweb/utils": "^2.2.0", "rrweb": "^2.2.0" } }, "sha512-hJYM4yaS3aFAGPuK1X80kgWod4g3FxG3fymfXLjDkBQvcDrGKTluLENnXYVklbt97eXOJ117uwV9y+xFFYmTIQ=="],
 
     "@rrweb/replay": ["@rrweb/replay@2.2.0", "", { "dependencies": { "@rrweb/types": "^2.2.0", "rrweb": "^2.2.0" } }, "sha512-dKug7wlnM2nlIhhHKUjHaz4+1b0duMe6wgo+97eU6CjV0R7yoKvW6NDKlSQQdWx99VMOZMvHTbMbwDQl5CRM1w=="],
 
