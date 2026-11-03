@@ -21,6 +21,10 @@ test("frames are the tagged custom events, timed from the first event", () => {
   ])
 })
 
+test("frames come back in time order even when the stream is not", () => {
+  expect(replayFrames([META, frame(20_000, "late"), frame(15_000, "early")]).map((f) => f.atMs)).toEqual([5_000, 10_000])
+})
+
 test("a frame without a string jpeg is not a frame", () => {
   expect(replayFrames([META, { type: 5, timestamp: 11_000, data: { tag: "bugberry:frame", payload: { jpeg: 3 } } }])).toEqual([])
 })

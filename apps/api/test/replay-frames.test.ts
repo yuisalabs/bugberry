@@ -3,7 +3,7 @@ import { mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { encodeReplayMedia, MAX_REPLAY_FRAMES, REPLAY_FRAME_INTERVAL_MS, REPLAY_WINDOWS_MS, type ReplayEvent } from "@bugberry/shared"
-import { reportObjectKeys, unpackReplayFrames } from "../src/modules/reports/replay-frames"
+import { MAX_PARALLEL_UNPACKS, reportObjectKeys, unpackReplayFrames } from "../src/modules/reports/replay-frames"
 import { LocalStorageDriver } from "../src/storage/local"
 
 const MEDIA_KEY = "reports/r1/media.json.gz"
@@ -74,6 +74,32 @@ test("the frame cap fits the three-digit frame keys", () => {
   expect(MAX_REPLAY_FRAMES).toBeLessThanOrEqual(1000)
   // Two windows of the longest length, a frame every interval, plus the one at the start.
   expect(MAX_REPLAY_FRAMES).toBeGreaterThan((2 * Math.max(...REPLAY_WINDOWS_MS)) / REPLAY_FRAME_INTERVAL_MS + 1)
+})
+
+test(`at most ${MAX_PARALLEL_UNPACKS} replays are unpacked at once`, async () => {
+  await putMedia([META, SNAP, frame(15_000)])
+  const read = storage.read.bind(storage)
+  let active = 0
+  let most = 0
+  const gates: Array<() => void> = []
+  storage.read = async (key) => {
+    active++
+    most = Math.max(most, active)
+    await new Promise<void>((resolve) => gates.push(resolve))
+    active--
+    return read(key)
+  }
+  let settled = 0
+  const runs = Array.from({ length: MAX_PARALLEL_UNPACKS + 2 }, () =>
+    unpackReplayFrames(storage, "r1", MEDIA_KEY).finally(() => settled++),
+  )
+  // Opens the gates one by one until every run has finished; a queued run reaches its read only after one ends.
+  while (settled < runs.length) {
+    await Bun.sleep(5)
+    gates.shift()?.()
+  }
+  for (const result of await Promise.all(runs)) expect(result).toEqual({ ok: true, frames: [5_000] })
+  expect(most).toBe(MAX_PARALLEL_UNPACKS)
 })
 
 test("a storage error part way removes the frames already written", async () => {

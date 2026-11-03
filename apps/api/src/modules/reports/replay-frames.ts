@@ -1,6 +1,7 @@
 import { isReplayMedia, MAX_REPLAY_DECOMPRESSED_BYTES, MAX_REPLAY_FRAMES, replayFrames, THUMBNAIL_CONTENT_TYPE } from "@bugberry/shared"
 import { replayFrameKeyFor, replayFrameKeys, thumbnailKeyFor } from "../../storage/keys"
 import type { StorageDriver } from "../../storage/types"
+import { createSlots } from "../../lib/slots"
 import { DecompressedTooLargeError, gunzipLimited } from "../trackers/debugger-errors"
 
 export type UnpackResult = { ok: true; frames: number[] } | { ok: false; reason: string }
@@ -8,17 +9,25 @@ export type UnpackResult = { ok: true; frames: number[] } | { ok: false; reason:
 const NOT_READABLE = "Replay recording is not readable"
 const TOO_LARGE = "Replay recording is too large"
 
+/** Each unpack holds up to 64 MB of JSON in memory, so only this many run at once across every finalize. */
+export const MAX_PARALLEL_UNPACKS = 2
+const withUnpackSlot = createSlots(MAX_PARALLEL_UNPACKS)
+
 /**
  * Reads reports/<id>/media.json.gz, writes one frames/NNN.jpg per embedded frame, returns their times. The whole
  * stream is checked before the first write; a storage error part way removes the frames written so far.
  */
-export async function unpackReplayFrames(
+export function unpackReplayFrames(
   storage: StorageDriver,
   reportId: string,
   mediaKey: string,
   maxBytes = MAX_REPLAY_DECOMPRESSED_BYTES,
   maxFrames = MAX_REPLAY_FRAMES,
 ): Promise<UnpackResult> {
+  return withUnpackSlot(() => unpack(storage, reportId, mediaKey, maxBytes, maxFrames))
+}
+
+async function unpack(storage: StorageDriver, reportId: string, mediaKey: string, maxBytes: number, maxFrames: number): Promise<UnpackResult> {
   let media: unknown
   try {
     const blob = await storage.read(mediaKey)

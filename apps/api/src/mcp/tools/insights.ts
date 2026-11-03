@@ -11,7 +11,7 @@ import {
   type ViewResource,
 } from "@bugberry/debugger-view"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
-import { isRecordingType } from "../../modules/workspaces/limits"
+import { isRecordingType } from "@bugberry/shared"
 import { type McpContext, runTool } from "../context"
 import { requireDebuggerView } from "../debugger"
 import { clip, offsetLabel, textResult } from "../format"

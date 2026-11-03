@@ -1,6 +1,5 @@
-import { frameIndexAt, THUMBNAIL_CONTENT_TYPE } from "@bugberry/shared"
+import { frameIndexAt, isRecordingType, THUMBNAIL_CONTENT_TYPE } from "@bugberry/shared"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
-import { isRecordingType } from "../../modules/workspaces/limits"
 import { replayFrameKeyFor } from "../../storage/keys"
 import { type McpContext, McpToolError, RATE_LIMITED, runTool } from "../context"
 import { loadDebuggerView } from "../debugger"

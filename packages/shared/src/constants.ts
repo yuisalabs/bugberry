@@ -26,6 +26,13 @@ export type Visibility = (typeof VISIBILITIES)[number]
 export const CAPTURE_TYPES = ["screenshot", "video", "replay"] as const
 export type CaptureType = (typeof CAPTURE_TYPES)[number]
 
+/** Video and replay share the recordings quota, the length limit and getRecording. */
+export const RECORDING_TYPES: readonly CaptureType[] = ["video", "replay"]
+
+export function isRecordingType(captureType: CaptureType): boolean {
+  return RECORDING_TYPES.includes(captureType)
+}
+
 const TITLE_NAMES: Record<CaptureType, string> = { screenshot: "Bugshoot", video: "Bugcord", replay: "Bugflash" }
 
 /** A report sent without a title is named after its kind and its reporter: "Bugshoot by Ana", "Bugcord by Ana". */

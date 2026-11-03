@@ -75,10 +75,11 @@ export function replayFrames(events: ReplayEvent[]): ReplayFrame[] {
     const jpeg = frameJpeg(event)
     if (jpeg !== null) frames.push({ atMs: event.timestamp - start, jpeg })
   }
-  return frames
+  // rrweb writes in time order; a stream that isn't still gets frames frameIndexAt can search.
+  return frames.sort((a, b) => a.atMs - b.atMs)
 }
 
-/** The frame showing the page at `atMs`: the last one taken at or before it, never one after. */
+/** The frame showing the page at `atMs`: the last one taken at or before it, never one after. `frames` are in time order. */
 export function frameIndexAt<T extends { atMs: number }>(frames: readonly T[], atMs: number): number | null {
   let found: number | null = null
   for (const [index, frame] of frames.entries()) {

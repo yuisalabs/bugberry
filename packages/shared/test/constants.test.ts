@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { defaultReportTitle, MEDIA_TYPES, PRIORITIES, PRIORITY_RANK, SHARE_SLUG_LENGTH } from "../src"
+import { CAPTURE_TYPES, defaultReportTitle, isRecordingType, MEDIA_TYPES, PRIORITIES, PRIORITY_RANK, RECORDING_TYPES, SHARE_SLUG_LENGTH } from "../src"
 
 describe("shared constants", () => {
   test("an untitled report is a Bugshoot or a Bugcord by its reporter", () => {
@@ -7,6 +7,11 @@ describe("shared constants", () => {
     expect(defaultReportTitle("video", " Ana ")).toBe("Bugcord by Ana")
     expect(defaultReportTitle("video", "")).toBe("Bugcord by someone")
     expect(defaultReportTitle("screenshot", "x".repeat(300))).toHaveLength(200)
+  })
+
+  test("video and replay are recordings, a screenshot is not", () => {
+    expect(RECORDING_TYPES).toEqual(["video", "replay"])
+    expect(CAPTURE_TYPES.filter(isRecordingType)).toEqual(["video", "replay"])
   })
 
   test("an untitled replay is a Bugflash", () => {

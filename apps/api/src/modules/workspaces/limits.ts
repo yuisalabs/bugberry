@@ -1,4 +1,4 @@
-import { type CaptureType, clockLabel, tooLong } from "@bugberry/shared"
+import { type CaptureType, clockLabel, isRecordingType, RECORDING_TYPES, tooLong } from "@bugberry/shared"
 import type { AccountLimits, Config } from "../../config"
 import type { Db } from "../../db/client"
 import { AppError } from "../../lib/errors"
@@ -23,13 +23,6 @@ export type WorkspaceLimits =
 export async function isWorkspaceLimited(db: Db, limits: AccountLimits | null, workspaceId: string): Promise<boolean> {
   if (!limits) return false
   return (await ownerIsUnlimited(db, workspaceId)) !== true
-}
-
-/** Video and replay share the recordings counter and the length limit. */
-export const RECORDING_TYPES: readonly CaptureType[] = ["video", "replay"]
-
-export function isRecordingType(captureType: CaptureType): boolean {
-  return RECORDING_TYPES.includes(captureType)
 }
 
 /** Reports the workspace keeps under the same limit as this kind (see countKeptReports). */
