@@ -16,6 +16,7 @@ function setup(options: { visible?: boolean; jpeg?: string | null; maxBytes?: nu
   const takeFullSnapshot = mock()
   const requestFrame = mock(async () => (options.jpeg === undefined ? "AAAA" : options.jpeg))
   const clearInterval = mock()
+  const notifyDegraded = mock()
   const page = installReplayRecorder({
     record,
     addCustomEvent,
@@ -26,6 +27,7 @@ function setup(options: { visible?: boolean; jpeg?: string | null; maxBytes?: nu
       handler = h
     },
     now: () => clock,
+    notifyDegraded,
     setInterval: ((fn: () => Promise<void>) => {
       tick = fn
       return 7
@@ -49,6 +51,7 @@ function setup(options: { visible?: boolean; jpeg?: string | null; maxBytes?: nu
     takeFullSnapshot,
     requestFrame,
     clearInterval,
+    notifyDegraded,
     send,
     emit,
     tick: () => tick(),
@@ -141,6 +144,19 @@ describe("the page's replay recorder", () => {
     p.emit({ type: 3, timestamp: 1, data: { s: "x".repeat(200) } })
     await p.tick()
     expect(p.takeFullSnapshot).toHaveBeenCalledTimes(1)
+  })
+
+  test("the background hears when the buffer turns degraded and back, once each", () => {
+    const p = setup({ maxBytes: 300 })
+    p.send(start)
+    p.emit({ type: 4, timestamp: 0, data: {} })
+    p.emit({ type: 3, timestamp: 1, data: { s: "x".repeat(250) } })
+    expect(p.notifyDegraded).not.toHaveBeenCalled()
+    p.emit({ type: 4, timestamp: 5_000, data: {} })
+    p.emit({ type: 3, timestamp: 5_001, data: {} })
+    expect(p.notifyDegraded.mock.calls).toEqual([[true]])
+    p.emit({ type: 4, timestamp: 10_000, data: {} })
+    expect(p.notifyDegraded.mock.calls).toEqual([[true], [false]])
   })
 
   test("other extension messages get no answer", () => {

@@ -4,7 +4,7 @@ import { createBridge } from "../../lib/server/bridge"
 import { browserRecordingState } from "../../lib/recording/browser-recording-state"
 import { createBugberryApi } from "../../lib/server/api"
 import { CAMERA_READY_MS, type CameraGrant, createCameraGrants } from "../../lib/devices/camera-grant"
-import { hasTabRecorder } from "../../lib/platform/browser-support"
+import { hasReplay, hasTabRecorder } from "../../lib/platform/browser-support"
 import { recordOptionsFor, type ScreenshotMode } from "../../lib/capture/capture-prefs"
 import { BUILD_SERVER_ORIGIN, browserSettingsStorage, capturePrefsStorage, lastSessionStorage, lastWorkspaceStorage } from "../../lib/server/browser-settings"
 import { type ActiveTab, type CaptureFlowDeps, type CaptureResult, startScreenshotReport } from "../../lib/capture/capture-flow"
@@ -34,6 +34,8 @@ import { limitsFor } from "../../lib/server/limits"
 import { isSignedOut } from "../../lib/drafts/popup"
 import type { RecordingEndReason } from "../../lib/recording/recorder"
 import { pickEditorWorkspace } from "../../lib/review/report-form"
+import { createBrowserReplayDeps } from "../../lib/replay/browser-replay-deps"
+import { createReplayController } from "../../lib/replay/replay-controller"
 import { createMessageListener, RECORDER_BUILD } from "./on-message"
 import { promptTickets } from "./prompt-tickets"
 import { readPageCapture, readPageEnvironment, toActiveTab } from "./tabs"
@@ -406,6 +408,26 @@ export default defineBackground(() => {
     })
   }
 
+  // Chrome and Opera only for now; on Firefox nothing of replay is wired.
+  const replay = hasReplay(import.meta.env)
+    ? createReplayController(
+        createBrowserReplayDeps({
+          capture: async () => ({ ok: false, error: "Replay capture isn't available yet" }),
+          maxMs: async () => (await recordingCaps()).maxMs,
+          isRecording: async () => (await browserRecordingState.get()) !== null,
+        }),
+      )
+    : null
+  if (replay) {
+    browser.tabs.onUpdated.addListener((tabId, info) => {
+      if (info.status === "complete") void replay.pageLoaded(tabId)
+    })
+    browser.tabs.onRemoved.addListener((tabId) => void replay.tabClosed(tabId))
+    browser.storage.onChanged.addListener((changes, area) => {
+      if (area === "session" && "recording" in changes) void replay.recordingChanged(Boolean(changes.recording?.newValue))
+    })
+  }
+
   const extensionOrigin = browser.runtime.getURL("")
 
   browser.runtime.onMessage.addListener(
@@ -426,6 +448,7 @@ export default defineBackground(() => {
       barAction,
       popupAction,
       stopRecording,
+      replay,
       extensionOrigin,
     }),
   )
@@ -443,6 +466,11 @@ export default defineBackground(() => {
     if (command === "take-screenshot") await screenshot(active)
     else if (command === "start-recording") await record(active)
     else if (command === "stop-recording") await stopRecording()
+    // A success leaves the armed badge alone; only a failure goes on it.
+    else if (command === "capture-replay" && replay) {
+      const result = active ? await replay.capture(active) : { ok: false as const, error: "No active tab" }
+      if (!result.ok && active) await flagFailure(active.id, result)
+    }
   })
 
   // The icon always opens the popup, also during a recording (it shows the recording's controls). Older

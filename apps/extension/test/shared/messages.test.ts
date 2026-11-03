@@ -11,6 +11,7 @@ import {
   isBarRequest,
   isReviewAgainRequest,
   isScreenshotRequest, isRecorderReadyNotice, isPopupRecordingRequest, isCameraTicketRequest, isPageUiMessage, isPopupPromptRequest,
+  isReplayDegradedNotice,
   isReplayFrameRequest,
   isReplayPageMessage,
   isReplayRequest,
@@ -164,4 +165,9 @@ test("the recorder's frame request and the background's messages to the page", (
 test("Capture another takes a replay too", () => {
   expect(isReviewAnotherRequest({ type: "bugberry:review-another", captureType: "replay", tabId: 3 })).toBe(true)
   expect(isReviewAnotherRequest({ type: "bugberry:review-another", captureType: "gif", tabId: 3 })).toBe(false)
+})
+
+test("the recorder's degraded notice carries a boolean", () => {
+  expect(isReplayDegradedNotice({ type: "bugberry:replay-degraded", degraded: true })).toBe(true)
+  expect(isReplayDegradedNotice({ type: "bugberry:replay-degraded" })).toBe(false)
 })

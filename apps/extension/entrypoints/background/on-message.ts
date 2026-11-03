@@ -34,6 +34,9 @@ import {
   isRecordStartRequest,
   isRecordStatusRequest,
   isReviewAgainRequest,
+  isReplayDegradedNotice,
+  isReplayFrameRequest,
+  isReplayRequest,
   isReviewAnotherRequest,
   isScreenshotRequest,
   isUiStateRequest,
@@ -41,6 +44,7 @@ import {
   type RecordOptions,
 } from "../../lib/shared/messages"
 import type { createTakeAgain } from "../../lib/capture/take-again"
+import type { ReplayController } from "../../lib/replay/replay-controller"
 import { toActiveTab } from "./tabs"
 
 /** The build bundled with the agent recorder (`bun run build:recorder`); the store builds never have its automation path. */
@@ -67,12 +71,14 @@ export interface MessageListenerDeps {
   barAction(message: Exclude<BarRequest, { type: "bugberry:me-name" }>): Promise<unknown>
   popupAction(action: PopupRecordingAction): Promise<unknown>
   stopRecording(reason?: RecordingEndReason): Promise<CaptureResult>
+  /** Null where replay isn't offered (Firefox). */
+  replay: ReplayController | null
   extensionOrigin: string
 }
 
 /** Every message the extension's pages, the page layer and the bridge send to the background, checked in this order. */
 export function createMessageListener(deps: MessageListenerDeps): MessageListener {
-  const { bridge, recordings, windowHost, cameraGrants, promptTickets, openPrompt, openReview, reviewUrl, screenshot, record, takeAgain, takeAnother, author, barAction, popupAction, stopRecording, extensionOrigin } = deps
+  const { bridge, recordings, windowHost, cameraGrants, promptTickets, openPrompt, openReview, reviewUrl, screenshot, record, takeAgain, takeAnother, author, barAction, popupAction, stopRecording, replay, extensionOrigin } = deps
   return (message, sender, sendResponse) => {
     const reply = (work: Promise<unknown>) => {
       work.then(sendResponse, (error: unknown) => sendResponse({ ok: false, error: String(error) }))
@@ -172,6 +178,25 @@ export function createMessageListener(deps: MessageListenerDeps): MessageListene
     }
     if (isPopupRecordingRequest(message)) {
       return fromPopup(sender, browser.runtime.id, extensionOrigin) ? reply(popupAction(message.action)) : undefined
+    }
+    if (replay && isReplayRequest(message)) {
+      if (!fromPopup(sender, browser.runtime.id, extensionOrigin)) return undefined
+      return reply(
+        browser.tabs.get(message.tabId).then((tab) => {
+          const active = toActiveTab(tab)
+          return active ? replay.handle(message, active) : { ok: false as const, error: "No active tab" }
+        }),
+      )
+    }
+    // The recorder in an armed page: only our own content script, in the tab's top frame.
+    if (replay && (isReplayFrameRequest(message) || isReplayDegradedNotice(message))) {
+      const tab = sender.tab
+      if (sender.id !== browser.runtime.id || sender.frameId !== 0 || tab?.id === undefined || tab.windowId === undefined) return undefined
+      if (isReplayDegradedNotice(message)) {
+        void replay.degraded(tab.id, message.degraded)
+        return undefined
+      }
+      return reply(replay.frame(tab.id, tab.windowId))
     }
     if (isRecordStatusRequest(message)) return reply(recordings.status())
     // Only the recorded tab counts; flush scripts in other tabs also see that a recording runs.

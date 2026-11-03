@@ -455,6 +455,16 @@ export interface ReplayFrameRequest {
   type: "bugberry:replay-frame"
 }
 
+/** The recorder → background: its buffer dropped a segment for the byte cap, or a checkout fit again. */
+export interface ReplayDegradedNotice {
+  type: "bugberry:replay-degraded"
+  degraded: boolean
+}
+
+export function isReplayDegradedNotice(message: unknown): message is ReplayDegradedNotice {
+  return typeOf(message) === "bugberry:replay-degraded" && typeof field(message, "degraded") === "boolean"
+}
+
 /** What the recorder holds, as the page sends it back for a capture. */
 export interface ReplaySnapshot {
   events: ReplayEvent[]

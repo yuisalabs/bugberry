@@ -24,6 +24,8 @@ export interface ReplayPageDeps {
   visible(): boolean
   onMessage(handler: (message: unknown, reply: (value: unknown) => void) => boolean | undefined): void
   now(): number
+  /** Tells the background, so the badge turns amber while the capture would be short. */
+  notifyDegraded(degraded: boolean): void
   setInterval: typeof setInterval
   clearInterval: typeof clearInterval
   intervalMs?: number
@@ -35,6 +37,7 @@ export function installReplayRecorder(deps: ReplayPageDeps): { stop(): void } {
   const buffer = createReplayBuffer({ maxBytes: deps.maxBytes ?? REPLAY_BUFFER_MAX_BYTES })
   let stopRecord: (() => void) | null = null
   let timer: ReturnType<typeof setInterval> | null = null
+  let degraded = false
 
   const stop = () => {
     stopRecord?.()
@@ -42,6 +45,14 @@ export function installReplayRecorder(deps: ReplayPageDeps): { stop(): void } {
     if (timer !== null) deps.clearInterval(timer)
     timer = null
     buffer.clear()
+    degraded = false
+  }
+
+  const keep = (event: ReplayEvent, isCheckout: boolean) => {
+    buffer.push(event, isCheckout)
+    if (buffer.degraded() === degraded) return
+    degraded = buffer.degraded()
+    deps.notifyDegraded(degraded)
   }
 
   const tick = async (windowMs: number) => {
@@ -58,7 +69,7 @@ export function installReplayRecorder(deps: ReplayPageDeps): { stop(): void } {
     if (stopRecord) return
     stopRecord =
       deps.record({
-        emit: (event, isCheckout) => buffer.push(event, isCheckout === true),
+        emit: (event, isCheckout) => keep(event, isCheckout === true),
         checkoutEveryNms: windowMs,
         inlineStylesheet: true,
         collectFonts: true,

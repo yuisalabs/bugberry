@@ -27,6 +27,7 @@ export default defineContentScript({
       visible: () => document.visibilityState === "visible",
       onMessage: (handler) => browser.runtime.onMessage.addListener((message, _sender, reply) => handler(message, reply)),
       now: Date.now,
+      notifyDegraded: (degraded) => void browser.runtime.sendMessage({ type: "bugberry:replay-degraded", degraded }).catch(() => {}),
       setInterval,
       clearInterval,
     })
