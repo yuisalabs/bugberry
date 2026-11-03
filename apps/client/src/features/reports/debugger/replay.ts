@@ -12,6 +12,7 @@ export interface LoadedReplay {
 export async function loadReplay(url: string, fetcher: typeof fetch = fetch): Promise<LoadedReplay> {
   const response = await fetcher(url)
   if (!response.ok) throw new Error(`Couldn't download the replay (HTTP ${response.status})`)
+  // Not in a worker: in Chromium, taking the parsed events back from one blocks this thread longer than JSON.parse does.
   const { events } = await decodeReplayMedia(await response.blob())
   return { events, frames: replayFrames(events), durationMs: replayDurationMs(events) }
 }
