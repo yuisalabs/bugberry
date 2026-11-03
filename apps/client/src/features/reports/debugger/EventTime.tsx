@@ -22,14 +22,14 @@ export function seekOnRowClick(
   }
 }
 
-/** Offset from the capture moment when known, else the clock time; a seek button for videos. */
+/** Offset from the capture moment when known, else the clock time; a seek button for recordings, video or replay. */
 export function EventTime({ t, base, onSeek }: { t: number; base: number | null; onSeek?: (offsetMs: number) => void }) {
   const label = base === null ? formatClock(t) : formatOffset(t - base)
   if (onSeek && base !== null) {
     return (
       <AriaButton
         onPress={() => onSeek(t - base)}
-        aria-label={`Play video from ${label}`}
+        aria-label={`Play from ${label}`}
         className={`${timeClass} text-left text-primary hover:underline`}
       >
         <span title={formatClock(t)}>{label}</span>

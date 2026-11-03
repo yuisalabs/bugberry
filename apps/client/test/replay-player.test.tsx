@@ -57,10 +57,32 @@ describe("ReplayPlayer", () => {
     expect(props).toMatchObject({ events: EVENTS, autoPlay: false, skipInactive: false, showController: true, tags: { "bugberry:frame": "#2563eb" } })
   })
 
-  test("starts at a shared time once", () => {
+  test("starts at a shared time once, with the strip and the page following before playback", () => {
     const player = fakePlayer()
-    render(<ReplayPlayer events={EVENTS} durationMs={12_000} frames={FRAMES} startAtSeconds={4} createPlayer={player.createPlayer} />)
-    expect(player.goto).toHaveBeenCalledWith(4_000)
+    const onTime = mock()
+    render(
+      <ReplayPlayer events={EVENTS} durationMs={12_000} frames={FRAMES} startAtSeconds={6} onTime={onTime} createPlayer={player.createPlayer} />,
+    )
+    expect(player.goto).toHaveBeenCalledWith(6_000)
+    expect(onTime).toHaveBeenLastCalledWith(6_000)
+    expect(screen.getByRole("listitem", { name: "Screenshot at 0:05" }).getAttribute("aria-current")).toBe("true")
+  })
+
+  test("the bar above the replay shows the reporter and actions for the current time", () => {
+    const player = fakePlayer()
+    render(
+      <ReplayPlayer
+        events={EVENTS}
+        durationMs={12_000}
+        frames={FRAMES}
+        createPlayer={player.createPlayer}
+        topLeft={<span>Ana</span>}
+        topRight={(seconds) => <button type="button">Share at {seconds}</button>}
+      />,
+    )
+    expect(screen.getByText("Ana")).toBeTruthy()
+    player.time(7_000)
+    expect(screen.getByRole("button", { name: "Share at 7" })).toBeTruthy()
   })
 
   test("a marker seeks and is reported", () => {

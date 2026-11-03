@@ -30,6 +30,8 @@ export function ReplayPlayer({
   onTime,
   startAtSeconds,
   playerRef,
+  topLeft,
+  topRight,
   className,
   createPlayer = defaultCreatePlayer,
 }: ReplayPlayerProps) {
@@ -88,7 +90,8 @@ export function ReplayPlayer({
     })
     player.current = created
     const start = latest.current.startAtSeconds
-    if (!started.current && start !== undefined && start > 0) created.goto(start * 1000)
+    // Through moveTo, so the strip and the page's panel are at the shared time before anyone presses play.
+    if (!started.current && start !== undefined && start > 0) moveTo(start * 1000)
     started.current = true
     return () => {
       player.current = null
@@ -109,6 +112,12 @@ export function ReplayPlayer({
 
   return (
     <div ref={host} className={`bb-replay ${className ?? ""}`}>
+      {(topLeft || topRight) && (
+        <div className="bb-replay-bar">
+          <div className="bb-replay-bar-side">{topLeft}</div>
+          <div className="bb-replay-bar-side">{topRight?.(currentMs / 1000)}</div>
+        </div>
+      )}
       {events.length < MIN_EVENTS ? (
         <p className="bb-replay-empty">This replay is too short to play.</p>
       ) : (

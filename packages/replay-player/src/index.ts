@@ -1,4 +1,4 @@
-import type { Ref } from "react"
+import type { ReactNode, Ref } from "react"
 import type { TimelineMarker } from "@bugberry/player"
 import { frameIndexAt, type ReplayEvent, type ReplayFrame } from "@bugberry/shared"
 
@@ -25,6 +25,9 @@ export interface ReplayPlayerProps {
   /** Where playback starts (a shared "at 0:03" link). */
   startAtSeconds?: number
   playerRef?: Ref<ReplayPlayerHandle>
+  /** The bar above the replay, as on the video: who reported it on the left, actions for the current second on the right. */
+  topLeft?: ReactNode
+  topRight?: (seconds: number) => ReactNode
   className?: string
   /** Builds the rrweb player; tests pass a fake, since happy-dom can't run a replay. */
   createPlayer?: (target: HTMLElement, props: RrwebPlayerProps) => RrwebPlayerLike

@@ -24,6 +24,11 @@ describe("VideoShareActions", () => {
     render(<VideoShareActions shareSlug="AbC" seconds={0} mediaUrl="https://files.test/v.webm" />)
     expect(screen.getByRole("link", { name: "Download video" }).getAttribute("href")).toBe("https://files.test/v.webm")
   })
+
+  test("a replay's file is named as one", () => {
+    render(<VideoShareActions shareSlug="AbC" seconds={0} mediaUrl="https://files.test/m.json.gz" kind="replay" />)
+    expect(screen.getByRole("link", { name: "Download replay" }).getAttribute("href")).toBe("https://files.test/m.json.gz")
+  })
 })
 
 describe("startSecondsFrom", () => {

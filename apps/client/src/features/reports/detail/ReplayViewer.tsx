@@ -17,10 +17,12 @@ export function ReplayViewer({
   onTime,
   markers,
   onMarkerClick,
+  topLeft,
+  topRight,
   startAtSeconds,
   player: Player = RrwebReplayPlayer,
   fetcher = fetch,
-}: {
+}: Pick<ReplayPlayerProps, "topLeft" | "topRight"> & {
   report: { id: string; mediaUrl: string | null }
   /** A newly signed media URL, for when the one the report came with has expired. */
   refreshUrl: () => Promise<string | null>
@@ -55,6 +57,8 @@ export function ReplayViewer({
         onTime={onTime}
         markers={markers}
         onMarkerClick={onMarkerClick}
+        topLeft={topLeft}
+        topRight={topRight}
         startAtSeconds={startAtSeconds}
         className="w-full"
       />

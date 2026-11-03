@@ -22,7 +22,12 @@ const payload: DebuggerPayload = {
 const seek = mock()
 function StubReplayPlayer(props: ReplayPlayerProps) {
   useImperativeHandle(props.playerRef, () => ({ seek, play: () => {}, pause: () => {}, currentMs: () => 0 }))
-  return <div data-testid="replay" />
+  return (
+    <div data-testid="replay">
+      {props.topLeft}
+      {props.topRight?.(12)}
+    </div>
+  )
 }
 
 /** Seeks through the context the way a comment's "0:35" does. */
@@ -30,7 +35,7 @@ function CommentTime() {
   const video = useContext(ReportVideoContext)
   return (
     <button type="button" onClick={() => video?.seek(35_000)}>
-      Play from 0:35
+      Comment at 0:35
     </button>
   )
 }
@@ -57,9 +62,17 @@ describe("ReportView with a replay", () => {
     fireEvent.click(screen.getByRole("button", { name: "Jump to 0:03" }))
     expect(seek).toHaveBeenLastCalledWith(3_000)
     fireEvent.click(screen.getByRole("tab", { name: /Console/ }))
-    fireEvent.click(screen.getByRole("button", { name: "Play video from 0:03" }))
+    fireEvent.click(screen.getByRole("button", { name: "Play from 0:03" }))
     expect(seek).toHaveBeenCalledTimes(2)
     expect(seek).toHaveBeenLastCalledWith(3_000)
+  })
+
+  test("the replay carries the reporter, a share link at its time and its file", async () => {
+    renderReplayReport()
+    const replay = await screen.findByTestId("replay")
+    expect(replay.textContent).toContain("Ana")
+    expect(screen.getByRole("button", { name: "Share at 0:12" })).toBeTruthy()
+    expect(screen.getByRole("link", { name: "Download replay" }).getAttribute("href")).toBe("https://files.test/m.gz")
   })
 
   test("a time in a comment seeks the replay", async () => {
@@ -67,7 +80,7 @@ describe("ReportView with a replay", () => {
     renderReplayReport()
     await screen.findByTestId("replay")
     fireEvent.click(screen.getByRole("tab", { name: /Details/ }))
-    fireEvent.click(screen.getByRole("button", { name: "Play from 0:35" }))
+    fireEvent.click(screen.getByRole("button", { name: "Comment at 0:35" }))
     expect(seek).toHaveBeenLastCalledWith(35_000)
   })
 })

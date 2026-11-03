@@ -18,6 +18,67 @@
   border-radius: 0.5rem;
 }
 
+/* Above the stage rather than over it, so the top of the recorded page stays visible. Same pills as the video's overlay. */
+.bb-replay-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1em;
+  padding: 0.6em 0.8em;
+  border-radius: 0.5rem;
+  background-color: #1c1022;
+}
+.bb-replay-bar-side {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  min-width: 0;
+}
+.bb-replay-bar-side > * {
+  white-space: nowrap;
+}
+.bb-replay .bb-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.45em 0.9em;
+  border: 0;
+  border-radius: 0.5rem;
+  background-color: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+}
+.bb-replay .bb-pill:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+.bb-replay .bb-pill:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+.bb-replay .bb-pill svg {
+  display: inline-block;
+  width: 1.15em;
+  height: 1.15em;
+}
+.bb-replay .bb-reporter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  min-width: 0;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+}
+.bb-replay .bb-reporter-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* The marker colours match the video player's, so a failed request looks the same on both. */
 .bb-replay-markers {
   position: relative;

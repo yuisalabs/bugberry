@@ -328,7 +328,7 @@ describe("video timeline", () => {
   test("clicking an event time seeks the video to that moment", () => {
     const seek = mock()
     render(<ActionsTab events={events} base={1000} playback={{ currentMs: null, seek }} />)
-    fireEvent.click(screen.getByRole("button", { name: "Play video from 0:02" }))
+    fireEvent.click(screen.getByRole("button", { name: "Play from 0:02" }))
     expect(seek).toHaveBeenLastCalledWith(2000)
   })
 
@@ -339,7 +339,7 @@ describe("video timeline", () => {
     fireEvent.click(screen.getByText("button#pay"))
     expect(seek).toHaveBeenCalledTimes(1)
     expect(seek).toHaveBeenLastCalledWith(2000)
-    fireEvent.click(screen.getByRole("button", { name: "Play video from 0:02" }))
+    fireEvent.click(screen.getByRole("button", { name: "Play from 0:02" }))
     expect(seek).toHaveBeenCalledTimes(2)
   })
 

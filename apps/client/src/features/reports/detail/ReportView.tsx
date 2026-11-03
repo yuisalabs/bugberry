@@ -131,8 +131,10 @@ export function ReportView({
   }, [isRecording, isReplay, report.durationMs])
   const reporter = useMemo(() => <VideoReporter reporter={report.reporter} />, [report.reporter])
   const shareActions = useCallback(
-    (seconds: number) => <VideoShareActions shareSlug={report.shareSlug} seconds={seconds} mediaUrl={report.mediaUrl} />,
-    [report.shareSlug, report.mediaUrl],
+    (seconds: number) => (
+      <VideoShareActions shareSlug={report.shareSlug} seconds={seconds} mediaUrl={report.mediaUrl} kind={isReplay ? "replay" : "video"} />
+    ),
+    [report.shareSlug, report.mediaUrl, isReplay],
   )
 
   useEffect(() => {
