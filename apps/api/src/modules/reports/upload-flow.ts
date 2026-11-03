@@ -66,8 +66,8 @@ export async function createReportUpload(
   }
   // Checked here too, not only by the REST body: the MCP's createUpload reaches this without it.
   if ((body.thumbnailSize ?? 0) > MAX_THUMBNAIL_BYTES) throw payloadTooLarge("Thumbnail must be at most 1 MB")
-  if (body.captureType === "video" && body.durationMs === undefined) {
-    throw badRequest("duration_required", "durationMs is required for video reports")
+  if (body.captureType !== "screenshot" && body.durationMs === undefined) {
+    throw badRequest("duration_required", "durationMs is required for video and replay reports")
   }
   const workspaceId = await resolveWorkspace(db, user, body.workspaceId)
   if (body.visibility === "internal" && !canUseInternal(user.email)) {

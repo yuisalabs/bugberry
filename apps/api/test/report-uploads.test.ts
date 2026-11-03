@@ -47,6 +47,20 @@ describe("POST /api/reports/uploads", () => {
     expect(await titleOf((await startUpload({ title: "  Pay fails " })).reportId)).toBe("Pay fails")
   })
 
+  test("a replay upload gets a gzip media target and the Bugflash title", async () => {
+    const session = await startUpload({ title: undefined, captureType: "replay", mediaSize: 4, durationMs: 61_000 })
+    expect(session.mediaUpload?.headers).toEqual({ "content-type": "application/gzip" })
+    const [row] = await ctx.db.select().from(report).where(eq(report.id, session.reportId))
+    expect(row?.title).toBe(`Bugflash by ${member.user.name}`)
+    expect(row?.mediaKey).toBe(`reports/${session.reportId}/media.json.gz`)
+  })
+
+  test("a replay without durationMs is refused", async () => {
+    const res = await ctx.api.api.reports.uploads.post(uploadBody(projectId, { captureType: "replay" }), { headers: member.headers })
+    expect(res.error?.status as number | undefined).toBe(400)
+    expect(res.error?.value).toMatchObject({ code: "duration_required" })
+  })
+
   test("omits the debugger target when there is no payload", async () => {
     expect((await startUpload()).debuggerUpload).toBeNull()
   })

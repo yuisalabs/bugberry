@@ -48,6 +48,12 @@ describe("issue content", () => {
     expect(content.facts).toContainEqual(["Page", "https://app.kantor.test/checkout?step=2"])
     expect(content.facts).toContainEqual(["Console errors", "2"])
     expect(content.facts).toContainEqual(["Failed requests", "1"])
+    expect(content.facts).toContainEqual(["Type", "Screenshot"])
+  })
+
+  test("a replay is named as one", () => {
+    const replay = buildIssueContent({ ...report, captureType: "replay" }, [], "https://bugberry.kantor.test")
+    expect(replay.facts).toContainEqual(["Type", "Replay"])
   })
 
   test("markdown keeps page data inert: no mentions, links or images", () => {
