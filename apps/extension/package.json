@@ -29,6 +29,7 @@
     "@bugberry/ai-write": "workspace:*",
     "@bugberry/capture": "workspace:*",
     "@bugberry/player": "workspace:*",
+    "@bugberry/replay-player": "workspace:*",
     "@bugberry/shared": "workspace:*",
     "@bugberry/ui": "workspace:*",
     "@elysiajs/eden": "1.4.9",
