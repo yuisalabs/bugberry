@@ -26,6 +26,29 @@ export interface ReplayPlayerProps {
   startAtSeconds?: number
   playerRef?: Ref<ReplayPlayerHandle>
   className?: string
+  /** Builds the rrweb player; tests pass a fake, since happy-dom can't run a replay. */
+  createPlayer?: (target: HTMLElement, props: RrwebPlayerProps) => RrwebPlayerLike
+}
+
+export interface RrwebPlayerProps {
+  events: ReplayEvent[]
+  width: number
+  height: number
+  autoPlay: boolean
+  showController: boolean
+  skipInactive: boolean
+  tags: Record<string, string>
+}
+
+/** The part of rrweb-player's instance the component uses. */
+export interface RrwebPlayerLike {
+  goto(ms: number, play?: boolean): void
+  play(): void
+  pause(): void
+  addEventListener(event: string, handler: (detail: { payload: number }) => unknown): void
+  getReplayer(): { getCurrentTime(): number }
+  $set?(props: Partial<Pick<RrwebPlayerProps, "width" | "height">>): void
+  $destroy(): void
 }
 
 export function frameSrc(frame: ReplayFrame): string {

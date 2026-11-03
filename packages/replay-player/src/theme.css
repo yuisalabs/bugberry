@@ -1,0 +1,88 @@
+.bb-replay {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.bb-replay-stage {
+  overflow: hidden;
+  border-radius: 0.5rem;
+}
+
+/* The marker colours match the video player's, so a failed request looks the same on both. */
+.bb-replay-markers {
+  position: relative;
+  height: 1.75rem;
+  margin: 0 0.75rem;
+}
+.bb-replay-marker {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  padding: 0 0.4rem;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 999px;
+  background-color: #e5484d;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+.bb-replay-marker:hover,
+.bb-replay-marker:focus-visible {
+  background-color: #d61f69;
+  outline: none;
+}
+.bb-replay-marker-group {
+  background-color: #d9952b;
+}
+.bb-replay-marker-note {
+  background-color: #d61f69;
+}
+.bb-replay-marker-pause {
+  background-color: #635a6b;
+}
+.bb-replay-marker-sdk {
+  background-color: #1f6fc5;
+}
+
+.bb-replay-strip {
+  display: flex;
+  gap: 0.375rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+.bb-replay-frame {
+  flex: 0 0 auto;
+  width: 6rem;
+  aspect-ratio: 16 / 10;
+  padding: 0;
+  overflow: hidden;
+  border: 2px solid transparent;
+  border-radius: 0.375rem;
+  background: none;
+  cursor: pointer;
+  opacity: 0.7;
+}
+.bb-replay-frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.bb-replay-frame:hover,
+.bb-replay-frame[aria-current="true"] {
+  opacity: 1;
+}
+.bb-replay-frame[aria-current="true"],
+.bb-replay-frame:focus-visible {
+  border-color: #2563eb;
+  outline: none;
+}
