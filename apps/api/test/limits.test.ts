@@ -9,6 +9,8 @@ import {
   countReports,
   isWorkspaceLimited,
   workspaceLimits,
+  isRecordingType,
+  RECORDING_TYPES,
 } from "../src/modules/workspaces/limits"
 import { createReadyReport, createUser, createWorkspaceRow, setupTestApp } from "./helpers"
 
@@ -87,6 +89,20 @@ describe("workspaceLimits", () => {
       recordings: { used: 0, max: 5 },
       maxRecordingMs: 120_000,
     })
+  })
+
+  test("recordings used counts videos and replays", async () => {
+    await videos(2)
+    await screenshots(1, { captureType: "replay", durationMs: 60_000 })
+    const limits = await workspaceLimits(ctx.db, ON, workspaceId)
+    expect(limits.limited && limits.recordings.used).toBe(3)
+  })
+})
+
+describe("isRecordingType", () => {
+  test("video and replay are recordings, a screenshot is not", () => {
+    expect(RECORDING_TYPES.filter(isRecordingType)).toEqual(["video", "replay"])
+    expect(isRecordingType("screenshot")).toBe(false)
   })
 })
 

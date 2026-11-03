@@ -38,6 +38,28 @@ describe("report limit on upload", () => {
     expect(after?.next).toBe(before?.next)
   })
 
+  test("replays share the recordings counter with videos", async () => {
+    const { owner, seed, upload } = await setup()
+    await seed(3, { captureType: "video", durationMs: 1_000 })
+    await seed(2, { captureType: "replay", durationMs: 1_000 })
+    const nextVideo = await upload(owner.headers, video)
+    expect(statusOf(nextVideo)).toBe(403)
+    expect(nextVideo.error?.value).toMatchObject({ code: "report_limit_reached" })
+    const nextReplay = await upload(owner.headers, { captureType: "replay", durationMs: 1_000 })
+    expect(statusOf(nextReplay)).toBe(403)
+    expect(nextReplay.error?.value).toMatchObject({
+      code: "report_limit_reached",
+      message: "This workspace already has 5 recordings, the most it can keep. Delete one in the dashboard to record a new one.",
+    })
+  })
+
+  test("a replay over the recording length is refused", async () => {
+    const { owner, upload } = await setup()
+    const long = await upload(owner.headers, { captureType: "replay", durationMs: 130_000 })
+    expect(statusOf(long)).toBe(403)
+    expect(long.error?.value).toMatchObject({ code: "duration_limit_reached" })
+  })
+
   test("a recording over 2 minutes is refused before anything is uploaded; size alone never is", async () => {
     const { ctx, owner, upload } = await setup()
     const long = await upload(owner.headers, { ...video, durationMs: 180_000 })
