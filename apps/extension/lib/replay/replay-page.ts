@@ -35,6 +35,8 @@ export interface ReplayPageDeps {
 /** The recorder in an armed page: idle until the background says start, then a rolling buffer and a frame every few seconds. */
 export function installReplayRecorder(deps: ReplayPageDeps): { stop(): void } {
   const buffer = createReplayBuffer({ maxBytes: deps.maxBytes ?? REPLAY_BUFFER_MAX_BYTES })
+  // Called unbound: the browser's timers throw "Illegal invocation" when called as methods of `deps`.
+  const { setInterval: every, clearInterval: cancel } = deps
   let stopRecord: (() => void) | null = null
   let timer: ReturnType<typeof setInterval> | null = null
   let degraded = false
@@ -42,7 +44,7 @@ export function installReplayRecorder(deps: ReplayPageDeps): { stop(): void } {
   const stop = () => {
     stopRecord?.()
     stopRecord = null
-    if (timer !== null) deps.clearInterval(timer)
+    if (timer !== null) cancel(timer)
     timer = null
     buffer.clear()
     degraded = false
@@ -78,7 +80,7 @@ export function installReplayRecorder(deps: ReplayPageDeps): { stop(): void } {
         recordCrossOriginIframes: false,
       }) ?? null
     if (!stopRecord) return
-    timer = deps.setInterval(() => tick(windowMs).catch(() => {}), deps.intervalMs ?? REPLAY_FRAME_INTERVAL_MS)
+    timer = every(() => tick(windowMs).catch(() => {}), deps.intervalMs ?? REPLAY_FRAME_INTERVAL_MS)
   }
 
   deps.onMessage((message, reply) => {

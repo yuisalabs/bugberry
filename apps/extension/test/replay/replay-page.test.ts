@@ -28,11 +28,16 @@ function setup(options: { visible?: boolean; jpeg?: string | null; maxBytes?: nu
     },
     now: () => clock,
     notifyDegraded,
-    setInterval: ((fn: () => Promise<void>) => {
+    // The browser's own timers throw "Illegal invocation" when called on another object, as deps.setInterval(…) would.
+    setInterval: function (this: unknown, fn: () => Promise<void>) {
+      if (this !== undefined) throw new TypeError("Illegal invocation")
       tick = fn
       return 7
-    }) as unknown as typeof setInterval,
-    clearInterval: clearInterval as unknown as typeof globalThis.clearInterval,
+    } as unknown as typeof setInterval,
+    clearInterval: function (this: unknown, id: number) {
+      if (this !== undefined) throw new TypeError("Illegal invocation")
+      clearInterval(id)
+    } as unknown as typeof globalThis.clearInterval,
     maxBytes: options.maxBytes,
   })
   const send = (message: unknown) => {
