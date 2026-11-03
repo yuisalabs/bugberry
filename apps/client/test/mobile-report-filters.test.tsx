@@ -39,6 +39,8 @@ describe("the phone's report filters", () => {
     expect(screen.getByRole("button", { name: "Open" }).getAttribute("aria-pressed")).toBe("true")
     fireEvent.click(screen.getByRole("button", { name: "Video" }))
     expect(onChange).toHaveBeenLastCalledWith({ captureType: "video" })
+    fireEvent.click(screen.getByRole("button", { name: "Replay" }))
+    expect(onChange).toHaveBeenLastCalledWith({ captureType: "replay" })
     fireEvent.click(screen.getByRole("button", { name: "Resolved" }))
     expect(onChange).toHaveBeenLastCalledWith({ status: ["open", "resolved"] })
     fireEvent.click(screen.getByRole("button", { name: /Ers G Four/ }))

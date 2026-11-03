@@ -1,5 +1,5 @@
 import { CAPTURE_TYPES, type CaptureType, PRIORITIES, REPORT_STATUSES, type ReportStatus } from "@bugberry/shared"
-import { RiCameraLine, RiCloseLine, RiEqualizerLine, RiFlag2Line, RiHashtag, RiVideoOnLine } from "@remixicon/react"
+import { RiCameraLine, RiCloseLine, RiEqualizerLine, RiFlag2Line, RiHashtag, RiHistoryLine, RiVideoOnLine } from "@remixicon/react"
 import { type ReactNode, useState } from "react"
 import { Avatar } from "@bugberry/ui/avatar"
 import { Button } from "@bugberry/ui/button"
@@ -14,7 +14,7 @@ import type { Member } from "../../workspaces/queries"
 import type { ReportCounts } from "../queries"
 
 const ALL = "__all"
-const CAPTURE_ICONS: Record<CaptureType, typeof RiCameraLine> = { video: RiVideoOnLine, screenshot: RiCameraLine }
+const CAPTURE_ICONS: Record<CaptureType, typeof RiCameraLine> = { video: RiVideoOnLine, screenshot: RiCameraLine, replay: RiHistoryLine }
 
 /** How many kinds of filter are on (type, status, reporter, project, priority, assignee), for the Filters badge. */
 export function activeFilterCount(search: ReportSearch): number {
