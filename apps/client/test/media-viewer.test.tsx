@@ -1,7 +1,10 @@
 import { describe, expect, mock, test } from "bun:test"
-import { fireEvent, render, screen, within } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import type { VideoPlayerProps } from "@bugberry/player"
-import { createRef } from "react"
+import type { ReplayPlayerProps } from "@bugberry/replay-player"
+import { encodeReplayMedia } from "@bugberry/shared"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { createRef, type ReactNode } from "react"
 import { MediaViewer } from "../src/features/reports/detail/MediaViewer"
 
 /** Stands in for the Video.js player: a plain <video> wired the way the real one reports events. */
@@ -151,5 +154,56 @@ describe("MediaViewer", () => {
       />,
     )
     expect(players.at(-1)).toMatchObject({ src: "https://files.test/1.webm", durationMs: 42_000 })
+  })
+})
+
+describe("MediaViewer with a replay", () => {
+  const replayProps: ReplayPlayerProps[] = []
+  function StubReplayPlayer(props: ReplayPlayerProps) {
+    replayProps.push(props)
+    return <div data-testid="replay" data-duration={props.durationMs} />
+  }
+  const replay = { id: "rp1", captureType: "replay" as const, mediaUrl: "https://files.test/m.gz" }
+  const fetcherFor = (respond: () => Promise<Response>) => (async () => respond()) as unknown as typeof fetch
+  const withClient = (node: ReactNode) => (
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{node}</QueryClientProvider>
+  )
+
+  test("decodes the media and plays it, with its frames, markers and start time", async () => {
+    replayProps.length = 0
+    const gz = await encodeReplayMedia({
+      version: 1,
+      events: [
+        { type: 4, timestamp: 1_000, data: {} },
+        { type: 5, timestamp: 6_000, data: { tag: "bugberry:frame", payload: { jpeg: "/9j/" } } },
+        { type: 3, timestamp: 11_000, data: {} },
+      ],
+    })
+    const marker = { id: "1", atMs: 2000, kind: "error" as const, label: "×", detail: "boom" }
+    render(
+      withClient(
+        <MediaViewer
+          report={replay}
+          onExpired={() => {}}
+          replayPlayer={StubReplayPlayer}
+          fetcher={fetcherFor(async () => new Response(gz))}
+          markers={[marker]}
+          startAtSeconds={4}
+        />,
+      ),
+    )
+    expect((await screen.findByTestId("replay")).getAttribute("data-duration")).toBe("10000")
+    expect(replayProps.at(-1)).toMatchObject({ frames: [{ atMs: 5_000, jpeg: "/9j/" }], markers: [marker], startAtSeconds: 4 })
+  })
+
+  test("a download that fails offers a retry that downloads again", async () => {
+    let calls = 0
+    const fetcher = fetcherFor(async () => {
+      calls++
+      throw new Error("offline")
+    })
+    render(withClient(<MediaViewer report={replay} onExpired={() => {}} replayPlayer={StubReplayPlayer} fetcher={fetcher} />))
+    fireEvent.click(await screen.findByRole("button", { name: "Try again" }))
+    await waitFor(() => expect(calls).toBe(2))
   })
 })
