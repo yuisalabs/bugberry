@@ -50,9 +50,11 @@ export function ReplayPlayer({
   const [currentMs, setCurrentMs] = useState(0)
   const [room, setRoom] = useState<{ width: number; height?: number }>({ width: 0 })
   const aspect = useMemo(() => replayAspect(events), [events])
+  // In normal flow the stage is as tall as the player in it, so only a bounded stage's height is room to fit.
+  const roomOf = (width: number, height: number) => (bounded ? { width, height } : { width })
   // Callbacks change on every render of the page; the player is built once per recording.
-  const latest = useRef({ onTime, createPlayer, startAtSeconds, room, aspect })
-  latest.current = { onTime, createPlayer, startAtSeconds, room, aspect }
+  const latest = useRef({ onTime, createPlayer, startAtSeconds, roomOf, aspect })
+  latest.current = { onTime, createPlayer, startAtSeconds, roomOf, aspect }
   const started = useRef(false)
   const playable = events.length >= MIN_EVENTS
 
@@ -77,8 +79,7 @@ export function ReplayPlayer({
   useEffect(() => {
     const element = stage.current
     if (!element) return
-    // In normal flow the stage is as tall as the player in it, so only a bounded stage's height is room to fit.
-    const measure = (width: number, height: number) => setRoom(bounded ? { width, height } : { width })
+    const measure = (width: number, height: number) => setRoom(latest.current.roomOf(width, height))
     measure(element.clientWidth, element.clientHeight)
     if (typeof ResizeObserver === "undefined") return
     const observer = new ResizeObserver(([entry]) => {
@@ -93,7 +94,7 @@ export function ReplayPlayer({
     if (!target || !playable) return
     const created = latest.current.createPlayer(target, {
       events,
-      ...playerSize(latest.current.room, latest.current.aspect),
+      ...playerSize(latest.current.roomOf(target.clientWidth, target.clientHeight), latest.current.aspect),
       autoPlay: false,
       showController: true,
       skipInactive: false,
@@ -115,7 +116,10 @@ export function ReplayPlayer({
   }, [events])
 
   useEffect(() => {
-    player.current?.$set?.(playerSize({ width: room.width, height: room.height }, aspect))
+    const current = player.current
+    if (!current) return
+    current.$set?.(playerSize({ width: room.width, height: room.height }, aspect))
+    current.triggerResize?.()
   }, [room.width, room.height, aspect])
 
   const strip = stripFrames(frames)

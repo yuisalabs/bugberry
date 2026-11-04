@@ -56,6 +56,8 @@ export interface RrwebPlayerLike {
   addEventListener(event: string, handler: (detail: { payload: number }) => unknown): void
   getReplayer(): { getCurrentTime(): number }
   $set?(props: Partial<Pick<RrwebPlayerProps, "width" | "height">>): void
+  /** Rescales the replayed page to the player's box; $set alone only resizes the box. */
+  triggerResize?(): void
   $destroy(): void
 }
 

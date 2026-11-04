@@ -141,6 +141,31 @@ describe("ReplayPlayer", () => {
     })
   })
 
+  test("a new size rescales the replayed page too, not only the player's box", () => {
+    withResize((resize) => {
+      const player = fakePlayer()
+      const triggerResize = mock()
+      const createPlayer = mock((...args: Parameters<typeof player.createPlayer>) => ({ ...player.createPlayer(...args), $set: mock(), triggerResize }))
+      render(<ReplayPlayer events={EVENTS} durationMs={12_000} frames={FRAMES} createPlayer={createPlayer} />)
+      triggerResize.mockClear()
+      act(() => resize({ width: 960, height: 400 }))
+      expect(triggerResize).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  test("the player is built at the stage's size, not at the 320 px floor", () => {
+    const original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientWidth")
+    Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get: () => 960 })
+    try {
+      const player = fakePlayer()
+      render(<ReplayPlayer events={EVENTS} durationMs={12_000} frames={FRAMES} createPlayer={player.createPlayer} />)
+      const [, props] = player.createPlayer.mock.calls[0] as unknown as [HTMLElement, Record<string, unknown>]
+      expect(props).toMatchObject({ width: 960, height: 720 })
+    } finally {
+      if (original) Object.defineProperty(HTMLElement.prototype, "clientWidth", original)
+    }
+  })
+
   test("a bounded player fits the stage's height as well, under its controller", () => {
     withResize((resize) => {
       const player = fakePlayer()
