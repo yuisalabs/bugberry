@@ -127,11 +127,11 @@ export function CaptureControls(props: {
   const copy = captureCopy(choice, props.micShort, true)
   const recording = choice.kind === "record"
   return (
-    <div className="flex flex-col items-center px-4 pt-5 pb-4">
+    <div className="flex flex-col items-center px-4 pt-4 pb-4">
       <Dial label={copy.caption} tone="primary" disabled={props.busy} onPress={recording ? props.onRecord : props.onScreenshot}>
-        {recording ? <span aria-hidden className="size-[26px] rounded-full bg-primary-foreground" /> : <RiCameraLine size={30} aria-hidden />}
+        {recording ? <span aria-hidden className="size-[22px] rounded-full bg-primary-foreground" /> : <RiCameraLine size={26} aria-hidden />}
       </Dial>
-      <p aria-hidden className="mt-3 font-heading text-lg font-bold text-foreground">
+      <p aria-hidden className="mt-2 font-heading text-lg font-bold text-foreground">
         {copy.caption}
       </p>
       {recording && (
@@ -155,9 +155,15 @@ export function CaptureControls(props: {
               {props.camera.open ? <RiArrowUpSLine size={16} aria-hidden /> : <RiArrowDownSLine size={16} aria-hidden />}
             </AriaButton>
           )}
-          <ToggleButton isSelected={prefs.countdown} onChange={(on) => props.onPrefs({ countdown: on })} className={chip(prefs.countdown)}>
+          {/* "3s" keeps the chips on one row, so Record mode fits Chrome's 600 px popup. */}
+          <ToggleButton
+            aria-label="3s countdown"
+            isSelected={prefs.countdown}
+            onChange={(on) => props.onPrefs({ countdown: on })}
+            className={chip(prefs.countdown)}
+          >
             <RiTimerLine size={16} aria-hidden />
-            {choice.source === "screen" && props.tabRecorder ? "3s" : "3s countdown"}
+            3s
           </ToggleButton>
           {choice.source === "screen" && props.tabRecorder && (
             <ToggleButton isSelected={prefs.systemAudio} onChange={(on) => props.onPrefs({ systemAudio: on })} className={chip(prefs.systemAudio)}>

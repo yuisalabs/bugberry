@@ -33,7 +33,7 @@ export function RecordingPanel(props: {
       <p className="mt-1 font-mono text-[32px] leading-tight font-bold text-foreground tabular-nums">{clock(live.elapsedMs)}</p>
       <div className="mt-2">
         <Dial label="Stop and review" tone="danger" onPress={props.onStop}>
-          <span aria-hidden className="size-[22px] rounded-[5px] bg-danger-foreground" />
+          <span aria-hidden className="size-[18px] rounded-[4px] bg-danger-foreground" />
         </Dial>
       </div>
       <p aria-hidden className="mt-2 font-heading text-base font-bold text-foreground">

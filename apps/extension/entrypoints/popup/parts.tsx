@@ -10,12 +10,12 @@ export function Dial(props: { label: string; tone: "primary" | "danger"; disable
       : "bg-danger text-danger-foreground shadow-[0_8px_24px_-6px_color-mix(in_oklab,var(--danger)_55%,transparent)]"
   const halo = props.tone === "primary" ? "bg-primary/12" : "bg-danger/12"
   return (
-    <span className={`grid place-items-center rounded-full p-3 ${halo}`}>
+    <span className={`grid place-items-center rounded-full p-2.5 ${halo}`}>
       <AriaButton
         aria-label={props.label}
         isDisabled={props.disabled}
         onPress={props.onPress}
-        className={`grid size-[76px] cursor-pointer place-items-center rounded-full outline-hidden transition hover:brightness-105 pressed:scale-[0.97] focus-visible:ring-4 focus-visible:ring-ring/30 disabled:cursor-default disabled:opacity-60 ${tone}`}
+        className={`grid size-16 cursor-pointer place-items-center rounded-full outline-hidden transition hover:brightness-105 pressed:scale-[0.97] focus-visible:ring-4 focus-visible:ring-ring/30 disabled:cursor-default disabled:opacity-60 ${tone}`}
       >
         {props.children}
       </AriaButton>
