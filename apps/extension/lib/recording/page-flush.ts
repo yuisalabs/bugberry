@@ -19,12 +19,14 @@ export type RecordingWatch = (onChange: (recording: boolean, atLoad: boolean, pa
  * Runs in the extension's isolated world. A page loaded while a recording runs says so (the background
  * counts it); when any page goes away during a recording (reload, link, back/forward), it asks the
  * capture script for this document's events and hands them to the background, which keeps them only for
- * the recorded tab. Everything inside pagehide happens synchronously.
+ * the recorded tab. Everything inside pagehide happens synchronously. A script left behind by an extension
+ * reload (`alive` false) sends nothing: sending from it throws at once.
  */
 export function installPageFlush(
   host: FlushHost,
   send: (message: PageFlushMessage | PageStartMessage) => void,
   watch: RecordingWatch,
+  alive: () => boolean = () => true,
 ): void {
   let recorded = false
   let paused = false
@@ -37,7 +39,7 @@ export function installPageFlush(
     paused = pause
   })
   host.window.addEventListener("pagehide", () => {
-    if (!recorded) return
+    if (!recorded || !alive()) return
     let answer: unknown = null
     const onFlush = (event: Event) => {
       answer = (event as CustomEvent).detail

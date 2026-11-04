@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import { BRIDGE_OPEN_POPUP } from "@bugberry/shared"
-import { type BridgeDeps, bridgeSenderOrigin, confirmNotes, createBridge, pageRequest, switchServer } from "../../lib/server/bridge"
+import { BRIDGE_HELLO, BRIDGE_OPEN_POPUP, BRIDGE_STATUS } from "@bugberry/shared"
+import { type BridgeDeps, bridgeSenderOrigin, confirmNotes, createBridge, installPageBridge, pageRequest, switchServer } from "../../lib/server/bridge"
 import type { ReportDraft } from "../../lib/shared/types"
 
 const BUGBERRY = "https://bugberry.kantor.com"
@@ -175,5 +175,47 @@ describe("switchServer", () => {
     const { saved, store } = memory([withSession("legacy")])
     await switchServer(BUGBERRY, null, store, async () => {})
     expect(saved.get("legacy")?.session).toBeNull()
+  })
+})
+
+describe("installPageBridge", () => {
+  const ORIGIN = "https://bugberry.kantor.com"
+
+  function page(alive: () => boolean, send: (message: unknown) => Promise<unknown>) {
+    const listeners = new Set<(event: MessageEvent) => void>()
+    const posted: unknown[] = []
+    const fakeWindow = {
+      addEventListener: (_type: "message", listener: (event: MessageEvent) => void) => void listeners.add(listener),
+      removeEventListener: (_type: "message", listener: (event: MessageEvent) => void) => void listeners.delete(listener),
+      postMessage: (message: unknown) => void posted.push(message),
+    }
+    installPageBridge({ window: fakeWindow, origin: ORIGIN, userActive: () => false, alive, send })
+    const dispatch = (data: unknown) => {
+      for (const listener of [...listeners]) listener({ source: fakeWindow, origin: ORIGIN, data } as unknown as MessageEvent)
+    }
+    return { listeners, posted, dispatch }
+  }
+
+  test("answers a hello with the background's reply", async () => {
+    const { posted, dispatch } = page(() => true, async () => ({ active: true, version: "1.2.3" }))
+    dispatch({ type: BRIDGE_HELLO })
+    await Bun.sleep(0)
+    expect(posted).toEqual([{ type: BRIDGE_STATUS, active: true, version: "1.2.3" }])
+  })
+
+  // Chrome leaves the old script in open tabs when the extension reloads; sending from it throws at once.
+  test("left behind by a reload, it stops listening instead of throwing", () => {
+    let sent = 0
+    const { listeners, posted, dispatch } = page(
+      () => false,
+      () => {
+        sent += 1
+        throw new Error("Extension context invalidated.")
+      },
+    )
+    expect(() => dispatch({ type: BRIDGE_HELLO })).not.toThrow()
+    expect(sent).toBe(0)
+    expect(listeners.size).toBe(0)
+    expect(posted).toEqual([])
   })
 })

@@ -48,6 +48,17 @@ describe("installPageFlush", () => {
     expect(sent).toEqual([{ type: "bugberry:page-start" }, FLUSH])
   })
 
+  // Chrome leaves the old script in open tabs when the extension reloads mid-recording; sending from it throws at once.
+  test("left behind by a reload, the page sends nothing as it goes away", () => {
+    const sent: unknown[] = []
+    let alive = true
+    const tab = page(BUFFER)
+    installPageFlush({ document: tab.document, window: tab.window }, (message) => sent.push(message), recordingState(true).watch, () => alive)
+    alive = false
+    tab.hide()
+    expect(sent).toEqual([{ type: "bugberry:page-start" }])
+  })
+
   test("the page open when the recording starts flushes too, without counting as a new page", () => {
     const sent: unknown[] = []
     const tab = page(BUFFER)

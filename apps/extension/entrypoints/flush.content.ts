@@ -12,6 +12,7 @@ export default defineContentScript({
       { document, window, location },
       (message) => void browser.runtime.sendMessage(message).catch(() => {}),
       (onChange) => watchRecording(browser.storage.session, browser.storage.onChanged, onChange),
+      () => browser.runtime?.id !== undefined,
     )
   },
 })
