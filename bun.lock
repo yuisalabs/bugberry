@@ -97,7 +97,7 @@
     },
     "apps/extension": {
       "name": "@bugberry/extension",
-      "version": "0.12.0",
+      "version": "0.12.1",
       "dependencies": {
         "@bugberry/ai-write": "workspace:*",
         "@bugberry/capture": "workspace:*",
