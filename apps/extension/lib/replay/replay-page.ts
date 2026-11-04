@@ -30,13 +30,19 @@ export interface ReplayPageDeps {
   clearInterval: typeof clearInterval
   intervalMs?: number
   maxBytes?: number
+  /** False once the extension was reloaded or removed and this script is left behind in the page. */
+  alive?: () => boolean
 }
 
-/** The recorder in an armed page: idle until the background says start, then a rolling buffer and a frame every few seconds. */
+/**
+ * The recorder in an armed page: idle until the background says start, then a rolling buffer and a frame every few seconds.
+ * Left behind by an extension reload, it stops before its next message to the background: sending from it throws at once.
+ */
 export function installReplayRecorder(deps: ReplayPageDeps): { stop(): void } {
   const buffer = createReplayBuffer({ maxBytes: deps.maxBytes ?? REPLAY_BUFFER_MAX_BYTES })
   // Called unbound: the browser's timers throw "Illegal invocation" when called as methods of `deps`.
   const { setInterval: every, clearInterval: cancel } = deps
+  const alive = deps.alive ?? (() => true)
   let stopRecord: (() => void) | null = null
   let timer: ReturnType<typeof setInterval> | null = null
   let degraded = false
@@ -64,10 +70,12 @@ export function installReplayRecorder(deps: ReplayPageDeps): { stop(): void } {
     }
     if (buffer.degraded() === degraded) return
     degraded = buffer.degraded()
-    deps.notifyDegraded(degraded)
+    if (alive()) deps.notifyDegraded(degraded)
+    else queueMicrotask(stop)
   }
 
   const tick = async (windowMs: number) => {
+    if (!alive()) return stop()
     // rrweb only checks out on DOM activity, while frames keep a quiet page's segment growing.
     const last = buffer.lastCheckoutAt()
     if (last !== null && deps.now() - last >= windowMs) deps.takeFullSnapshot()
