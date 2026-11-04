@@ -328,6 +328,7 @@ export function PopupView(props: PopupViewProps) {
               windowMs={prefs.replayWindowMs}
               shortcutsPage={props.shortcutsPage}
               busy={props.busy}
+              compact={choice.kind === "record"}
               onWindow={(ms) => props.onPrefs({ replayWindowMs: ms })}
               onArm={() => props.onReplay("arm", prefs.replayWindowMs)}
               onDisarm={() => props.onReplay("disarm")}

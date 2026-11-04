@@ -608,6 +608,28 @@ describe("replay", () => {
     expect((button("Paused while recording") as HTMLButtonElement).disabled).toBe(true)
   })
 
+  test("in Record mode it is one row: arm with the last window, no chips", () => {
+    const props = view({ prefs: record("tab"), replay: { armed: false }, replayAvailable: true, onReplay: mock() })
+    expect(screen.queryByRole("button", { name: "120s" })).toBeNull()
+    fireEvent.click(button("Arm 60s"))
+    expect(props.onReplay).toHaveBeenCalledWith("arm", 60_000)
+  })
+
+  test("in Record mode, armed: capture and disarm in the row, without the shortcut hint", () => {
+    const props = view({
+      prefs: record("tab"),
+      replay: { armed: true, windowMs: 30_000, since: 1, degraded: true, suspended: false },
+      replayAvailable: true,
+      onReplay: mock(),
+    })
+    expect(screen.getByText("30s · buffer full")).toBeTruthy()
+    expect(screen.queryByText(/Add a shortcut/)).toBeNull()
+    fireEvent.click(button("Capture last ~30s"))
+    expect(props.onReplay).toHaveBeenCalledWith("capture")
+    fireEvent.click(button("Disarm"))
+    expect(props.onReplay).toHaveBeenCalledWith("disarm")
+  })
+
   test("no replay on Firefox", () => {
     view({ replay: { armed: false }, replayAvailable: false, onReplay: mock() })
     expect(screen.queryByText("Replay")).toBeNull()
