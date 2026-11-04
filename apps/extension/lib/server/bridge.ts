@@ -117,9 +117,9 @@ export interface PageBridgeDeps {
 /**
  * The bridge content script: passes a page's requests to the background and posts the answers back.
  * Chrome keeps the old script running in open tabs when the extension reloads, and sending from it throws
- * at once, so once the extension is gone it stops listening; the new script arrives with the next page load.
+ * at once, so once the extension is gone it stops listening. The returned function stops it too.
  */
-export function installPageBridge(deps: PageBridgeDeps): void {
+export function installPageBridge(deps: PageBridgeDeps): () => void {
   const { window: page, origin } = deps
   const onMessage = (event: MessageEvent) => {
     if (event.source !== page || event.origin !== origin) return
@@ -150,6 +150,32 @@ export function installPageBridge(deps: PageBridgeDeps): void {
     }
   }
   page.addEventListener("message", onMessage)
+  return () => page.removeEventListener("message", onMessage)
+}
+
+/**
+ * After an install, update or reload, adds the bridge to the dashboard tabs already open at the extension's
+ * server: Chrome gives tabs open from before only the scripts of the next page load, so until then the dashboard
+ * would think the extension is missing. A page running a bridge already drops the older one (bridge.content.ts).
+ */
+export async function reinjectBridge(deps: {
+  currentServer(): Promise<string | null>
+  tabs(): Promise<Array<{ id?: number; url?: string }>>
+  inject(tabId: number): Promise<void>
+}): Promise<void> {
+  const server = await deps.currentServer()
+  if (!server) return
+  const origin = new URL(server).origin
+  const atServer = (url: string | undefined) => {
+    try {
+      return url !== undefined && new URL(url).origin === origin
+    } catch {
+      return false
+    }
+  }
+  for (const tab of await deps.tabs()) {
+    if (tab.id !== undefined && atServer(tab.url)) await deps.inject(tab.id).catch(() => {})
+  }
 }
 
 /**

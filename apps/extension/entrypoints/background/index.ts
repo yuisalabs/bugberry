@@ -1,7 +1,7 @@
 import type { CaptureType } from "@bugberry/shared"
 import { browser } from "wxt/browser"
 import { createFailureFlag } from "../../lib/platform/badge"
-import { createBridge } from "../../lib/server/bridge"
+import { createBridge, reinjectBridge } from "../../lib/server/bridge"
 import { browserRecordingState } from "../../lib/recording/browser-recording-state"
 import { createBugberryApi } from "../../lib/server/api"
 import { CAMERA_READY_MS, type CameraGrant, createCameraGrants } from "../../lib/devices/camera-grant"
@@ -51,6 +51,7 @@ const RECORDER_WINDOW_KEY = "recorderWindow"
 const CAMERA_GRANT_KEY = "camera"
 /** Where WXT puts recording-ui.content.ts. */
 const PAGE_LAYER_SCRIPT = "/content-scripts/recording-ui.js"
+const BRIDGE_SCRIPT = "/content-scripts/bridge.js"
 
 export default defineBackground(() => {
   const store = createIndexedDbDraftStore()
@@ -368,9 +369,10 @@ export default defineBackground(() => {
   })
   const openConfirm = (origin: string, tabId: number | null) => openPrompt({ page: "confirm-server", server: origin }, tabId)
 
+  const currentServer = async () => (await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN))?.serverUrl ?? null
   const bridge = createBridge({
     isBugBerryServer: (origin) => isBugBerryServer(origin),
-    currentServer: async () => (await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN))?.serverUrl ?? null,
+    currentServer,
     openConfirm,
     openPopup: () => browser.action.openPopup(),
     version: () => browser.runtime.getManifest().version,
@@ -483,6 +485,14 @@ export default defineBackground(() => {
 
   // Older versions kept a token next to the server; the dashboard's sign-in replaces it.
   browser.runtime.onInstalled.addListener(() => void browserSettingsStorage.removeLegacyToken())
+  browser.runtime.onInstalled.addListener(({ reason }) => {
+    if (reason !== "install" && reason !== "update") return
+    void reinjectBridge({
+      currentServer,
+      tabs: () => browser.tabs.query({}),
+      inject: async (tabId) => void (await browser.scripting.executeScript({ target: { tabId }, files: [BRIDGE_SCRIPT] })),
+    })
+  })
 
   // Last, so a browser without it (Firefox) still registers every listener above.
   openSessionToContentScripts(browser.storage.session as Parameters<typeof openSessionToContentScripts>[0])

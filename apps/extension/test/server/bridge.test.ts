@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { BRIDGE_HELLO, BRIDGE_OPEN_POPUP, BRIDGE_STATUS } from "@bugberry/shared"
-import { type BridgeDeps, bridgeSenderOrigin, confirmNotes, createBridge, installPageBridge, pageRequest, switchServer } from "../../lib/server/bridge"
+import { type BridgeDeps, bridgeSenderOrigin, confirmNotes, createBridge, installPageBridge, pageRequest, reinjectBridge, switchServer } from "../../lib/server/bridge"
 import type { ReportDraft } from "../../lib/shared/types"
 
 const BUGBERRY = "https://bugberry.kantor.com"
@@ -189,11 +189,11 @@ describe("installPageBridge", () => {
       removeEventListener: (_type: "message", listener: (event: MessageEvent) => void) => void listeners.delete(listener),
       postMessage: (message: unknown) => void posted.push(message),
     }
-    installPageBridge({ window: fakeWindow, origin: ORIGIN, userActive: () => false, alive, send })
+    const stop = installPageBridge({ window: fakeWindow, origin: ORIGIN, userActive: () => false, alive, send })
     const dispatch = (data: unknown) => {
       for (const listener of [...listeners]) listener({ source: fakeWindow, origin: ORIGIN, data } as unknown as MessageEvent)
     }
-    return { listeners, posted, dispatch }
+    return { listeners, posted, dispatch, stop }
   }
 
   test("answers a hello with the background's reply", async () => {
@@ -201,6 +201,15 @@ describe("installPageBridge", () => {
     dispatch({ type: BRIDGE_HELLO })
     await Bun.sleep(0)
     expect(posted).toEqual([{ type: BRIDGE_STATUS, active: true, version: "1.2.3" }])
+  })
+
+  test("once stopped, it no longer answers", async () => {
+    let sent = 0
+    const { listeners, dispatch, stop } = page(() => true, async () => void (sent += 1))
+    stop()
+    dispatch({ type: BRIDGE_HELLO })
+    expect(sent).toBe(0)
+    expect(listeners.size).toBe(0)
   })
 
   // Chrome leaves the old script in open tabs when the extension reloads; sending from it throws at once.
@@ -217,5 +226,43 @@ describe("installPageBridge", () => {
     expect(sent).toBe(0)
     expect(listeners.size).toBe(0)
     expect(posted).toEqual([])
+  })
+})
+
+describe("reinjectBridge", () => {
+  const tabs = [
+    { id: 1, url: `${BUGBERRY}/app/reports` },
+    { id: 2, url: "https://shop.test/" },
+    { id: 3, url: `${BUGBERRY}/app` },
+    { id: 4 },
+  ]
+
+  test("adds the bridge to the tabs open at the extension's server, and nowhere else", async () => {
+    const injected: number[] = []
+    await reinjectBridge({ currentServer: async () => BUGBERRY, tabs: async () => tabs, inject: async (tabId) => void injected.push(tabId) })
+    expect(injected).toEqual([1, 3])
+  })
+
+  test("a tab it can't reach doesn't keep it from the others", async () => {
+    const injected: number[] = []
+    const inject = async (tabId: number) => {
+      if (tabId === 1) throw new Error("Cannot access contents of the page")
+      injected.push(tabId)
+    }
+    await reinjectBridge({ currentServer: async () => BUGBERRY, tabs: async () => tabs, inject })
+    expect(injected).toEqual([3])
+  })
+
+  test("with no server set, no tab gets it", async () => {
+    let asked = false
+    await reinjectBridge({
+      currentServer: async () => null,
+      tabs: async () => {
+        asked = true
+        return tabs
+      },
+      inject: async () => {},
+    })
+    expect(asked).toBe(false)
   })
 })
