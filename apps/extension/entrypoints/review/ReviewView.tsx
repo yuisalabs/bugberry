@@ -1,5 +1,5 @@
 import type { RecordingNote } from "@bugberry/capture"
-import { matchProject, type Visibility } from "@bugberry/shared"
+import { matchProject, type ReplayFrame, type Visibility } from "@bugberry/shared"
 import { Button } from "@bugberry/ui/button"
 import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@bugberry/ui/dialog"
 import { RiCameraLine, RiCloseLine, RiCursorLine, RiDeleteBinLine, RiGlobalLine, RiHistoryLine, RiTerminalBoxLine, RiVideoOnLine, RiWindowLine } from "@remixicon/react"
@@ -16,7 +16,9 @@ import type { ReportForm, SentReport, UploadProgress } from "../../lib/review/up
 import { PreparingBar, Tile, UploadBar } from "./parts"
 import { ReportFields } from "./ReportFields"
 import { SentPanel, type SentDetails, type TrackerChoice } from "./SentPanel"
+import { ReplayStrip } from "./ReplayStrip"
 import { TrimStrip } from "./TrimStrip"
+import type { ReplayPosition } from "./use-replay-position"
 
 export type ReviewStatus =
   | "ready"
@@ -127,6 +129,8 @@ export interface ReviewViewProps {
   onTrimPlay?(): void
   /** While sending a trimmed video: how far its encoding is (0–1); null otherwise. */
   preparing?: number | null
+  /** Replays: the screenshots for the strip under the player, and where the player is. */
+  replayStrip?: { frames: ReplayFrame[]; position: ReplayPosition } | null
 }
 
 /**
@@ -294,6 +298,17 @@ export function ReviewView(props: ReviewViewProps) {
               />
               {props.trimLocked && <span className="text-sm text-muted-foreground">The video has already started sending.</span>}
             </div>
+          )}
+
+          {isReplay && !sent && props.replayStrip && (
+            <ReplayStrip
+              durationMs={draft.captureType === "replay" ? draft.durationMs : 0}
+              frames={props.replayStrip.frames}
+              positionMs={props.replayStrip.position.position}
+              playing={props.replayStrip.position.playing}
+              onSeek={props.replayStrip.position.seek}
+              onPlay={props.replayStrip.position.toggle}
+            />
           )}
 
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">

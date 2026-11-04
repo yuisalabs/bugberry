@@ -5,6 +5,7 @@ import { lazy, type Ref, Suspense } from "react"
 import type { TrimRange } from "../../lib/review/review-data"
 import type { ReportDraft } from "../../lib/shared/types"
 import { AnnotationCanvas, type AnnotationCanvasHandle } from "./AnnotationCanvas"
+import type { ReplayPosition } from "./use-replay-position"
 
 /** rrweb loads only when a replay is reviewed. */
 const ReplayPlayer = lazy(() => import("@bugberry/replay-player/replay-player"))
@@ -20,6 +21,8 @@ export function ReviewMedia(props: {
   canvasRef: Ref<AnnotationCanvasHandle>
   range: TrimRange | null
   onVideoTime(ms: number): void
+  /** The replay's position, shared with the strip under it. */
+  replayPosition: ReplayPosition
 }) {
   const { draft } = props
   if (draft.captureType === "video" && props.videoUrl) {
@@ -43,6 +46,10 @@ export function ReviewMedia(props: {
           frames={props.replay.frames}
           durationMs={draft.durationMs}
           markers={props.markers}
+          playerRef={props.replayPosition.player}
+          onTime={props.replayPosition.setPosition}
+          onPlayingChange={props.replayPosition.setPlaying}
+          strip={false}
           bounded
           className="w-full"
         />

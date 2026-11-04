@@ -546,6 +546,16 @@ describe("a replay", () => {
     expect(box).toEqual(expect.arrayContaining(["flex", "h-full", "min-h-0", "flex-col"]))
   })
 
+  test("its strip sits where a video's Trim strip does and follows the player", () => {
+    const position = { player: { current: null }, position: 21_000, setPosition: mock(), playing: false, setPlaying: mock(), seek: mock(), toggle: mock() }
+    view({ draft: replay, replayStrip: { frames: [{ atMs: 0, jpeg: "A" }], position } })
+    expect(screen.getByRole("group", { name: "Replay position" })).toBeTruthy()
+    expect((screen.getByLabelText("Playhead") as HTMLInputElement).value).toBe("21000")
+    expect(screen.getByText("0:00 – 0:40 · 40 s")).toBeTruthy()
+    fireEvent.click(button("Play"))
+    expect(position.toggle).toHaveBeenCalledTimes(1)
+  })
+
   test("after sending, Capture another", () => {
     const onAnother = mock()
     view({ draft: replay, status: { sent: { id: "r1", reportUrl: "https://b.test/app/r/1", shareUrl: "https://b.test/s/x" } }, onAnother })

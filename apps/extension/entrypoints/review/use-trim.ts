@@ -1,11 +1,18 @@
-import { type RefObject, useRef, useState } from "react"
+import { type RefObject, useEffect, useRef, useState } from "react"
 import type { createDraftWriter } from "../../lib/drafts/draft-writer"
 import { draftWithTrim } from "../../lib/review/review-draft"
 import type { TrimRange } from "../../lib/review/review-data"
 import { createSeeker } from "../../lib/review/seeker"
+import { videoFrames } from "../../lib/review/video-frames"
+import type { ReportDraft } from "../../lib/shared/types"
 
 /** A recording's trim, the strip's frames, and the player as the strip drives it. */
-export function useTrim(draftId: string, video: RefObject<HTMLVideoElement | null>, writeDraft: ReturnType<typeof createDraftWriter>) {
+export function useTrim(
+  draftId: string,
+  video: RefObject<HTMLVideoElement | null>,
+  writeDraft: ReturnType<typeof createDraftWriter>,
+  draft: ReportDraft | undefined,
+) {
   const [trim, setTrim] = useState<TrimRange | null>(null)
   /** The trim waiting to be saved: a handle moves many times a second, and each save writes the whole video. */
   const trimSave = useRef<{ timer: ReturnType<typeof setTimeout>; range: TrimRange | null } | null>(null)
@@ -13,6 +20,17 @@ export function useTrim(draftId: string, video: RefObject<HTMLVideoElement | nul
   const [position, setPosition] = useState(0)
   const [playing, setPlaying] = useState(false)
   const [frames, setFrames] = useState<string[] | null>(null)
+  const recording = draft?.captureType === "video" ? draft : null
+
+  // The strip's frames, made once the recording is loaded.
+  useEffect(() => {
+    if (!recording?.video) return
+    let cancelled = false
+    void videoFrames(recording.video, recording.durationMs ?? 0, 10).then((made) => !cancelled && setFrames(made))
+    return () => {
+      cancelled = true
+    }
+  }, [recording?.video])
 
   /** Saves the trim waiting to be saved, now. */
   const saveTrim = async () => {

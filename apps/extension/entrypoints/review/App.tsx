@@ -26,12 +26,12 @@ import { whenBack } from "../../lib/shared/when-back"
 import type { trimVideo as TrimVideo } from "../../lib/review/trim-video"
 import type { ReportDraft } from "../../lib/shared/types"
 import { LOCKED, putFile, type ReportForm, submitDraft, type UploadProgress } from "../../lib/review/upload"
-import { videoFrames } from "../../lib/review/video-frames"
 import type { AnnotationCanvasHandle } from "./AnnotationCanvas"
 import { ReviewMedia } from "./ReviewMedia"
 import { type Assignable, ReviewView, type ReviewStatus } from "./ReviewView"
 import { useAiSetup } from "./use-ai-setup"
 import { useSentReport } from "./use-sent-report"
+import { useReplayPosition } from "./use-replay-position"
 import { useTrim } from "./use-trim"
 
 const store = createIndexedDbDraftStore()
@@ -96,11 +96,13 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
   const video = useRef<HTMLVideoElement>(null)
   // Recordings: the part that is sent, the strip's frames, and how far the trimmed video's encoding is while
   // sending (null when it isn't encoding).
-  const { trim, setTrim, position, setPosition, playing, setPlaying, frames, setFrames, saveTrim, changeTrim, seekTo, playTrim } = useTrim(
+  const { trim, setTrim, position, setPosition, playing, setPlaying, frames, saveTrim, changeTrim, seekTo, playTrim } = useTrim(
     draftId,
     video,
     writeDraft,
+    loaded?.draft,
   )
+  const replayPosition = useReplayPosition()
   const [preparing, setPreparing] = useState<number | null>(null)
   const [locked, setLocked] = useState(false)
   const { aiSetup, personalKey, serverUrl, loadAi } = useAiSetup(apiOf)
@@ -267,17 +269,6 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
     return () => window.removeEventListener("beforeunload", ask)
   }, [preparing])
 
-
-  // The strip's frames, made once the recording is loaded.
-  useEffect(() => {
-    if (loaded?.draft.captureType !== "video" || !loaded.draft.video) return
-    let cancelled = false
-    void videoFrames(loaded.draft.video, loaded.draft.durationMs ?? 0, 10).then((made) => !cancelled && setFrames(made))
-    return () => {
-      cancelled = true
-    }
-  }, [loaded])
-
   const send = async (form: ReportForm, notes: RecordingNote[], options: { fullVideo?: boolean } = {}) => {
     const settings = await loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN)
     if (!settings || !loaded) return
@@ -417,6 +408,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
             setPosition(ms)
             setPlaying(Boolean(video.current && !video.current.paused))
           }}
+          replayPosition={replayPosition}
         />
       }
       workspaces={loaded.workspaces}
@@ -442,6 +434,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       onTrimChange={changeTrim}
       onTrimPreview={seekTo}
       preparing={preparing}
+      replayStrip={loaded.replay && { frames: loaded.replay.frames, position: replayPosition }}
       includeCity={includeCity}
       cityNote={cityNote}
       onSend={(form, notes, options) => void send(form, notes, options)}
