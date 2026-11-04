@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test"
-import { activeFrame, frameSrc, playerSize, stripFrames } from "../src"
+import { activeFrame, frameSrc, playerSize, replayAspect, stripFrames } from "../src"
 
 test("frameSrc is a jpeg data url", () => {
   expect(frameSrc({ atMs: 0, jpeg: "AAAA" })).toBe("data:image/jpeg;base64,AAAA")
@@ -15,9 +15,23 @@ test("stripFrames thins to the max and keeps the last", () => {
   expect(stripFrames([], 24)).toEqual([])
 })
 
-test("playerSize fits the container", () => {
+test("playerSize without a height follows the container's width", () => {
   expect(playerSize({ width: 960 })).toEqual({ width: 960, height: 540 })
   expect(playerSize({ width: 200 })).toEqual({ width: 320, height: 180 })
+  expect(playerSize({ width: 960 }, 4 / 3)).toEqual({ width: 960, height: 720 })
+})
+
+test("playerSize with a height is the largest box of the aspect that fits, under the 80 px controller", () => {
+  expect(playerSize({ width: 1180, height: 600 }, 1835 / 934)).toEqual({ width: 1021, height: 520 })
+  expect(playerSize({ width: 600, height: 900 }, 16 / 9)).toEqual({ width: 600, height: 338 })
+})
+
+test("replayAspect is the recorded viewport's, or 16/9 without one", () => {
+  const meta = (data: unknown) => [{ type: 4, timestamp: 0, data }, { type: 2, timestamp: 0, data: {} }]
+  expect(replayAspect(meta({ href: "https://app.test/", width: 1835, height: 934 }))).toBe(1835 / 934)
+  expect(replayAspect(meta({ href: "https://app.test/" }))).toBe(16 / 9)
+  expect(replayAspect(meta({ width: 0, height: 0 }))).toBe(16 / 9)
+  expect(replayAspect([])).toBe(16 / 9)
 })
 
 test("activeFrame is the frame at or before the time", () => {

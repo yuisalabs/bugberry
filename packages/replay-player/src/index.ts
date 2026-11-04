@@ -28,6 +28,11 @@ export interface ReplayPlayerProps {
   /** The bar above the replay, as on the video: who reported it on the left, actions for the current second on the right. */
   topLeft?: ReactNode
   topRight?: (seconds: number) => ReactNode
+  /**
+   * The parent sets the height (the extension's review): the replay fits the room the bar, markers and strip leave.
+   * Otherwise it is as tall as its width makes it, as in the dashboard.
+   */
+  bounded?: boolean
   className?: string
   /** Builds the rrweb player; tests pass a fake, since happy-dom can't run a replay. */
   createPlayer?: (target: HTMLElement, props: RrwebPlayerProps) => RrwebPlayerLike
@@ -66,10 +71,27 @@ export function stripFrames(frames: ReplayFrame[], max = 24): ReplayFrame[] {
 }
 
 const MIN_WIDTH = 320
+/** rrweb-player draws its controller under the `height` it is given. */
+const CONTROLLER_HEIGHT = 80
+const DEFAULT_ASPECT = 16 / 9
+const RRWEB_META = 4
 
-/** The player's box: as wide as its container (never under 320 px), as tall as the aspect makes it. */
-export function playerSize(container: { width: number }, aspect = 16 / 9): { width: number; height: number } {
-  const width = Math.max(MIN_WIDTH, Math.floor(container.width))
+/** The recorded page's viewport, from rrweb's Meta event; 16/9 when there is none. */
+export function replayAspect(events: ReplayEvent[]): number {
+  const meta = events.find((event) => event.type === RRWEB_META)
+  const data = (meta?.data ?? {}) as { width?: unknown; height?: unknown }
+  if (typeof data.width !== "number" || typeof data.height !== "number" || data.width <= 0 || data.height <= 0) return DEFAULT_ASPECT
+  return data.width / data.height
+}
+
+/**
+ * The player's box in the aspect, never under 320 px wide. Without a height it is as wide as the container; with one
+ * it is the largest box that fits both, the controller included.
+ */
+export function playerSize(container: { width: number; height?: number }, aspect = DEFAULT_ASPECT): { width: number; height: number } {
+  let width = container.width
+  if (container.height !== undefined) width = Math.min(width, (container.height - CONTROLLER_HEIGHT) * aspect)
+  width = Math.max(MIN_WIDTH, Math.floor(width))
   return { width, height: Math.round(width / aspect) }
 }
 

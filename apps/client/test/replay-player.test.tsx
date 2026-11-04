@@ -110,28 +110,47 @@ describe("ReplayPlayer", () => {
     expect(screen.queryByRole("list", { name: "Screenshots" })).toBeNull()
   })
 
-  test("a new width rescales the player there is instead of building another", () => {
+  function withResize(run: (resize: (size: { width: number; height: number }) => void) => void) {
     const original = globalThis.ResizeObserver
-    let resize: (width: number) => void = () => {}
+    let resize: (size: { width: number; height: number }) => void = () => {}
     globalThis.ResizeObserver = class {
       constructor(callback: ResizeObserverCallback) {
-        resize = (width) => callback([{ contentRect: { width } } as ResizeObserverEntry], this as unknown as ResizeObserver)
+        resize = (size) => callback([{ contentRect: size } as ResizeObserverEntry], this as unknown as ResizeObserver)
       }
       observe() {}
       unobserve() {}
       disconnect() {}
     } as unknown as typeof ResizeObserver
     try {
+      run((size) => resize(size))
+    } finally {
+      globalThis.ResizeObserver = original
+    }
+  }
+
+  test("a new width rescales the player there is, in the recorded page's aspect, instead of building another", () => {
+    withResize((resize) => {
       const player = fakePlayer()
       const set = mock()
       const createPlayer = mock((...args: Parameters<typeof player.createPlayer>) => ({ ...player.createPlayer(...args), $set: set }))
       render(<ReplayPlayer events={EVENTS} durationMs={12_000} frames={FRAMES} createPlayer={createPlayer} />)
-      act(() => resize(960))
-      expect(set).toHaveBeenLastCalledWith({ width: 960, height: 540 })
+      // The stage's height follows the player in normal flow, so it doesn't bound it.
+      act(() => resize({ width: 960, height: 400 }))
+      expect(set).toHaveBeenLastCalledWith({ width: 960, height: 720 })
       expect(createPlayer).toHaveBeenCalledTimes(1)
-    } finally {
-      globalThis.ResizeObserver = original
-    }
+    })
+  })
+
+  test("a bounded player fits the stage's height as well, under its controller", () => {
+    withResize((resize) => {
+      const player = fakePlayer()
+      const set = mock()
+      const createPlayer = mock((...args: Parameters<typeof player.createPlayer>) => ({ ...player.createPlayer(...args), $set: set }))
+      render(<ReplayPlayer events={EVENTS} durationMs={12_000} frames={FRAMES} createPlayer={createPlayer} bounded />)
+      act(() => resize({ width: 1180, height: 600 }))
+      expect(set).toHaveBeenLastCalledWith({ width: 693, height: 520 })
+      expect(createPlayer).toHaveBeenCalledTimes(1)
+    })
   })
 
   test("unmounting destroys the rrweb player", () => {

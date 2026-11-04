@@ -1,11 +1,20 @@
-import { useEffect, useImperativeHandle, useRef, useState } from "react"
+import { useEffect, useImperativeHandle, useMemo, useRef, useState } from "react"
 import rrwebPlayer from "rrweb-player"
 import type { eventWithTime } from "@rrweb/types"
 import "rrweb-player/dist/style.css"
 import "./theme.css"
 import { formatClock, type MarkerGroup, markerLabel, placeMarkers, type TimelineMarker } from "@bugberry/player"
 import { REPLAY_FRAME_TAG } from "@bugberry/shared"
-import { activeFrame, frameSrc, playerSize, type ReplayPlayerProps, type RrwebPlayerLike, type RrwebPlayerProps, stripFrames } from "./index"
+import {
+  activeFrame,
+  frameSrc,
+  playerSize,
+  type ReplayPlayerProps,
+  replayAspect,
+  type RrwebPlayerLike,
+  type RrwebPlayerProps,
+  stripFrames,
+} from "./index"
 
 const FRAME_MARKER_COLOR = "#2563eb"
 /** rrweb's Replayer throws on fewer: a stream needs its Meta event and at least one more. */
@@ -32,18 +41,20 @@ export function ReplayPlayer({
   playerRef,
   topLeft,
   topRight,
+  bounded = false,
   className,
   createPlayer = defaultCreatePlayer,
 }: ReplayPlayerProps) {
-  const host = useRef<HTMLDivElement>(null)
   const stage = useRef<HTMLDivElement>(null)
   const player = useRef<RrwebPlayerLike | null>(null)
   const [currentMs, setCurrentMs] = useState(0)
-  const [width, setWidth] = useState(0)
+  const [room, setRoom] = useState<{ width: number; height?: number }>({ width: 0 })
+  const aspect = useMemo(() => replayAspect(events), [events])
   // Callbacks change on every render of the page; the player is built once per recording.
-  const latest = useRef({ onTime, createPlayer, startAtSeconds, width })
-  latest.current = { onTime, createPlayer, startAtSeconds, width }
+  const latest = useRef({ onTime, createPlayer, startAtSeconds, room, aspect })
+  latest.current = { onTime, createPlayer, startAtSeconds, room, aspect }
   const started = useRef(false)
+  const playable = events.length >= MIN_EVENTS
 
   const moveTo = (ms: number) => {
     const at = Math.min(Math.max(ms, 0), durationMs)
@@ -64,21 +75,25 @@ export function ReplayPlayer({
   )
 
   useEffect(() => {
-    const element = host.current
+    const element = stage.current
     if (!element) return
-    setWidth(element.clientWidth)
+    // In normal flow the stage is as tall as the player in it, so only a bounded stage's height is room to fit.
+    const measure = (width: number, height: number) => setRoom(bounded ? { width, height } : { width })
+    measure(element.clientWidth, element.clientHeight)
     if (typeof ResizeObserver === "undefined") return
-    const observer = new ResizeObserver(([entry]) => setWidth(entry?.contentRect.width ?? 0))
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) measure(entry.contentRect.width, entry.contentRect.height)
+    })
     observer.observe(element)
     return () => observer.disconnect()
-  }, [])
+  }, [playable, bounded])
 
   useEffect(() => {
     const target = stage.current
-    if (!target || events.length < MIN_EVENTS) return
+    if (!target || !playable) return
     const created = latest.current.createPlayer(target, {
       events,
-      ...playerSize({ width: latest.current.width }),
+      ...playerSize(latest.current.room, latest.current.aspect),
       autoPlay: false,
       showController: true,
       skipInactive: false,
@@ -100,8 +115,8 @@ export function ReplayPlayer({
   }, [events])
 
   useEffect(() => {
-    player.current?.$set?.(playerSize({ width }))
-  }, [width])
+    player.current?.$set?.(playerSize({ width: room.width, height: room.height }, aspect))
+  }, [room.width, room.height, aspect])
 
   const strip = stripFrames(frames)
   const active = activeFrame(strip, currentMs)
@@ -111,14 +126,14 @@ export function ReplayPlayer({
   }
 
   return (
-    <div ref={host} className={`bb-replay ${className ?? ""}`}>
+    <div className={`bb-replay ${className ?? ""}`}>
       {(topLeft || topRight) && (
         <div className="bb-replay-bar">
           <div className="bb-replay-bar-side">{topLeft}</div>
           <div className="bb-replay-bar-side">{topRight?.(currentMs / 1000)}</div>
         </div>
       )}
-      {events.length < MIN_EVENTS ? (
+      {!playable ? (
         <p className="bb-replay-empty">This replay is too short to play.</p>
       ) : (
         <div ref={stage} className="bb-replay-stage" />

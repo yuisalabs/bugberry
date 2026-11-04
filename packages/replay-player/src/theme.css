@@ -1,8 +1,14 @@
+/* In a parent with a set height only the stage gives way; elsewhere every part is as tall as its content. */
 .bb-replay {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   gap: 0.5rem;
   min-width: 0;
+  min-height: 0;
+}
+.bb-replay > * {
+  flex: none;
 }
 .bb-replay-empty {
   margin: 0;
@@ -13,7 +19,13 @@
   font-size: 0.875rem;
   text-align: center;
 }
-.bb-replay-stage {
+.bb-replay > .bb-replay-stage {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
   overflow: hidden;
   border-radius: 0.5rem;
 }
