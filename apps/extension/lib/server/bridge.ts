@@ -1,4 +1,5 @@
-import { BRIDGE_HELLO, BRIDGE_OPEN_POPUP, BRIDGE_USE_SERVER } from "@bugberry/shared"
+import { BRIDGE_HELLO, BRIDGE_OPEN_POPUP, BRIDGE_POPUP, BRIDGE_STATUS, BRIDGE_USE_SERVER } from "@bugberry/shared"
+import type { BridgeHelloRequest, BridgeOpenPopupRequest, BridgeUseServerRequest } from "../shared/messages"
 import type { Settings } from "./settings"
 import type { ReportDraft } from "../shared/types"
 
@@ -98,6 +99,57 @@ export function pageRequest(data: unknown, userActive: boolean): "hello" | "use-
   if (type === BRIDGE_USE_SERVER && userActive) return "use-server"
   if (type === BRIDGE_OPEN_POPUP && userActive) return "open-popup"
   return null
+}
+
+export interface PageBridgeDeps {
+  window: {
+    addEventListener(type: "message", listener: (event: MessageEvent) => void): void
+    removeEventListener(type: "message", listener: (event: MessageEvent) => void): void
+    postMessage(message: unknown, targetOrigin: string): void
+  }
+  origin: string
+  userActive(): boolean
+  /** False once the extension was reloaded or removed and this script is left behind in the page. */
+  alive(): boolean
+  send(message: BridgeHelloRequest | BridgeOpenPopupRequest | BridgeUseServerRequest): Promise<unknown>
+}
+
+/**
+ * The bridge content script: passes a page's requests to the background and posts the answers back.
+ * Chrome keeps the old script running in open tabs when the extension reloads, and sending from it throws
+ * at once, so once the extension is gone it stops listening; the new script arrives with the next page load.
+ */
+export function installPageBridge(deps: PageBridgeDeps): void {
+  const { window: page, origin } = deps
+  const onMessage = (event: MessageEvent) => {
+    if (event.source !== page || event.origin !== origin) return
+    const request = pageRequest(event.data, deps.userActive())
+    if (request === null) return
+    if (!deps.alive()) {
+      page.removeEventListener("message", onMessage)
+      return
+    }
+    if (request === "hello") {
+      deps
+        .send({ type: "bugberry:bridge-hello" })
+        .then((reply: unknown) => {
+          const { active, version } = (reply ?? {}) as { active?: unknown; version?: unknown }
+          if (typeof active !== "boolean") return
+          const status = { type: BRIDGE_STATUS, active, version: typeof version === "string" ? version : null }
+          page.postMessage(status, origin)
+        })
+        .catch(() => {})
+    } else if (request === "open-popup") {
+      const answer = (opened: boolean) => page.postMessage({ type: BRIDGE_POPUP, opened }, origin)
+      deps
+        .send({ type: "bugberry:bridge-open-popup" })
+        .then((reply: unknown) => answer(reply === true))
+        .catch(() => answer(false))
+    } else {
+      deps.send({ type: "bugberry:bridge-use-server" }).catch(() => {})
+    }
+  }
+  page.addEventListener("message", onMessage)
 }
 
 /**
