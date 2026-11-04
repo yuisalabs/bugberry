@@ -21,8 +21,9 @@ test("playerSize without a height follows the container's width", () => {
   expect(playerSize({ width: 960 }, 4 / 3)).toEqual({ width: 960, height: 720 })
 })
 
-test("playerSize with a height is the largest box of the aspect that fits, under the 80 px controller", () => {
-  expect(playerSize({ width: 1180, height: 600 }, 1835 / 934)).toEqual({ width: 1021, height: 520 })
+test("playerSize with a height is the largest box of the aspect that fits, under a controller when there is one", () => {
+  expect(playerSize({ width: 1180, height: 600 }, 1835 / 934)).toEqual({ width: 1178, height: 600 })
+  expect(playerSize({ width: 1180, height: 600 }, 1835 / 934, 80)).toEqual({ width: 1021, height: 520 })
   expect(playerSize({ width: 600, height: 900 }, 16 / 9)).toEqual({ width: 600, height: 338 })
 })
 

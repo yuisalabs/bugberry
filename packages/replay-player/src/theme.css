@@ -28,6 +28,211 @@
   min-height: 0;
   overflow: hidden;
   border-radius: 0.5rem;
+  outline: none;
+}
+.bb-replay-stage:fullscreen {
+  background-color: #1c1022;
+  border-radius: 0;
+}
+
+/*
+ * The controls follow .vjs-bugberry in @bugberry/player, in its units: Video.js sizes everything in em of a 10 px
+ * player font.
+ */
+.bb-replay-screen {
+  position: relative;
+  flex: none;
+  overflow: hidden;
+  border-radius: 12px;
+  background-color: #1c1022;
+  font-size: 10px;
+  line-height: 1;
+}
+.bb-replay-stage:focus-visible .bb-replay-screen {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+.bb-replay-screen .rr-player {
+  float: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+.bb-replay-hit {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+}
+.bb-replay-screen svg {
+  display: block;
+  width: 1.8em;
+  height: 1.8em;
+  fill: currentColor;
+}
+
+.bb-replay-big-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2em;
+  height: 2em;
+  margin: -1.3em 0 0 -1em;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.92);
+  color: #1c1022;
+  font-size: 30px;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+.bb-replay-big-play svg {
+  width: 0.9em;
+  height: 0.9em;
+  margin-left: 0.08em;
+}
+.bb-replay-screen:hover .bb-replay-big-play,
+.bb-replay-big-play:focus-visible {
+  background-color: #ffffff;
+  outline: none;
+}
+.bb-replay-start {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin-top: 1.9em;
+  transform: translateX(-50%);
+  padding: 2px 8px;
+  border-radius: 6px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+/* The bar shows while paused, and while playing only under the pointer or with focus inside. */
+.bb-replay-controls {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: flex;
+  align-items: center;
+  height: 4em;
+  padding: 0 0.6em;
+  background: linear-gradient(to top, rgba(28, 16, 34, 0.9), rgba(28, 16, 34, 0.6));
+  color: #ffffff;
+  transition: opacity 0.3s;
+}
+.bb-replay-stage[data-playing="true"]:not(:hover):not(:focus-within) .bb-replay-controls {
+  opacity: 0;
+  transition-duration: 1s;
+}
+.bb-replay-controls::before {
+  content: "";
+  position: absolute;
+  inset: auto 0 100% 0;
+  height: 3.5em;
+  background: linear-gradient(to top, rgba(28, 16, 34, 0.6), rgba(28, 16, 34, 0));
+  pointer-events: none;
+}
+.bb-replay-button {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 4em;
+  height: 4em;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.bb-replay-button:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: -4px;
+  border-radius: 6px;
+}
+.bb-replay-speed {
+  font-size: 1.5em;
+  width: calc(4em / 1.5);
+  height: calc(4em / 1.5);
+}
+.bb-replay-time {
+  height: 2em;
+  padding: 0 0.9em;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.12);
+  line-height: 2em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.bb-replay-spacer {
+  flex: auto;
+}
+
+/* The timeline runs the full width just above the buttons, as on the video. */
+.bb-replay-progress {
+  position: absolute;
+  left: 0.6em;
+  right: 0.6em;
+  top: -1.4em;
+  height: 1.6em;
+}
+.bb-replay-seek {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  cursor: pointer;
+  touch-action: none;
+  outline: none;
+}
+.bb-replay-line {
+  position: relative;
+  width: 100%;
+  height: 0.3em;
+  background-color: rgba(115, 133, 159, 0.5);
+  transition: height 0.1s;
+}
+.bb-replay-seek:hover .bb-replay-line,
+.bb-replay-seek:focus-visible .bb-replay-line {
+  height: 0.5em;
+}
+.bb-replay-played {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background-color: #d61f69;
+}
+.bb-replay-played::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -0.5em;
+  width: 1em;
+  height: 1em;
+  margin-top: -0.5em;
+  border-radius: 999px;
+  background-color: #ffffff;
+}
+.bb-replay-dots {
+  position: absolute;
+  inset: auto 0 calc(50% + 0.15em) 0;
+  height: 0;
+  pointer-events: none;
+}
+.bb-replay-dots .bb-replay-marker {
+  top: auto;
+  bottom: 1.2em;
+  min-width: 2.2em;
+  height: 2.2em;
+  padding: 0 0.45em;
+  font-size: 1.15em;
+  pointer-events: auto;
 }
 
 /* Above the stage rather than over it, so the top of the recorded page stays visible. Same pills as the video's overlay. */

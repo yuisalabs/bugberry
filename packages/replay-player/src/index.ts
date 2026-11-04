@@ -16,12 +16,14 @@ export interface ReplayPlayerProps {
   durationMs: number
   /** Frames out of the events, already extracted so the strip needs no second pass. */
   frames: ReplayFrame[]
-  /** Failed requests and errors to mark above the strip. */
+  /** Failed requests and errors, as dots on the progress line (and on the row above the strip). */
   markers?: TimelineMarker[]
   /** After the player jumped to a marker. */
   onMarkerClick?: (marker: TimelineMarker) => void
   /** Player position in ms, on every time update and seek. */
   onTime?: (ms: number) => void
+  /** Each time playback starts or stops, from the player's buttons, hotkeys or the end of the replay. */
+  onPlayingChange?: (playing: boolean) => void
   /** Where playback starts (a shared "at 0:03" link). */
   startAtSeconds?: number
   playerRef?: Ref<ReplayPlayerHandle>
@@ -33,6 +35,8 @@ export interface ReplayPlayerProps {
    * Otherwise it is as tall as its width makes it, as in the dashboard.
    */
   bounded?: boolean
+  /** The marker row and the screenshots under the player; false when the page draws its own filmstrip. */
+  strip?: boolean
   className?: string
   /** Builds the rrweb player; tests pass a fake, since happy-dom can't run a replay. */
   createPlayer?: (target: HTMLElement, props: RrwebPlayerProps) => RrwebPlayerLike
@@ -45,7 +49,6 @@ export interface RrwebPlayerProps {
   autoPlay: boolean
   showController: boolean
   skipInactive: boolean
-  tags: Record<string, string>
 }
 
 /** The part of rrweb-player's instance the component uses. */
@@ -53,8 +56,9 @@ export interface RrwebPlayerLike {
   goto(ms: number, play?: boolean): void
   play(): void
   pause(): void
-  addEventListener(event: string, handler: (detail: { payload: number }) => unknown): void
-  getReplayer(): { getCurrentTime(): number }
+  /** "ui-update-current-time" carries ms, "ui-update-player-state" carries "playing" or "paused". */
+  addEventListener(event: string, handler: (detail: { payload: number | string }) => unknown): void
+  getReplayer(): { getCurrentTime(): number; setConfig(config: { speed: number }): void }
   $set?(props: Partial<Pick<RrwebPlayerProps, "width" | "height">>): void
   /** Rescales the replayed page to the player's box; $set alone only resizes the box. */
   triggerResize?(): void
@@ -73,8 +77,6 @@ export function stripFrames(frames: ReplayFrame[], max = 24): ReplayFrame[] {
 }
 
 const MIN_WIDTH = 320
-/** rrweb-player draws its controller under the `height` it is given. */
-const CONTROLLER_HEIGHT = 80
 const DEFAULT_ASPECT = 16 / 9
 const RRWEB_META = 4
 
@@ -88,13 +90,25 @@ export function replayAspect(events: ReplayEvent[]): number {
 
 /**
  * The player's box in the aspect, never under 320 px wide. Without a height it is as wide as the container; with one
- * it is the largest box that fits both, the controller included.
+ * it is the largest box that fits both, with `controllerHeight` left under it.
  */
-export function playerSize(container: { width: number; height?: number }, aspect = DEFAULT_ASPECT): { width: number; height: number } {
+export function playerSize(
+  container: { width: number; height?: number },
+  aspect = DEFAULT_ASPECT,
+  controllerHeight = 0,
+): { width: number; height: number } {
   let width = container.width
-  if (container.height !== undefined) width = Math.min(width, (container.height - CONTROLLER_HEIGHT) * aspect)
+  if (container.height !== undefined) width = Math.min(width, (container.height - controllerHeight) * aspect)
   width = Math.max(MIN_WIDTH, Math.floor(width))
   return { width, height: Math.round(width / aspect) }
+}
+
+/** The speed button's steps, in the order it goes through them. */
+export const REPLAY_SPEEDS = [1, 2, 4, 8] as const
+
+export function nextSpeed(speed: number): number {
+  const index = REPLAY_SPEEDS.indexOf(speed as (typeof REPLAY_SPEEDS)[number])
+  return REPLAY_SPEEDS[(index + 1) % REPLAY_SPEEDS.length] ?? 1
 }
 
 /** The strip's highlighted frame; null with no frames. */
