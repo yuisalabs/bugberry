@@ -38,7 +38,14 @@ export function ReviewMedia(props: {
   if (draft.captureType === "replay" && props.replay) {
     return (
       <Suspense fallback={<div className="aspect-video w-full rounded-xl bg-[#1C1022]" />}>
-        <ReplayPlayer events={props.replay.events} frames={props.replay.frames} durationMs={draft.durationMs} markers={props.markers} className="w-full" />
+        <ReplayPlayer
+          events={props.replay.events}
+          frames={props.replay.frames}
+          durationMs={draft.durationMs}
+          markers={props.markers}
+          bounded
+          className="w-full"
+        />
       </Suspense>
     )
   }

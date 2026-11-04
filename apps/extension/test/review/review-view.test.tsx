@@ -540,6 +540,12 @@ describe("a replay", () => {
     expect(props.onAgain).toHaveBeenCalledTimes(1)
   })
 
+  test("gets the media box's height, so the player can fit inside it", () => {
+    view({ draft: replay, media: <div data-testid="player" /> })
+    const box = screen.getByTestId("player").parentElement?.className.split(" ") ?? []
+    expect(box).toEqual(expect.arrayContaining(["flex", "h-full", "min-h-0", "flex-col"]))
+  })
+
   test("after sending, Capture another", () => {
     const onAnother = mock()
     view({ draft: replay, status: { sent: { id: "r1", reportUrl: "https://b.test/app/r/1", shareUrl: "https://b.test/s/x" } }, onAnother })

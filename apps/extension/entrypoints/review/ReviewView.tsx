@@ -263,9 +263,14 @@ export function ReviewView(props: ReviewViewProps) {
           </header>
 
           <div className="flex min-h-64 flex-1 items-center justify-center overflow-hidden rounded-2xl bg-muted p-4 sm:p-6">
+            {/* The replay fits the height it is given. Under lg the column grows with its content, so it gets one of its own. */}
             <div
               className={
-                isVideo ? "w-full overflow-hidden rounded-xl bg-foreground shadow-lg" : isReplay ? "w-full" : "flex h-full w-full items-center justify-center"
+                isVideo
+                  ? "w-full overflow-hidden rounded-xl bg-foreground shadow-lg"
+                  : isReplay
+                    ? "flex h-full min-h-0 w-full flex-col max-lg:h-[min(70vh,40rem)]"
+                    : "flex h-full w-full items-center justify-center"
               }
             >
               {props.media}
