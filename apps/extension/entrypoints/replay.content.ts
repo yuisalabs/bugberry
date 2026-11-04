@@ -30,6 +30,7 @@ export default defineContentScript({
       notifyDegraded: (degraded) => void browser.runtime.sendMessage({ type: "bugberry:replay-degraded", degraded }).catch(() => {}),
       setInterval,
       clearInterval,
+      alive: () => browser.runtime?.id !== undefined,
     })
   },
 })
