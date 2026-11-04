@@ -328,7 +328,7 @@ describe("video timeline", () => {
   test("clicking an event time seeks the video to that moment", () => {
     const seek = mock()
     render(<ActionsTab events={events} base={1000} playback={{ currentMs: null, seek }} />)
-    fireEvent.click(screen.getByRole("button", { name: "Play video from 0:02" }))
+    fireEvent.click(screen.getByRole("button", { name: "Play from 0:02" }))
     expect(seek).toHaveBeenLastCalledWith(2000)
   })
 
@@ -339,7 +339,7 @@ describe("video timeline", () => {
     fireEvent.click(screen.getByText("button#pay"))
     expect(seek).toHaveBeenCalledTimes(1)
     expect(seek).toHaveBeenLastCalledWith(2000)
-    fireEvent.click(screen.getByRole("button", { name: "Play video from 0:02" }))
+    fireEvent.click(screen.getByRole("button", { name: "Play from 0:02" }))
     expect(seek).toHaveBeenCalledTimes(2)
   })
 
@@ -401,6 +401,13 @@ describe("InfoTab", () => {
     expect(screen.getByRole("link", { name: "https://app.kantor.test/checkout" })).toBeTruthy()
     expect(screen.getByText("1 field masked before upload")).toBeTruthy()
     expect(screen.getByText("1440 × 900")).toBeTruthy()
+  })
+
+  test("a replay shows its length as Replay, not Recording", () => {
+    render(<InfoTab report={reportFixture({ captureType: "replay", durationMs: 61_000 })} view={view} />)
+    expect(screen.getByText("Replay")).toBeTruthy()
+    expect(screen.getByText("1:01")).toBeTruthy()
+    expect(screen.queryByText("Recording")).toBeNull()
   })
 
   test("members see the reporter's city", () => {
@@ -578,7 +585,7 @@ describe("onboarding in the DevTools panel", () => {
     render(<OnboardingTestProvider value={onboarding(record)}>{tabs()}</OnboardingTestProvider>)
     expect(screen.getByRole("tab", { name: /Console/ }).hasAttribute("data-onboarding-pulse")).toBe(true)
     expect(screen.getByRole("tab", { name: /Network/ }).hasAttribute("data-onboarding-pulse")).toBe(true)
-    expect(screen.getByText("These errors and requests happened alongside the video. Take a look.")).toBeTruthy()
+    expect(screen.getByText("These errors and requests happened alongside the recording. Take a look.")).toBeTruthy()
     fireEvent.click(screen.getByRole("tab", { name: /Console/ }))
     expect(record).toHaveBeenCalledWith("devtools")
   })

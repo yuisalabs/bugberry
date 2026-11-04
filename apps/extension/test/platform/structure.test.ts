@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 
 const ROOT = join(import.meta.dir, "..", "..")
-const FOLDERS = new Set(["ai", "annotate", "capture", "devices", "drafts", "platform", "prompts", "recording", "review", "server", "shared"])
+const FOLDERS = new Set(["ai", "annotate", "capture", "devices", "drafts", "platform", "prompts", "recording", "replay", "review", "server", "shared"])
 const MAX_LINES = 500
 /** Files split for length; each stays under MAX_LINES. */
 const SPLIT = [

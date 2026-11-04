@@ -1,4 +1,4 @@
-import type { CaptureType, DebuggerSummary } from "@bugberry/shared"
+import { type CaptureType, type DebuggerSummary, isRecordingType } from "@bugberry/shared"
 import { consoleEntries, type DebuggerView, environmentRows } from "@bugberry/debugger-view"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { countReportComments } from "../../modules/comments/repository"
@@ -6,6 +6,7 @@ import { loadReportDetail } from "../../modules/reports/detail"
 import { toFixViews } from "../../modules/reports/fix-view"
 import { findReportPlace, listReportFixes } from "../../modules/reports/repository"
 import { listLinks } from "../../modules/trackers/repository"
+import { replayFrameKeyFor } from "../../storage/keys"
 import { createCommentsService } from "../../modules/comments/service"
 import { renderMentions } from "../../modules/comments/mentions"
 import { type McpContext, McpToolError, RATE_LIMITED, runTool } from "../context"
@@ -21,7 +22,7 @@ const TOP_ERRORS = 3
 const MAX_FIELDS_CHARS = 10 * 1024
 const SDK_LOGS_STEP = 'getConsoleLogs sources=["sdk"]'
 
-/** What to call next, from what the debugger caught; a video can also be looked at frame by frame. */
+/** What to call next, from what the debugger caught; a video or a replay can also be looked at frame by frame. */
 export function nextSteps(summary: DebuggerSummary, captureType: CaptureType = "screenshot", hasSdkLogs = false): string[] {
   const steps: string[] = []
   if (summary.errors > 0) steps.push('getConsoleLogs levels=["error"]', "getCodeHotspots")
@@ -30,7 +31,7 @@ export function nextSteps(summary: DebuggerSummary, captureType: CaptureType = "
   if (summary.failedRequests > 0) steps.push("getNetworkRequests failedOnly=true")
   if (summary.actions > 0) steps.push("getUserActions", "getReproductionScript")
   steps.push("getTimeline")
-  if (captureType === "video") steps.push("getRecording")
+  if (isRecordingType(captureType)) steps.push("getRecording")
   return steps
 }
 
@@ -231,7 +232,8 @@ export function registerReportReadTools(server: McpServer, ctx: McpContext): voi
     {
       title: "Get the report's screenshot",
       description:
-        "The screenshot of a screenshot report, or the thumbnail of a video report, as an image. Large files come back as a short-lived link.",
+        "The screenshot of a screenshot report, the thumbnail of a video report, or the last frame of a replay report, as an image. " +
+        "Large files come back as a short-lived link.",
       inputSchema: reportArgs,
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
@@ -243,13 +245,17 @@ export function registerReportReadTools(server: McpServer, ctx: McpContext): voi
         const { storage } = ctx.deps
         const row = resolved.row
         const url = reportUrl(ctx.deps.config.appUrl, resolved.id)
-        const video = row.captureType === "video"
-        const key = video ? row.thumbnailKey : row.mediaKey
-        const mimeType = video ? "image/jpeg" : row.mediaType
-        const videoLine = video ? [`Watch the video in BugBerry: ${url}`] : []
+        const recording = isRecordingType(row.captureType)
+        const replay = row.captureType === "replay"
+        // The thumbnail is best effort; a replay without one still has its last frame.
+        const lastFrame = replay && row.replayFrames?.length ? replayFrameKeyFor(row.id, row.replayFrames.length - 1) : null
+        const key = recording ? (row.thumbnailKey ?? lastFrame) : row.mediaKey
+        const mimeType = recording ? "image/jpeg" : row.mediaType
+        const videoLine = recording ? [`Watch the ${replay ? "replay" : "video"} in BugBerry: ${url}`] : []
         const info = key ? await storage.head(key) : null
         if (!key || !info) {
-          return textResult([video ? "This video has no thumbnail." : "The screenshot file is missing.", ...videoLine].join("\n"))
+          const missing = replay ? "This replay has no frames." : recording ? "This video has no thumbnail." : "The screenshot file is missing."
+          return textResult([missing, ...videoLine].join("\n"))
         }
         if (info.size > MAX_IMAGE_BYTES) {
           const link = await storage.getReadUrl(key, { contentType: mimeType, expiresInSeconds: LINK_SECONDS })
@@ -263,7 +269,10 @@ export function registerReportReadTools(server: McpServer, ctx: McpContext): voi
         return {
           content: [
             { type: "image", data, mimeType },
-            { type: "text", text: [video ? "Thumbnail of the recording." : "Screenshot of the report.", ...videoLine].join("\n") },
+            {
+              type: "text",
+              text: [replay ? "Last frame of the replay." : recording ? "Thumbnail of the recording." : "Screenshot of the report.", ...videoLine].join("\n"),
+            },
           ],
         }
       }),

@@ -11,3 +11,14 @@ export interface RecorderApis {
 export function hasTabRecorder(api: RecorderApis): boolean {
   return typeof api.offscreen?.createDocument === "function" && typeof api.tabCapture?.getMediaStreamId === "function"
 }
+
+/** Replay needs nothing Firefox lacks, but ships to Chrome and Opera first, to be tried there before a Firefox release. */
+export function hasReplay(env: { FIREFOX?: boolean }): boolean {
+  return !env.FIREFOX
+}
+
+/** Where a keyboard shortcut is assigned. Opera and Edge also install the Chrome build, so the browser is read at run time. */
+export function shortcutsPage(userAgent: string): string {
+  const scheme = userAgent.includes(" OPR/") ? "opera" : userAgent.includes(" Edg/") ? "edge" : "chrome"
+  return `${scheme}://extensions/shortcuts`
+}

@@ -1,16 +1,11 @@
 import { Button } from "@bugberry/ui/button"
-import { RiMore2Fill, RiPauseFill, RiPlayFill } from "@remixicon/react"
+import { RiMore2Fill } from "@remixicon/react"
 import { useState } from "react"
 import { Slider, SliderThumb, SliderTrack } from "react-aria-components"
 import { clampTrim, type TrimRange } from "../../lib/review/review-data"
+import { clock, Playhead, STRIP_STEP_MS as STEP_MS, StripFrames, StripPlayButton } from "./strip-parts"
 
-const STEP_MS = 100
 const THUMB_LABELS = ["Trim start", "Trim end"]
-
-function clock(ms: number): string {
-  const seconds = Math.max(0, Math.floor(ms / 1000))
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`
-}
 
 /**
  * The frames of the recording between two handles: the part between them is what is sent, the rest is greyed
@@ -47,24 +42,14 @@ export function TrimStrip(props: {
   }
   const percent = (ms: number) => `${(Math.min(Math.max(ms, 0), durationMs) / Math.max(1, durationMs)) * 100}%`
   const keptSeconds = Math.round((value.endMs - value.startMs) / 1000)
-  const PlayIcon = props.playing ? RiPauseFill : RiPlayFill
-  // While the playhead is dragged it stays under the pointer; the player catches up one seek at a time.
-  const [scrub, setScrub] = useState<number | null>(null)
 
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-3">
-        <Button intent="outline" size="sq-sm" aria-label={props.playing ? "Pause selection" : "Play selection"} onPress={props.onPlay}>
-          <PlayIcon aria-hidden />
-        </Button>
+        <StripPlayButton label={props.playing ? "Pause selection" : "Play selection"} playing={props.playing} onPlay={props.onPlay} />
         {/* The handles sit outside the kept part, so the strip leaves room for them at both ends. */}
         <div className="relative mx-4 h-12 min-w-0 flex-1">
-          <span className="absolute inset-0 flex overflow-hidden rounded-md bg-foreground/80">
-            {props.frames.map((frame, index) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: frames never reorder
-              <img key={index} src={frame} alt="" className="h-full min-w-0 flex-1 object-cover" />
-            ))}
-          </span>
+          <StripFrames frames={props.frames} />
           <span className="absolute inset-y-0 left-0 rounded-l-md bg-muted-foreground/85" style={{ width: percent(value.startMs) }} />
           <span className="absolute inset-y-0 right-0 rounded-r-md bg-muted-foreground/85" style={{ width: `calc(100% - ${percent(value.endMs)})` }} />
           <span
@@ -72,29 +57,7 @@ export function TrimStrip(props: {
             style={{ left: percent(value.startMs), right: `calc(100% - ${percent(value.endMs)})` }}
           />
 
-          {/* A click or drag anywhere on the frames moves the playhead. */}
-          <Slider
-            aria-label="Video position"
-            className="absolute inset-0"
-            minValue={0}
-            maxValue={durationMs}
-            step={STEP_MS}
-            value={scrub ?? Math.min(Math.max(props.positionMs, 0), durationMs)}
-            onChange={(ms) => {
-              setScrub(ms as number)
-              props.onSeek(ms as number)
-            }}
-            onChangeEnd={() => setScrub(null)}
-          >
-            <SliderTrack className="h-full w-full cursor-pointer">
-              <SliderThumb
-                aria-label="Playhead"
-                className="top-1/2 flex h-14 w-3 cursor-ew-resize justify-center outline-hidden data-focus-visible:[&>span]:ring-2 data-focus-visible:[&>span]:ring-ring"
-              >
-                <span className="h-full w-0.5 rounded-full bg-primary" />
-              </SliderThumb>
-            </SliderTrack>
-          </Slider>
+          <Playhead label="Video position" durationMs={durationMs} positionMs={props.positionMs} onSeek={props.onSeek} />
 
           {/* The trim handles, above the playhead; only the handles themselves take the pointer. */}
           <Slider

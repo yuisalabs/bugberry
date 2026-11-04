@@ -55,4 +55,6 @@ export const qk = {
   activity: (reportId: string) => ["activity", reportId],
   reportTrackers: (reportId: string) => ["report-trackers", reportId],
   debugger: (reportId: string) => ["debugger", reportId],
+  // Kept apart from report(id): a report edit refetches the report, never its replay of up to 25 MB.
+  replay: (reportId: string) => ["replay", reportId],
 }

@@ -22,6 +22,10 @@ function setup(result: CaptureResult, stored: ReportDraft | null = draft) {
       order.push("record")
       return result
     }),
+    replay: mock(async () => {
+      order.push("replay")
+      return result
+    }),
   }
   return { takeAgain: createTakeAgain(deps), deps, order }
 }
@@ -45,6 +49,14 @@ describe("Record again and Retake", () => {
     const { takeAgain, deps } = setup({ ok: true, draftId: "d2" }, { ...draft, captureType: "video" } as ReportDraft)
     await takeAgain("d1")
     expect(deps.record).toHaveBeenCalledWith(tab)
+  })
+
+  test("a replay is captured again from the armed tab, never recorded", async () => {
+    const { takeAgain, deps, order } = setup({ ok: true, draftId: "d2" }, { ...draft, captureType: "replay" } as ReportDraft)
+    await takeAgain("d1")
+    expect(deps.replay).toHaveBeenCalledWith(tab)
+    expect(deps.record).not.toHaveBeenCalled()
+    expect(order).toEqual(["hide", "replay", "delete d1"])
   })
 
   test("a gone draft or tab says so and changes nothing", async () => {

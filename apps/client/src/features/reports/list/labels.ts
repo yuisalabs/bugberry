@@ -51,4 +51,4 @@ export const VISIBILITY_LABELS: Record<Visibility, string> = { workspace: "Works
 
 export const ROLE_LABELS: Record<Role, string> = { admin: "Admin", member: "Member" }
 
-export const CAPTURE_LABELS: Record<CaptureType, string> = { screenshot: "Screenshot", video: "Video" }
+export const CAPTURE_LABELS: Record<CaptureType, string> = { screenshot: "Screenshot", video: "Video", replay: "Replay" }

@@ -1,8 +1,10 @@
 import type { VideoPlayerProps } from "@bugberry/player"
+import type { ReplayPlayerHandle, ReplayPlayerProps } from "@bugberry/replay-player"
 import { type ComponentType, lazy, memo, type Ref, Suspense, useState } from "react"
 import { Button as AriaButton } from "react-aria-components"
 import { Button } from "@bugberry/ui/button"
 import { ImageViewer } from "./ImageViewer"
+import { ReplayViewer } from "./ReplayViewer"
 import type { ReportDetail } from "../queries"
 
 type MediaReport = Pick<ReportDetail, "id" | "captureType" | "mediaUrl"> & { durationMs?: number | null }
@@ -11,7 +13,7 @@ type MediaReport = Pick<ReportDetail, "id" | "captureType" | "mediaUrl"> & { dur
 const VideoJsPlayer = lazy(() => import("@bugberry/player/video-player"))
 
 /**
- * The screenshot (click to open it in the image viewer) or the video. Read URLs expire, so the first load error asks for
+ * The screenshot (click to open it in the image viewer), the video, or the replay. Read URLs expire, so the first load error asks for
  * a fresh URL. A second error in a row stops and offers a manual retry, so a broken file cannot loop.
  * Memoized: the report page re-renders on every player time update, and the player need not.
  *
@@ -28,6 +30,10 @@ export const MediaViewer = memo(function MediaViewer({
   topLeft,
   topRight,
   startAtSeconds,
+  replayRef,
+  replayPlayer,
+  refreshMediaUrl,
+  fetcher,
 }: Pick<VideoPlayerProps, "markers" | "topLeft" | "topRight" | "startAtSeconds"> & {
   report: MediaReport
   onExpired: () => void
@@ -36,6 +42,12 @@ export const MediaViewer = memo(function MediaViewer({
   onTime?: (ms: number) => void
   /** The video player; tests pass a plain one instead of Video.js. */
   player?: ComponentType<VideoPlayerProps>
+  replayRef?: Ref<ReplayPlayerHandle>
+  /** The replay player; tests pass a plain one instead of rrweb. */
+  replayPlayer?: ComponentType<ReplayPlayerProps>
+  /** A replay downloads its media itself, so it asks for a newly signed URL directly instead of through onExpired. */
+  refreshMediaUrl?: () => Promise<string | null>
+  fetcher?: typeof fetch
 }) {
   const [shown, setShown] = useState({ id: report.id, url: report.mediaUrl })
   const [awaitingUrl, setAwaitingUrl] = useState(false)
@@ -82,6 +94,22 @@ export const MediaViewer = memo(function MediaViewer({
 
   if (!shown.url) {
     return <p className="rounded-lg border border-border bg-background p-10 text-center text-sm text-muted-foreground">No media available.</p>
+  }
+  if (report.captureType === "replay") {
+    return (
+      <ReplayViewer
+        report={report}
+        refreshUrl={refreshMediaUrl ?? (async () => null)}
+        playerRef={replayRef}
+        onTime={onTime}
+        markers={markers}
+        topLeft={topLeft}
+        topRight={topRight}
+        startAtSeconds={startAtSeconds}
+        player={replayPlayer}
+        fetcher={fetcher}
+      />
+    )
   }
   if (failed) {
     return (

@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test"
 import { ApiError } from "../../lib/server/api"
 import { type EditorDeps, loadDestination, loadEditor } from "../../lib/review/editor-load"
 import { blurRegion } from "../../lib/annotate/render"
-import type { ReportDraft } from "../../lib/shared/types"
+import { encodeReplayMedia } from "@bugberry/shared"
+import type { ReplayDraft, ReportDraft } from "../../lib/shared/types"
 
 const settings = { serverUrl: "https://bugberry.kantor.test" }
 const video: ReportDraft = {
@@ -174,5 +175,47 @@ describe("blurRegion", () => {
     expect(blurRegion({ x: -3, y: -3, width: 10, height: 10 }, size)).toEqual({ x: 0, y: 0, width: 7, height: 7 })
     expect(blurRegion({ x: 95.2, y: 40, width: 20, height: 20 }, size)).toEqual({ x: 95, y: 40, width: 5, height: 10 })
     expect(blurRegion({ x: 120, y: 0, width: 5, height: 5 }, size)).toBeNull()
+  })
+})
+
+describe("loadEditor with a replay", () => {
+  const replayDraft = async (replay: Blob): Promise<ReplayDraft> => ({
+    ...video,
+    id: "r1",
+    captureType: "replay",
+    replay,
+    durationMs: 6_000,
+    recordingStartedAt: 1_000,
+    frames: [5_000],
+  })
+  const events = [
+    { type: 4, timestamp: 1_000, data: {} },
+    { type: 2, timestamp: 1_000, data: {} },
+    { type: 5, timestamp: 6_000, data: { tag: "bugberry:frame", payload: { jpeg: "AAAA" } } },
+  ]
+
+  test("decodes the replay: its events and frames, no video and no image", async () => {
+    const draft = await replayDraft(await encodeReplayMedia({ version: 1, events }))
+    const { deps: replay, urls } = deps({ getDraft: async () => draft })
+    const state = await loadEditor("r1", replay, () => false)
+    expect(state).toMatchObject({ kind: "loaded", videoUrl: null, image: null })
+    const loaded = state as Extract<typeof state, { kind: "loaded" }>
+    expect(loaded.replay?.events).toHaveLength(3)
+    expect(loaded.replay?.frames).toEqual([{ atMs: 5_000, jpeg: "AAAA" }])
+    expect(urls).toEqual([])
+  })
+
+  test("a replay that can't be read says so", async () => {
+    const draft = await replayDraft(new Blob(["not gzip"]))
+    const { deps: broken } = deps({ getDraft: async () => draft })
+    expect(await loadEditor("r1", broken, () => false)).toEqual({
+      kind: "error",
+      message: "This replay couldn't be read. Delete the draft from the BugBerry popup.",
+    })
+  })
+
+  test("other drafts have no replay", async () => {
+    const { deps: ok } = deps()
+    expect(await loadEditor("v1", ok, () => false)).toMatchObject({ replay: null })
   })
 })

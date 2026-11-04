@@ -22,17 +22,28 @@ export const PRIORITY_RANK: Record<Priority, number> = {
 export const VISIBILITIES = ["workspace", "internal", "public"] as const
 export type Visibility = (typeof VISIBILITIES)[number]
 
-export const CAPTURE_TYPES = ["screenshot", "video"] as const
+/** A replay is captured after the bug, from an armed tab's last seconds. */
+export const CAPTURE_TYPES = ["screenshot", "video", "replay"] as const
 export type CaptureType = (typeof CAPTURE_TYPES)[number]
+
+/** Video and replay share the recordings quota, the length limit and getRecording. */
+export const RECORDING_TYPES: readonly CaptureType[] = ["video", "replay"]
+
+export function isRecordingType(captureType: CaptureType): boolean {
+  return RECORDING_TYPES.includes(captureType)
+}
+
+const TITLE_NAMES: Record<CaptureType, string> = { screenshot: "Bugshoot", video: "Bugcord", replay: "Bugflash" }
 
 /** A report sent without a title is named after its kind and its reporter: "Bugshoot by Ana", "Bugcord by Ana". */
 export function defaultReportTitle(captureType: CaptureType, reporterName: string): string {
-  return `${captureType === "video" ? "Bugcord" : "Bugshoot"} by ${reporterName.trim() || "someone"}`.slice(0, 200)
+  return `${TITLE_NAMES[captureType]} by ${reporterName.trim() || "someone"}`.slice(0, 200)
 }
 
 export const MEDIA_TYPES = {
   screenshot: "image/png",
   video: "video/webm",
+  replay: "application/gzip",
 } as const satisfies Record<CaptureType, string>
 
 export const DEBUGGER_CONTENT_TYPE = "application/gzip"

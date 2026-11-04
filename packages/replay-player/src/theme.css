@@ -1,0 +1,375 @@
+/* In a parent with a set height only the stage gives way; elsewhere every part is as tall as its content. */
+.bb-replay {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  gap: 0.5rem;
+  min-width: 0;
+  min-height: 0;
+}
+.bb-replay > * {
+  flex: none;
+}
+.bb-replay-empty {
+  margin: 0;
+  padding: 2.5rem;
+  border-radius: 0.5rem;
+  background-color: #1c1022;
+  color: #ffffff;
+  font-size: 0.875rem;
+  text-align: center;
+}
+.bb-replay > .bb-replay-stage {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 0.5rem;
+  outline: none;
+}
+.bb-replay-stage:fullscreen {
+  background-color: #1c1022;
+  border-radius: 0;
+}
+
+/*
+ * The controls follow .vjs-bugberry in @bugberry/player, in its units: Video.js sizes everything in em of a 10 px
+ * player font.
+ */
+.bb-replay-screen {
+  position: relative;
+  flex: none;
+  overflow: hidden;
+  border-radius: 12px;
+  background-color: #1c1022;
+  font-size: 10px;
+  line-height: 1;
+}
+.bb-replay-stage:focus-visible .bb-replay-screen {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+.bb-replay-screen .rr-player {
+  float: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+.bb-replay-hit {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+}
+.bb-replay-screen svg {
+  display: block;
+  width: 1.8em;
+  height: 1.8em;
+  fill: currentColor;
+}
+
+.bb-replay-big-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2em;
+  height: 2em;
+  margin: -1.3em 0 0 -1em;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.92);
+  color: #1c1022;
+  font-size: 30px;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+.bb-replay-big-play svg {
+  width: 0.9em;
+  height: 0.9em;
+  margin-left: 0.08em;
+}
+.bb-replay-screen:hover .bb-replay-big-play,
+.bb-replay-big-play:focus-visible {
+  background-color: #ffffff;
+  outline: none;
+}
+.bb-replay-start {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin-top: 1.9em;
+  transform: translateX(-50%);
+  padding: 2px 8px;
+  border-radius: 6px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+/* The bar shows while paused, and while playing only under the pointer or with focus inside. */
+.bb-replay-controls {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: flex;
+  align-items: center;
+  height: 4em;
+  padding: 0 0.6em;
+  background: linear-gradient(to top, rgba(28, 16, 34, 0.9), rgba(28, 16, 34, 0.6));
+  color: #ffffff;
+  transition: opacity 0.3s;
+}
+.bb-replay-stage[data-playing="true"]:not(:hover):not(:focus-within) .bb-replay-controls {
+  opacity: 0;
+  transition-duration: 1s;
+}
+.bb-replay-controls::before {
+  content: "";
+  position: absolute;
+  inset: auto 0 100% 0;
+  height: 3.5em;
+  background: linear-gradient(to top, rgba(28, 16, 34, 0.6), rgba(28, 16, 34, 0));
+  pointer-events: none;
+}
+.bb-replay-button {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 4em;
+  height: 4em;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.bb-replay-button:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: -4px;
+  border-radius: 6px;
+}
+.bb-replay-speed {
+  font-size: 1.5em;
+  width: calc(4em / 1.5);
+  height: calc(4em / 1.5);
+}
+.bb-replay-time {
+  height: 2em;
+  padding: 0 0.9em;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.12);
+  line-height: 2em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.bb-replay-spacer {
+  flex: auto;
+}
+
+/* The timeline runs the full width just above the buttons, as on the video. */
+.bb-replay-progress {
+  position: absolute;
+  left: 0.6em;
+  right: 0.6em;
+  top: -1.4em;
+  height: 1.6em;
+}
+.bb-replay-seek {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  cursor: pointer;
+  touch-action: none;
+  outline: none;
+}
+.bb-replay-line {
+  position: relative;
+  width: 100%;
+  height: 0.3em;
+  background-color: rgba(115, 133, 159, 0.5);
+  transition: height 0.1s;
+}
+.bb-replay-seek:hover .bb-replay-line,
+.bb-replay-seek:focus-visible .bb-replay-line {
+  height: 0.5em;
+}
+.bb-replay-played {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background-color: #d61f69;
+}
+.bb-replay-played::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -0.5em;
+  width: 1em;
+  height: 1em;
+  margin-top: -0.5em;
+  border-radius: 999px;
+  background-color: #ffffff;
+}
+.bb-replay-dots {
+  position: absolute;
+  inset: auto 0 calc(50% + 0.15em) 0;
+  height: 0;
+  pointer-events: none;
+}
+.bb-replay-dots .bb-replay-marker {
+  top: auto;
+  bottom: 1.2em;
+  min-width: 2.2em;
+  height: 2.2em;
+  padding: 0 0.45em;
+  font-size: 1.15em;
+  pointer-events: auto;
+}
+
+/* Above the stage rather than over it, so the top of the recorded page stays visible. Same pills as the video's overlay. */
+.bb-replay-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1em;
+  padding: 0.6em 0.8em;
+  border-radius: 0.5rem;
+  background-color: #1c1022;
+}
+.bb-replay-bar-side {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  min-width: 0;
+}
+.bb-replay-bar-side > * {
+  white-space: nowrap;
+}
+.bb-replay .bb-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.45em 0.9em;
+  border: 0;
+  border-radius: 0.5rem;
+  background-color: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+}
+.bb-replay .bb-pill:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+.bb-replay .bb-pill:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+.bb-replay .bb-pill svg {
+  display: inline-block;
+  width: 1.15em;
+  height: 1.15em;
+}
+.bb-replay .bb-reporter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  min-width: 0;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+}
+.bb-replay .bb-reporter-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The marker colours match the video player's, so a failed request looks the same on both. */
+.bb-replay-markers {
+  position: relative;
+  height: 1.75rem;
+  margin: 0 0.75rem;
+}
+.bb-replay-marker {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  padding: 0 0.4rem;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 999px;
+  background-color: #e5484d;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+.bb-replay-marker:hover,
+.bb-replay-marker:focus-visible {
+  background-color: #d61f69;
+  outline: none;
+}
+.bb-replay-marker-group {
+  background-color: #d9952b;
+}
+.bb-replay-marker-note {
+  background-color: #d61f69;
+}
+.bb-replay-marker-pause {
+  background-color: #635a6b;
+}
+.bb-replay-marker-sdk {
+  background-color: #1f6fc5;
+}
+
+.bb-replay-strip {
+  display: flex;
+  gap: 0.375rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+.bb-replay-frame {
+  flex: 0 0 auto;
+  width: 6rem;
+  aspect-ratio: 16 / 10;
+  padding: 0;
+  overflow: hidden;
+  border: 2px solid transparent;
+  border-radius: 0.375rem;
+  background: none;
+  cursor: pointer;
+  opacity: 0.7;
+}
+.bb-replay-frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.bb-replay-frame:hover,
+.bb-replay-frame[aria-current="true"] {
+  opacity: 1;
+}
+.bb-replay-frame[aria-current="true"],
+.bb-replay-frame:focus-visible {
+  border-color: #2563eb;
+  outline: none;
+}

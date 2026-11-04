@@ -50,7 +50,8 @@ export function ReportFields(fields: ReportFieldsProps) {
   const { review: props, form, update, notes, setNotes, titleField, titleEdited, setTitleEdited, suggestion, problem, send } = fields
   const { ai, aiTemplate, setPickedTemplate, setAiRowElement, writing, aiSeen, writeWithAi, undo, setUndo, aiError } = fields
   const { draft } = props
-  const isVideo = draft.captureType === "video"
+  // Write with AI reads the logs, not the media, so a replay gets it as a video does.
+  const isRecording = draft.captureType !== "screenshot"
   return (
     <>
       <div data-review-part="top" className="flex shrink-0 flex-col gap-5">
@@ -80,7 +81,7 @@ export function ReportFields(fields: ReportFieldsProps) {
           </div>
         )}
 
-        {isVideo && ai && !props.signInUrl && (
+        {isRecording && ai && !props.signInUrl && (
           <div ref={setAiRowElement} className="flex flex-col gap-2">
             {ai.path ? (
               ai.templates.length > 0 ? (

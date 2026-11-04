@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { MAX_THUMBNAIL_BYTES } from "@bugberry/shared"
-import { frameSeconds, makeThumbnail, type ThumbnailDeps, thumbnailSize } from "../../lib/review/thumbnail"
+import { frameSeconds, lastFrameJpeg, makeThumbnail, type ThumbnailDeps, thumbnailSize } from "../../lib/review/thumbnail"
 
 describe("thumbnailSize", () => {
   test("scales wide sources down to 640 px, keeping the ratio", () => {
@@ -53,6 +53,16 @@ describe("makeThumbnail", () => {
     expect(calls).toEqual(["decode", "encode:640x400@0.7", "close"])
   })
 
+  test("a replay's preview is its last frame; without one there is none", async () => {
+    const { deps, calls } = fakeDeps()
+    const lastFrame = new Blob(["jpg"], { type: "image/jpeg" })
+    expect(await makeThumbnail(new Blob(["gz"]), { captureType: "replay", durationMs: 5_000, lastFrame }, deps)).not.toBeNull()
+    expect(calls).toEqual(["decode", "encode:640x400@0.7", "close"])
+    const none = fakeDeps()
+    expect(await makeThumbnail(new Blob(["gz"]), { captureType: "replay", durationMs: 5_000, lastFrame: null }, none.deps)).toBeNull()
+    expect(none.calls).toEqual([])
+  })
+
   test("takes a video frame at one second", async () => {
     const { deps, calls } = fakeDeps()
     await makeThumbnail(new Blob(["webm"]), { captureType: "video", durationMs: 5000 }, deps)
@@ -71,5 +81,15 @@ describe("makeThumbnail", () => {
   test("drops a thumbnail larger than the server accepts", async () => {
     const { deps } = fakeDeps({ encodeJpeg: async () => new Blob([new Uint8Array(MAX_THUMBNAIL_BYTES + 1)]) })
     expect(await makeThumbnail(new Blob(["png"]), { captureType: "screenshot", durationMs: null }, deps)).toBeNull()
+  })
+})
+
+describe("lastFrameJpeg", () => {
+  test("the last frame's base64 as a JPEG blob; none without frames", async () => {
+    const blob = lastFrameJpeg([{ atMs: 0, jpeg: btoa("first") }, { atMs: 5_000, jpeg: btoa("last") }])
+    expect(blob?.type).toBe("image/jpeg")
+    expect(await blob?.text()).toBe("last")
+    expect(lastFrameJpeg([])).toBeNull()
+    expect(lastFrameJpeg(undefined)).toBeNull()
   })
 })

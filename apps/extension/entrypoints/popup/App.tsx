@@ -1,3 +1,4 @@
+import type { ReplayWindowMs } from "@bugberry/shared"
 import { RiLoader4Line } from "@remixicon/react"
 import { useEffect, useState } from "react"
 import { browser } from "wxt/browser"
@@ -5,7 +6,7 @@ import { createBugberryApi } from "../../lib/server/api"
 import { BUILD_SERVER_ORIGIN, browserSettingsStorage, capturePrefsStorage, lastSessionStorage, lastWorkspaceStorage } from "../../lib/server/browser-settings"
 import { type CameraAccess, cameraAccess, type CameraDevice, cameraDevices } from "../../lib/devices/camera"
 import { capturable } from "../../lib/capture/capture-flow"
-import { hasTabRecorder } from "../../lib/platform/browser-support"
+import { hasReplay, hasTabRecorder, shortcutsPage } from "../../lib/platform/browser-support"
 import { type CapturePrefs, DEFAULT_CAPTURE_PREFS, recordOptionsFor } from "../../lib/capture/capture-prefs"
 import { createIndexedDbDraftStore } from "../../lib/drafts/draft-store"
 import { fullWarning, limitsFor, usageLine } from "../../lib/server/limits"
@@ -16,6 +17,9 @@ import type {
   PopupRecordingRequest,
   RecordStartRequest,
   RecordStatusRequest,
+  ReplayAction,
+  ReplayRequest,
+  ReplayStatus,
   ScreenshotRequest,
 } from "../../lib/shared/messages"
 import { type MicAccess, micAccess, micChoiceAfterCheck, micDevices } from "../../lib/devices/microphone"
@@ -33,6 +37,7 @@ const MIC_BLOCKED = "Microphone is blocked. Allow it for BugBerry in Chrome's si
 
 /** Wires the popup to Chrome: settings, session, drafts, the recording and the background's actions. */
 const tabRecorder = hasTabRecorder(browser)
+const replayAvailable = hasReplay(import.meta.env)
 const ALL_SITES = { origins: ["<all_urls>"] }
 
 const queryMicAccess = () => micAccess((name) => navigator.permissions.query({ name: name as PermissionName }))
@@ -77,6 +82,7 @@ export function App() {
   const level = useMicLevel(meteredMicId(prefs, mic), micMeterOn(prefs, mic, micPicker, live, tabRecorder))
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [replay, setReplay] = useState<ReplayStatus | null>(null)
   const [limitNotes, setLimitNotes] = useState<{ usage: string | null; screenshot: string | null; record: string | null }>({
     usage: null,
     screenshot: null,
@@ -148,6 +154,46 @@ export function App() {
     const timer = setInterval(refreshLive, 1000)
     return () => clearInterval(timer)
   }, [])
+
+  const askReplay = (action: ReplayAction, windowMs?: ReplayWindowMs) => {
+    if (activeTab?.id === undefined) return Promise.resolve(undefined)
+    const request: ReplayRequest = { type: "bugberry:replay", action, tabId: activeTab.id, ...(windowMs ? { windowMs } : {}) }
+    return browser.runtime.sendMessage(request).catch(() => undefined)
+  }
+  const showReplay = (value: unknown) => {
+    if (typeof (value as { armed?: unknown } | undefined)?.armed === "boolean") setReplay(value as ReplayStatus)
+  }
+  // The active tab's replay, asked again every second like the recording: the buffer can fill up while the popup is open.
+  useEffect(() => {
+    if (!replayAvailable || activeTab?.id === undefined) return
+    const refresh = () => void askReplay("status").then(showReplay)
+    refresh()
+    const timer = setInterval(refresh, 1000)
+    return () => clearInterval(timer)
+  }, [activeTab?.id])
+
+  /** Capture opens the review, so the popup closes; arm and disarm stay in it. */
+  const onReplay = async (action: ReplayAction, windowMs?: ReplayWindowMs) => {
+    setError(null)
+    if (action === "arm") {
+      const note = uncapturableNote(activeTab?.url)
+      if (note) return setError(note)
+    }
+    if (action !== "capture") {
+      const value = (await askReplay(action, windowMs)) as { ok?: unknown; error?: unknown } | undefined
+      if (value?.ok === false && typeof value.error === "string") return setError(value.error)
+      if (value === undefined) return setError("The extension didn't respond. Try again.")
+      return showReplay(value)
+    }
+    setBusy(true)
+    try {
+      const result = replyResult(await askReplay("capture"))
+      if (result.ok) window.close()
+      else setError(result.error)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   /** Pause, Resume, Restart and Discard, as on the bar; the last two ask first, as the bar does. */
   const control = async (action: Exclude<PopupRecordingAction, "status" | "stop">) => {
@@ -337,6 +383,10 @@ export function App() {
         usage={limitNotes.usage}
         screenshotWarning={limitNotes.screenshot}
         recordWarning={limitNotes.record}
+        replay={replay}
+        replayAvailable={replayAvailable}
+        shortcutsPage={shortcutsPage(navigator.userAgent)}
+        onReplay={(action, windowMs) => void onReplay(action, windowMs)}
       />
     </>
   )

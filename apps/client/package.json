@@ -15,6 +15,7 @@
     "@bugberry/capture": "workspace:*",
     "@bugberry/debugger-view": "workspace:*",
     "@bugberry/player": "workspace:*",
+    "@bugberry/replay-player": "workspace:*",
     "@bugberry/shared": "workspace:*",
     "@bugberry/ui": "workspace:*",
     "@elysiajs/eden": "1.4.9",

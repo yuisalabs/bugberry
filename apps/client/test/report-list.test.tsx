@@ -33,7 +33,7 @@ describe("ReportFilters", () => {
     render(<ReportFilters search={{}} members={members} onChange={mock()} />)
     press(screen.getByRole("button", { name: /Type/ }))
     const items = screen.getAllByRole("menuitemradio")
-    expect(items.map((item) => item.textContent)).toEqual(["All", "Screenshot", "Video"])
+    expect(items.map((item) => item.textContent)).toEqual(["All", "Screenshot", "Video", "Replay"])
     for (const item of items) {
       const first = item.firstElementChild
       expect(first?.getAttribute("data-slot")).toBe("check-indicator")

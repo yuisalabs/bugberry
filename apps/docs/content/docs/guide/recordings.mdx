@@ -74,4 +74,26 @@ Recording carries on when the tab goes to another page. The report then notes th
 
 On Firefox, opening BugBerry is <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>B</kbd>; see [BugBerry on Firefox](/guide/firefox).
 
+## Instant replay
+
+A bug you didn't see coming is over before you can start recording. Instant replay keeps the last seconds of a tab, so you can capture them after the bug shows.
+
+1. On the page, click the BugBerry icon.
+2. Under **Replay**, pick how much to keep: **30s**, **60s** or **120s**.
+3. Click **Arm replay**.
+
+<Screenshot src="/screenshots/recordings/replay-popup.png" alt="The Replay part of the popup on an armed tab: Capture last ~60s, Disarm, and where to add a shortcut" width={380} />
+
+The BugBerry icon then shows the window on that tab, such as **60s**, in blue. It turns amber when the page changes so much that the buffer is full: the capture will be shorter than the window.
+
+When the bug shows, open the popup and click **Capture last ~60s**. The review opens with a replay of the page, a screenshot every 5 seconds, and the console, network and steps from the same time. The tab stays armed, so you can capture again; **Disarm** in the popup stops it.
+
+<Screenshot src="/screenshots/recordings/replay-review.png" alt="The review of a replay: the checkout page played back with its timeline, two screenshots under it with error markers, and Capture again next to Create report" />
+
+A replay covers the page open in that tab. Reloading the page or going to another one starts the buffer again, empty, and so does starting a video recording, which pauses the replay until it stops. Closing the tab drops the buffer. What you type into form fields is masked.
+
+The shortcut **Capture the last seconds of the armed tab** has no keys yet, because Chrome allows four suggested shortcuts and BugBerry uses them all. Pick your own at `chrome://extensions/shortcuts` (`opera://extensions/shortcuts` in Opera); the popup shows the right address for your browser.
+
+Instant replay is in Chrome and Opera for now, not in Firefox.
+
 Next: [Review and send](/guide/review-and-send).

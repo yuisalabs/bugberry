@@ -3,18 +3,21 @@ import { Menu, MenuHeader, MenuItem, MenuSection, MenuTrigger } from "@bugberry/
 import { RiArrowRightUpLine, RiFunctionLine, RiMoreLine, RiSettings3Line } from "@remixicon/react"
 import { type ReactNode, useCallback, useRef, useState } from "react"
 import { Button as AriaButton } from "react-aria-components"
+import type { ReplayWindowMs } from "@bugberry/shared"
 import type { CapturePrefs } from "../../lib/capture/capture-prefs"
 import type { CameraAccess, CameraDevice } from "../../lib/devices/camera"
 import type { MicAccess, MicDevice } from "../../lib/devices/microphone"
 import { type CaptureChoice, captureCopy, choiceOf } from "../../lib/drafts/popup"
 import type { PopupRecordingStatus, RecordingStatus } from "../../lib/recording/recording-state"
 import type { SessionState } from "../../lib/server/session"
+import type { ReplayAction, ReplayStatus } from "../../lib/shared/messages"
 import type { ReportDraft } from "../../lib/shared/types"
 import { CaptureControls, Tiles } from "./CapturePanel"
 import { DraftList } from "./DraftList"
 import { RecordingPanel } from "./RecordingPanel"
 import { CameraPicker } from "./CameraPicker"
 import { MicPicker } from "./MicPicker"
+import { ReplayPanel } from "./ReplayPanel"
 import { Footer } from "./parts"
 
 /** The metered microphone's loudness, 0..1. Only the level bars subscribe, so the rest of the popup stays put. */
@@ -84,6 +87,13 @@ export interface PopupViewProps {
   /** Shown under the tiles when the chosen kind is full; the dial still works (the report may go to another workspace). */
   screenshotWarning?: string | null
   recordWarning?: string | null
+  /** The active tab's replay; null until the background has answered. */
+  replay: ReplayStatus | null
+  /** False in Firefox, which has no replay yet. */
+  replayAvailable: boolean
+  /** Where this browser assigns extension shortcuts, for the capture shortcut's hint. */
+  shortcutsPage: string
+  onReplay(action: ReplayAction, windowMs?: ReplayWindowMs): void
 }
 
 /** The device recorded from: the chosen one, or the default one when it is unplugged or none was chosen. */
@@ -312,6 +322,18 @@ export function PopupView(props: PopupViewProps) {
             />
             <Footer text={captureCopy(choice, micShort, logsOn).footer} logsOn={logsOn} />
           </section>
+          {props.replayAvailable && (
+            <ReplayPanel
+              status={props.replay}
+              windowMs={prefs.replayWindowMs}
+              shortcutsPage={props.shortcutsPage}
+              busy={props.busy}
+              onWindow={(ms) => props.onPrefs({ replayWindowMs: ms })}
+              onArm={() => props.onReplay("arm", prefs.replayWindowMs)}
+              onDisarm={() => props.onReplay("disarm")}
+              onCapture={() => props.onReplay("capture")}
+            />
+          )}
         </>
       )}
       {!live && blocked && props.error && (

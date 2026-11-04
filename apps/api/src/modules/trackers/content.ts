@@ -1,5 +1,7 @@
 import type { CaptureType, DebuggerSummary, DeviceInfo } from "@bugberry/shared"
 
+const CAPTURE_LABELS: Record<CaptureType, string> = { screenshot: "Screenshot", video: "Video", replay: "Replay" }
+
 export interface IssueReport {
   id: string
   title: string
@@ -29,7 +31,7 @@ export function buildIssueContent(report: IssueReport, errors: string[], appUrl:
     ["Browser", report.device.browser],
     ["OS", report.device.os],
     ["Viewport", report.device.viewport],
-    ["Type", report.captureType === "video" ? "Video" : "Screenshot"],
+    ["Type", CAPTURE_LABELS[report.captureType]],
     ["Console errors", String(report.debuggerSummary.errors)],
     ["Failed requests", String(report.debuggerSummary.failedRequests)],
   )

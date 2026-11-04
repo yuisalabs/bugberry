@@ -3,7 +3,6 @@ import type { AppDeps } from "../../deps"
 import type { CurrentUser } from "../../plugins/auth"
 import { AppError, badRequest, forbidden, notFound, unprocessable } from "../../lib/errors"
 import { newShareSlug } from "../../lib/ids"
-import { thumbnailKeyFor } from "../../storage/keys"
 import { memberRole, requireMember, requireReportMember, resolveWorkspace } from "../workspaces/access"
 import { recordActivity } from "../activity/repository"
 import { projectInWorkspace } from "../projects/repository"
@@ -11,6 +10,7 @@ import { reportAccess } from "./access"
 import { nearestCity } from "./cities"
 import { loadReportDetail, type ReportDetail } from "./detail"
 import type { updateReportBody } from "./model"
+import { reportObjectKeys } from "./replay-frames"
 import {
   countListByStatus,
   deleteReport,
@@ -163,9 +163,7 @@ export async function removeReport({ db, storage }: Deps, caller: CurrentUser, r
   const row = await findReportFiles(db, reportId)
   if (!row || !(await memberRole(db, caller.id, row.workspaceId))) throw reportNotFound()
   await requireMember(db, caller.id, row.workspaceId, "admin")
-  // The thumbnail key is always tried: one that arrived after finalize dropped it has no reference.
-  const keys = [row.mediaKey, row.debuggerKey, thumbnailKeyFor(reportId)].filter((key): key is string => key !== null)
-  await Promise.all(keys.map((key) => storage.delete(key)))
+  await Promise.all(reportObjectKeys(row).map((key) => storage.delete(key)))
   await deleteReport(db, reportId)
   return { ok: true }
 }

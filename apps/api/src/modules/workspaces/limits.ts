@@ -1,4 +1,4 @@
-import { type CaptureType, clockLabel, tooLong } from "@bugberry/shared"
+import { type CaptureType, clockLabel, isRecordingType, RECORDING_TYPES, tooLong } from "@bugberry/shared"
 import type { AccountLimits, Config } from "../../config"
 import type { Db } from "../../db/client"
 import { AppError } from "../../lib/errors"
@@ -25,7 +25,7 @@ export async function isWorkspaceLimited(db: Db, limits: AccountLimits | null, w
   return (await ownerIsUnlimited(db, workspaceId)) !== true
 }
 
-/** Reports of one kind the workspace keeps (see countKeptReports). */
+/** Reports the workspace keeps under the same limit as this kind (see countKeptReports). */
 export async function countReports(
   db: Db,
   workspaceId: string,
@@ -34,7 +34,8 @@ export async function countReports(
   now = new Date(),
   except?: string,
 ): Promise<number> {
-  return countKeptReports(db, { workspaceId, captureType, uploadTtlSeconds, now, except })
+  const captureTypes = isRecordingType(captureType) ? RECORDING_TYPES : [captureType]
+  return countKeptReports(db, { workspaceId, captureTypes, uploadTtlSeconds, now, except })
 }
 
 export async function workspaceLimits(db: Db, config: LimitsConfig, workspaceId: string): Promise<WorkspaceLimits> {
@@ -73,17 +74,17 @@ export async function assertCanCreateReport(
 ): Promise<void> {
   const limits = config.accountLimits
   if (!limits || !(await isWorkspaceLimited(db, limits, workspaceId))) return
-  if (captureType === "video" && durationMs !== null && tooLong(durationMs, limits.recordingMs)) {
+  if (isRecordingType(captureType) && durationMs !== null && tooLong(durationMs, limits.recordingMs)) {
     throw new AppError(
       403,
       "duration_limit_reached",
       `This recording is ${clockLabel(durationMs)}; this workspace takes recordings up to ${clockLabel(limits.recordingMs)}. Trim it or record a shorter one.`,
     )
   }
-  const max = captureType === "video" ? limits.recordings : limits.screenshots
+  const max = isRecordingType(captureType) ? limits.recordings : limits.screenshots
   if ((await countReports(db, workspaceId, captureType, config.uploadUrlTtlSeconds, new Date(), except)) < max) return
   const message =
-    captureType === "video"
+    isRecordingType(captureType)
       ? `This workspace already has ${max} ${max === 1 ? "recording" : "recordings"}, the most it can keep. Delete one in the dashboard to record a new one.`
       : `This workspace already has ${max} ${max === 1 ? "screenshot" : "screenshots"}, the most it can keep. Delete one in the dashboard to take a new one.`
   throw new AppError(403, "report_limit_reached", message)

@@ -255,7 +255,7 @@ export async function findUploadState(db: Db, reportId: string) {
 /** Reports that never became visible, still uploading or failed, created before `olderThan`. */
 export function listStaleUploads(db: Db, olderThan: Date) {
   return executor(db)
-    .select({ id: report.id, mediaKey: report.mediaKey, debuggerKey: report.debuggerKey })
+    .select({ id: report.id, mediaKey: report.mediaKey, debuggerKey: report.debuggerKey, replayFrames: report.replayFrames })
     .from(report)
     .where(and(inArray(report.uploadStatus, ["uploading", "failed"]), lt(report.createdAt, olderThan)))
 }
@@ -312,7 +312,13 @@ export async function findReportReporter(db: Db, reportId: string): Promise<stri
 /** The report's stored files and its workspace, for deleting it. */
 export async function findReportFiles(db: Db, reportId: string) {
   const [row] = await executor(db)
-    .select({ mediaKey: report.mediaKey, debuggerKey: report.debuggerKey, workspaceId: report.workspaceId })
+    .select({
+      id: report.id,
+      mediaKey: report.mediaKey,
+      debuggerKey: report.debuggerKey,
+      replayFrames: report.replayFrames,
+      workspaceId: report.workspaceId,
+    })
     .from(report)
     .where(eq(report.id, reportId))
     .limit(1)

@@ -1,4 +1,4 @@
-import { MAX_THUMBNAIL_BYTES, THUMBNAIL_MAX_WIDTH, THUMBNAIL_QUALITY } from "@bugberry/shared"
+import { type CaptureType, MAX_THUMBNAIL_BYTES, type ReplayFrame, THUMBNAIL_MAX_WIDTH, THUMBNAIL_QUALITY } from "@bugberry/shared"
 
 /** Something decoded that `encodeJpeg` can draw: an ImageBitmap in the browser, a plain object in tests. */
 export interface ThumbnailSource {
@@ -28,21 +28,34 @@ export function frameSeconds(durationMs: number | null): number {
   return durationMs !== null && durationMs > 1000 ? 1 : 0
 }
 
+/** A replay's last screenshot, the one its thumbnail is made from. */
+export function lastFrameJpeg(frames: readonly ReplayFrame[] | undefined): Blob | null {
+  const last = frames?.at(-1)
+  if (!last) return null
+  return new Blob([Uint8Array.from(atob(last.jpeg), (char) => char.charCodeAt(0))], { type: "image/jpeg" })
+}
+
 /**
  * A small JPEG preview of the report's media, or null when one cannot be made. Never throws: a missing
  * preview must not stop the report from being sent.
  */
 export async function makeThumbnail(
   media: Blob,
-  capture: { captureType: "screenshot" | "video"; durationMs: number | null },
+  /** `lastFrame`: a replay's last screenshot as a JPEG, its preview; a replay without one has none. */
+  capture: { captureType: CaptureType; durationMs: number | null; lastFrame?: Blob | null },
   deps: ThumbnailDeps,
 ): Promise<Blob | null> {
   let source: ThumbnailSource | null = null
   try {
-    source =
-      capture.captureType === "video"
-        ? await deps.videoFrame(media, frameSeconds(capture.durationMs))
-        : await deps.decodeImage(media)
+    if (capture.captureType === "replay") {
+      if (!capture.lastFrame) return null
+      source = await deps.decodeImage(capture.lastFrame)
+    } else {
+      source =
+        capture.captureType === "video"
+          ? await deps.videoFrame(media, frameSeconds(capture.durationMs))
+          : await deps.decodeImage(media)
+    }
     const thumbnail = await deps.encodeJpeg(source, thumbnailSize(source), THUMBNAIL_QUALITY)
     return thumbnail.size > 0 && thumbnail.size <= MAX_THUMBNAIL_BYTES ? thumbnail : null
   } catch (error) {

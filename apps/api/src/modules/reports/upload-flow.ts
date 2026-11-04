@@ -21,6 +21,7 @@ import { resolveWorkspace } from "../workspaces/access"
 import { assertCanCreateReport } from "../workspaces/limits"
 import { afterFinalize } from "./after-finalize"
 import type { CreateUploadBody } from "./model"
+import { reportObjectKeys, unpackReplayFrames } from "./replay-frames"
 import { projectInWorkspace } from "../projects/repository"
 import {
   claimReportNumber,
@@ -66,8 +67,8 @@ export async function createReportUpload(
   }
   // Checked here too, not only by the REST body: the MCP's createUpload reaches this without it.
   if ((body.thumbnailSize ?? 0) > MAX_THUMBNAIL_BYTES) throw payloadTooLarge("Thumbnail must be at most 1 MB")
-  if (body.captureType === "video" && body.durationMs === undefined) {
-    throw badRequest("duration_required", "durationMs is required for video reports")
+  if (body.captureType !== "screenshot" && body.durationMs === undefined) {
+    throw badRequest("duration_required", "durationMs is required for video and replay reports")
   }
   const workspaceId = await resolveWorkspace(db, user, body.workspaceId)
   if (body.visibility === "internal" && !canUseInternal(user.email)) {
@@ -177,8 +178,7 @@ export async function uploadTargetsFor({ storage }: Deps, row: ReportRow): Promi
 
 /** Deletes whatever arrived and marks the upload failed: the client starts over with a new report. */
 async function failUpload({ db, storage }: Deps, row: ReportRow, message: string): Promise<never> {
-  const keys = [row.mediaKey, row.debuggerKey, row.thumbnailKey].filter((key): key is string => key !== null)
-  await Promise.all(keys.map((key) => storage.delete(key).catch(() => undefined)))
+  await Promise.all(reportObjectKeys(row).map((key) => storage.delete(key).catch(() => undefined)))
   await updateReport(db, row.id, { uploadStatus: "failed", uploadError: message, mediaUploadId: null })
   throw unprocessable("upload_size_mismatch", message)
 }
@@ -243,6 +243,12 @@ export async function finalizeReportUpload(
     if (info.size !== file.size) {
       await failUpload(deps, row, `Uploaded file is ${info.size} bytes but ${file.size} bytes were declared`)
     }
+  }
+
+  if (row.captureType === "replay") {
+    const unpacked = await unpackReplayFrames(storage, row.id, row.mediaKey)
+    if (!unpacked.ok) await failUpload(deps, row, unpacked.reason)
+    else await updateReport(db, row.id, { replayFrames: unpacked.frames })
   }
 
   // The thumbnail is a preview, never a reason to fail: one that did not arrive intact is dropped.

@@ -49,6 +49,16 @@ const screenshot = {
   debuggerPayload: { version: 1, capturedAt: 50_000, recordingStartedAt: null, incomplete: [], events: [] },
 } as ReportDraft
 
+const replay = {
+  ...base,
+  captureType: "replay",
+  replay: new Blob(["gz"]),
+  durationMs: 40_000,
+  recordingStartedAt: 1000,
+  frames: [0, 5_000],
+  debuggerPayload: { version: 1, capturedAt: 50_000, recordingStartedAt: 1000, incomplete: [], events },
+} as ReportDraft
+
 function view(overrides: Partial<ReviewViewProps> = {}) {
   const props: ReviewViewProps = {
     embedded: false,
@@ -515,5 +525,46 @@ describe("the strip's preview", () => {
   test("each edge is a handle with a grip", () => {
     const { container } = view()
     expect(container.querySelectorAll("[data-grip]")).toHaveLength(2)
+  })
+})
+
+describe("a replay", () => {
+  test("shows its kind, no trim, and is captured again rather than recorded", () => {
+    const { props } = view({ draft: replay })
+    expect(screen.getByText("Replay")).toBeTruthy()
+    expect(screen.queryByLabelText("Trim start")).toBeNull()
+    expect((screen.getByLabelText("Title") as HTMLInputElement).placeholder).toBe("Bugflash by Dana")
+    fireEvent.click(button("Capture again"))
+    expect(screen.getByText("Capture again?")).toBeTruthy()
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Capture again" }))
+    expect(props.onAgain).toHaveBeenCalledTimes(1)
+  })
+
+  test("gets the media box's height, so the player can fit inside it", () => {
+    view({ draft: replay, media: <div data-testid="player" /> })
+    const box = screen.getByTestId("player").parentElement?.className.split(" ") ?? []
+    expect(box).toEqual(expect.arrayContaining(["flex", "h-full", "min-h-0", "flex-col"]))
+  })
+
+  test("its strip sits where a video's Trim strip does and follows the player", () => {
+    const position = { player: { current: null }, position: 21_000, setPosition: mock(), playing: false, setPlaying: mock(), seek: mock(), toggle: mock() }
+    view({ draft: replay, replayStrip: { frames: [{ atMs: 0, jpeg: "A" }], position } })
+    expect(screen.getByRole("group", { name: "Replay position" })).toBeTruthy()
+    expect((screen.getByLabelText("Playhead") as HTMLInputElement).value).toBe("21000")
+    expect(screen.getByText("0:00 – 0:40 · 40 s")).toBeTruthy()
+    fireEvent.click(button("Play"))
+    expect(position.toggle).toHaveBeenCalledTimes(1)
+  })
+
+  test("after sending, Capture another", () => {
+    const onAnother = mock()
+    view({ draft: replay, status: { sent: { id: "r1", reportUrl: "https://b.test/app/r/1", shareUrl: "https://b.test/s/x" } }, onAnother })
+    fireEvent.click(button("Capture another"))
+    expect(onAnother).toHaveBeenCalledTimes(1)
+  })
+
+  test("the upload bar names a replay", () => {
+    view({ draft: replay, status: "sending", uploadProgress: { sent: 1, total: 10 } })
+    expect(screen.getByRole("progressbar", { name: "Uploading replay" })).toBeTruthy()
   })
 })

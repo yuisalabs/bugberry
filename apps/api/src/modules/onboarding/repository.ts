@@ -1,4 +1,4 @@
-import { type OnboardingItemId, TRACKER_PROVIDERS } from "@bugberry/shared"
+import { type OnboardingItemId, RECORDING_TYPES, TRACKER_PROVIDERS } from "@bugberry/shared"
 import { and, desc, eq, inArray, isNull, type SQL, sql } from "drizzle-orm"
 import type { PgTable } from "drizzle-orm/pg-core"
 import { type Db, executor } from "../../db/client"
@@ -33,10 +33,15 @@ export async function listTrackerProjects(db: Db, workspaceId: string): Promise<
 
 /** Whether a step or mission is done according to the other tables; null for steps only the dashboard reports. */
 export function doneElsewhere(db: Db, id: OnboardingItemId, userId: string, workspaceId: string): Promise<boolean> | null {
+  // A replay is a recording too, so it ticks the video step.
   const captured = (type: "screenshot" | "video") =>
     exists(db, {
       from: report,
-      where: and(eq(report.reporterId, userId), eq(report.captureType, type), eq(report.uploadStatus, "ready")),
+      where: and(
+        eq(report.reporterId, userId),
+        inArray(report.captureType, type === "video" ? [...RECORDING_TYPES] : [type]),
+        eq(report.uploadStatus, "ready"),
+      ),
     })
   switch (id) {
     // Every report came from the extension, whatever became of its upload.

@@ -1,6 +1,6 @@
 import type { AppDeps } from "../deps"
 import { deleteExpiredAgentUploads, deleteReport, listStaleUploads } from "../modules/reports/repository"
-import { thumbnailKeyFor } from "../storage/keys"
+import { reportObjectKeys } from "../modules/reports/replay-frames"
 
 /**
  * Deletes reports still `uploading` or `failed` from before `olderThan`, with their files; aborts uploads in parts
@@ -10,10 +10,8 @@ export async function cleanupStaleUploads({ db, storage }: Pick<AppDeps, "db" | 
   const stale = await listStaleUploads(db, olderThan)
 
   for (const row of stale) {
-    // Always tried, like on delete: a late thumbnail upload leaves an object with no reference.
-    const keys = [row.mediaKey, row.debuggerKey, thumbnailKeyFor(row.id)].filter((key): key is string => key !== null)
     await Promise.all(
-      keys.map((key) => storage.delete(key).catch((error) => console.warn("cleanup: delete failed", key, error))),
+      reportObjectKeys(row).map((key) => storage.delete(key).catch((error) => console.warn("cleanup: delete failed", key, error))),
     )
     await deleteReport(db, row.id)
   }

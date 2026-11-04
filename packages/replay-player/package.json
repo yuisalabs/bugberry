@@ -1,0 +1,31 @@
+{
+  "name": "@bugberry/replay-player",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./replay-player": "./src/ReplayPlayer.tsx"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@bugberry/player": "workspace:*",
+    "@bugberry/shared": "workspace:*",
+    "@rrweb/types": "2.2.0",
+    "rrweb-player": "2.2.0"
+  },
+  "peerDependencies": {
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  }
+}

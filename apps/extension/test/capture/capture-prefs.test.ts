@@ -23,6 +23,7 @@ describe("capturePrefsFrom", () => {
       camera: false,
       cameraDeviceId: null,
       cameraShape: "circle",
+      replayWindowMs: 60_000,
     })
   })
 
@@ -49,6 +50,7 @@ describe("capturePrefsFrom", () => {
       camera: false,
       cameraDeviceId: null,
       cameraShape: "circle",
+      replayWindowMs: 60_000,
     })
   })
 })
@@ -103,5 +105,13 @@ describe("recordOptionsFor", () => {
     // Firefox: a tab is recorded as a window.
     expect(recordOptionsFor({ ...prefs, recordSource: "tab" }, false).camera).toBeNull()
     expect(recordOptionsFor({ ...prefs, camera: false }, true).camera).toBeNull()
+  })
+})
+
+describe("replay window", () => {
+  test("only the three windows are kept; the default is 60 s", () => {
+    expect(DEFAULT_CAPTURE_PREFS.replayWindowMs).toBe(60_000)
+    expect(capturePrefsFrom({ replayWindowMs: 120_000 }).replayWindowMs).toBe(120_000)
+    expect(capturePrefsFrom({ replayWindowMs: 45_000 }).replayWindowMs).toBe(60_000)
   })
 })

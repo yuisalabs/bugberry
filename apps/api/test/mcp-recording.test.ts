@@ -5,6 +5,7 @@ import type { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { eq } from "drizzle-orm"
 import { reportActivity } from "../src/db/schema"
 import { MAX_MOMENTS, recordingMoments } from "../src/mcp/recording"
+import { replayFrameKeyFor } from "../src/storage/keys"
 import type { LocalStorageDriver } from "../src/storage/local"
 import { createReadyReport, createUserWithToken, setupTestApp } from "./helpers"
 import { callTool, mcpClient, putDebugger, samplePayload, T0 } from "./mcp-helpers"
@@ -99,6 +100,67 @@ describe("getRecording", () => {
       ...(opts.debugger === false ? {} : { debuggerKey: await putDebugger(ctx, id, samplePayload()) }),
     })
   }
+
+  /** A 30 s replay with a frame every 5 s, so samplePayload's moments at 5.4, 6, 7 and 20 s land on known frames. */
+  async function replayReport(frames: number[] = [0, 5_000, 10_000, 15_000, 20_000, 25_000, 30_000]) {
+    const id = crypto.randomUUID()
+    const mediaKey = `reports/${id}/media.json.gz`
+    const storage = ctx.storage as LocalStorageDriver
+    await storage.writeObject(mediaKey, new Uint8Array(64))
+    for (const [index] of frames.entries()) await storage.writeObject(replayFrameKeyFor(id, index), new Uint8Array(32))
+    return createReadyReport(ctx.db, {
+      id,
+      reporterId: ana.user.id,
+      title: "Flash",
+      captureType: "replay",
+      mediaKey,
+      mediaType: "application/gzip",
+      durationMs: 30_000,
+      replayFrames: frames,
+      debuggerKey: await putDebugger(ctx, id, samplePayload()),
+    })
+  }
+
+  test("a replay lists its frames with links and maps each moment to the frame before it", async () => {
+    const report = await replayReport()
+    const { text, structured, isError } = await callTool(client, "getRecording", { report: report.id })
+    expect(isError).toBe(false)
+    expect(text).toContain(`BB-${report.number} "Flash" is a replay of about 30.0s: 7 screenshots taken every 5 s while the tab was armed`)
+    expect(text).toContain("→ frame 1 (5.0s)")
+    expect(text).toMatch(/frame 4 at 20\.0s: http:\/\/localhost:3000\/api\/files\//)
+    expect(text).toContain(`Links expire in 5 minutes. Read the report in BugBerry: http://localhost:3000/app/r/${report.id}`)
+    expect(text).not.toContain("ffmpeg")
+    const result = structured as {
+      kind: string
+      expiresInSeconds: number
+      frames: Array<{ index: number; atMs: number; seconds: string; url: string }>
+      moments: Array<{ atMs: number; frameIndex: number | null }>
+    }
+    expect(result).toMatchObject({ kind: "replay", expiresInSeconds: 300, durationMs: 30_000 })
+    expect(result.frames).toHaveLength(7)
+    expect(result.frames[1]).toMatchObject({ index: 1, atMs: 5_000, seconds: "5.0" })
+    expect(result.frames[1]?.url).toContain("/api/files/")
+    expect(result.moments.map((moment) => [moment.atMs, moment.frameIndex])).toEqual([
+      [0, 0],
+      [5400, 1],
+      [6000, 1],
+      [7000, 1],
+      [20_000, 4],
+    ])
+  })
+
+  test("a moment before the first frame has no frame", async () => {
+    const report = await replayReport([6_500])
+    const { text, structured } = await callTool(client, "getRecording", { report: report.id })
+    expect(text).toContain("→ no frame before this moment")
+    expect((structured as { moments: Array<{ atMs: number; frameIndex: number | null }> }).moments[0]).toMatchObject({ atMs: 0, frameIndex: null })
+  })
+
+  test("a replay without frames points at getTimeline", async () => {
+    const report = await replayReport([])
+    const { text } = await callTool(client, "getRecording", { report: report.id })
+    expect(text).toBe(`BB-${report.number} is a replay with no screenshots: the tab was hidden while it was armed. Use getTimeline for what happened.`)
+  })
 
   test("gives a short-lived link, the moments in video time and the commands to cut their frames", async () => {
     const report = await videoReport()

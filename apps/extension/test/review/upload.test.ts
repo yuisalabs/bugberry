@@ -231,6 +231,29 @@ describe("submitDraft", () => {
     expect(calls).toEqual(["createUpload", "put:r1-media", "finalize:r1"])
   })
 
+  test("replay drafts send their capture type and duration", async () => {
+    await store.put({
+      id: "r9",
+      createdAt: 2,
+      captureType: "replay",
+      page: { url: "https://app.test/pay", title: "Bayar" },
+      device: { browser: "Chrome 141", os: "Windows", viewport: "1440x900" },
+      replay: new Blob(["gz"]),
+      durationMs: 12_000,
+      recordingStartedAt: 1000,
+      frames: [0, 5_000, 10_000],
+      debuggerPayload: null,
+      debuggerGzip: null,
+      status: "editing",
+      error: null,
+      session: null,
+      form: null,
+    })
+    const media = new Blob(["gz-bytes"], { type: "application/gzip" })
+    await submitDraft("r9", form, media, deps)
+    expect(bodies[0]).toMatchObject({ captureType: "replay", durationMs: 12_000, mediaSize: media.size })
+  })
+
   test("a trimmed send uploads the given payload and length, and leaves the draft's own payload whole", async () => {
     const kept: CaptureEvent = { kind: "console", t: 2000, level: "error", args: ["kept"] }
     const events: CaptureEvent[] = [kept, { kind: "console", t: 9000, level: "error", args: ["cut"] }, { kind: "action", t: 9500, type: "click", target: "b" }]

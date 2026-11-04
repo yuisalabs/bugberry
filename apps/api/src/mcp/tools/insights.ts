@@ -11,6 +11,7 @@ import {
   type ViewResource,
 } from "@bugberry/debugger-view"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
+import { isRecordingType } from "@bugberry/shared"
 import { type McpContext, runTool } from "../context"
 import { requireDebuggerView } from "../debugger"
 import { clip, offsetLabel, textResult } from "../format"
@@ -190,7 +191,7 @@ export function registerInsightTools(server: McpServer, ctx: McpContext): void {
         const resolved = await resolveReportRef(ctx, args.report, args.workspace)
         await noteAgentRead(ctx, resolved, "frustration")
         const view = await requireDebuggerView(ctx, resolved)
-        const video = resolved.row.captureType === "video" ? { startedAt: view.recordingStartedAt, durationMs: resolved.row.durationMs } : null
+        const video = isRecordingType(resolved.row.captureType) ? { startedAt: view.recordingStartedAt, durationMs: resolved.row.durationMs } : null
         const flagged = flaggedIssues(view, video)
         const signals = frustrationSignals(view)
         const text = [

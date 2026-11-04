@@ -43,6 +43,10 @@ function view(overrides: Partial<PopupViewProps> = {}) {
     onOpenDraft: mock(),
     onDeleteDraft: mock(),
     onAllowHosts: mock(),
+    replay: null,
+    replayAvailable: false,
+    shortcutsPage: "chrome://extensions/shortcuts",
+    onReplay: mock(),
     ...overrides,
   }
   render(<PopupView {...props} />)
@@ -561,5 +565,51 @@ describe("pickers with many devices", () => {
     } finally {
       restore()
     }
+  })
+})
+
+describe("replay", () => {
+  test("pick 120s and arm", () => {
+    const props = view({ replay: { armed: false }, replayAvailable: true, onReplay: mock() })
+    expect(screen.getByText("Replay")).toBeTruthy()
+    fireEvent.click(button("120s"))
+    expect(props.onPrefs).toHaveBeenCalledWith({ replayWindowMs: 120_000 })
+    fireEvent.click(button("Arm replay"))
+    // The prefs prop still says 60 s; the parent re-renders with the new pref.
+    expect(props.onReplay).toHaveBeenCalledWith("arm", 60_000)
+  })
+
+  test("armed: capture and disarm, with the note when the buffer is full", () => {
+    const props = view({
+      replay: { armed: true, windowMs: 60_000, since: 1, degraded: true, suspended: false },
+      replayAvailable: true,
+      onReplay: mock(),
+    })
+    expect(screen.getByText("Buffer is full; the capture will be shorter than 60s.")).toBeTruthy()
+    expect(screen.getByText("Add a shortcut at chrome://extensions/shortcuts")).toBeTruthy()
+    fireEvent.click(button("Capture last ~60s"))
+    expect(props.onReplay).toHaveBeenCalledWith("capture")
+    fireEvent.click(button("Disarm"))
+    expect(props.onReplay).toHaveBeenCalledWith("disarm")
+  })
+
+  test("the shortcut hint names the browser's own page", () => {
+    view({
+      replay: { armed: true, windowMs: 60_000, since: 1, degraded: false, suspended: false },
+      replayAvailable: true,
+      shortcutsPage: "opera://extensions/shortcuts",
+      onReplay: mock(),
+    })
+    expect(screen.getByText("Add a shortcut at opera://extensions/shortcuts")).toBeTruthy()
+  })
+
+  test("paused while a recording runs", () => {
+    view({ replay: { armed: true, windowMs: 30_000, since: 1, degraded: false, suspended: true }, replayAvailable: true, onReplay: mock() })
+    expect((button("Paused while recording") as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  test("no replay on Firefox", () => {
+    view({ replay: { armed: false }, replayAvailable: false, onReplay: mock() })
+    expect(screen.queryByText("Replay")).toBeNull()
   })
 })

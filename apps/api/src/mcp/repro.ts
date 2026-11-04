@@ -303,6 +303,7 @@ export function reproductionScript(view: DebuggerView, meta: ReproMeta): ReproSc
       ? `The report has ${sdkErrors} error-level SDK log line(s) (bugberry.error) that this script does not check. See getConsoleLogs sources=["sdk"].`
       : null,
     meta.captureType === "video" ? "Steps from other tabs, or from before the capture's buffer started, may be missing." : null,
+    meta.captureType === "replay" ? "Steps from other tabs, or from before the replay window, may be missing." : null,
   ].filter((warning): warning is string => warning !== null)
 
   const filename = scriptFilename(meta.number, meta.title)

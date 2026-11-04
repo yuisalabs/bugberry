@@ -265,6 +265,18 @@ describe("single report", () => {
     const after = await ctx.api.api.reports({ id: created.id }).get({ headers: member.headers })
     expect(after.error?.status as number | undefined).toBe(404)
   })
+
+  test("deleting a replay removes its frames", async () => {
+    const id = newId()
+    const created = await make({ id, captureType: "replay", mediaKey: `reports/${id}/media.json.gz`, replayFrames: [0, 5_000] })
+    if (!(ctx.storage instanceof LocalStorageDriver)) throw new Error("expected local storage")
+    const frames = [`reports/${id}/frames/000.jpg`, `reports/${id}/frames/001.jpg`]
+    for (const key of [created.mediaKey, ...frames]) await ctx.storage.writeObject(key, new Uint8Array([1]))
+
+    const admin = await createUserWithToken(ctx.db, { role: "admin" })
+    await ctx.api.api.reports({ id }).delete(undefined, { headers: admin.headers })
+    for (const key of [created.mediaKey, ...frames]) expect(await ctx.storage.head(key)).toBeNull()
+  })
 })
 
 describe("GET /api/reports/counts", () => {

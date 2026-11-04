@@ -57,6 +57,12 @@ describe("GET /me/onboarding", () => {
     expect(await done("screenshot")).toBe(false)
   })
 
+  test("a replay is a recording, so it ticks the video step", async () => {
+    await createReadyReport(ctx.db, { reporterId: budi.user.id, captureType: "replay" })
+    expect(await done("video")).toBe(true)
+    expect(await done("screenshot")).toBe(false)
+  })
+
   test("only ready uploads count", async () => {
     await createReadyReport(ctx.db, { reporterId: budi.user.id, uploadStatus: "failed" })
     await createReadyReport(ctx.db, { reporterId: budi.user.id, uploadStatus: "uploading" })

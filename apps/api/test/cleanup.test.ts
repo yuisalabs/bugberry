@@ -52,6 +52,26 @@ describe("cleanupStaleUploads", () => {
     expect(titles).toEqual(["old but ready", "recent"])
   })
 
+  test("removes a stale replay's frames", async () => {
+    const reporter = await createUser(ctx.db)
+    const id = crypto.randomUUID()
+    const stale = await createReadyReport(ctx.db, {
+      id,
+      reporterId: reporter.id,
+      captureType: "replay",
+      mediaKey: `reports/${id}/media.json.gz`,
+      replayFrames: [0, 5_000],
+      uploadStatus: "failed",
+      createdAt: new Date(Date.now() - 25 * 60 * 60 * 1000),
+    })
+    if (!(ctx.storage instanceof LocalStorageDriver)) throw new Error("expected local storage")
+    const frames = [`reports/${id}/frames/000.jpg`, `reports/${id}/frames/001.jpg`]
+    for (const key of [stale.mediaKey, ...frames]) await ctx.storage.writeObject(key, new Uint8Array([1]))
+
+    expect(await cleanupStaleUploads(ctx, new Date(Date.now() - 24 * 60 * 60 * 1000))).toBe(1)
+    for (const key of [stale.mediaKey, ...frames]) expect(await ctx.storage.head(key)).toBeNull()
+  })
+
   test("aborts uploads in parts started before the cutoff, and a storage error there doesn't stop the cleanup", async () => {
     const cutoffs: Date[] = []
     ctx.storage.multipart = {

@@ -45,6 +45,8 @@ export const report = pgTable(
     /** Null when the report has no preview: older reports, or a thumbnail that failed to upload. */
     thumbnailKey: text("thumbnail_key"),
     thumbnailSize: integer("thumbnail_size"),
+    /** Frame times in ms from the replay's start, one per reports/<id>/frames/NNN.jpg; null for other types and before finalize. */
+    replayFrames: jsonb("replay_frames").$type<number[]>(),
     debuggerSummary: jsonb("debugger_summary").$type<DebuggerSummary>().notNull(),
     uploadStatus: uploadStatusEnum("upload_status").notNull().default("uploading"),
     uploadError: text("upload_error"),

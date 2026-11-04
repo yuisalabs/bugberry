@@ -3,7 +3,7 @@ import { mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { newId } from "../src/lib/ids"
-import { debuggerKeyFor, mediaKeyFor, thumbnailKeyFor } from "../src/storage/keys"
+import { assertSafeKey, debuggerKeyFor, mediaKeyFor, replayFrameKeyFor, replayFrameKeys, thumbnailKeyFor } from "../src/storage/keys"
 import { LocalStorageDriver } from "../src/storage/local"
 
 const SECRET = "storage-secret"
@@ -32,6 +32,15 @@ describe("storage keys", () => {
     expect(mediaKeyFor("r1", "video")).toBe("reports/r1/media.webm")
     expect(debuggerKeyFor("r1")).toBe("reports/r1/debugger.json.gz")
     expect(thumbnailKeyFor("r1")).toBe("reports/r1/thumbnail.jpg")
+  })
+
+  test("a replay's media and frames have their own keys", () => {
+    expect(mediaKeyFor("r1", "replay")).toBe("reports/r1/media.json.gz")
+    expect(replayFrameKeyFor("r1", 7)).toBe("reports/r1/frames/007.jpg")
+    expect(replayFrameKeys("r1", 2)).toEqual(["reports/r1/frames/000.jpg", "reports/r1/frames/001.jpg"])
+    expect(() => assertSafeKey("reports/r1/frames/7.jpg")).toThrow()
+    expect(() => assertSafeKey("reports/r1/frames/007.jpg")).not.toThrow()
+    expect(() => assertSafeKey("reports/r1/media.json.gz")).not.toThrow()
   })
 })
 

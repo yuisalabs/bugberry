@@ -21,6 +21,13 @@ describe("ReportCardBody", () => {
     expect(screen.getByText("No preview")).toBeTruthy()
   })
 
+  test("a replay shows the replay icon and its length, never the screenshot camera", () => {
+    render(<ReportCardBody item={listItemFixture({ captureType: "replay", durationMs: 61_000 })} now={NOW} />)
+    expect(screen.getByRole("img", { name: "Replay" })).toBeTruthy()
+    expect(screen.getByText("1:01")).toBeTruthy()
+    expect(screen.queryByRole("img", { name: "Screenshot" })).toBeNull()
+  })
+
   test("a card shows its status", () => {
     render(<ReportCardBody item={listItemFixture({ status: "in_progress" })} now={NOW} />)
     expect(screen.getByText("In progress")).toBeTruthy()

@@ -1,5 +1,5 @@
 import type { CaptureType, Visibility, WorkspaceRole } from "@bugberry/shared"
-import { and, asc, count, eq, gt, isNull, like, ne, or, sql } from "drizzle-orm"
+import { and, asc, count, eq, gt, inArray, isNull, like, ne, or, sql } from "drizzle-orm"
 import { type Db, executor } from "../../db/client"
 import { pendingLogo, project, report, user, workspace, workspaceInvitation, workspaceMember } from "../../db/schema"
 import { newId } from "../../lib/ids"
@@ -220,7 +220,7 @@ export async function countOwnedWorkspaces(db: Db, userId: string): Promise<numb
  */
 export async function countKeptReports(
   db: Db,
-  input: { workspaceId: string; captureType: CaptureType; uploadTtlSeconds: number; now: Date; except?: string },
+  input: { workspaceId: string; captureTypes: readonly CaptureType[]; uploadTtlSeconds: number; now: Date; except?: string },
 ): Promise<number> {
   const since = new Date(input.now.getTime() - input.uploadTtlSeconds * 1000)
   const [row] = await executor(db)
@@ -231,7 +231,7 @@ export async function countKeptReports(
         eq(report.workspaceId, input.workspaceId),
         or(eq(report.uploadStatus, "ready"), and(eq(report.uploadStatus, "uploading"), gt(report.createdAt, since))),
         input.except ? ne(report.id, input.except) : undefined,
-        eq(report.captureType, input.captureType),
+        inArray(report.captureType, [...input.captureTypes]),
       ),
     )
   return row?.value ?? 0

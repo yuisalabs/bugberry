@@ -29,6 +29,10 @@ export const MANIFEST_COMMANDS = {
     suggested_key: { default: "Alt+Shift+S" },
     description: "Stop recording",
   },
+  // No key to suggest: the four above use Chrome's four. The popup says where to assign one.
+  "capture-replay": {
+    description: "Capture the last seconds of the armed tab",
+  },
 }
 
 /** Firefox has neither tabCapture nor offscreen documents: it records through a window of its own. */
@@ -58,13 +62,15 @@ export function manifestFor(target: string, key: string | undefined): Record<str
     action: { default_title: "BugBerry" },
   }
   if (target === "firefox") {
+    // Replay ships to Chrome and Opera first (hasReplay).
+    const { "capture-replay": _replay, ...commands } = MANIFEST_COMMANDS
     return {
       name,
       description,
       permissions: FIREFOX_PERMISSIONS,
       ...rest,
       commands: {
-        ...MANIFEST_COMMANDS,
+        ...commands,
         _execute_action: { ...MANIFEST_COMMANDS._execute_action, suggested_key: { default: FIREFOX_OPEN_SHORTCUT } },
       },
       browser_specific_settings: { gecko: FIREFOX_GECKO, gecko_android: FIREFOX_GECKO_ANDROID },

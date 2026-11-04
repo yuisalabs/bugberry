@@ -1,4 +1,4 @@
-import { RiCameraLine, RiPlayFill } from "@remixicon/react"
+import { RiCameraLine, RiHistoryLine, RiPlayFill } from "@remixicon/react"
 import { Link, useNavigate } from "@tanstack/react-router"
 import type { ReactNode } from "react"
 import { Avatar } from "@bugberry/ui/avatar"
@@ -83,6 +83,10 @@ export function ReportTableBody({
                     {item.captureType === "video" ? (
                       <>
                         BB-{item.number} · <RiPlayFill aria-hidden className="size-3" /> {formatLength(item.durationMs ?? 0)}
+                      </>
+                    ) : item.captureType === "replay" ? (
+                      <>
+                        BB-{item.number} · <RiHistoryLine aria-label="Replay" role="img" className="size-3" /> {formatLength(item.durationMs ?? 0)}
                       </>
                     ) : (
                       <>

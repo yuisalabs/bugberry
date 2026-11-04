@@ -1,4 +1,5 @@
 import { type DebuggerView, normalizePayload } from "@bugberry/debugger-view"
+import { createSlots } from "../lib/slots"
 import { gunzipLimited } from "../modules/trackers/debugger-errors"
 import { type McpContext, McpToolError } from "./context"
 import type { ResolvedReport } from "./refs"
@@ -81,20 +82,7 @@ export function createDebuggerCache(
 }
 
 /** At most this many payloads are unpacked and parsed at once, across every request. */
-const MAX_PARALLEL_READS = 4
-let activeReads = 0
-const waiting: Array<() => void> = []
-
-async function withReadSlot<T>(work: () => Promise<T>): Promise<T> {
-  if (activeReads >= MAX_PARALLEL_READS) await new Promise<void>((resolve) => waiting.push(resolve))
-  activeReads++
-  try {
-    return await work()
-  } finally {
-    activeReads--
-    waiting.shift()?.()
-  }
-}
+const withReadSlot = createSlots(4)
 
 /**
  * The report's debugger data, validated like the dashboard does: null when the report has none,

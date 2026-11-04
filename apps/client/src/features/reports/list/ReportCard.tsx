@@ -1,4 +1,4 @@
-import { RiCameraLine, RiFlag2Line, RiHashtag, RiImageLine, RiLink, RiPlayFill } from "@remixicon/react"
+import { RiCameraLine, RiFlag2Line, RiHashtag, RiHistoryLine, RiImageLine, RiLink, RiPlayFill } from "@remixicon/react"
 import { Link, useParams } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { Button } from "@bugberry/ui/button"
@@ -74,6 +74,11 @@ export function ReportCardBody({
           {item.captureType === "video" ? (
             <>
               <RiPlayFill aria-hidden className="size-3" />
+              {formatLength(item.durationMs ?? 0)}
+            </>
+          ) : item.captureType === "replay" ? (
+            <>
+              <RiHistoryLine aria-label="Replay" role="img" className="size-3" />
               {formatLength(item.durationMs ?? 0)}
             </>
           ) : (

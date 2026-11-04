@@ -17,6 +17,22 @@ describe("ReportTableBody", () => {
     expect(screen.getByRole("grid").closest(".overflow-x-auto")).toBeTruthy()
   })
 
+  test("a replay row names its type and shows its length", () => {
+    render(
+      <ReportTableBody
+        items={[listItemFixture({ id: "a", number: 12, captureType: "replay", durationMs: 61_000 })]}
+        members={members}
+        projects={projects}
+        now={NOW}
+        rowLink={(item) => item.title}
+      />,
+    )
+    const row = within(screen.getAllByRole("row")[1] as HTMLElement)
+    expect(row.getByText(/BB-12/).textContent).toContain("1:01")
+    expect(row.getByRole("img", { name: "Replay" })).toBeTruthy()
+    expect(row.queryByText(/Screenshot/)).toBeNull()
+  })
+
   test("a list row", () => {
     render(
       <ReportTableBody

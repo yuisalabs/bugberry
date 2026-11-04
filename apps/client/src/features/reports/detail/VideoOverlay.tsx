@@ -21,8 +21,19 @@ export function VideoReporter({ reporter }: { reporter: ReportDetail["reporter"]
   )
 }
 
-/** Top-right of the video: a share link that starts where the viewer is, and the file itself. */
-export function VideoShareActions({ shareSlug, seconds, mediaUrl }: { shareSlug: string; seconds: number; mediaUrl: string | null }) {
+/** Top-right of the video or replay: a share link that starts where the viewer is, and the file itself. */
+export function VideoShareActions({
+  shareSlug,
+  seconds,
+  mediaUrl,
+  kind = "video",
+}: {
+  shareSlug: string
+  seconds: number
+  mediaUrl: string | null
+  kind?: "video" | "replay"
+}) {
+  const download = `Download ${kind}`
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle")
   const copy = async () => {
     try {
@@ -40,8 +51,8 @@ export function VideoShareActions({ shareSlug, seconds, mediaUrl }: { shareSlug:
         {state === "copied" ? "Copied" : state === "failed" ? "Couldn't copy" : `Share at ${formatClock(seconds)}`}
       </AriaButton>
       {mediaUrl && (
-        <Link href={mediaUrl} download target="_blank" rel="noreferrer" aria-label="Download video" className={glass}>
-          <span title="Download video" className="contents">
+        <Link href={mediaUrl} download target="_blank" rel="noreferrer" aria-label={download} className={glass}>
+          <span title={download} className="contents">
             <RiDownload2Line aria-hidden />
           </span>
         </Link>

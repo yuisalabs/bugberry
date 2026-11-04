@@ -88,6 +88,13 @@ describe("workspaceLimits", () => {
       maxRecordingMs: 120_000,
     })
   })
+
+  test("recordings used counts videos and replays", async () => {
+    await videos(2)
+    await screenshots(1, { captureType: "replay", durationMs: 60_000 })
+    const limits = await workspaceLimits(ctx.db, ON, workspaceId)
+    expect(limits.limited && limits.recordings.used).toBe(3)
+  })
 })
 
 describe("recording length", () => {
