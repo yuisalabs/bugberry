@@ -88,6 +88,8 @@ describe("tiles and dial", () => {
     expect(radio("Tab").checked).toBe(true)
     expect(button(/Mic off/)).toBeTruthy()
     expect(button("3s countdown").getAttribute("aria-pressed")).toBe("true")
+    // "3s" on the chip in every mode, so the chips fit one row.
+    expect(button("3s countdown").textContent).toBe("3s")
     expect(screen.getByText("Only this tab is recorded. Other tabs and apps stay private.")).toBeTruthy()
     fireEvent.click(button("Record this tab"))
     expect(props.onRecord).toHaveBeenCalledTimes(1)
@@ -95,7 +97,7 @@ describe("tiles and dial", () => {
 
   test("Screen: 3s and System audio chips", () => {
     const props = view({ prefs: record("screen") })
-    expect(button("3s")).toBeTruthy()
+    expect(button("3s countdown").textContent).toBe("3s")
     expect(button("System audio").getAttribute("aria-pressed")).toBe("true")
     fireEvent.click(button("System audio"))
     expect(props.onPrefs).toHaveBeenCalledWith({ systemAudio: false })
