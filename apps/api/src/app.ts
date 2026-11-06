@@ -28,6 +28,10 @@ import { errorHandler } from "./plugins/error-handler"
 
 export type { AppDeps } from "./deps"
 
+/**
+ * Every route but MCP's own work when config.serverRole is "app": then /api/mcp answers 404 and nginx sends MCP
+ * to the container that createMcpApp serves.
+ */
 export function createApp(deps: AppDeps) {
   const { config } = deps
   const origins = [config.appUrl]
@@ -57,7 +61,7 @@ export function createApp(deps: AppDeps) {
     .use(connectionsModule(deps))
     .use(aiModule(deps))
     .use(trackersModule(deps))
-    .use(mcpModule(deps))
+    .use(mcpModule(deps, { served: config.serverRole !== "app" }))
     .use(demoRequestsModule(deps))
 
   // OAuth discovery must sit at the site root; everything else is under /api.
@@ -65,3 +69,13 @@ export function createApp(deps: AppDeps) {
 }
 
 export type App = ReturnType<typeof createApp>
+
+/** SERVER_ROLE=mcp: only MCP and the health check, in a process of its own so agents cannot slow the dashboard. */
+export function createMcpApp(deps: AppDeps) {
+  return new Elysia().use(
+    new Elysia({ prefix: "/api" })
+      .use(errorHandler())
+      .get("/health", () => ({ ok: true }))
+      .use(mcpModule(deps)),
+  )
+}

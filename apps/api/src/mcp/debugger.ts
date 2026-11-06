@@ -1,6 +1,6 @@
-import { type DebuggerView, normalizePayload } from "@bugberry/debugger-view"
+import type { DebuggerView } from "@bugberry/debugger-view"
 import { createSlots } from "../lib/slots"
-import { gunzipLimited } from "../modules/trackers/debugger-errors"
+import { parseDebuggerView } from "../workers/payloads"
 import { type McpContext, McpToolError } from "./context"
 import type { ResolvedReport } from "./refs"
 
@@ -81,7 +81,7 @@ export function createDebuggerCache(
   }
 }
 
-/** At most this many payloads are unpacked and parsed at once, across every request. */
+/** At most this many payloads are held in memory and parsed at once, across every request. */
 const withReadSlot = createSlots(4)
 
 /**
@@ -96,8 +96,8 @@ export async function loadDebuggerData(ctx: McpContext, report: ResolvedReport):
       try {
         const blob = await ctx.deps.storage.read(key)
         if (!blob) return { view: "unreadable", bytes: 0 }
-        const json = await gunzipLimited(blob)
-        return { view: normalizePayload(JSON.parse(json)), bytes: json.length }
+        // Unpacked and parsed on a worker thread: a 16 MB payload would otherwise stall every other request.
+        return await parseDebuggerView(blob)
       } catch {
         return { view: "unreadable", bytes: 0 }
       }

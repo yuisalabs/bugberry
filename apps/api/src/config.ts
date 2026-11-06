@@ -82,6 +82,37 @@ export interface Config {
   publicSite: boolean
   /** Who is emailed each demo request (DEMO_REQUEST_EMAIL); null stores requests without emailing anyone. */
   demoRequestEmail: string | null
+  /**
+   * Which routes this process serves (SERVER_ROLE): "all" in one process, or "app" and "mcp" when MCP runs in its
+   * own container, so agents cannot slow the dashboard down.
+   */
+  serverRole: ServerRole
+  /** Database connections for the dashboard, extension and integrations (DB_POOL_MAX). */
+  dbPoolMax: number
+  mcp: McpServerConfig
+  /** Threads that unpack and parse captured payloads off the request thread (PAYLOAD_WORKERS). */
+  payloadWorkers: number
+}
+
+export type ServerRole = "all" | "app" | "mcp"
+
+/** How much of the server MCP may use, so a flood of agent calls waits its turn instead of the dashboard. */
+export interface McpServerConfig {
+  /** Its own database connections, apart from the dashboard's (MCP_DB_POOL_MAX). */
+  dbPoolMax: number
+  /** A query from a tool is cancelled after this long (MCP_STATEMENT_TIMEOUT_MS). */
+  statementTimeoutMs: number
+  /** Tool calls running at once (MCP_MAX_ACTIVE). */
+  maxActive: number
+  /** Calls waiting for a place; more are answered 503 right away (MCP_MAX_QUEUED). */
+  maxQueued: number
+  /** A waiting call is answered 503 after this long (MCP_QUEUE_TIMEOUT_MS). */
+  queueTimeoutMs: number
+  /**
+   * Per-person call limits counted in Postgres, so they hold across several MCP containers (MCP_SHARED_RATE_LIMIT).
+   * On by default when SERVER_ROLE=mcp.
+   */
+  sharedRateLimit: boolean
 }
 
 export class ConfigError extends Error {
@@ -127,6 +158,13 @@ export function loadConfig(env: Env): Config {
       throw new ConfigError(`${name} must be an integer between ${min} and ${max}`)
     }
     return value
+  }
+
+  const flag = (name: string, fallback: boolean): boolean => {
+    const raw = optional(name)
+    if (raw === undefined) return fallback
+    if (raw !== "true" && raw !== "false") throw new ConfigError(`${name} must be 'true' or 'false'`)
+    return raw === "true"
   }
 
   const list = (name: string): string[] =>
@@ -211,6 +249,11 @@ export function loadConfig(env: Env): Config {
     throw new ConfigError("DEMO_REQUEST_EMAIL must be an email address")
   }
 
+  const serverRole = optional("SERVER_ROLE") ?? "all"
+  if (serverRole !== "all" && serverRole !== "app" && serverRole !== "mcp") {
+    throw new ConfigError("SERVER_ROLE must be 'all', 'app' or 'mcp'")
+  }
+
   const encryptionKey = required("ENCRYPTION_KEY")
   if (Buffer.from(encryptionKey, "base64").length !== 32) {
     throw new ConfigError("ENCRYPTION_KEY must be 32 random bytes in base64 (openssl rand -base64 32)")
@@ -246,5 +289,16 @@ export function loadConfig(env: Env): Config {
     allowPrivateIntegrationHosts: optional("ALLOW_PRIVATE_INTEGRATION_HOSTS") === "true",
     publicSite: optional("PUBLIC_SITE") === "true",
     demoRequestEmail,
+    serverRole,
+    dbPoolMax: integer("DB_POOL_MAX", 10, 1, 500),
+    mcp: {
+      dbPoolMax: integer("MCP_DB_POOL_MAX", 5, 1, 500),
+      statementTimeoutMs: integer("MCP_STATEMENT_TIMEOUT_MS", 10_000, 100, 600_000),
+      maxActive: integer("MCP_MAX_ACTIVE", 8, 1, 1000),
+      maxQueued: integer("MCP_MAX_QUEUED", 32, 0, 10_000),
+      queueTimeoutMs: integer("MCP_QUEUE_TIMEOUT_MS", 10_000, 100, 300_000),
+      sharedRateLimit: flag("MCP_SHARED_RATE_LIMIT", serverRole === "mcp"),
+    },
+    payloadWorkers: integer("PAYLOAD_WORKERS", 2, 1, 64),
   }
 }

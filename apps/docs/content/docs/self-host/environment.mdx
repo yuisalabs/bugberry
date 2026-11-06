@@ -93,9 +93,27 @@ For BugBerry cloud only. Leave these unset on your own server: the home page the
 | `PUBLIC_SITE` | off | `true` shows the marketing pages (`/`, `/pricing`, `/integrations`, `/ai-agents`, `/demo`) and takes demo requests. |
 | `DEMO_REQUEST_EMAIL` | unset | Address that gets an email for each demo request. Requests are stored either way. |
 
+## AI agents and capacity
+
+AI agents call BugBerry over MCP far faster than people click in the dashboard. So MCP runs in a container of its own,
+`api-mcp`, which nginx sends `/api/mcp` to: it has its own CPU share, its own database connections and its own limit
+on calls at once. A busy agent waits, or gets `503` and tries again; the dashboard does not slow down.
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `MCP_CPUS` | `1` | CPUs the `api-mcp` container may use. |
+| `DB_POOL_MAX` | `10` | Database connections for the dashboard and the extension. |
+| `MCP_DB_POOL_MAX` | `5` | Database connections for MCP, apart from the dashboard's. Keep the two together under your Postgres' `max_connections` (100 by default). |
+| `MCP_STATEMENT_TIMEOUT_MS` | `10000` | A database query from an MCP tool is cancelled after this long. |
+| `MCP_MAX_ACTIVE` | `8` | MCP tool calls that run at once. |
+| `MCP_MAX_QUEUED` | `32` | Calls that may wait for a place; past that an agent gets `503` with `Retry-After` right away. |
+| `MCP_QUEUE_TIMEOUT_MS` | `10000` | A waiting call gets `503` after this long. |
+| `MCP_SHARED_RATE_LIMIT` | on in `api-mcp` | Counts each person's 120 calls a minute in Postgres, so the limit holds when you run several `api-mcp` containers. |
+| `PAYLOAD_WORKERS` | `2` | Threads that unpack captured debugger data and replays, so a large one never holds up other requests. |
+
 ## Set by Compose
 
-`docker-compose.yml` sets these for the `api` container; change them there, not in `.env`.
+`docker-compose.yml` sets these for the `api` and `api-mcp` containers; change them there, not in `.env`.
 
 | Variable | Value | What it does |
 | --- | --- | --- |
@@ -103,3 +121,4 @@ For BugBerry cloud only. Leave these unset on your own server: the home page the
 | `DATABASE_PASSWORD` | `POSTGRES_PASSWORD` | Added to `DATABASE_URL` by the server. |
 | `PORT` | `3000` | Port the api listens on inside the network. |
 | `PROXY_HOPS` | `1` | Proxies in front of the api; the bundled nginx counts as one, and `TRUST_PROXY=true` adds one. |
+| `SERVER_ROLE` | `app`, `mcp` | `app` serves everything but MCP and runs the migrations; `mcp` serves only `/api/mcp`. Without it, one process serves everything (`all`). |

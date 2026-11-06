@@ -110,7 +110,7 @@ export function registerRecordingTools(server: McpServer, ctx: McpContext): void
     ({ report: ref, workspace }) =>
       runTool(async () => {
         // The link hands out the whole video, heavier than any image: it shares the screenshots' allowance.
-        if (!ctx.screenshotLimiter.consume(ctx.caller.user.id)) throw new McpToolError("rate_limited", RATE_LIMITED)
+        if (!(await ctx.screenshotLimiter.consume(ctx.caller.user.id))) throw new McpToolError("rate_limited", RATE_LIMITED)
         const resolved = await resolveReportRef(ctx, ref, workspace)
         const row = resolved.row
         if (!isRecordingType(row.captureType)) {

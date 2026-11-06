@@ -2,7 +2,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js"
 import type { AppDeps } from "../deps"
 import type { CurrentUser } from "../plugins/auth"
 import { AppError } from "../lib/errors"
-import type { RateLimiter } from "../lib/rate-limit"
+import type { AnyRateLimiter } from "../lib/rate-limit"
 import type { createDispatcher } from "../modules/trackers/dispatch"
 import type { DebuggerCache } from "./debugger"
 
@@ -22,12 +22,13 @@ export interface McpContext {
   /** Shared by every request of this app. */
   cache: DebuggerCache
   /** Images are heavier than text: a smaller allowance, shared by every request. */
-  screenshotLimiter: RateLimiter
+  screenshotLimiter: AnyRateLimiter
   /** Sends reports to trackers; one per app, like trackersModule's. */
   dispatcher: ReturnType<typeof createDispatcher>
 }
 
 export const RATE_LIMITED = "Too many requests, try again in a minute"
+export const SERVER_BUSY = "BugBerry is busy with other agents' calls, try again in a few seconds"
 
 /** A problem the agent should read as the tool's answer, not a crash. */
 export class McpToolError extends Error {
