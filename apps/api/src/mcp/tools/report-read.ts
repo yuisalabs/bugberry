@@ -239,7 +239,7 @@ export function registerReportReadTools(server: McpServer, ctx: McpContext): voi
     },
     ({ report: ref, workspace }) =>
       runTool(async () => {
-        if (!ctx.screenshotLimiter.consume(ctx.caller.user.id)) throw new McpToolError("rate_limited", RATE_LIMITED)
+        if (!(await ctx.screenshotLimiter.consume(ctx.caller.user.id))) throw new McpToolError("rate_limited", RATE_LIMITED)
         const resolved = await resolveReportRef(ctx, ref, workspace)
         await noteAgentRead(ctx, resolved, "screenshot")
         const { storage } = ctx.deps

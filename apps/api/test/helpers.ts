@@ -37,6 +37,7 @@ export const TEST_DATABASE_URL =
 
 /** Every table in the public schema. Add new tables here when later plans create them. */
 const TABLES = [
+  "rate_limit_hit",
   "report_template",
   "workspace_ai_provider",
   "demo_request",
@@ -108,6 +109,10 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
     allowPrivateIntegrationHosts: true,
     publicSite: false,
     demoRequestEmail: null,
+    serverRole: "all",
+    dbPoolMax: 10,
+    mcp: { dbPoolMax: 5, statementTimeoutMs: 10_000, maxActive: 8, maxQueued: 32, queueTimeoutMs: 10_000, sharedRateLimit: false },
+    payloadWorkers: 2,
     ...overrides,
   }
 }

@@ -134,7 +134,7 @@ describe("deploy files", () => {
   test("third-party images are pinned, so an upgrade never changes them silently", async () => {
     const { compose } = await deployEnv()
     for (const [name, service] of Object.entries(compose.services)) {
-      if (name === "api" || name === "client") continue
+      if (name === "api" || name === "api-mcp" || name === "client") continue
       expect({ name, image: service.image }).not.toMatchObject({ image: expect.stringMatching(/:latest$|^[^:@]+$/) })
     }
   })
@@ -185,6 +185,32 @@ describe("deploy files", () => {
     const { compose } = await deployEnv()
     expect(compose.services.client?.depends_on).toEqual({ api: { condition: "service_healthy" } })
     expect(compose.services.api?.depends_on).toEqual({ postgres: { condition: "service_healthy" } })
+  })
+
+  test("MCP runs in a container of its own, which nginx sends /api/mcp to", async () => {
+    const { compose, example } = await deployEnv()
+    const api = compose.services.api
+    const mcp = compose.services["api-mcp"]
+    expect(api?.environment?.SERVER_ROLE).toBe("app")
+    expect(mcp?.environment?.SERVER_ROLE).toBe("mcp")
+    expect(mcp?.build).toEqual(api?.build)
+    expect(mcp?.image).toBe(api?.image)
+    // It starts once the api has migrated the database.
+    expect(mcp?.depends_on).toEqual({ api: { condition: "service_healthy" } })
+    // Everything else it needs is the api's.
+    for (const name of ["DATABASE_URL", "DATABASE_PASSWORD", "LOCAL_STORAGE_DIR", "PORT", "PROXY_HOPS"]) {
+      expect({ name, value: mcp?.environment?.[name] }).toEqual({ name, value: api?.environment?.[name] })
+    }
+
+    const env: Record<string, string> = { ...example }
+    for (const [name, value] of Object.entries(mcp?.environment ?? {})) env[name] = interpolate(String(value), example)
+    const config = loadConfig(env)
+    expect([config.serverRole, config.mcp.sharedRateLimit]).toEqual(["mcp", true])
+
+    const nginx = await Bun.file(join(ROOT, "docker/nginx.conf")).text()
+    const mcpBlock = nginx.slice(nginx.indexOf("location ^~ /api/mcp {"), nginx.indexOf("location ^~ /api {"))
+    expect(mcpBlock).toContain("set $mcp_upstream http://api-mcp:3000;")
+    expect(mcpBlock).toContain("proxy_pass $mcp_upstream;")
   })
 
   test("Caddy forwards to the client container, never straight to the api", async () => {
