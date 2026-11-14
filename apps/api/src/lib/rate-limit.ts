@@ -38,3 +38,11 @@ export function createRateLimiter(options: {
     },
   }
 }
+
+/** A limiter whose count lives outside this process, so answering takes a round trip. */
+export interface AsyncRateLimiter {
+  consume(key: string): Promise<boolean>
+}
+
+/** Either kind; callers await the answer. */
+export type AnyRateLimiter = RateLimiter | AsyncRateLimiter

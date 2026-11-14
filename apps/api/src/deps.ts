@@ -10,6 +10,8 @@ import type { StorageDriver } from "./storage/types"
 export interface AppDeps {
   config: Config
   db: Db
+  /** MCP's own connection pool, so agents cannot use up the dashboard's; MCP falls back to `db` without it. */
+  mcpDb?: Db
   storage: StorageDriver
   betterAuth: Auth
   /** Builds tracker clients; tests pass a fake, production uses real HTTP. */

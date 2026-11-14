@@ -1,4 +1,5 @@
 import type { StorageDriver } from "../../storage/types"
+import { parseTopErrors } from "../../workers/payloads"
 
 /** Payloads are capped at the source; anything larger than this after gunzip is not ours. */
 const MAX_DECOMPRESSED_BYTES = 16 * 1024 * 1024
@@ -59,8 +60,7 @@ export async function readTopErrors(storage: StorageDriver, key: string): Promis
   try {
     const blob = await storage.read(key)
     if (!blob) return []
-    const payload = JSON.parse(await gunzipLimited(blob)) as { events?: unknown }
-    return Array.isArray(payload.events) ? topErrors(payload.events) : []
+    return await parseTopErrors(blob)
   } catch {
     return []
   }
