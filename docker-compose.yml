@@ -31,10 +31,40 @@ services:
       LOCAL_STORAGE_DIR: /data/uploads
       PORT: "3000"
       PROXY_HOPS: "1"
+      # Everything but MCP, which api-mcp serves; this process also runs the migrations and the cleanup.
+      SERVER_ROLE: app
     volumes:
       - uploads:/data/uploads
     depends_on:
       postgres:
+        condition: service_healthy
+
+  # MCP for AI agents, in its own process: agents call far faster than people click, so they get their own
+  # CPU share, event loop and database connections, and a busy agent never slows the dashboard down.
+  # nginx sends /api/mcp here. Same image as api; it waits for api to have migrated the database.
+  api-mcp:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    image: fdebag-api:latest
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 60s
+    logging: *logging
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://fdebag@postgres:5432/fdebag
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      LOCAL_STORAGE_DIR: /data/uploads
+      PORT: "3000"
+      PROXY_HOPS: "1"
+      SERVER_ROLE: mcp
+    # At most this many CPUs for MCP (MCP_CPUS in .env), whatever the agents ask of it.
+    cpus: ${MCP_CPUS:-1}
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      api:
         condition: service_healthy
 
   # nginx: the dashboard build, and /api proxied to the api service.

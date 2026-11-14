@@ -3,8 +3,23 @@ import { SQL } from "bun"
 import { drizzle } from "drizzle-orm/bun-sql"
 import * as schema from "./schema"
 
-export function createDb(url: string) {
-  return drizzle({ client: new SQL(url), schema })
+export interface PoolOptions {
+  /** Connections this pool opens at most; queries past that wait for one to come free. */
+  max?: number
+  /** Postgres cancels a statement on this pool after this long. */
+  statementTimeoutMs?: number
+}
+
+/**
+ * One connection pool. The server opens two: one for the dashboard and one for MCP, so agents that use up
+ * theirs make each other wait, not the people in the dashboard.
+ */
+export function createDb(url: string, options: PoolOptions = {}) {
+  const client = new SQL(url, {
+    ...(options.max !== undefined && { max: options.max }),
+    ...(options.statementTimeoutMs !== undefined && { connection: { statement_timeout: options.statementTimeoutMs } }),
+  })
+  return drizzle({ client, schema })
 }
 
 export type Db = ReturnType<typeof createDb>

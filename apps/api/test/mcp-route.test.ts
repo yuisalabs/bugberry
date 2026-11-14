@@ -2,9 +2,13 @@ import { beforeEach, describe, expect, test } from "bun:test"
 import { eq } from "drizzle-orm"
 import { Elysia } from "elysia"
 import { apiToken } from "../src/db/schema"
+import { createApp, createMcpApp } from "../src/app"
+import { createDb } from "../src/db/client"
+import { createBulkhead } from "../src/lib/bulkhead"
 import { createRateLimiter } from "../src/lib/rate-limit"
+import { SERVER_BUSY } from "../src/mcp/context"
 import { mcpModule } from "../src/mcp/route"
-import { createUserWithToken, setupTestApp } from "./helpers"
+import { createUserWithToken, setupTestApp, TEST_DATABASE_URL } from "./helpers"
 import { mcpClient } from "./mcp-helpers"
 
 let ctx: Awaited<ReturnType<typeof setupTestApp>>
@@ -66,7 +70,80 @@ describe("POST /api/mcp", () => {
     await client.ping()
     await expect(client.ping()).rejects.toThrow("Too many requests, try again in a minute")
   })
+
+  test("a limit counted in Postgres holds across two MCP servers, as with two containers", async () => {
+    const person = await createUserWithToken(ctx.db)
+    const shared = { ...ctx, config: { ...ctx.config, mcp: { ...ctx.config.mcp, sharedRateLimit: true } } }
+    const servers = [new Elysia({ prefix: "/api" }).use(mcpModule(shared)), new Elysia({ prefix: "/api" }).use(mcpModule(shared))]
+    const statuses: number[] = []
+    // Alternating between the two: 122 calls against one allowance of 120 a minute.
+    for (let n = 0; n < 122; n++) statuses.push((await servers[n % 2]!.handle(listTools(person.headers))).status)
+    expect(statuses.filter((status) => status === 200)).toHaveLength(120)
+    expect(statuses.slice(-2)).toEqual([429, 429])
+  })
+
+  test("past its share of the server, a call is answered 503 with Retry-After right away", async () => {
+    const person = await createUserWithToken(ctx.db)
+    let release!: () => void
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const bulkhead = createBulkhead({ maxActive: 1, maxQueued: 0, queueTimeoutMs: 1000 })
+    const busy = bulkhead.run(() => held)
+    const app = new Elysia({ prefix: "/api" }).use(mcpModule(ctx, { bulkhead }))
+
+    const response = await app.handle(listTools(person.headers))
+    expect(response.status).toBe(503)
+    expect(response.headers.get("retry-after")).toBe("2")
+    expect(await response.json()).toEqual({ jsonrpc: "2.0", error: { code: -32000, message: SERVER_BUSY }, id: null })
+
+    release()
+    await busy
+    expect((await app.handle(listTools(person.headers))).status).toBe(200)
+  })
+
+  test("tools query MCP's own connection pool, not the dashboard's", async () => {
+    const person = await createUserWithToken(ctx.db)
+    const mcpDb = createDb(TEST_DATABASE_URL, { max: 1 })
+    let mcpQueries = 0
+    const counted = new Proxy(mcpDb, {
+      get(target, property, receiver) {
+        if (typeof property === "string" && ["select", "query", "insert", "update", "execute"].includes(property)) mcpQueries++
+        return Reflect.get(target, property, receiver)
+      },
+    })
+    const app = new Elysia({ prefix: "/api" }).use(mcpModule({ ...ctx, mcpDb: counted }))
+    expect((await app.handle(listTools(person.headers))).status).toBe(200)
+    expect(mcpQueries).toBeGreaterThan(0)
+    await mcpDb.$client.close()
+  })
 })
+
+describe("SERVER_ROLE", () => {
+  test("an MCP container serves MCP and the health check, nothing of the dashboard", async () => {
+    const person = await createUserWithToken(ctx.db)
+    const app = createMcpApp({ ...ctx, config: { ...ctx.config, serverRole: "mcp" } })
+    expect((await app.handle(listTools(person.headers))).status).toBe(200)
+    expect((await app.handle(new Request("http://localhost/api/health"))).status).toBe(200)
+    expect((await app.handle(new Request("http://localhost/api/me", { headers: person.headers }))).status).toBe(404)
+  })
+
+  test("the app process sends MCP calls away with a 404 that names the MCP container", async () => {
+    const person = await createUserWithToken(ctx.db)
+    const app = createApp({ ...ctx, config: { ...ctx.config, serverRole: "app" } })
+    const response = await app.handle(listTools(person.headers))
+    expect(response.status).toBe(404)
+    expect(await response.json()).toMatchObject({ error: { message: "MCP is served by the MCP container (SERVER_ROLE=mcp)" } })
+  })
+})
+
+const listTools = (headers: Record<string, string>) =>
+  new Request("http://localhost/api/mcp", {
+    method: "POST",
+    headers: { "content-type": "application/json", accept: "application/json, text/event-stream", ...headers },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+  })
+
 
 describe("hostile requests", () => {
   test("JSON-RPC batches are refused, so one request is one call for the rate limit", async () => {

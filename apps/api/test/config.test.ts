@@ -89,6 +89,46 @@ describe("loadConfig", () => {
     expect(config.proxyHops).toBe(0)
   })
 
+  test("one process serves everything by default, with MCP held to its own smaller share", () => {
+    const config = loadConfig(baseEnv)
+    expect(config.serverRole).toBe("all")
+    expect(config.dbPoolMax).toBe(10)
+    expect(config.mcp).toEqual({
+      dbPoolMax: 5,
+      statementTimeoutMs: 10_000,
+      maxActive: 8,
+      maxQueued: 32,
+      queueTimeoutMs: 10_000,
+      sharedRateLimit: false,
+    })
+    expect(config.payloadWorkers).toBe(2)
+  })
+
+  test("SERVER_ROLE splits MCP into its own process, which counts its limits in Postgres unless told not to", () => {
+    expect(loadConfig({ ...baseEnv, SERVER_ROLE: "app" }).serverRole).toBe("app")
+    const mcp = loadConfig({ ...baseEnv, SERVER_ROLE: "mcp" })
+    expect([mcp.serverRole, mcp.mcp.sharedRateLimit]).toEqual(["mcp", true])
+    expect(loadConfig({ ...baseEnv, SERVER_ROLE: "mcp", MCP_SHARED_RATE_LIMIT: "false" }).mcp.sharedRateLimit).toBe(false)
+    expect(() => loadConfig({ ...baseEnv, SERVER_ROLE: "worker" })).toThrow("SERVER_ROLE must be 'all', 'app' or 'mcp'")
+    expect(() => loadConfig({ ...baseEnv, MCP_SHARED_RATE_LIMIT: "yes" })).toThrow("MCP_SHARED_RATE_LIMIT must be 'true' or 'false'")
+  })
+
+  test("pool sizes and MCP limits are read from the environment within bounds", () => {
+    const config = loadConfig({
+      ...baseEnv,
+      DB_POOL_MAX: "20",
+      MCP_DB_POOL_MAX: "3",
+      MCP_STATEMENT_TIMEOUT_MS: "2500",
+      MCP_MAX_ACTIVE: "4",
+      MCP_MAX_QUEUED: "0",
+      MCP_QUEUE_TIMEOUT_MS: "500",
+      PAYLOAD_WORKERS: "4",
+    })
+    expect([config.dbPoolMax, config.payloadWorkers]).toEqual([20, 4])
+    expect(config.mcp).toMatchObject({ dbPoolMax: 3, statementTimeoutMs: 2500, maxActive: 4, maxQueued: 0, queueTimeoutMs: 500 })
+    expect(() => loadConfig({ ...baseEnv, MCP_MAX_ACTIVE: "0" })).toThrow("MCP_MAX_ACTIVE must be an integer between 1 and 1000")
+  })
+
   test("counts trusted proxy hops from PROXY_HOPS plus TRUST_PROXY", () => {
     expect(loadConfig({ ...baseEnv, TRUST_PROXY: "true" }).proxyHops).toBe(1)
     expect(loadConfig({ ...baseEnv, TRUST_PROXY: "yes" }).proxyHops).toBe(0)
