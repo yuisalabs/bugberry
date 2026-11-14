@@ -1,5 +1,6 @@
 import { type Browser, browser } from "wxt/browser"
 import type { ActiveTab } from "../../lib/capture/capture-flow"
+import { reinjectCapture } from "../../lib/capture/open-tabs"
 
 export function toActiveTab(tab: Browser.tabs.Tab | undefined): ActiveTab | null {
   if (tab?.id === undefined || tab.windowId === undefined) return null
@@ -80,3 +81,17 @@ export const readPageEnvironment = async (tabId: number) => {
   const [injection] = await browser.scripting.executeScript({ target: { tabId }, world: "MAIN", func: readEnvironment })
   return injection?.result
 }
+
+/** Where WXT puts capture.content.ts (MAIN world) and flush.content.ts (isolated world). */
+const CAPTURE_SCRIPT = "/content-scripts/capture.js"
+const FLUSH_SCRIPT = "/content-scripts/flush.js"
+
+/** The scripts the manifest gives every web page at load, into the web pages loaded before the extension. */
+export const reinjectCaptureScripts = () =>
+  reinjectCapture({
+    tabs: () => browser.tabs.query({}),
+    inject: async (tabId) => {
+      await browser.scripting.executeScript({ target: { tabId }, world: "MAIN", files: [CAPTURE_SCRIPT] })
+      await browser.scripting.executeScript({ target: { tabId }, files: [FLUSH_SCRIPT] })
+    },
+  })

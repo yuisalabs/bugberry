@@ -40,7 +40,7 @@ import { startReplayReport } from "../../lib/replay/replay-capture"
 import { createReplayController } from "../../lib/replay/replay-controller"
 import { createMessageListener, RECORDER_BUILD } from "./on-message"
 import { promptTickets } from "./prompt-tickets"
-import { readPageCapture, readPageEnvironment, toActiveTab } from "./tabs"
+import { readPageCapture, readPageEnvironment, reinjectCaptureScripts, toActiveTab } from "./tabs"
 
 /** Casts keep these valid before WXT has generated the path types for the pages. */
 const REVIEW_PAGE = "/review.html" as Parameters<typeof browser.runtime.getURL>[0]
@@ -492,6 +492,7 @@ export default defineBackground(() => {
       tabs: () => browser.tabs.query({}),
       inject: async (tabId) => void (await browser.scripting.executeScript({ target: { tabId }, files: [BRIDGE_SCRIPT] })),
     })
+    void reinjectCaptureScripts()
   })
 
   // Last, so a browser without it (Firefox) still registers every listener above.

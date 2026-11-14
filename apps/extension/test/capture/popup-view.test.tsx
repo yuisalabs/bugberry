@@ -20,6 +20,7 @@ function view(overrides: Partial<PopupViewProps> = {}) {
     logsAvailable: true,
     tabRecorder: true,
     hostAccess: true,
+    pageCaptured: true,
     error: null,
     busy: false,
     onPrefs: mock(),
@@ -38,6 +39,7 @@ function view(overrides: Partial<PopupViewProps> = {}) {
     onStop: mock(),
     onSignIn: mock(),
     onRetry: mock(),
+    onReloadTab: mock(),
     onOpenSettings: mock(),
     onOpenDashboard: mock(),
     onOpenDraft: mock(),
@@ -256,6 +258,29 @@ describe("website access", () => {
   test("no button while access is granted", () => {
     view()
     expect(screen.queryByRole("button", { name: "Allow access to websites" })).toBeNull()
+  })
+})
+
+describe("a tab open from before the extension", () => {
+  test("asks for a reload before capturing, and the logs show as off", () => {
+    const props = view({ pageCaptured: false })
+    expect(
+      screen.getByText("This tab was open before BugBerry, so its console, network and actions aren't captured. Reload it, then show the bug again."),
+    ).toBeTruthy()
+    expect(screen.getByText("Logs off")).toBeTruthy()
+    fireEvent.click(button("Reload tab"))
+    expect(props.onReloadTab).toHaveBeenCalledTimes(1)
+  })
+
+  test("no reload asked where the capture runs, or where logs aren't possible anyway", () => {
+    view()
+    expect(screen.queryByRole("button", { name: "Reload tab" })).toBeNull()
+    cleanup()
+    view({ pageCaptured: false, logsAvailable: false })
+    expect(screen.queryByRole("button", { name: "Reload tab" })).toBeNull()
+    cleanup()
+    view({ pageCaptured: false, hostAccess: false })
+    expect(screen.queryByRole("button", { name: "Reload tab" })).toBeNull()
   })
 })
 

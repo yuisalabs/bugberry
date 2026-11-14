@@ -6,6 +6,7 @@ import { createBugberryApi } from "../../lib/server/api"
 import { BUILD_SERVER_ORIGIN, browserSettingsStorage, capturePrefsStorage, lastSessionStorage, lastWorkspaceStorage } from "../../lib/server/browser-settings"
 import { type CameraAccess, cameraAccess, type CameraDevice, cameraDevices } from "../../lib/devices/camera"
 import { capturable } from "../../lib/capture/capture-flow"
+import { captureRunning } from "../../lib/capture/open-tabs"
 import { hasReplay, hasTabRecorder, shortcutsPage } from "../../lib/platform/browser-support"
 import { type CapturePrefs, DEFAULT_CAPTURE_PREFS, recordOptionsFor } from "../../lib/capture/capture-prefs"
 import { createIndexedDbDraftStore } from "../../lib/drafts/draft-store"
@@ -105,6 +106,14 @@ export function App() {
   const readHostAccess = () =>
     void browser.permissions.contains(ALL_SITES).then(setHostAccess, () => setHostAccess(true))
   useEffect(readHostAccess, [])
+  // A page that can't be read says nothing either way: only a page that answers "no session" asks for a reload.
+  const [pageCaptured, setPageCaptured] = useState(true)
+  useEffect(() => {
+    if (activeTab?.id === undefined || !capturable(activeTab.url)) return
+    browser.scripting
+      .executeScript({ target: { tabId: activeTab.id }, world: "MAIN", func: captureRunning })
+      .then(([injection]) => setPageCaptured(injection?.result !== false), () => {})
+  }, [activeTab?.id])
 
   useEffect(() => {
     void loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN).then(async (loaded) => {
@@ -340,6 +349,7 @@ export function App() {
         logsAvailable={capturable(activeTab?.url)}
         tabRecorder={tabRecorder}
         hostAccess={hostAccess}
+        pageCaptured={pageCaptured}
         error={error}
         busy={busy}
         onPrefs={(patch) => void updatePrefs(patch)}
@@ -380,6 +390,11 @@ export function App() {
         }}
         onDeleteDraft={(id) => void remove(id)}
         onAllowHosts={() => void browser.permissions.request(ALL_SITES).finally(readHostAccess)}
+        onReloadTab={() => {
+          // The reporter goes back to the page to show the bug again.
+          if (activeTab?.id === undefined) return
+          void browser.tabs.reload(activeTab.id).finally(() => window.close())
+        }}
         usage={limitNotes.usage}
         screenshotWarning={limitNotes.screenshot}
         recordWarning={limitNotes.record}

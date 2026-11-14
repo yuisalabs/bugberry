@@ -56,6 +56,8 @@ export interface PopupViewProps {
   tabRecorder: boolean
   /** False when the reporter took away BugBerry's access to websites (Firefox lets them). */
   hostAccess: boolean
+  /** False when the tab was open before the extension, so the capture script never ran in it; a reload starts it. */
+  pageCaptured: boolean
   error: string | null
   busy: boolean
   onPrefs(patch: Partial<CapturePrefs>): void
@@ -82,6 +84,7 @@ export interface PopupViewProps {
   onOpenDraft(id: string): void
   onDeleteDraft(id: string): void
   onAllowHosts(): void
+  onReloadTab(): void
   /** The default workspace's usage under ACCOUNT_LIMITS ("Screenshots 3/5 · Recordings 5/5"); null without limits. */
   usage?: string | null
   /** Shown under the tiles when the chosen kind is full; the dial still works (the report may go to another workspace). */
@@ -161,7 +164,7 @@ export function PopupView(props: PopupViewProps) {
   const live = props.live?.recording ? props.live : null
   // While recording the tiles show what is being recorded, faded: nothing else can start.
   const choice: CaptureChoice = live ? { kind: "record", source: live.source } : choiceOf(prefs, props.tabRecorder)
-  const logsOn = props.logsAvailable && props.hostAccess
+  const logsOn = props.logsAvailable && props.hostAccess && props.pageCaptured
   const micShort = micShortName(prefs, props.mic)
   // The camera's bubble is on the page: only a tab recording shows it.
   const cameraShown = choice.kind === "record" && choice.source === "tab" && props.tabRecorder
@@ -196,6 +199,17 @@ export function PopupView(props: PopupViewProps) {
             <span>BugBerry can't read this page. Allow access to websites to capture logs.</span>
             <Button size="sm" className="self-start" onPress={props.onAllowHosts}>
               Allow access to websites
+            </Button>
+          </span>
+        </Strip>
+      )}
+
+      {!live && props.logsAvailable && props.hostAccess && !props.pageCaptured && (
+        <Strip tone="warning">
+          <span className="flex flex-col gap-2">
+            <span>This tab was open before BugBerry, so its console, network and actions aren't captured. Reload it, then show the bug again.</span>
+            <Button size="sm" className="self-start" onPress={props.onReloadTab}>
+              Reload tab
             </Button>
           </span>
         </Strip>
