@@ -106,6 +106,10 @@ export interface McpServerConfig {
   maxActive: number
   /** Calls waiting for a place; more are answered 503 right away (MCP_MAX_QUEUED). */
   maxQueued: number
+  /** Of those places, how many one person's agents may hold at once (MCP_MAX_ACTIVE_PER_PERSON). */
+  maxActivePerPerson: number
+  /** Of the waiting calls, how many may be one person's (MCP_MAX_QUEUED_PER_PERSON). */
+  maxQueuedPerPerson: number
   /** A waiting call is answered 503 after this long (MCP_QUEUE_TIMEOUT_MS). */
   queueTimeoutMs: number
   /**
@@ -296,6 +300,8 @@ export function loadConfig(env: Env): Config {
       statementTimeoutMs: integer("MCP_STATEMENT_TIMEOUT_MS", 10_000, 100, 600_000),
       maxActive: integer("MCP_MAX_ACTIVE", 8, 1, 1000),
       maxQueued: integer("MCP_MAX_QUEUED", 32, 0, 10_000),
+      maxActivePerPerson: integer("MCP_MAX_ACTIVE_PER_PERSON", 4, 1, 1000),
+      maxQueuedPerPerson: integer("MCP_MAX_QUEUED_PER_PERSON", 16, 0, 10_000),
       queueTimeoutMs: integer("MCP_QUEUE_TIMEOUT_MS", 10_000, 100, 300_000),
       sharedRateLimit: flag("MCP_SHARED_RATE_LIMIT", serverRole === "mcp"),
     },

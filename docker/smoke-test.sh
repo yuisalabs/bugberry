@@ -62,6 +62,10 @@ api_404() { [ "$(status "$1")" = 404 ] && [[ "$(body "$1")" == *'"not_found"'* ]
 check "/api answers JSON 404" api_404 /api
 check "/api/nope answers JSON 404" api_404 /api/nope
 
+# 401 is the MCP container asking for a token; 404 would be the api, which nginx should not send MCP to.
+mcp_reached() { [ "$(status /api/mcp -X POST)" = 401 ]; }
+check "MCP reaches its own container" mcp_reached
+
 oauth_callback() { [ "$(status "/api/auth/callback/google?code=x&state=y")" = 302 ]; }
 check "OAuth callback reaches Better Auth" oauth_callback
 

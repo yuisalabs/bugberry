@@ -56,7 +56,16 @@ const config: Config = {
       demoRequestEmail: null,
   serverRole: "all",
   dbPoolMax: 10,
-  mcp: { dbPoolMax: 5, statementTimeoutMs: 10_000, maxActive: 8, maxQueued: 32, queueTimeoutMs: 10_000, sharedRateLimit: false },
+  mcp: {
+    dbPoolMax: 5,
+    statementTimeoutMs: 10_000,
+    maxActive: 8,
+    maxQueued: 32,
+    maxActivePerPerson: 4,
+    maxQueuedPerPerson: 16,
+    queueTimeoutMs: 10_000,
+    sharedRateLimit: false,
+  },
   payloadWorkers: 2,
 }
 

@@ -56,6 +56,8 @@ async function deployEnv() {
         profiles?: string[]
         ports?: string[]
         stop_grace_period?: string
+        cpus?: string | number
+        mem_limit?: string
         logging?: { driver?: string; options?: Record<string, string> }
       }
     >
@@ -211,6 +213,15 @@ describe("deploy files", () => {
     const mcpBlock = nginx.slice(nginx.indexOf("location ^~ /api/mcp {"), nginx.indexOf("location ^~ /api {"))
     expect(mcpBlock).toContain("set $mcp_upstream http://api-mcp:3000;")
     expect(mcpBlock).toContain("proxy_pass $mcp_upstream;")
+  })
+
+  test("the MCP container has a ceiling on memory as well as CPU, so agents cannot take the host's from the dashboard", async () => {
+    const { compose, example } = await deployEnv()
+    const mcp = compose.services["api-mcp"]
+    expect([interpolate(String(mcp?.cpus), example), interpolate(String(mcp?.mem_limit), example)]).toEqual(["1", "1g"])
+    expect(interpolate(String(mcp?.mem_limit), { MCP_MEMORY: "2g" })).toBe("2g")
+    // The dashboard's own container keeps the whole server.
+    expect([compose.services.api?.cpus, compose.services.api?.mem_limit]).toEqual([undefined, undefined])
   })
 
   test("Caddy forwards to the client container, never straight to the api", async () => {

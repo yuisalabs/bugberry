@@ -81,6 +81,74 @@ describe("createBulkhead", () => {
     await first
   })
 
+  test("one caller holds at most its own share of the places, and others run past its waiting work", async () => {
+    const bulkhead = createBulkhead({ maxActive: 3, maxQueued: 10, queueTimeoutMs: 1000, maxActivePerKey: 2 })
+    const gates = [deferred(), deferred(), deferred(), deferred()]
+    const started: string[] = []
+    const run = (name: string, key: string, gate: ReturnType<typeof deferred>) =>
+      bulkhead.run(
+        async () => {
+          started.push(name)
+          await gate.promise
+        },
+        undefined,
+        key,
+      )
+    const runs = [run("ana-1", "ana", gates[0]!), run("ana-2", "ana", gates[1]!), run("ana-3", "ana", gates[2]!), run("budi-1", "budi", gates[3]!)]
+    await Bun.sleep(0)
+    // A third place is free, but Ana already holds her two: her third call waits and Budi's runs.
+    expect(started).toEqual(["ana-1", "ana-2", "budi-1"])
+    expect(bulkhead.stats()).toEqual({ active: 3, queued: 1 })
+
+    gates[0]!.resolve()
+    await runs[0]
+    await Bun.sleep(0)
+    expect(started).toEqual(["ana-1", "ana-2", "budi-1", "ana-3"])
+    for (const gate of gates) gate.resolve()
+    await Promise.all(runs)
+    expect(bulkhead.stats()).toEqual({ active: 0, queued: 0 })
+  })
+
+  test("a freed place goes to the first waiting caller that is under its share", async () => {
+    const bulkhead = createBulkhead({ maxActive: 2, maxQueued: 10, queueTimeoutMs: 1000, maxActivePerKey: 1 })
+    const gates = { ana1: deferred(), budi1: deferred(), ana2: deferred(), cici1: deferred() }
+    const started: string[] = []
+    const run = (name: keyof typeof gates, key: string) =>
+      bulkhead.run(
+        async () => {
+          started.push(name)
+          await gates[name].promise
+        },
+        undefined,
+        key,
+      )
+    const runs = [run("ana1", "ana"), run("budi1", "budi"), run("ana2", "ana"), run("cici1", "cici")]
+    await Bun.sleep(0)
+    expect(started).toEqual(["ana1", "budi1"])
+
+    // Budi's place comes free while Ana still holds hers: Cici is next, though Ana's second call waited longer.
+    gates.budi1.resolve()
+    await runs[1]
+    await Bun.sleep(0)
+    expect(started).toEqual(["ana1", "budi1", "cici1"])
+    for (const gate of Object.values(gates)) gate.resolve()
+    await Promise.all(runs)
+    expect(started).toEqual(["ana1", "budi1", "cici1", "ana2"])
+  })
+
+  test("one caller fills at most its own share of the queue, leaving room for others", async () => {
+    const bulkhead = createBulkhead({ maxActive: 1, maxQueued: 10, queueTimeoutMs: 1000, maxQueuedPerKey: 1 })
+    const gate = deferred()
+    const first = bulkhead.run(() => gate.promise, undefined, "ana")
+    const waiting = bulkhead.run(async () => "ana waited", undefined, "ana")
+    expect(await rejection(bulkhead.run(async () => "ana again", undefined, "ana"))).toBe("full")
+    const other = bulkhead.run(async () => "budi waited", undefined, "budi")
+    expect(bulkhead.stats()).toEqual({ active: 1, queued: 2 })
+    gate.resolve()
+    await first
+    expect([await waiting, await other]).toEqual(["ana waited", "budi waited"])
+  })
+
   test("a failing piece of work frees its place", async () => {
     const bulkhead = createBulkhead({ maxActive: 1, maxQueued: 0, queueTimeoutMs: 1000 })
     await expect(bulkhead.run(() => Promise.reject(new Error("boom")))).rejects.toThrow("boom")

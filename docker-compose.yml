@@ -61,6 +61,8 @@ services:
       SERVER_ROLE: mcp
     # At most this many CPUs for MCP (MCP_CPUS in .env), whatever the agents ask of it.
     cpus: ${MCP_CPUS:-1}
+    # And this much memory (MCP_MEMORY): past it Docker restarts MCP alone, and the rest of the server keeps its own.
+    mem_limit: ${MCP_MEMORY:-1g}
     volumes:
       - uploads:/data/uploads
     depends_on:

@@ -98,6 +98,8 @@ describe("loadConfig", () => {
       statementTimeoutMs: 10_000,
       maxActive: 8,
       maxQueued: 32,
+      maxActivePerPerson: 4,
+      maxQueuedPerPerson: 16,
       queueTimeoutMs: 10_000,
       sharedRateLimit: false,
     })
@@ -127,6 +129,14 @@ describe("loadConfig", () => {
     expect([config.dbPoolMax, config.payloadWorkers]).toEqual([20, 4])
     expect(config.mcp).toMatchObject({ dbPoolMax: 3, statementTimeoutMs: 2500, maxActive: 4, maxQueued: 0, queueTimeoutMs: 500 })
     expect(() => loadConfig({ ...baseEnv, MCP_MAX_ACTIVE: "0" })).toThrow("MCP_MAX_ACTIVE must be an integer between 1 and 1000")
+  })
+
+  test("one person's share of MCP is read from the environment within bounds", () => {
+    const config = loadConfig({ ...baseEnv, MCP_MAX_ACTIVE_PER_PERSON: "2", MCP_MAX_QUEUED_PER_PERSON: "0" })
+    expect(config.mcp).toMatchObject({ maxActivePerPerson: 2, maxQueuedPerPerson: 0 })
+    expect(() => loadConfig({ ...baseEnv, MCP_MAX_ACTIVE_PER_PERSON: "0" })).toThrow(
+      "MCP_MAX_ACTIVE_PER_PERSON must be an integer between 1 and 1000",
+    )
   })
 
   test("counts trusted proxy hops from PROXY_HOPS plus TRUST_PROXY", () => {
