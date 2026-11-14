@@ -6,6 +6,18 @@ description: What changed in BugBerry, newest first.
 Each entry is named after the browser extension's version. Changes to the dashboard and the server ship with it. A
 release with no extension change still gets its own entry, and the entry says that the extension stays as it is.
 
+## 0.12.3 · 14 November 2026
+
+- **AI agents can no longer slow the dashboard down.** Agents call BugBerry over MCP far faster than people click, and
+  their calls shared one process and one set of database connections with the dashboard. MCP now has its own share of
+  the server. At most 8 tool calls run at once and 32 more wait their turn; past that an agent is told BugBerry is
+  busy (`503` with `Retry-After`) and tries again. The server unpacks large debugger data and replays on separate
+  threads, so one big report no longer holds up other requests.
+- **Self-hosting:** update the server and the dashboard with `docker compose up -d --build`. Migration `0035` runs
+  when the server starts. Compose now runs MCP in a container of its own, `api-mcp`, and the dashboard's nginx sends
+  `/api/mcp` to it. With an external Postgres, set `DATABASE_URL` for `api-mcp` as well. To change the limits, see
+  [AI agents and capacity](/self-host/environment#ai-agents-and-capacity). The extension stays at 0.12.2.
+
 ## 0.12.2 · 10 November 2026
 
 - **Logs from tabs open before the extension.** A tab already open when the extension was installed or updated had no
