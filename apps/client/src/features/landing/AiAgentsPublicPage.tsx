@@ -3,16 +3,14 @@ import { AiAgentsView } from "./AiAgentsView"
 import { SiteNavigation } from "./SiteNavigation"
 import { usePageMeta } from "./usePageMeta"
 import { authQueries } from "../auth/queries"
-import { accountQueries } from "../account/queries"
 
 /** `/ai-agents` on BugBerry cloud. */
 export function AiAgentsPublicPage() {
-  const me = useQuery({ ...accountQueries.me(), retry: false, meta: { signedOutIsFine: true } })
   const config = useQuery(authQueries.clientConfig())
   usePageMeta("AI Agents", "Give Claude, Cursor or Copilot the recording, console, network and steps of every bug through BugBerry's MCP server.")
   return (
     <SiteNavigation>
-      <AiAgentsView signedIn={me.isSuccess} installUrl={config.data?.extensionInstallUrl ?? null} origin={window.location.origin} />
+      <AiAgentsView installUrl={config.data?.extensionInstallUrl ?? null} origin={window.location.origin} />
     </SiteNavigation>
   )
 }

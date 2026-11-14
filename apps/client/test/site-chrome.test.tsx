@@ -25,7 +25,7 @@ const linkNamed = (root: HTMLElement, name: string) => Array.from(root.querySele
 
 describe("site chrome", () => {
   test("every link goes to a public page, a docs page or the install link", () => {
-    render(<SiteChrome signedIn={false} installUrl={STORE}>page</SiteChrome>)
+    render(<SiteChrome installUrl={STORE}>page</SiteChrome>)
     fireEvent.click(screen.getByRole("button", { name: "Product" }))
     for (const href of hrefs()) {
       const ok =
@@ -46,7 +46,7 @@ describe("site chrome", () => {
       fireEvent.scroll(window)
     }
     scrollTo(0)
-    render(<SiteChrome signedIn={false} installUrl={null}>page</SiteChrome>)
+    render(<SiteChrome installUrl={null}>page</SiteChrome>)
     const header = screen.getByRole("banner")
     const nav = screen.getByRole("navigation", { name: "Main" })
     expect(header.className).toContain("sticky")
@@ -62,13 +62,13 @@ describe("site chrome", () => {
   })
 
   test("behind the floating header the page stays dark at the top, so no light strip flashes while scrolling", () => {
-    render(<SiteChrome signedIn={false} installUrl={null}>page</SiteChrome>)
+    render(<SiteChrome installUrl={null}>page</SiteChrome>)
     const page = screen.getByRole("banner").parentElement!
     expect(page.className).toContain("bg-[linear-gradient(#1C1022_0_68px,#F7F6FA_68px)]")
   })
 
   test("the footer has the changelog and privacy, and no About, Status, Security or Terms", () => {
-    render(<SiteChrome signedIn={false} installUrl={null}>page</SiteChrome>)
+    render(<SiteChrome installUrl={null}>page</SiteChrome>)
     const footer = screen.getByRole("navigation", { name: "Footer" })
     expect(linkNamed(footer, "Changelog")?.getAttribute("href")).toBe(CHANGELOG)
     expect(CHANGELOG).toBe(`${DOCS_URL}/changelog`)
@@ -77,7 +77,7 @@ describe("site chrome", () => {
   })
 
   test("the footer's product features open the same docs sections as the Product menu", () => {
-    render(<SiteChrome signedIn={false} installUrl={null}>page</SiteChrome>)
+    render(<SiteChrome installUrl={null}>page</SiteChrome>)
     const footer = screen.getByRole("navigation", { name: "Footer" })
     for (const [name, href] of [
       ["Browser extension", RECORDING_DOCS],
@@ -92,7 +92,7 @@ describe("site chrome", () => {
   })
 
   test("the footer's integrations open their own section of the integrations docs", () => {
-    render(<SiteChrome signedIn={false} installUrl={null}>page</SiteChrome>)
+    render(<SiteChrome installUrl={null}>page</SiteChrome>)
     const footer = screen.getByRole("navigation", { name: "Footer" })
     const docs = readFileSync(join(import.meta.dir, "..", "..", "docs", "content", "docs", "self-host", "integrations.mdx"), "utf8")
     // Fumadocs gives each heading an id: lower case, punctuation dropped, spaces as dashes.
@@ -105,7 +105,7 @@ describe("site chrome", () => {
   })
 
   test("Product opens the menu with its nine features, and Escape closes it", () => {
-    render(<SiteChrome signedIn={false} installUrl={null}>page</SiteChrome>)
+    render(<SiteChrome installUrl={null}>page</SiteChrome>)
     const product = screen.getByRole("button", { name: "Product" })
     expect(product.getAttribute("aria-expanded")).toBe("false")
     fireEvent.click(product)
@@ -130,7 +130,7 @@ describe("site chrome", () => {
   })
 
   test("the menu comes right after Product for the keyboard, and Escape puts focus back on Product", () => {
-    render(<SiteChrome signedIn={false} installUrl={null}>page</SiteChrome>)
+    render(<SiteChrome installUrl={null}>page</SiteChrome>)
     const product = screen.getByRole("button", { name: "Product" })
     fireEvent.click(product)
     const focusable = [...document.querySelectorAll<HTMLElement>("a[href], button")]
@@ -141,7 +141,7 @@ describe("site chrome", () => {
   })
 
   test("pointing at Product opens its menu, and moving away closes it", async () => {
-    render(<SiteChrome signedIn={false} installUrl={null}>page</SiteChrome>)
+    render(<SiteChrome installUrl={null}>page</SiteChrome>)
     const product = screen.getByRole("button", { name: "Product" })
     fireEvent.pointerOver(product, { pointerType: "mouse" })
     expect(product.getAttribute("aria-expanded")).toBe("true")
@@ -160,7 +160,7 @@ describe("site chrome", () => {
   })
 
   test("a touch on Product doesn't count as pointing; a tap toggles it", () => {
-    render(<SiteChrome signedIn={false} installUrl={null}>page</SiteChrome>)
+    render(<SiteChrome installUrl={null}>page</SiteChrome>)
     const product = screen.getByRole("button", { name: "Product" })
     fireEvent.pointerOver(product, { pointerType: "touch" })
     expect(product.getAttribute("aria-expanded")).toBe("false")
@@ -169,14 +169,14 @@ describe("site chrome", () => {
   })
 
   test("the header's links light up like Request a demo when pointed at", () => {
-    render(<SiteChrome signedIn={false} installUrl={null}>page</SiteChrome>)
+    render(<SiteChrome installUrl={null}>page</SiteChrome>)
     const main = screen.getByRole("navigation", { name: "Main" })
     for (const name of ["Integrations", "AI Agents", "Pricing", "Docs"]) expect(linkNamed(main, name)?.className).toContain("hover:bg-[#FFFFFF]/[0.06]")
     expect(screen.getByRole("button", { name: "Product" }).className).toContain("hover:bg-[#FFFFFF]/[0.06]")
   })
 
   test("the Product menu eases in, and eases out before it goes", async () => {
-    render(<SiteChrome signedIn={false} installUrl={null}>page</SiteChrome>)
+    render(<SiteChrome installUrl={null}>page</SiteChrome>)
     const product = screen.getByRole("button", { name: "Product" })
     fireEvent.click(product)
     const panel = () => document.querySelector<HTMLElement>("[data-product-panel]")
@@ -191,7 +191,7 @@ describe("site chrome", () => {
   })
 
   test("closing never drops the menu for a frame before it eases out", () => {
-    render(<SiteChrome signedIn={false} installUrl={null}>page</SiteChrome>)
+    render(<SiteChrome installUrl={null}>page</SiteChrome>)
     const product = screen.getByRole("button", { name: "Product" })
     fireEvent.click(product)
     const panel = document.querySelector<HTMLElement>("[data-product-panel]")!
@@ -207,7 +207,7 @@ describe("site chrome", () => {
   })
 
   test("pointing back while it eases out brings it back without fading in from nothing", () => {
-    render(<SiteChrome signedIn={false} installUrl={null}>page</SiteChrome>)
+    render(<SiteChrome installUrl={null}>page</SiteChrome>)
     const product = screen.getByRole("button", { name: "Product" })
     fireEvent.click(product)
     fireEvent.keyDown(document, { key: "Escape" })
@@ -218,7 +218,7 @@ describe("site chrome", () => {
   })
 
   test("the menu's card says Free to start, and its features line up: titles on one line, two lines under each", () => {
-    render(<SiteChrome signedIn={false} installUrl={null}>page</SiteChrome>)
+    render(<SiteChrome installUrl={null}>page</SiteChrome>)
     fireEvent.click(screen.getByRole("button", { name: "Product" }))
     const panel = document.querySelector<HTMLElement>("[data-product-panel]")!
     expect(within(panel).getByText("Free to start")).toBeTruthy()
@@ -235,7 +235,7 @@ describe("site chrome", () => {
   })
 
   test("a click outside closes the Product menu", () => {
-    render(<SiteChrome signedIn={false} installUrl={null}><p>outside</p></SiteChrome>)
+    render(<SiteChrome installUrl={null}><p>outside</p></SiteChrome>)
     const product = screen.getByRole("button", { name: "Product" })
     fireEvent.click(product)
     fireEvent.pointerDown(screen.getByText("outside"))
@@ -243,7 +243,7 @@ describe("site chrome", () => {
   })
 
   test("the footer links BugBerry's repository on GitHub", () => {
-    render(<SiteChrome signedIn={false} installUrl={null}>page</SiteChrome>)
+    render(<SiteChrome installUrl={null}>page</SiteChrome>)
     const repo = screen.getByRole("link", { name: "BugBerry on GitHub" })
     expect(repo.getAttribute("href")).toBe("https://github.com/yuisalabs/bugberry")
     expect(repo.closest("footer")).toBeTruthy()
@@ -253,27 +253,22 @@ describe("site chrome", () => {
     expect(CHROME_WEB_STORE_URL).toBe("https://chromewebstore.google.com/detail/bugberry/cccfgmgmmejlciecjipkcbabhdljhihi")
     expect(installHref(null)).toBe(CHROME_WEB_STORE_URL)
     expect(installHref(STORE)).toBe(STORE)
-    render(<SiteChrome signedIn={false} installUrl={null}>page</SiteChrome>)
+    render(<SiteChrome installUrl={null}>page</SiteChrome>)
     expect(linkNamed(screen.getByRole("contentinfo"), "Chrome Web Store")?.getAttribute("href")).toBe(CHROME_WEB_STORE_URL)
   })
 
   test("the main menu offers sign-up and a demo; a signed-in visitor gets the dashboard instead", () => {
-    const { unmount } = render(<SiteChrome signedIn={false} installUrl={null}>page</SiteChrome>)
+    const { unmount } = render(<SiteChrome installUrl={null}>page</SiteChrome>)
     const main = screen.getByRole("navigation", { name: "Main" })
     expect(linkNamed(main, "Get started")?.getAttribute("href")).toBe("/login")
     expect(linkNamed(main, "Request a demo")?.getAttribute("href")).toBe("/demo")
     for (const [name, href] of [["Integrations", "/integrations"], ["AI Agents", "/ai-agents"], ["Pricing", "/pricing"], ["Docs", DOCS_URL]]) {
       expect(linkNamed(main, name!)?.getAttribute("href")).toBe(href!)
     }
-    unmount()
-    render(<SiteChrome signedIn installUrl={null}>page</SiteChrome>)
-    const signedIn = screen.getByRole("navigation", { name: "Main" })
-    expect(linkNamed(signedIn, "Open dashboard")?.getAttribute("href")).toBe("/app")
-    expect(linkNamed(signedIn, "Get started")).toBeUndefined()
   })
 
   test("on a phone the menu button reaches every page", () => {
-    render(<SiteChrome signedIn={false} installUrl={null}>page</SiteChrome>)
+    render(<SiteChrome installUrl={null}>page</SiteChrome>)
     const button = screen.getByRole("button", { name: "Menu" })
     fireEvent.click(button)
     const sheet = document.getElementById(button.getAttribute("aria-controls") ?? "")!
@@ -287,7 +282,7 @@ describe("site chrome", () => {
   })
 
   test("the phone menu covers the whole screen and holds the page still behind it", async () => {
-    render(<SiteChrome signedIn={false} installUrl={null}>page</SiteChrome>)
+    render(<SiteChrome installUrl={null}>page</SiteChrome>)
     const button = screen.getByRole("button", { name: "Menu" })
     fireEvent.click(button)
     const sheet = screen.getByRole("dialog", { name: "Menu" })
@@ -305,7 +300,7 @@ describe("site chrome", () => {
   })
 
   test("the phone menu moves: the sheet slides in, its rows follow one by one, Product unfolds", () => {
-    render(<SiteChrome signedIn={false} installUrl={null}>page</SiteChrome>)
+    render(<SiteChrome installUrl={null}>page</SiteChrome>)
     fireEvent.click(screen.getByRole("button", { name: "Menu" }))
     const sheet = screen.getByRole("dialog", { name: "Menu" })
     expect(sheet.dataset.state).toBe("open")
@@ -323,7 +318,7 @@ describe("site chrome", () => {
   test("the phone menu marks the page you are on", () => {
     window.history.pushState({}, "", "/pricing")
     try {
-      render(<SiteChrome signedIn={false} installUrl={null}>page</SiteChrome>)
+      render(<SiteChrome installUrl={null}>page</SiteChrome>)
       fireEvent.click(screen.getByRole("button", { name: "Menu" }))
       const sheet = screen.getByRole("dialog", { name: "Menu" })
       expect(within(sheet).getByRole("link", { name: "Pricing" }).getAttribute("aria-current")).toBe("page")
@@ -334,7 +329,7 @@ describe("site chrome", () => {
   })
 
   test("the minimal chrome of a self-hosted server links only docs, privacy and sign-in", () => {
-    render(<SiteChrome signedIn={false} installUrl={null} minimal>page</SiteChrome>)
+    render(<SiteChrome installUrl={null} minimal>page</SiteChrome>)
     expect(screen.queryByRole("button", { name: "Product" })).toBeNull()
     expect(new Set(hrefs())).toEqual(new Set(["/", "/login", DOCS_URL, "/privacy"]))
   })

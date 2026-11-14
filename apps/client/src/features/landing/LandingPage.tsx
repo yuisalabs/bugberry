@@ -3,11 +3,9 @@ import { HomeView } from "./HomeView"
 import { SiteNavigation } from "./SiteNavigation"
 import { usePageMeta } from "./usePageMeta"
 import { authQueries } from "../auth/queries"
-import { accountQueries } from "../account/queries"
 
-/** `/`: the public home page. A signed-in visitor is offered the dashboard instead of sign-up. */
+/** `/`: the public home page. */
 export function LandingPage() {
-  const me = useQuery({ ...accountQueries.me(), retry: false, meta: { signedOutIsFine: true } })
   const config = useQuery(authQueries.clientConfig())
   usePageMeta(
     "BugBerry · Bug reporting for teams, and the agents that fix them",
@@ -15,7 +13,7 @@ export function LandingPage() {
   )
   return (
     <SiteNavigation>
-      <HomeView signedIn={me.isSuccess} installUrl={config.data?.extensionInstallUrl ?? null} />
+      <HomeView installUrl={config.data?.extensionInstallUrl ?? null} />
     </SiteNavigation>
   )
 }

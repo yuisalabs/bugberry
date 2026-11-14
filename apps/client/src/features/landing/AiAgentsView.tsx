@@ -23,11 +23,10 @@ const heading = "font-heading text-[30px]/[36px] font-semibold tracking-[-1px] m
 /** The clients apps/docs/content/docs/guide/ai-agents.mdx walks through. */
 const CLIENTS = ["Claude Code", "Claude.ai", "Cursor", "VS Code", "Windsurf", "ChatGPT"]
 
-function connectHref(signedIn: boolean) {
-  return signedIn ? "/app/settings/ai" : "/login"
-}
+/** Signed in, /login goes straight on to `next`. */
+const CONNECT_HREF = "/login?next=/app/settings/ai"
 
-function Hero({ signedIn }: { signedIn: boolean }) {
+function Hero() {
   return (
     <section className="overflow-hidden bg-[#1C1022] bg-[radial-gradient(ellipse_70%_60%_at_50%_0%,#3D1A3F_0%,#1C1022_70%)] pt-16 md:pt-24">
       <div className={`${siteContainer} flex flex-col items-center gap-12`}>
@@ -42,7 +41,7 @@ function Hero({ signedIn }: { signedIn: boolean }) {
           </p>
           <div className="flex flex-col items-stretch gap-2.5 pt-2.5 sm:flex-row">
             <Link
-              href={connectHref(signedIn)}
+              href={CONNECT_HREF}
               className="inline-flex h-[46px] items-center justify-center rounded-xl bg-[#D61F69] px-5 text-[15px] font-semibold text-white transition hover:bg-[#C01A5E]"
             >
               Connect an agent
@@ -270,10 +269,10 @@ function Trust() {
 }
 
 /** `/ai-agents`: BugBerry's MCP server. `origin` is this server, for the address and the command. */
-export function AiAgentsView({ signedIn, installUrl, origin }: { signedIn: boolean; installUrl: string | null; origin: string }) {
+export function AiAgentsView({ installUrl, origin }: { installUrl: string | null; origin: string }) {
   return (
-    <SiteChrome signedIn={signedIn} installUrl={installUrl}>
-      <Hero signedIn={signedIn} />
+    <SiteChrome installUrl={installUrl}>
+      <Hero />
       <Steps origin={origin} />
       <Capabilities />
       <Trust />

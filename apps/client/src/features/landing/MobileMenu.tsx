@@ -25,13 +25,11 @@ const here = "bg-[#D61F69]/15 text-[#FF4F8B] hover:bg-[#D61F69]/20 hover:text-[#
 export function MobileMenu({
   id,
   state,
-  signedIn,
   onClose,
   onDismiss,
 }: {
   id: string
   state: "open" | "closed"
-  signedIn: boolean
   /** Following a link: the menu just goes. */
   onClose: () => void
   /** The close button: the menu goes and focus returns to the button that opened it. */
@@ -126,8 +124,8 @@ export function MobileMenu({
       </nav>
       <div className="border-t border-[#3D2B46] pb-[env(safe-area-inset-bottom)]">
         <div className={`${siteContainer} flex flex-col gap-2.5 py-4 ${rowMotion}`} style={rowDelay(SITE_PAGES.length + 1)}>
-          <Link href={signedIn ? "/app" : "/login"} onPress={onClose} className={`${siteButton} h-11`}>
-            {signedIn ? "Open dashboard" : "Get started"}
+          <Link href="/login" onPress={onClose} className={`${siteButton} h-11`}>
+            Get started
           </Link>
           <Link href="/demo" onPress={onClose} className={`${siteOutlineButton} h-11`}>
             Request a demo

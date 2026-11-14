@@ -14,7 +14,7 @@ export function createQueryClient(onUnauthorized: () => void): QueryClient {
     if (error instanceof ApiError && error.status === 401) onUnauthorized()
   }
   return new QueryClient({
-    // Queries marked `meta: { signedOutIsFine: true }` (the public landing page asking who is there)
+    // Queries marked `meta: { signedOutIsFine: true }` (sign-in or an invite asking who is there)
     // treat 401 as an answer, not as a session that ended.
     queryCache: new QueryCache({
       onError: (error, query) => {

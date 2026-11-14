@@ -383,9 +383,9 @@ function Faq() {
 }
 
 /** `/pricing`: free in early access, what's coming, and self-hosting. */
-export function PricingView({ signedIn, installUrl }: { signedIn: boolean; installUrl: string | null }) {
+export function PricingView({ installUrl }: { installUrl: string | null }) {
   return (
-    <SiteChrome signedIn={signedIn} installUrl={installUrl}>
+    <SiteChrome installUrl={installUrl}>
       <Hero />
       <Compare />
       <Faq />

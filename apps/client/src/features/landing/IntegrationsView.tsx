@@ -29,9 +29,8 @@ const NOTIFIER_CARDS: Array<{ name: string; body: string }> = [
 /** What every ticket carries (apps/api/src/modules/trackers/content.ts). */
 const SENDS = ["Report link", "Console errors", "Failed requests", "Browser & OS"]
 
-function connectHref(signedIn: boolean) {
-  return signedIn ? "/app/settings/integrations" : "/login"
-}
+/** Signed in, /login goes straight on to `next`. */
+const CONNECT_HREF = "/login?next=/app/settings/integrations"
 
 function Hero({ installUrl }: { installUrl: string | null }) {
   return (
@@ -76,16 +75,16 @@ function Hero({ installUrl }: { installUrl: string | null }) {
   )
 }
 
-function ConnectLink({ name, signedIn }: { name: string; signedIn: boolean }) {
+function ConnectLink({ name }: { name: string }) {
   return (
-    <Link href={connectHref(signedIn)} className="mt-auto inline-flex w-fit items-center gap-[5px] pt-1 text-[14px] font-semibold text-[#D61F69] hover:text-[#B3175A]">
+    <Link href={CONNECT_HREF} className="mt-auto inline-flex w-fit items-center gap-[5px] pt-1 text-[14px] font-semibold text-[#D61F69] hover:text-[#B3175A]">
       {name ? `Connect ${name}` : "Connect"}
       <RiArrowRightLine className="size-3.5" aria-hidden />
     </Link>
   )
 }
 
-function Trackers({ signedIn }: { signedIn: boolean }) {
+function Trackers() {
   return (
     <section id="trackers" className="scroll-mt-4 bg-[#FFFFFF] py-20 md:py-28">
       <div className={`${siteContainer} flex flex-col gap-10`}>
@@ -125,7 +124,7 @@ function Trackers({ signedIn }: { signedIn: boolean }) {
                   </li>
                 ))}
               </ul>
-              <ConnectLink name={tracker.name} signedIn={signedIn} />
+              <ConnectLink name={tracker.name} />
             </Reveal>
           ))}
         </div>
@@ -134,7 +133,7 @@ function Trackers({ signedIn }: { signedIn: boolean }) {
   )
 }
 
-function Notifications({ signedIn }: { signedIn: boolean }) {
+function Notifications() {
   return (
     <section id="notifications" className="scroll-mt-4 border-t border-[#E6E1EC] bg-[#F7F6FA] py-20 md:py-28">
       <div className={`${siteContainer} flex flex-col gap-10`}>
@@ -157,7 +156,7 @@ function Notifications({ signedIn }: { signedIn: boolean }) {
               </span>
               <h3 className="font-heading text-[18px] font-semibold">{notifier.name}</h3>
               <p className="min-h-[44px] text-[14px]/[22px] text-[#635A6B]">{notifier.body}</p>
-              <ConnectLink name="" signedIn={signedIn} />
+              <ConnectLink name="" />
             </Reveal>
           ))}
         </div>
@@ -225,12 +224,12 @@ function Webhook() {
 }
 
 /** `/integrations`: the trackers and channels BugBerry sends reports to. */
-export function IntegrationsView({ signedIn, installUrl }: { signedIn: boolean; installUrl: string | null }) {
+export function IntegrationsView({ installUrl }: { installUrl: string | null }) {
   return (
-    <SiteChrome signedIn={signedIn} installUrl={installUrl}>
+    <SiteChrome installUrl={installUrl}>
       <Hero installUrl={installUrl} />
-      <Trackers signedIn={signedIn} />
-      <Notifications signedIn={signedIn} />
+      <Trackers />
+      <Notifications />
       <HowItWorks />
       <Webhook />
       <FinalCta installUrl={installUrl} />

@@ -74,8 +74,8 @@ function useDismiss(open: boolean, close: () => void, area: React.RefObject<HTML
   }, [open, close, area, onEscape])
 }
 
-/** The public site's top bar: pages, the Product menu, and sign-up (or the dashboard, for someone signed in). */
-export function SiteHeader({ signedIn, installUrl, minimal = false }: { signedIn: boolean; installUrl: string | null; minimal?: boolean }) {
+/** The public site's top bar: pages, the Product menu, and sign-up. */
+export function SiteHeader({ installUrl, minimal = false }: { installUrl: string | null; minimal?: boolean }) {
   const [menu, setMenu] = useState<"product" | "mobile" | null>(null)
   // Product opens on pointing (mouse or pen) as well as on a click; a touch or the keyboard uses the click.
   const openedByPointing = useRef(false)
@@ -137,16 +137,6 @@ export function SiteHeader({ signedIn, installUrl, minimal = false }: { signedIn
   const productId = useId()
   const mobileId = useId()
 
-  const account = signedIn ? (
-    <Link href="/app" className={primaryButton}>
-      Open dashboard
-    </Link>
-  ) : (
-    <Link href="/login" className={primaryButton}>
-      Get started
-    </Link>
-  )
-
   return (
     <header
       ref={header}
@@ -203,17 +193,15 @@ export function SiteHeader({ signedIn, installUrl, minimal = false }: { signedIn
         </div>
         <div className="flex items-center gap-2.5">
           {minimal ? (
-            signedIn ? (
-              account
-            ) : (
-              <Link href="/login" className={primaryButton}>
-                Sign in
-              </Link>
-            )
+            <Link href="/login" className={primaryButton}>
+              Sign in
+            </Link>
           ) : (
             <>
               <div className="hidden items-center gap-2.5 sm:flex">
-                {account}
+                <Link href="/login" className={primaryButton}>
+                  Get started
+                </Link>
                 <Link href="/demo" className={outlineButton}>
                   Request a demo
                 </Link>
@@ -238,7 +226,6 @@ export function SiteHeader({ signedIn, installUrl, minimal = false }: { signedIn
         <MobileMenu
           id={mobileId}
           state={mobile}
-          signedIn={signedIn}
           onClose={close}
           onDismiss={() => {
             close()

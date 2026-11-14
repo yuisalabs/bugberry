@@ -99,7 +99,7 @@ const AI_FEATURES: Array<{ title: string; body: string }> = [
   },
 ]
 
-function AiAgents({ signedIn }: { signedIn: boolean }) {
+function AiAgents() {
   return (
     <section id="ai-agents" className="scroll-mt-4 bg-[#2A1B31] py-20 md:py-28">
       <div className={`${siteContainer} flex flex-col gap-10`}>
@@ -114,7 +114,7 @@ function AiAgents({ signedIn }: { signedIn: boolean }) {
             </p>
             <div className="flex flex-wrap gap-2.5 pt-1">
               <Link
-                href={signedIn ? "/app/settings/ai" : "/login"}
+                href="/login?next=/app/settings/ai"
                 className="inline-flex h-[42px] items-center rounded-[11px] bg-[#FFFFFF] px-4 text-[14px] font-semibold text-[#1C1022] transition hover:bg-[#FFFFFF]/90"
               >
                 Connect an agent
@@ -448,11 +448,11 @@ function Integrations() {
 }
 
 /** `/` on BugBerry cloud: what BugBerry is, for whom, and how to start. */
-export function HomeView({ signedIn, installUrl }: { signedIn: boolean; installUrl: string | null }) {
+export function HomeView({ installUrl }: { installUrl: string | null }) {
   return (
-    <SiteChrome signedIn={signedIn} installUrl={installUrl}>
+    <SiteChrome installUrl={installUrl}>
       <Hero installUrl={installUrl} />
-      <AiAgents signedIn={signedIn} />
+      <AiAgents />
       <Philosophy />
       <Workspace />
       <Integrations />

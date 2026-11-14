@@ -5,7 +5,6 @@ import { SiteChrome } from "./SiteChrome"
 import { SiteNavigation } from "./SiteNavigation"
 import { usePageMeta } from "./usePageMeta"
 import { authQueries } from "../auth/queries"
-import { accountQueries } from "../account/queries"
 
 const CONTACT = "yuisalabs@gmail.com"
 const UPDATED = "22 October 2026"
@@ -169,16 +168,14 @@ export function PrivacyPolicy() {
  * page links only what that server has.
  */
 export function PrivacyView({
-  signedIn,
   publicSite,
   installUrl = null,
 }: {
-  signedIn: boolean
   publicSite: boolean
   installUrl?: string | null
 }) {
   return (
-    <SiteChrome signedIn={signedIn} installUrl={installUrl} minimal={!publicSite}>
+    <SiteChrome installUrl={installUrl} minimal={!publicSite}>
       <div className="px-4 py-14 sm:px-6 md:py-20">
         <div className="mx-auto w-full max-w-2xl rounded-2xl bg-[#FFFFFF] p-6 outline outline-1 -outline-offset-1 outline-[#E6E1EC] sm:p-10">
           <PrivacyPolicy />
@@ -190,12 +187,11 @@ export function PrivacyView({
 
 /** Public: readable without signing in, on every server. */
 export function PrivacyPage() {
-  const me = useQuery({ ...accountQueries.me(), retry: false, meta: { signedOutIsFine: true } })
   const config = useQuery(authQueries.clientConfig())
   usePageMeta("Privacy Policy", "What BugBerry collects, how it is kept safe, and the terms of using the service.")
   return (
     <SiteNavigation>
-      <PrivacyView signedIn={me.isSuccess} publicSite={config.data?.publicSite === true} installUrl={config.data?.extensionInstallUrl ?? null} />
+      <PrivacyView publicSite={config.data?.publicSite === true} installUrl={config.data?.extensionInstallUrl ?? null} />
     </SiteNavigation>
   )
 }

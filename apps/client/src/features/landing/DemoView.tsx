@@ -252,16 +252,14 @@ const NEXT: Array<{ icon: RemixiconComponentType; title: string; body: string }>
 
 /** `/demo`: "Request a demo" and "Talk to a human" land here. */
 export function DemoView({
-  signedIn,
   installUrl,
   submit,
 }: {
-  signedIn: boolean
   installUrl: string | null
   submit: (input: DemoRequestInput) => Promise<unknown>
 }) {
   return (
-    <SiteChrome signedIn={signedIn} installUrl={installUrl}>
+    <SiteChrome installUrl={installUrl}>
       <section className="relative bg-[#1C1022] bg-[radial-gradient(ellipse_70%_60%_at_50%_0%,#3D1A3F_0%,#1C1022_70%)] pt-14 pb-20 md:pt-20 md:pb-28">
         <div className={`${siteContainer} flex flex-col gap-12 lg:flex-row lg:gap-[72px]`}>
           <Reveal immediate variant="up" className="flex flex-1 flex-col gap-7 lg:pt-6">

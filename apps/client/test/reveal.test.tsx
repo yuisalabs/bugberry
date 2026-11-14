@@ -84,7 +84,7 @@ describe("useReveal", () => {
 
 describe("the home page's motion", () => {
   test("the hero plays on first show, in order; the sections wait for the scroll", async () => {
-    render(<HomeView signedIn={false} installUrl={null} />)
+    render(<HomeView installUrl={null} />)
     const delays = (selector: string) =>
       [...document.querySelectorAll<HTMLElement>(selector)].map((element) => Number.parseInt(element.style.getPropertyValue("--reveal-delay"), 10))
     const hero = delays("#capture [data-reveal]")

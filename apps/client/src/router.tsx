@@ -17,6 +17,7 @@ import { legacyAppPath } from "./lib/legacy-paths"
 import { publicSiteGate } from "./features/landing/public-site"
 import { startSecondsFrom } from "./lib/urls"
 import { validateLoginSearch } from "./features/auth/login"
+import { signedInLoginGate } from "./features/auth/login-gate"
 import { validateProjectReportSearch, validateReportSearch } from "./features/reports/list/report-search"
 // The report lists load with the app; the report page (debugger, media), sharing, sign-in and the
 // settings pages are split off so the first load stays small.
@@ -48,6 +49,7 @@ const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/login",
   validateSearch: validateLoginSearch,
+  beforeLoad: signedInLoginGate,
   component: lazyRouteComponent(() => import("./features/auth/LoginPage"), "LoginPage"),
 })
 

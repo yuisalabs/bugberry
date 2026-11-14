@@ -33,7 +33,7 @@ describe("privacy policy", () => {
   })
 
   test("on a self-hosted server the page links only what that server has", () => {
-    render(<PrivacyView signedIn={false} publicSite={false} />)
+    render(<PrivacyView publicSite={false} />)
     const hrefs = [...document.querySelectorAll("a")].map((link) => link.getAttribute("href"))
     expect(hrefs).not.toContain("/pricing")
     expect(hrefs).not.toContain("/demo")
@@ -41,7 +41,7 @@ describe("privacy policy", () => {
   })
 
   test("on BugBerry cloud it sits in the public site, with the server's install link", () => {
-    render(<PrivacyView signedIn={false} publicSite installUrl="https://chromewebstore.google.com/detail/x" />)
+    render(<PrivacyView publicSite installUrl="https://chromewebstore.google.com/detail/x" />)
     expect([...document.querySelectorAll("a")].map((link) => link.getAttribute("href"))).toContain("https://chromewebstore.google.com/detail/x")
     expect([...document.querySelectorAll("a")].map((link) => link.getAttribute("href"))).toContain("/pricing")
   })
