@@ -16,7 +16,8 @@
     "token:create": "bun scripts/create-token.ts",
     "account:unlimited": "bun scripts/set-unlimited.ts",
     "account:deactivate": "bun scripts/deactivate-user.ts",
-    "account:reactivate": "bun scripts/reactivate-user.ts"
+    "account:reactivate": "bun scripts/reactivate-user.ts",
+    "workspace:promote-admin": "bun scripts/promote-admin.ts"
   },
   "dependencies": {
     "@better-auth/mcp": "1.7.10",
