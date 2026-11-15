@@ -15,6 +15,7 @@ const feed = (total: number): ReportFeed => ({
   hasMore: false,
   loadingMore: false,
   moreFailed: false,
+  refreshing: false,
 })
 
 function props(overrides: Partial<ComponentProps<typeof ReportsView>> = {}): ComponentProps<typeof ReportsView> {

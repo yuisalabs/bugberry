@@ -11,7 +11,7 @@ import type { ReportListItem } from "../src/features/reports/queries"
 const members = [{ id: "u1", name: "Ana", email: "ana@kantor.test", image: null, role: "member" as const, owner: false, deactivated: false, joinedAt: new Date("2026-09-12T00:00:00Z") }]
 
 function listOf(items: ReportListItem[], more: Partial<ReportFeed> = {}): ReportFeed {
-  return { items, total: items.length, hasMore: false, loadingMore: false, moreFailed: false, ...more }
+  return { items, total: items.length, hasMore: false, loadingMore: false, moreFailed: false, refreshing: false, ...more }
 }
 
 function props(overrides: Partial<ComponentProps<typeof ReportsView>> = {}): ComponentProps<typeof ReportsView> {

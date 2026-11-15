@@ -11,6 +11,8 @@ release with no extension change still gets its own entry, and the entry says th
 - **The report list stays fast as it grows.** Search now uses an index, a page deep in the list loads as fast as the
   first, and scrolling no longer counts the whole list for every part. The list looks the same and a search finds the
   same reports.
+- **The report list no longer stops loading more** when its end is reached while it refreshes, which it does every
+  five minutes and when a preview fails to load.
 - **AI agents:** `searchReports` gives the number of matches once, with the first answer. A cursor from before the
   upgrade is refused; search again without one.
 - **Self-hosting:** update the server and the dashboard with `docker compose up -d --build`. Migration `0037` runs

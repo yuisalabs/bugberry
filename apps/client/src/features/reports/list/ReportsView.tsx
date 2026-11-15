@@ -285,6 +285,7 @@ export function ReportsView({
             hasMore={loaded.hasMore}
             loading={loaded.loadingMore}
             failed={loaded.moreFailed}
+            waiting={loaded.refreshing}
             onLoadMore={onLoadMore}
           />
         </>

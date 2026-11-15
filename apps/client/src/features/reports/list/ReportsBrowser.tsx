@@ -1,16 +1,16 @@
 import { RiRecordCircleLine } from "@remixicon/react"
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { type ReactNode, useState } from "react"
 import { useNow } from "../../../hooks/useNow"
 import { invitesAllowed, usageText } from "../../workspaces/usage"
 import { useListPeople } from "./list-people"
-import { feedItems, feedTotal } from "./report-feed"
 import { hasFilters, type ReportSearch, toReportsQuery } from "./report-search"
 import { readLayout, type ReportLayout, saveLayout } from "./report-layout"
 import { useCurrentWorkspace } from "../../workspaces/workspace"
 import { InviteDialog } from "../../workspaces/InviteDialog"
 import { InstallExtensionButton, NewReportButton } from "./NewReportButton"
 import { ReportsView } from "./ReportsView"
+import { useReportFeed } from "./useReportFeed"
 import { installHref } from "../../landing/site-links"
 import { authQueries } from "../../auth/queries"
 import { projectQueries } from "../../projects/queries"
@@ -47,8 +47,7 @@ export function ReportsBrowser({
   const members = useListPeople(workspaceId, Boolean(workspace))
   // The project filter needs them on the all-reports page; the list view names projects on every page.
   const projects = useQuery({ ...projectQueries.projects(workspaceId), enabled: Boolean(workspace) })
-  const filters = toReportsQuery(scope, search)
-  const reports = useInfiniteQuery({ ...reportQueries.reportFeed(workspaceId, filters), enabled: Boolean(workspace) })
+  const feed = useReportFeed(workspaceId, toReportsQuery(scope, search), Boolean(workspace))
   const config = useQuery(authQueries.clientConfig())
   // The server's own install link, else BugBerry's Chrome Web Store page.
   const installUrl = installHref(config.data?.extensionInstallUrl ?? null)
@@ -57,11 +56,8 @@ export function ReportsBrowser({
   const limits = useQuery({ ...workspaceQueries.workspaceLimits(workspaceId), enabled: Boolean(workspace) })
 
   const update = (patch: Partial<ReportSearch>) => setSearch((prev) => ({ ...prev, ...patch }))
-  const pages = reports.data?.pages ?? []
-  // Each status's count under the other filters: the phone's status chips, and added up, how many reports the list holds.
-  const statusCounts = useQuery({ ...reportQueries.reportStatusCounts(workspaceId, filters), enabled: Boolean(workspace) })
   // Filters left nothing: count the whole list, so the page can say how much was searched.
-  const nothingMatches = hasFilters(search) && pages[0]?.items.length === 0
+  const nothingMatches = hasFilters(search) && feed.empty
   const everything = useQuery({ ...reportQueries.reportCount(workspaceId, scope.projectId), enabled: Boolean(workspace) && nothingMatches })
 
   return (
@@ -73,19 +69,7 @@ export function ReportsBrowser({
       tableProjects={projects.data}
       projectsLoading={projects.isPending}
       search={search}
-      list={
-        reports.isPending
-          ? "loading"
-          : reports.isError && pages.length === 0
-            ? { error: reports.error, retry: () => void reports.refetch() }
-            : {
-                items: feedItems(pages),
-                total: feedTotal(statusCounts, filters.status),
-                hasMore: reports.hasNextPage,
-                loadingMore: reports.isFetchingNextPage,
-                moreFailed: reports.isFetchNextPageError,
-              }
-      }
+      list={feed.list}
       now={now}
       actions={actions}
       canInvite={workspace?.role === "admin" && invitesAllowed(limits.data)}
@@ -93,7 +77,7 @@ export function ReportsBrowser({
       usage={limits.data ? usageText(limits.data) : null}
       showCount={showCount}
       subtitle={showCount ? undefined : workspace?.name}
-      statusCounts={statusCounts.data ?? null}
+      statusCounts={feed.statusCounts}
       fab={
         <NewReportButton
           installUrl={installUrl}
@@ -117,11 +101,8 @@ export function ReportsBrowser({
         saveLayout(next)
       }}
       onSearch={(patch) => update(patch)}
-      // One part at a time: the end of the list stops asking while a part loads, and this guards it too.
-      onLoadMore={() => {
-        if (reports.hasNextPage && !reports.isFetchingNextPage) void reports.fetchNextPage({ cancelRefetch: false })
-      }}
-      onPreviewError={() => void reports.refetch()}
+      onLoadMore={feed.loadMore}
+      onPreviewError={feed.refreshPreviews}
     />
     {workspace && <InviteDialog workspaceId={workspace.id} isOpen={inviting} onOpenChange={setInviting} />}
     </>

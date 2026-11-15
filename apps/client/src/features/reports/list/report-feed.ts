@@ -53,4 +53,6 @@ export interface ReportFeed {
   loadingMore: boolean
   /** The last part failed; it is not asked for again until the person says so. */
   moreFailed: boolean
+  /** The parts shown are being fetched again, or other filters' parts are on their way. */
+  refreshing: boolean
 }

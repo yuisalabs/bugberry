@@ -114,6 +114,16 @@ describe("LoadMore", () => {
     expect(onLoadMore).toHaveBeenCalledTimes(2)
   })
 
+  test("while the parts shown are fetched again it waits, then looks again whether the end is in view", () => {
+    const onLoadMore = mock()
+    const { rerender } = render(<LoadMore {...props} waiting onLoadMore={onLoadMore} />)
+    expect(live()).toHaveLength(0)
+    rerender(<LoadMore {...props} onLoadMore={onLoadMore} />)
+    expect(live()).toHaveLength(1)
+    reach()
+    expect(onLoadMore).toHaveBeenCalledTimes(1)
+  })
+
   test("a part that failed is not asked for again by itself; Try again asks once", () => {
     const onLoadMore = mock()
     render(<LoadMore {...props} failed onLoadMore={onLoadMore} />)

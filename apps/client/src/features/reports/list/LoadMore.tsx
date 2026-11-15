@@ -4,25 +4,28 @@ import { Button } from "@bugberry/ui/button"
 /**
  * The end of a report list. When it scrolls into view the next part is asked for, once: nothing more is asked
  * while that part loads, after it fails (Try again asks), or once every report is shown. If the end is still in
- * view when a part arrives, the next one is asked for, so a tall window fills up one part at a time.
+ * view when a part arrives, the next one is asked for, so a tall window fills up one part at a time. A part asked
+ * for while the list is `waiting` on another fetch would be dropped, so it looks again when that fetch is over.
  */
 export function LoadMore({
   shown,
   hasMore,
   loading,
   failed,
+  waiting = false,
   onLoadMore,
 }: {
   shown: number
   hasMore: boolean
   loading: boolean
   failed: boolean
+  waiting?: boolean
   onLoadMore(): void
 }) {
   const end = useRef<HTMLDivElement>(null)
   const latest = useRef(onLoadMore)
   latest.current = onLoadMore
-  const watching = hasMore && !loading && !failed
+  const watching = hasMore && !loading && !failed && !waiting
 
   useEffect(() => {
     const target = end.current
