@@ -35,7 +35,10 @@ At least one method must be on. See [Sign-in methods](/self-host/sign-in).
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | off | GitHub sign-in. Set both or neither. |
 | `GITLAB_CLIENT_ID`, `GITLAB_CLIENT_SECRET` | off | GitLab sign-in. Set both or neither. |
 | `GITLAB_URL` | `https://gitlab.com` | Your own GitLab's address. |
-| `EMAIL_DRIVER` | off | `resend` or `smtp`: sign-in with an emailed code. |
+| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | off | [Company sign-in](/self-host/sign-in#company-sign-in-oidc) through your own identity provider. Set all three or none. |
+| `OIDC_NAME` | `SSO` | The name on the company sign-in button, up to 40 characters. |
+| `EMAIL_DRIVER` | off | `resend` or `smtp`: sends sign-in codes, invitations and notifications. |
+| `EMAIL_SIGN_IN` | `true` | `false` turns off signing in with an emailed code; invitations and notifications still send. |
 | `EMAIL_FROM` | — | Sender, in quotes: `"BugBerry <no-reply@example.com>"`. Required with `EMAIL_DRIVER`. |
 | `RESEND_API_KEY` | — | Required with `EMAIL_DRIVER=resend`. |
 | `SMTP_HOST` | — | Required with `EMAIL_DRIVER=smtp`. |
