@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from "bun:test"
 import { eq } from "drizzle-orm"
 import { user, verification } from "../src/db/schema"
 import type { EmailMessage, EmailSender } from "../src/lib/email/sender"
-import { createUser, setupTestApp } from "./helpers"
+import { createUser, createUserWithToken, setupTestApp } from "./helpers"
 
 let ctx: Awaited<ReturnType<typeof setupTestApp>>
 let outbox: EmailMessage[]
@@ -106,5 +106,26 @@ describe("email sign-in codes", () => {
     await signIn("ana@kantor.test", codeIn(outbox[0]))
     const rows = await ctx.db.select().from(user).where(eq(user.email, "ana@kantor.test"))
     expect(rows.map((row) => row.id)).toEqual([existing.id])
+  })
+})
+
+describe("EMAIL_SIGN_IN=false", () => {
+  test("the email-code endpoints are gone, and invitations still send", async () => {
+    const outbox: EmailMessage[] = []
+    const off = await setupTestApp({ emailSignIn: false }, { email: { send: async (message) => void outbox.push(message) } })
+    const post = (path: string, body: object) =>
+      off.app.handle(
+        new Request(`http://localhost/api/auth${path}`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        }),
+      )
+    expect((await post("/email-otp/send-verification-otp", { email: "ana@kantor.test", type: "sign-in" })).status).toBe(404)
+    expect((await post("/sign-in/email-otp", { email: "ana@kantor.test", otp: "123456" })).status).toBe(404)
+    expect(outbox).toHaveLength(0)
+    const admin = await createUserWithToken(off.db, { role: "admin" })
+    await off.api.api.workspaces({ id: off.workspace.id }).invitations.post({ emails: ["new@kantor.test"] }, { headers: admin.headers })
+    expect(outbox).toHaveLength(1)
   })
 })

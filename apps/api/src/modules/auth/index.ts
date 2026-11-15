@@ -10,7 +10,9 @@ export function authModule({ config, betterAuth }: Pick<AppDeps, "config" | "bet
         github: config.github !== null,
         gitlab: config.gitlab !== null,
         google: config.google !== null,
-        emailOtp: config.email !== null,
+        emailOtp: config.emailSignIn,
+        // Only the button's name; the issuer and client id stay on the server.
+        oidc: config.oidc ? { name: config.oidc.name } : null,
       }))
       // Public: what the dashboard needs before anyone signs in.
       .get("/client-config", () => ({

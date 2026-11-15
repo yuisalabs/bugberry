@@ -170,7 +170,8 @@ export function createAuth(config: Config, db: Db, options: { email?: EmailSende
         accessTokenExpiresIn: ACCESS_TOKEN_SECONDS,
       }),
       ...(config.oidc ? [oidcPlugin(config.oidc, options.oidcStartupTimeoutMs)] : []),
-      ...(sender
+      // EMAIL_SIGN_IN=false leaves the endpoints unmounted; hiding the form would not be enough.
+      ...(sender && config.emailSignIn
         ? [
           emailOTP({
             otpLength: 6,

@@ -43,3 +43,21 @@ describe("authentication", () => {
     expect(error?.status).toBe(403)
   })
 })
+
+describe("what the sign-in page is told", () => {
+  test("auth-methods reports company sign-in with its name, and email codes only when they are on", async () => {
+    const on = await setupTestApp({
+      oidc: { issuer: "http://127.0.0.1:9", clientId: "a", clientSecret: "b", name: "Acme SSO" },
+      emailSignIn: false,
+    })
+    expect((await on.api.api["auth-methods"].get()).data).toEqual({
+      github: false,
+      gitlab: false,
+      google: true,
+      emailOtp: false,
+      oidc: { name: "Acme SSO" },
+    })
+    const off = await setupTestApp()
+    expect((await off.api.api["auth-methods"].get()).data).toMatchObject({ emailOtp: true, oidc: null })
+  })
+})
