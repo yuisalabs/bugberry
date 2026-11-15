@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { and, eq, isNull } from "drizzle-orm"
 import { deactivateUser, reactivateUser } from "../src/admin/deactivate-user"
-import { apiToken, oauthAccessToken, oauthConsent, oauthRefreshToken, report, session, user, workspaceMember } from "../src/db/schema"
-import { createReadyReport, createUser, createUserWithToken, sessionHeaders, setupTestApp } from "./helpers"
+import { apiToken, joinRequest, oauthAccessToken, oauthConsent, oauthRefreshToken, report, session, user, workspaceMember } from "../src/db/schema"
+import { createReadyReport, createUser, createUserWithToken, createWorkspaceRow, sessionHeaders, setupTestApp } from "./helpers"
 import { grantOAuth } from "./mcp-helpers"
 
 let ctx: Awaited<ReturnType<typeof setupTestApp>>
@@ -68,6 +68,14 @@ describe("deactivateUser", () => {
     await createUser(ctx.db, { email: "budi@kantor.test", role: "admin" })
     expect((await deactivateUser(ctx.db, "ana@kantor.test")).withoutAdmin).toEqual([])
     expect((await deactivateUser(ctx.db, "budi@kantor.test")).withoutAdmin).toHaveLength(1)
+  })
+
+  test("their waiting requests to join a workspace are withdrawn", async () => {
+    const ana = await createUser(ctx.db, { email: "ana@kantor.test" })
+    const other = await createWorkspaceRow(ctx.db, "Other")
+    await ctx.db.insert(joinRequest).values({ workspaceId: other.id, userId: ana.id })
+    await deactivateUser(ctx.db, "ana@kantor.test")
+    expect(await ctx.db.select().from(joinRequest)).toHaveLength(0)
   })
 
   test("an unknown email is an error", async () => {

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { eq } from "drizzle-orm"
 import { deactivateUser } from "../src/admin/deactivate-user"
-import { report, workspaceMember } from "../src/db/schema"
+import { notification, report, workspaceMember } from "../src/db/schema"
 import type { AppDeps } from "../src/deps"
 import type { EmailMessage } from "../src/lib/email/sender"
 import { resolveReport } from "../src/modules/reports/fixes"
@@ -77,6 +77,16 @@ describe("deactivated people in a workspace", () => {
     await ctx.api.api.reports({ id: target.id }).comments.post({ body: `@[user:${gone.user.id}] please look` }, { headers: admin.headers })
     await Promise.all(tasks)
     expect(sent).toHaveLength(0)
+    expect(await ctx.db.select().from(notification).where(eq(notification.userId, gone.user.id))).toHaveLength(0)
+  })
+
+  test("a reply in a thread they started puts nothing in their bell", async () => {
+    const target = await createReadyReport(ctx.db, { reporterId: admin.user.id })
+    const comments = ctx.api.api.reports({ id: target.id }).comments
+    const first = await comments.post({ body: "I saw this too" }, { headers: gone.headers })
+    await deactivateUser(ctx.db, gone.user.email)
+    await comments.post({ body: "Thanks", replyTo: first.data?.id ?? "" }, { headers: admin.headers })
+    expect(await ctx.db.select().from(notification).where(eq(notification.userId, gone.user.id))).toHaveLength(0)
   })
 
   test("resolving their report sends them no email", async () => {
@@ -85,6 +95,7 @@ describe("deactivated people in a workspace", () => {
     await resolveReport(deps, admin.user, theirs.id, { links: ["https://github.com/shop/web/pull/42"] })
     await Promise.all(tasks)
     expect(sent).toHaveLength(0)
+    expect(await ctx.db.select().from(notification).where(eq(notification.userId, gone.user.id))).toHaveLength(0)
   })
 
   test("MCP's listMembers leaves them out", async () => {

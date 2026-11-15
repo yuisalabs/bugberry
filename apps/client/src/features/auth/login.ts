@@ -38,8 +38,9 @@ export function loginErrorMessage(code: string | undefined, description: string 
     case "account_deactivated":
       return "This account is deactivated. Ask your admin."
     case "oauth_provider_not_found":
-    case "invalid_code":
       return "The sign-in provider isn't reachable right now. Try again in a moment."
+    case "invalid_code":
+      return "Sign-in couldn't be completed. Try again in a moment."
     default:
       return "Sign-in failed. Try again."
   }

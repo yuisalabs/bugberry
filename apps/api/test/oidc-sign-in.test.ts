@@ -76,6 +76,42 @@ describe("company sign-in", () => {
     expect(out.headers.get("location")).toBeNull()
   })
 
+  test("the IdP's tokens are not kept after sign-in", async () => {
+    fake.setClaims({ sub: "kc-1", email: "ana@kantor.test", email_verified: true, name: "Ana" })
+    const tokensKept = async () => {
+      const [row] = await ctx.db.select().from(account).where(eq(account.providerId, "oidc"))
+      expect(row?.accountId).toBe("kc-1")
+      return [row?.accessToken, row?.refreshToken, row?.idToken]
+    }
+    await signInThroughOidc(ctx)
+    expect(await tokensKept()).toEqual([null, null, null])
+    // A second sign-in updates the same row.
+    await signInThroughOidc(ctx)
+    expect(await tokensKept()).toEqual([null, null, null])
+  })
+
+  test("an id token presented directly is not a way in: sign-in goes through the redirect", async () => {
+    fake.setClaims({ sub: "kc-1", email: "ana@kantor.test", email_verified: true, name: "Ana" })
+    const response = await ctx.app.handle(
+      new Request(`${ctx.config.appUrl}/api/auth/sign-in/social`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ provider: "oidc", idToken: { token: await fake.mintIdToken() } }),
+      }),
+    )
+    expect(response.status).toBe(403)
+    expect(response.headers.getSetCookie().some((cookie) => /session_token=.+/.test(cookie.split(";")[0] ?? ""))).toBe(false)
+    expect(await allUserEmails()).toEqual([])
+  })
+
+  test("a token endpoint that fails sends the person back with invalid_code", async () => {
+    fake.setClaims({ sub: "kc-1", email: "ana@kantor.test", email_verified: true, name: "Ana" })
+    fake.setTokenEndpoint("fail")
+    const done = await signInThroughOidc(ctx)
+    expect(new URL(done.location, "http://x").searchParams.get("error")).toBe("invalid_code")
+    expect(done.cookie).toBeNull()
+  })
+
   test("OIDC is trusted for linking only when it is on", () => {
     const trusted = (config: Config) => createAuth(config, ctx.db).options.account?.accountLinking?.trustedProviders as string[]
     expect(trusted(testConfig())).not.toContain("oidc")

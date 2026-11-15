@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, isNull, notInArray } from "drizzle-orm"
 import type { Db } from "../db/client"
-import { apiToken, oauthAccessToken, oauthConsent, oauthRefreshToken, session, user, workspace, workspaceMember } from "../db/schema"
+import { apiToken, joinRequest, oauthAccessToken, oauthConsent, oauthRefreshToken, session, user, workspace, workspaceMember } from "../db/schema"
 
 /**
  * Cuts an account off: no sign-in by any method, and every session, personal token and AI app connection
@@ -24,9 +24,12 @@ export async function deactivateUser(
     // Run on every call, so a second run also clears anything that appeared since the first.
     await tx.delete(session).where(eq(session.userId, person.id))
     await tx.update(apiToken).set({ revokedAt: new Date() }).where(and(eq(apiToken.userId, person.id), isNull(apiToken.revokedAt)))
+    // Better Auth's token endpoint does not look at the mark: these deletes are what stops an AI app refreshing.
     await tx.delete(oauthAccessToken).where(eq(oauthAccessToken.userId, person.id))
     await tx.delete(oauthRefreshToken).where(eq(oauthRefreshToken.userId, person.id))
     await tx.delete(oauthConsent).where(eq(oauthConsent.userId, person.id))
+    // A request still waiting would keep counting in the admins' sidebar.
+    await tx.delete(joinRequest).where(eq(joinRequest.userId, person.id))
 
     const wasAdminOf = tx
       .select({ id: workspaceMember.workspaceId })

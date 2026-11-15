@@ -10,6 +10,8 @@ export interface FakeOidc {
   setClaims(claims: Record<string, unknown>): void
   setDiscovery(mode: "ok" | "refuse" | "hang"): void
   setTokenEndpoint(mode: "ok" | "fail"): void
+  /** A valid id token for the current claims, outside any sign-in the server started. */
+  mintIdToken(): Promise<string>
   stop(): Promise<void>
 }
 
@@ -72,6 +74,14 @@ export async function startFakeOidc(): Promise<FakeOidc> {
     setClaims: (next) => void (claims = next),
     setDiscovery: (mode) => void (discovery = mode),
     setTokenEndpoint: (mode) => void (tokenEndpoint = mode),
+    mintIdToken: () =>
+      new SignJWT({ ...claims })
+        .setProtectedHeader({ alg: "RS256", kid: "fake-key" })
+        .setIssuer(`http://localhost:${server.port}`)
+        .setAudience(FAKE_OIDC_CLIENT.clientId)
+        .setIssuedAt()
+        .setExpirationTime("5m")
+        .sign(privateKey),
     async stop() {
       for (const release of hanging) release()
       await server.stop(true)

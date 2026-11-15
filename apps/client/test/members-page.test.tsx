@@ -254,4 +254,22 @@ describe("deactivated members", () => {
     expect(row.textContent).toContain("Deactivated")
     expect(screen.getAllByText("Deactivated")).toHaveLength(1)
   })
+
+  test("a deactivated member can be removed, but not given a role", () => {
+    const gone = {
+      id: "u3",
+      name: "Gone Person",
+      email: "gone@kantor.test",
+      image: null,
+      role: "member" as const,
+      owner: false,
+      deactivated: true,
+      joinedAt: new Date("2026-09-12T00:00:00Z"),
+    }
+    const props = view({ members: [...members, gone] })
+    fireEvent.click(screen.getByRole("button", { name: "More for Gone Person" }))
+    expect(screen.queryByRole("menuitem", { name: "Make admin" })).toBeNull()
+    fireEvent.click(screen.getByRole("menuitem", { name: "Remove from workspace" }))
+    expect(props.onRemove).toHaveBeenCalledWith("u3")
+  })
 })

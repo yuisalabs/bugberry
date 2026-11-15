@@ -5,6 +5,7 @@ import { createEmailSender } from "../../lib/email/sender"
 import { notFound, unprocessable } from "../../lib/errors"
 import type { CurrentUser } from "../../plugins/auth"
 import { recordActivity } from "../activity/repository"
+import { isDeactivated } from "../account/repository"
 import { findReportHeading, userEmails } from "../comments/repository"
 import { createCommentsService } from "../comments/service"
 import { memberRole, requireReportMember } from "../workspaces/access"
@@ -126,7 +127,10 @@ export async function resolveReport(
     const before = await findReportStatus(db, reportId)
     if (!(await markResolved(db, reportId))) return null
     await recordActivity(db, { reportId, kind: "status", detail: { from: before, to: "resolved" }, actorId: caller.id, viaAgent })
-    const tell = target.reporterId !== caller.id && (await memberRole(db, target.reporterId, target.workspaceId)) !== null
+    const tell =
+      target.reporterId !== caller.id &&
+      (await memberRole(db, target.reporterId, target.workspaceId)) !== null &&
+      !(await isDeactivated(db, target.reporterId))
     if (!tell) return null
     return insertResolvedNotification(db, { userId: target.reporterId, reportId, actorId: caller.id, viaAgent })
   })

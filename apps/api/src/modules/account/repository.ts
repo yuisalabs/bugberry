@@ -1,4 +1,4 @@
-import { and, asc, eq, isNotNull, isNull } from "drizzle-orm"
+import { and, asc, eq, inArray, isNotNull, isNull } from "drizzle-orm"
 import { type Db, executor } from "../../db/client"
 import { account, pendingAvatar, user } from "../../db/schema"
 import type { CurrentUser } from "../../plugins/auth"
@@ -19,6 +19,16 @@ export async function findCurrentUser(db: Db, userId: string): Promise<CurrentUs
     .where(and(eq(user.id, userId), isNull(user.deactivatedAt)))
     .limit(1)
   return row ?? null
+}
+
+/** Those of `userIds` whose account is not deactivated. */
+export async function activeAmong(db: Db, userIds: string[]): Promise<string[]> {
+  if (userIds.length === 0) return []
+  const rows = await executor(db)
+    .select({ id: user.id })
+    .from(user)
+    .where(and(inArray(user.id, userIds), isNull(user.deactivatedAt)))
+  return rows.map((row) => row.id)
 }
 
 export async function isDeactivated(db: Db, userId: string): Promise<boolean> {

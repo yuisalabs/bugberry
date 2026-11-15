@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { accountLimitsNotice, ConfigError, loadConfig } from "../src/config"
+import { accountLimitsNotice, ConfigError, loadConfig, oidcNotice } from "../src/config"
 
 const baseEnv: Record<string, string | undefined> = {
   APP_URL: "http://localhost:3000/",
@@ -291,6 +291,21 @@ describe("loadConfig", () => {
     expect(off.email?.driver).toBe("resend")
     // No driver in production: there is nothing to turn on.
     expect(loadConfig(env({ NODE_ENV: "production" })).emailSignIn).toBe(false)
+  })
+
+  test("EMAIL_SIGN_IN is checked even when there is no email driver to turn off", () => {
+    expect(() => loadConfig(env({ NODE_ENV: "production", EMAIL_SIGN_IN: "flase" }))).toThrow("EMAIL_SIGN_IN must be 'true' or 'false'")
+  })
+
+  test("the startup line warns about an identity provider reached over plain http", () => {
+    const oidc = { clientId: "bb", clientSecret: "s", name: null }
+    expect(oidcNotice(null)).toBeNull()
+    expect(oidcNotice({ ...oidc, issuer: "https://id.kantor.test/realms/a" })).toBeNull()
+    expect(oidcNotice({ ...oidc, issuer: "http://localhost:8080/realms/a" })).toBeNull()
+    expect(oidcNotice({ ...oidc, issuer: "http://127.0.0.1:8080/realms/a" })).toBeNull()
+    expect(oidcNotice({ ...oidc, issuer: "http://id.kantor.test/realms/a" })).toBe(
+      "Company sign-in reaches its identity provider over http://: sign-ins cross the network unencrypted. Use https:// outside a private network.",
+    )
   })
 
   test("at least one sign-in method counts company sign-in and ignores email codes that are off", () => {

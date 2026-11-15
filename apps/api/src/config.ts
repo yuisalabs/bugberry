@@ -58,6 +58,14 @@ export function accountLimitsNotice(limits: AccountLimits | null): string | null
   return `Account limits on: ${counted(limits.screenshots, "screenshot")} / ${counted(limits.recordings, "recording")} / ${counted(limits.ownedWorkspaces, "workspace")} per account, recordings up to ${clockLabel(limits.recordingMs)}`
 }
 
+/** The startup line for an identity provider reached without TLS; null when there is nothing to say. */
+export function oidcNotice(oidc: OidcConfig | null): string | null {
+  if (!oidc || !oidc.issuer.toLowerCase().startsWith("http://")) return null
+  const host = new URL(oidc.issuer).hostname
+  if (host === "localhost" || host === "127.0.0.1" || host === "[::1]") return null
+  return "Company sign-in reaches its identity provider over http://: sign-ins cross the network unencrypted. Use https:// outside a private network."
+}
+
 export interface Config {
   port: number
   appUrl: string
@@ -274,7 +282,9 @@ export function loadConfig(env: Env): Config {
   } else {
     throw new ConfigError("EMAIL_DRIVER must be 'resend' or 'smtp'")
   }
-  const emailSignIn = email !== null && flag("EMAIL_SIGN_IN", true)
+  // Read on its own line: `email !== null && flag(...)` would skip the check, and a typo would pass, without a driver.
+  const emailSignInWanted = flag("EMAIL_SIGN_IN", true)
+  const emailSignIn = email !== null && emailSignInWanted
   if (!google && !github && !gitlab && !oidc && !emailSignIn) {
     throw new ConfigError(
       "Enable at least one sign-in method: Google, GitHub, GitLab, company sign-in (OIDC_ISSUER) or email codes (EMAIL_DRIVER)",

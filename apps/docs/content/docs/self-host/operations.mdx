@@ -74,10 +74,13 @@ From the next request on, that account is refused everywhere:
 
 - every browser and extension where it was signed in is signed out;
 - every personal token is revoked;
-- every AI app it connected is disconnected;
+- every AI app it connected is disconnected, and upload links its recorder was given stop working;
+- its waiting requests to join a workspace are withdrawn;
 - signing in again is refused on every method, with "This account is deactivated."
 
-What stays: the account's reports, comments and activity, its place in each workspace, reports assigned to it, and the share links to its reports. On the **Members** page the person is marked **Deactivated**; they no longer appear when assigning a report or mentioning someone, and BugBerry stops emailing them. A workspace admin can reassign their reports, or remove them from the workspace, which unassigns them.
+What stays: the account's reports, comments and activity, its place in each workspace, reports assigned to it, and the share links to its reports. On the **Members** page the person is marked **Deactivated**; they no longer appear when assigning a report or mentioning someone, and BugBerry stops emailing and notifying them. A workspace admin can reassign their reports, or remove them from the workspace, which unassigns them.
+
+One limit: a link to a screenshot or video that their browser already loaded keeps working until it expires, an hour by default (`READ_URL_TTL_SECONDS`). They can't get new ones.
 
 Two things to do by hand:
 

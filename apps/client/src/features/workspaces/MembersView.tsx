@@ -174,13 +174,16 @@ export function MembersView({
                           <RiMoreLine aria-hidden />
                         </Button>
                         <Menu placement="bottom end" className="min-w-48">
-                          <MenuItem
-                            textValue={member.role === "admin" ? "Make member" : "Make admin"}
-                            onAction={() => onSetRole(member.id, member.role === "admin" ? "member" : "admin")}
-                          >
-                            {member.role === "admin" ? <RiUserLine aria-hidden /> : <RiShieldUserLine aria-hidden />}
-                            <MenuLabel>{member.role === "admin" ? "Make member" : "Make admin"}</MenuLabel>
-                          </MenuItem>
+                          {/* A deactivated person can't sign in, so a role would mean nothing. */}
+                          {!member.deactivated && (
+                            <MenuItem
+                              textValue={member.role === "admin" ? "Make member" : "Make admin"}
+                              onAction={() => onSetRole(member.id, member.role === "admin" ? "member" : "admin")}
+                            >
+                              {member.role === "admin" ? <RiUserLine aria-hidden /> : <RiShieldUserLine aria-hidden />}
+                              <MenuLabel>{member.role === "admin" ? "Make member" : "Make admin"}</MenuLabel>
+                            </MenuItem>
+                          )}
                           <MenuItem intent="danger" textValue={`Remove ${member.name}`} onAction={() => onRemove(member.id)}>
                             <RiUserMinusLine aria-hidden />
                             <MenuLabel>Remove from workspace</MenuLabel>

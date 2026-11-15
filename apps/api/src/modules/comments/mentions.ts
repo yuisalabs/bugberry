@@ -1,4 +1,5 @@
 import type { Db } from "../../db/client"
+import { activeAmong } from "../account/repository"
 import { insertMentionNotifications, membersAmong } from "./repository"
 
 /** How a comment stores a mention: `@[user:<id>]`. The client shows it as "@Name". */
@@ -47,7 +48,8 @@ export async function notifyMentions(
   input: { commentId: string; reportId: string; workspaceId: string; actorId: string; body: string; skip?: string[] },
 ): Promise<string[]> {
   const ids = mentionedIds(input.body).filter((id) => id !== input.actorId && !input.skip?.includes(id))
-  const members = [...(await memberNames(db, input.workspaceId, ids)).keys()]
+  // A deactivated person keeps their name in the comment, but gets nothing in the bell.
+  const members = await activeAmong(db, [...(await memberNames(db, input.workspaceId, ids)).keys()])
   if (members.length === 0) return []
   const target = { commentId: input.commentId, reportId: input.reportId, actorId: input.actorId }
   return insertMentionNotifications(db, target, members)
