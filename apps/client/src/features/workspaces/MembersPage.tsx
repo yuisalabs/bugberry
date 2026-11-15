@@ -30,7 +30,7 @@ export function MembersPage() {
   const { workspace } = useCurrentWorkspace()
   const workspaceId = workspace?.id ?? ""
   const isAdmin = workspace?.role === "admin"
-  const members = useQuery({ ...workspaceQueries.members(workspaceId), enabled: Boolean(workspace) })
+  const members = useQuery({ ...workspaceQueries.allMembers(workspaceId), enabled: Boolean(workspace) })
   const invitations = useQuery({ ...workspaceQueries.invitations(workspaceId), enabled: isAdmin })
   const requests = useQuery({ ...workspaceQueries.joinRequests(workspaceId), enabled: isAdmin })
   const limits = useQuery({ ...workspaceQueries.workspaceLimits(workspaceId), enabled: Boolean(workspace) })

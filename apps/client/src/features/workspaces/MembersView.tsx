@@ -23,6 +23,7 @@ import { initialsOf } from "../../lib/people"
 import { roleLabel, workspaceColor } from "./workspace"
 import type { InviteResult, JoinRequest, Member, PendingInvitation } from "./queries"
 import { inviteMeta, ROLE_RIGHTS } from "./members-text"
+import { Badge } from "../../components/ui/badge"
 import { RoleBadge } from "./RoleBadge"
 
 const card = "rounded-3xl border border-border bg-background"
@@ -150,7 +151,12 @@ export function MembersView({
                 <div className="min-w-0 basis-full sm:basis-auto">
                   <Person person={member} you={isMe} />
                 </div>
-                <RoleBadge member={member} />
+                <span className="flex flex-wrap items-center gap-1.5">
+                  <RoleBadge member={member} />
+                  {member.deactivated && (
+                    <Badge className="w-fit bg-muted px-2.5 py-0.5 text-sm text-muted-foreground">Deactivated</Badge>
+                  )}
+                </span>
                 <span className="text-sm text-foreground">
                   <span className="sr-only">Joined </span>
                   {formatDate(member.joinedAt)}

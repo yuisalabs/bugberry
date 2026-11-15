@@ -117,11 +117,12 @@ export function workspacesModule(deps: AppDeps) {
     )
     .get(
       "/workspaces/:id/members",
-      async ({ user: current, params }) => {
+      async ({ user: current, params, query }) => {
         await requireMember(db, current.id, params.id)
-        return membersOf(db, params.id)
+        return membersOf(db, params.id, query.include === "deactivated")
       },
-      { auth: true },
+      // The Members page asks for deactivated people; every picker takes the default.
+      { auth: true, query: t.Object({ include: t.Optional(t.Literal("deactivated")) }) },
     )
     .patch(
       "/workspaces/:id/members/:userId",
