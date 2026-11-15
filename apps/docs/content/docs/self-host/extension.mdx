@@ -1,15 +1,15 @@
 ---
-title: The extension for your team
+title: The Extension for Your Team
 description: Use the BugBerry extension from the stores, or build one for your server.
 ---
 
 There are two ways to give your team the extension. Most servers use the store extension. Build your own only when you need it.
 
-<Callout type="warn" title="One Chrome extension per server">
+<Callout type="warn" title="One Chrome Extension per Server">
   Your server trusts one Chrome extension ID, set in `EXTENSION_ID`. Choose either the store extension or your own build for Chrome and Opera; a server set up for one rejects the other. Firefox is not affected.
 </Callout>
 
-## The store extension
+## The Store Extension
 
 <StoreLinks />
 
@@ -25,14 +25,14 @@ Each person installs it, signs in to your dashboard in the same browser, and ope
 
 They can also open **Settings** from the extension's **⋯** menu and choose **Change server**. Signing out of the dashboard signs the extension out too: there are no tokens to paste.
 
-## Build your own (Chrome and Opera)
+## Build Your Own (Chrome and Opera)
 
 Build your own when the extension should already know your server's address, or when your company doesn't allow extensions from the store. You need [Bun](https://bun.sh) 1.4 or newer on the computer that builds it.
 
 <Steps>
 <Step>
 
-### Create the extension key
+### Create the Extension Key
 
 From the repo root:
 
@@ -47,7 +47,7 @@ This creates `apps/extension/bugberry-extension.pem` and prints `VITE_EXTENSION_
 </Step>
 <Step>
 
-### Tell the server and the build
+### Tell the Server and the Build
 
 Set `EXTENSION_ID` in the server's `.env` and restart it. Then create `apps/extension/.env.production`; neither value is secret, so you may commit it:
 
@@ -59,7 +59,7 @@ VITE_EXTENSION_KEY=<value from bun run key>
 </Step>
 <Step>
 
-### Build the zip
+### Build the Zip
 
 From `apps/extension` (the same on Windows, macOS, and Linux):
 
@@ -87,7 +87,7 @@ Share `apps/extension/.output/bugberryextension-<version>-opera.zip`.
 </Step>
 <Step>
 
-### Install it
+### Install It
 
 Each person extracts the zip, opens `chrome://extensions` (or `opera://extensions`), turns on **Developer mode**, and chooses **Load unpacked** on the extracted folder. The extension already knows your server; anyone signed in to the dashboard can send reports right away.
 

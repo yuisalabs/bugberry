@@ -9,7 +9,7 @@ BugBerry doesn't come with an AI model. You bring your own key (BYOK): an OpenAI
 
 <Callout>A ChatGPT Plus or Pro subscription is not an API key. Create one at platform.openai.com; it is billed by use.</Callout>
 
-## Set up a key
+## Set Up a Key
 
 There are two kinds of key. When both are set, your personal key is used.
 
@@ -32,7 +32,7 @@ The description is written in the language of the template and its instructions.
 
 Every workspace starts with two templates, **Steps to reproduce** and **Short**. Anyone in the workspace can add, edit or delete templates. Admins choose the workspace's default template and, if they like, a different default per project. In the review the template follows the selected project's default, and you can pick another for one report.
 
-## In the review
+## In the Review
 
 Write with AI appears above the title for recordings (not screenshots).
 
@@ -42,7 +42,7 @@ Write with AI appears above the title for recordings (not screenshots).
 
 If you trimmed the video, only the part you kept is used. The AI is told to build the steps only from what the recording shows, and to say "cause not visible in the recording" rather than guess.
 
-## What is sent to the provider
+## What Is Sent to the Provider
 
 - What you did: clicks, submits, page changes, and which fields you typed into (never what you typed: the recording only keeps `•••`);
 - the pages you visited, without their query strings;
@@ -54,7 +54,7 @@ Never sent: request bodies, headers, requests that succeeded, the video, or scre
 
 **Response bodies** of failed requests often explain an error, so an admin can turn on **Send response bodies to AI** (off by default). It applies to personal keys too. The extension already replaces secrets such as passwords, tokens and `Authorization` headers with `[redacted]`, but other personal data in a response body, such as a customer's name or email, is sent as is.
 
-## When it doesn't work
+## When It Doesn't Work
 
 | Message | What to do |
 | --- | --- |

@@ -5,7 +5,7 @@ description: Where screenshots, videos, and captured data are kept, and the CORS
 
 BugBerry stores screenshots, recordings, thumbnails, avatars, workspace logos, and each report's captured console and network data as files. The database only holds their names.
 
-## Local files (the default)
+## Local Files (the Default)
 
 ```bash
 STORAGE_DRIVER=local
@@ -30,7 +30,7 @@ S3_SECRET_ACCESS_KEY=...
 
 Browsers upload and download directly from the bucket with short-lived signed URLs (`UPLOAD_URL_TTL_SECONDS` and `READ_URL_TTL_SECONDS`, one hour by default), so `S3_ENDPOINT` must be reachable from your users' browsers over HTTPS.
 
-## S3 on the same server (RustFS)
+## S3 on the Same Server (RustFS)
 
 The `s3` profile runs [RustFS](https://rustfs.com), an S3-compatible store, and creates the bucket named in `S3_BUCKET`. Because browsers fetch from it directly, give it a public HTTPS address; with the `caddy` profile:
 
@@ -50,7 +50,7 @@ RustFS uses the access key and secret you choose as its admin credentials. Point
 docker compose --profile caddy --profile s3 up -d --build
 ```
 
-## The CORS rule
+## The CORS Rule
 
 The dashboard reads each report's console and network data straight from the bucket, and uploads avatars and logos to it, so the bucket needs a CORS rule for your `APP_URL` allowing `GET`, `HEAD`, and `PUT`. Local storage doesn't need one.
 
@@ -68,7 +68,7 @@ On Cloudflare R2 you can instead open the bucket's **Settings → CORS policy** 
 
 The extension doesn't need CORS: extension pages have their own host permissions.
 
-## A bucket behind Cloudflare
+## A Bucket Behind Cloudflare
 
 If the bucket's address is proxied by Cloudflare (an orange-cloud DNS record in front of RustFS or MinIO):
 

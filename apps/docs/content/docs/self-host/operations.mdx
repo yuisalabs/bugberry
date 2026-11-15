@@ -14,7 +14,7 @@ New database migrations run when the `api` container starts. `docker stop` gives
 
 If you build the extension yourself, update the server first, then share the new extension zip.
 
-## Maintenance mode
+## Maintenance Mode
 
 For planned work (a database upgrade, a move to another server), show your team a maintenance page instead of errors. Put a `maintenance.json` in the `maintenance` folder next to `docker-compose.yml`:
 
@@ -36,7 +36,7 @@ Delete the file to end it. Neither step needs a restart. The public pages and th
 
 If BugBerry is down without maintenance mode on, the dashboard says it can't be reached and offers to try again.
 
-### Upgrading to workspace integrations
+### Upgrading to Workspace Integrations
 
 From this version, accounts and channels are connected once per workspace and projects use them. On upgrade, every existing integration becomes a connection of its own, named after what it pointed at (such as "GitHub · kantor/web"), used by the project it belonged to, with the same target, labels and auto-send. Nothing stops sending.
 
@@ -62,7 +62,7 @@ docker compose exec -T postgres psql -U fdebag -d fdebag < fdebag-<date>.sql
 docker run --rm -v fdebag-prod_uploads:/data -v "$PWD":/backup alpine tar xzf /backup/uploads-<date>.tar.gz -C /data
 ```
 
-## When someone leaves
+## When Someone Leaves
 
 Removing someone on the **Members** page takes them out of that workspace. It does not sign them out or stop them signing in. To cut an account off from the whole server, deactivate it:
 
@@ -103,11 +103,11 @@ Signing in works again. Tokens stay revoked and AI apps must be connected again.
 
 Deactivating is always a command you run: BugBerry does not learn from your identity provider that someone left.
 
-## When your company changes its email domain
+## When Your Company Changes Its Email Domain
 
 Accounts keep the address they were created with. Keep the old domain in `ALLOWED_EMAIL_DOMAINS` beside the new one, or everyone with an old address is refused.
 
-## API tokens for automation
+## API Tokens for Automation
 
 For scripts and bot accounts. The extension doesn't use tokens, and the dashboard doesn't create or show them:
 
@@ -115,7 +115,7 @@ For scripts and bot accounts. The extension doesn't use tokens, and the dashboar
 docker compose exec api bun apps/api/scripts/create-token.ts --email bot@example.com --name "Bot"
 ```
 
-## Previews for older screenshots
+## Previews for Older Screenshots
 
 Screenshots sent before the extension made previews show the full image on every card, which makes the report list slow to scroll. This makes a small preview for each of them. The first command only lists them; the second adds the previews:
 
@@ -126,7 +126,7 @@ docker compose exec api bun apps/api/scripts/backfill-thumbnails.ts --apply
 
 It's safe to run again: a second run only looks at screenshots that still have no preview. Older videos keep showing "No preview".
 
-## Notes for older installations
+## Notes for Older Installations
 
 - **From the single-container version:** `--remove-orphans` removes the old `fdebag` container, which still holds port 3000. Volumes and data are not touched.
 - **Upgrading to workspaces:** existing data moves into one workspace named after the most common email domain, and existing admins become its admins. Reports that were "internal" become the **Workspace** level; public reports stay public. `ADMIN_EMAILS` is no longer used: admins are set per workspace on the **Members** page, and new employees are invited from there.

@@ -1,5 +1,5 @@
 ---
-title: Reverse proxy
+title: Reverse Proxy
 description: Running BugBerry behind your own nginx, Traefik, or Caddy.
 ---
 
@@ -14,7 +14,7 @@ BUGBERRY_BIND=127.0.0.1
 
 The port is open to localhost only, on purpose. Point your proxy at `127.0.0.1:<BUGBERRY_PORT>`. Set `BUGBERRY_BIND=0.0.0.0` only if you really want to expose the port directly.
 
-## Trusting the proxy
+## Trusting the Proxy
 
 ```bash
 TRUST_PROXY=true
@@ -24,7 +24,7 @@ Set it when Caddy or your own proxy sits in front of BugBerry, so rate limits us
 
 Behind Cloudflare, make your proxy pass the visitor's address from `CF-Connecting-IP` as `X-Forwarded-For`, or every visitor shares Cloudflare's IP.
 
-## Paths to pass through
+## Paths to Pass Through
 
 Forward everything to BugBerry. If your proxy only forwards some paths, make sure these reach it:
 

@@ -1,0 +1,30 @@
+---
+title: 0.9.2
+description: Released 29 October 2026.
+---
+
+- **Coding agents can record a bug and file it.** The new `@bugberry/recorder` MCP server opens a browser with BugBerry
+  inside. The agent drives it with Playwright MCP, records the bug, writes the title and description, and files the
+  report with video, console, network, and its actions. It hands back the link. The report says **Recorded by** and the
+  agent's name, and nothing new is needed in the browser: identity comes from your BugBerry MCP connection. A recording
+  follows one tab, and the recorder warns the agent when it opens another or goes to one already open. Setup for Claude Code, Cursor, VS Code, and
+  Windsurf is under **AI Agents → Let agents record bugs**. See [Agent Recordings](/guide/agent-recordings).
+- **Agents can test a page.** The recorder's `test-page` prompt has the agent go through a page or a flow first, then
+  record each new bug it found and file it with a priority: critical when the flow can't be finished, down to low for
+  typos and slowness. Bugs already open in BugBerry aren't filed again; resolved ones that came back are, marked as
+  such. A bug that doesn't show again in 3 attempts isn't filed. The agent stops before paying, ordering, or deleting
+  unless you allow it, and ends with what it filed, what was already reported, and what it couldn't reproduce. See
+  [Testing a Page](/guide/agent-recordings#testing-a-page).
+- **Agents can prove a fix.** After fixing a reported bug, the recorder's `verify-fix` prompt has the agent redo the
+  report's steps on the app running the fix, while recording, and file that as "Fix proof: … (BB-123)" in the same
+  project, with a link back. It asks you first before paying, ordering, or deleting, and files nothing if the bug still
+  shows. Unless you say otherwise, it comments on the original report with the proof's link and leaves its status as it
+  is. See [Proof That a Fix Works](/guide/agent-recordings#proof-that-a-fix-works).
+- **`getReport`** also gives workspace members the project's slug and the workspace, so a follow-up lands in the same
+  place.
+- **Codex** setup is on the AI Agents page, for the BugBerry MCP server and for the recorder.
+- **New MCP tool `createUpload`** creates the report for a recording, with an optional priority, and gives the recorder
+  a link to send it through that works for 15 minutes. An upload that started in time can still finish after that. When the recorder closes,
+  recordings it never sent are deleted from your computer.
+- **Self-hosting:** update the server; a migration adds the agent upload links and a column on reports when it starts.
+  Set `--server` to your address in the recorder. The extension stays at 0.9.0.

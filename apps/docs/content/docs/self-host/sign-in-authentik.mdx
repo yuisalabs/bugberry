@@ -1,0 +1,66 @@
+---
+title: Sign In with Authentik
+description: Company sign-in through Authentik, step by step.
+---
+
+This sets up [company sign-in](/self-host/sign-in#company-sign-in-oidc) with Authentik. You need admin access to Authentik, and your BugBerry address (`APP_URL`).
+
+## In Authentik
+
+1. In the Admin interface, go to **Applications → Applications** and select **New Application**.
+2. Give it a name, for example `BugBerry`, and the slug `bugberry`. The slug is part of the issuer address. Select **Next**.
+3. Choose **OAuth2/OIDC** as the **Provider Type** and select **Next**.
+4. On the provider's page:
+   - pick an authorization flow;
+   - set **Client type** to **Confidential**;
+   - add the redirect URI `<APP_URL>/api/auth/callback/oidc`, for example `https://bugberry.example.com/api/auth/callback/oidc`, with **Strict** matching;
+   - leave a **Signing Key** selected. BugBerry checks every sign-in against the keys Authentik publishes, and refuses one signed without them.
+5. Copy the **Client ID** and the **Client Secret**, then finish creating the application.
+
+To decide who may use BugBerry, bind users or groups to the application in Authentik. With nothing bound, everyone in Authentik can sign in.
+
+## Verified Email Addresses
+
+Since version 2025.10, Authentik tells every app that a person's email address is unverified, and BugBerry refuses an unverified address. To change what Authentik says:
+
+1. Go to **Customization → Property Mappings**, select **New Property Mapping** and choose **Scope Mapping**.
+2. Give it a name, for example `BugBerry email`, and set **Scope name** to `email`.
+3. Set **Expression** to:
+
+   ```python
+   return {
+       "email": request.user.email,
+       "email_verified": True,
+   }
+   ```
+
+4. Open the BugBerry provider and edit it. Under **Scopes**, take out Authentik's default `email` mapping and add yours. A provider must not have both.
+
+This tells BugBerry that every address in Authentik is verified. Use it only when people can't change their own email address in Authentik. If they can, have Authentik check each address before it calls it verified: see [Verify email addresses](https://docs.goauthentik.io/add-secure-apps/providers/oauth2/verify-email-address/) in Authentik's docs.
+
+## In BugBerry
+
+Add to `.env`, then restart with `docker compose up -d`:
+
+```bash
+OIDC_ISSUER=https://auth.example.com/application/o/bugberry/
+OIDC_CLIENT_ID=<the client ID>
+OIDC_CLIENT_SECRET=<the client secret>
+OIDC_NAME="Example SSO"
+```
+
+The provider's page in Authentik shows this address as **OpenID Configuration Issuer**. It ends with the application's slug.
+
+The sign-in page now shows **Continue with Example SSO**.
+
+## If It Doesn't Work
+
+| What you see | Cause |
+| --- | --- |
+| Authentik says the redirect URI doesn't match | The redirect URI in the provider doesn't match `<APP_URL>/api/auth/callback/oidc` exactly. |
+| "Verify your email address with your sign-in provider first" | Authentik says the address is unverified. See [Verified Email Addresses](#verified-email-addresses). |
+| "Company sign-in isn't reachable right now" | BugBerry can't read `<OIDC_ISSUER>/.well-known/openid-configuration` from inside its container. Check the address and the slug in it, and see [a provider with an internal certificate](/self-host/sign-in#a-provider-with-an-internal-certificate). |
+| "Sign-in couldn't be completed" | `OIDC_CLIENT_SECRET` doesn't match the provider's client secret. |
+| "Sign-in failed. Try again." | The provider has no **Signing Key**. |
+| "Your company sign-in didn't share an email address" | That person has no email address in Authentik, or the provider has no `email` scope mapping. |
+| "This email can't sign in" | The address is outside `ALLOWED_EMAIL_DOMAINS`. |
