@@ -1,0 +1,92 @@
+---
+title: Comparison
+description: How BugBerry compares with Jam, Marker.io, Crikket, BugHerd, Userback, Usersnap, and Gleap, and when one of them fits better.
+---
+
+All of these tools turn a problem someone saw into a report with a screenshot or video. They differ in where the data lives, who does the reporting, and what happens to a report afterwards.
+
+They fall into two groups. Jam, Marker.io, and Crikket are built for bug reports that developers act on, like BugBerry. BugHerd, Userback, Usersnap, and Gleap are built for feedback from clients and customers, with bug reports as one part of it.
+
+<Callout title="Checked on 15 November 2026">
+  The other tools change often. What's written here comes from their public documentation and product pages on that date. Prices are left out because they change most often of all: see each tool's own pricing page.
+</Callout>
+
+"Not covered" in the tables means the pages we read don't say either way. It doesn't mean the tool can't do it.
+
+## Bug Capture for Developers
+
+| | BugBerry | Jam | Marker.io | Crikket |
+| --- | --- | --- | --- | --- |
+| Source code | Open (AGPL-3.0) | Closed | Closed | Open (AGPL-3.0) |
+| Run it on your own server | Yes, Docker Compose | No | No | Yes, Docker Compose |
+| Hosted version | Yes | Yes | Yes | Yes |
+| How people report | Browser extension | Browser extension, or a Recording Link for customers | A widget on your site, or a browser extension | Browser extension, or a widget on your site |
+| Native mobile apps | No | Not covered | Not covered | No |
+| Screenshot with annotations | Yes | Yes | Yes | Yes |
+| Video of a tab, window, or screen | Yes, with sound and a camera bubble | Yes | Not covered | Yes |
+| Replay of the moments before the bug | Instant replay: 30, 60, or 120 seconds | Instant Replay: up to 2 minutes | Not covered | No |
+| Console, network, and user actions | Yes | Yes | Network, minus keys and domains you exclude | Yes |
+| Credentials removed before sending | Yes, in the extension | Yes, in the browser | Keys you list are left out | Not covered |
+| Your app's own logs and state | Yes, with `@bugberry/sdk` | Yes, `jam.metadata()` in `@jam.dev/sdk` | Custom metadata on each issue | No |
+| Issue trackers | GitHub Issues, GitLab, Linear, Jira, Plane, ActiveCollab | Linear, Jira, GitHub, GitLab, Asana, ClickUp, Azure DevOps, Notion, and others | Yes (see Marker.io) | None listed |
+| Chat and support tools | No | Slack, Intercom, Zendesk, HubSpot, and others | Not covered | No |
+| AI agents through MCP | Yes, on every server | Yes, hosted at `mcp.jam.dev` | Not covered | No |
+| An agent records a bug in a browser it drives | Yes, [Agent Recordings](/guide/agent-recordings) | Not covered | Not covered | No |
+| Single sign-on | Yes, any OIDC provider, on your own server | Not covered | Not covered | Not covered |
+
+## Feedback from Clients and Customers
+
+| | BugBerry | BugHerd | Userback | Usersnap | Gleap |
+| --- | --- | --- | --- | --- | --- |
+| Source code | Open (AGPL-3.0) | Closed | Closed | Closed | Closed |
+| Run it on your own server | Yes, Docker Compose | No | No | No | No |
+| Hosted version | Yes | Yes | Yes | Yes | Yes |
+| How people report | Browser extension | A sidebar on your site that pins feedback to page elements, or a browser extension | A widget on your site, or a browser extension for Chrome, Firefox, and Edge | A widget on your site, or a browser extension for Chrome and Firefox | A widget in your web or mobile app |
+| Native mobile apps | No | No | Yes, iOS and Android SDK | Not covered | Yes, iOS, Android, React Native, Flutter, and others |
+| Screenshot with annotations | Yes | Yes | Yes | Yes | Yes, with a blur tool |
+| Video | Yes, with sound and a camera bubble | Up to one minute, with audio | Yes | Yes, with audio | Yes, up to 2 minutes |
+| Replay of the moments before the bug | Instant replay: 30, 60, or 120 seconds | No | Session replay | Not covered | Session replay on the web |
+| Console and network | Yes, with user actions | Not covered | Yes | JavaScript errors and XHR and Fetch requests, from the widget only, on request | Last 500 console entries and last 30 requests |
+| Credentials removed before sending | Yes, in the extension | Not covered | Elements you block are left out of replays | Not covered | Password fields masked, and headers and keys you list left out |
+| Your app's own logs and state | Yes, with `@bugberry/sdk` | Not covered | Custom events | Custom user attributes | Custom events and data |
+| Issue trackers | GitHub Issues, GitLab, Linear, Jira, Plane, ActiveCollab | Jira, Linear, GitHub, Asana, ClickUp, Trello, Monday.com, and others | Jira and ClickUp both ways, Linear, Notion | Jira, Azure DevOps | Jira, Linear, GitHub, Asana, ClickUp, Azure DevOps |
+| Chat and support tools | No | Slack, Microsoft Teams | Slack | Slack, Zendesk, ServiceNow | Its own in-app chat |
+| AI agents through MCP | Yes, on every server | Yes, in beta | Yes, hosted at `mcp.userback.io` | Yes | Listed, not described |
+| An agent records a bug in a browser it drives | Yes, [Agent Recordings](/guide/agent-recordings) | Not covered | Not covered | Not covered | Not covered |
+| Single sign-on | Yes, any OIDC provider, on your own server | Not covered | Yes, through WorkOS | Not covered | Not covered |
+
+## Where BugBerry Differs
+
+**Your server, your data.** A self-hosted BugBerry keeps reports, videos, and captured requests on your server and in the storage you choose: a local volume, S3, R2, MinIO, or RustFS. Of the tools here, only Crikket can also run on your own server. See [Self-Host](/self-host) and [Privacy and Security](/privacy-security).
+
+**Agents on both ends.** Every BugBerry server runs an MCP server, so Claude, Cursor, VS Code, ChatGPT, and others can read a report's console, network, and failing code, comment on it, and resolve it, with the same access as their person. A coding agent can also record a bug in a browser it drives and file it like any other report. See [AI Agents](/guide/ai-agents) and [Agent Recordings](/guide/agent-recordings).
+
+**The trackers self-hosted teams use.** Besides GitHub Issues, GitLab, Linear, and Jira, BugBerry sends reports to Plane and ActiveCollab, by hand or automatically. See [Tracker Integrations](/guide/trackers).
+
+**Sign-in that fits your company.** On your own server, people sign in with Google, GitHub, GitLab, email codes, or your company's OIDC provider, such as Keycloak, Okta, Microsoft Entra ID, Google Workspace, or Authentik. See [Sign-In](/self-host/sign-in).
+
+## When Another Tool Fits Better
+
+**Your customers report the bugs.** BugBerry needs its browser extension. If the people reporting are visitors to your site who won't install anything, a widget on the page is easier for them: Marker.io, Crikket, BugHerd, Userback, Usersnap, and Gleap offer one, and Jam offers Recording Links that open in the browser.
+
+**Your clients review a website.** BugHerd pins each comment to the element it's about and puts it on a task board, and clients can leave feedback without an account.
+
+**You build a mobile app.** BugBerry works in the browser only. Gleap and Userback have SDKs for iOS and Android.
+
+**You want surveys and feature requests too.** Userback and Gleap collect those alongside bug reports. BugBerry is for bug reports only.
+
+**Your team lives in support and chat tools.** Jam, Userback, Usersnap, and BugHerd connect to Slack and support desks such as Intercom, Zendesk, or ServiceNow, and Gleap has its own in-app chat. BugBerry connects to issue trackers and AI agents only.
+
+**You don't want to run a server.** Use the [BugBerry cloud](https://bugberry.yuisalabs.com), or a hosted tool. Running BugBerry yourself means looking after Docker, a database, and backups. See [Operations](/self-host/operations).
+
+## Sources
+
+- Jam: [jam.dev/docs](https://jam.dev/docs), including [Instant Replay](https://jam.dev/docs/instant-replay), [DevTools](https://jam.dev/docs/devtools), [Custom Logs](https://jam.dev/docs/custom-logs), [Integrations](https://jam.dev/docs/integrations-overview), and [Jam MCP](https://jam.dev/docs/jam-mcp)
+- Marker.io: [the Browser SDK](https://github.com/marker-io/browser-sdk) and [marker.io](https://marker.io)
+- Crikket: [crikket.io/docs](https://crikket.io/docs) and [its repository](https://github.com/redpangilinan/crikket)
+- BugHerd: [Features](https://bugherd.com/features), [BugHerd MCP](https://bugherd.com/feature/mcp), and [the API docs](https://docs.bugherd.com/api)
+- Userback: [docs.userback.io](https://docs.userback.io), including [Userback MCP](https://docs.userback.io/docs/userback-mcp), [the JavaScript SDK](https://docs.userback.io/docs/javascript-sdk), and [Single Sign-on](https://docs.userback.io/changelog/single-sign-on-sso), and [the browser extension](https://userback.io/feature/browser-extension/)
+- Usersnap: [Website Bug Reporting](https://usersnap.com/features/website-bug-reporting) and [Console Recorder](https://help.usersnap.com/docs/console-recorder-feature)
+- Gleap: [In-App Bug Reporting](https://www.gleap.ai/product/in-app-bug-reporting) and [docs.gleap.io](https://docs.gleap.io)
+
+Something here out of date? [Open an issue](https://github.com/yuisalabs/bugberry/issues) and we'll fix it.
