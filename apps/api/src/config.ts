@@ -17,6 +17,16 @@ export interface OAuthClient {
   clientSecret: string
 }
 
+/** The company's own identity provider (OIDC_*). */
+export interface OidcConfig {
+  /** Without a trailing slash; discovery is read from `{issuer}/.well-known/openid-configuration`. */
+  issuer: string
+  clientId: string
+  clientSecret: string
+  /** The name on the sign-in button; null shows "SSO". */
+  name: string | null
+}
+
 /** Where sign-in codes go: Resend, an SMTP server, or the server log (development only). */
 export type EmailConfig =
   | { driver: "resend"; from: string; apiKey: string }
@@ -57,8 +67,11 @@ export interface Config {
   google: OAuthClient | null
   github: OAuthClient | null
   gitlab: (OAuthClient & { url: string }) | null
-  /** Null when email sign-in is off (production without EMAIL_DRIVER). */
+  oidc: OidcConfig | null
+  /** How every email is sent (codes, invitations, notifications); null in production without EMAIL_DRIVER. */
   email: EmailConfig | null
+  /** Email-code sign-in is on: there is a way to send email and EMAIL_SIGN_IN is not false. */
+  emailSignIn: boolean
   allowedEmailDomains: string[]
   extensionId: string | null
   /** Where the dashboard sends people to install the extension; null shows "Ask your admin". */
@@ -224,6 +237,23 @@ export function loadConfig(env: Env): Config {
     ? { ...gitlabClient, url: (optional("GITLAB_URL") ?? "https://gitlab.com").replace(/\/+$/, "") }
     : null
 
+  const oidcIssuer = optional("OIDC_ISSUER")
+  const oidcClientId = optional("OIDC_CLIENT_ID")
+  const oidcClientSecret = optional("OIDC_CLIENT_SECRET")
+  const oidcName = optional("OIDC_NAME")
+  let oidc: OidcConfig | null = null
+  if (oidcIssuer || oidcClientId || oidcClientSecret || oidcName) {
+    // Half-set company sign-in must not start quietly with SSO off.
+    const needed = { OIDC_ISSUER: oidcIssuer, OIDC_CLIENT_ID: oidcClientId, OIDC_CLIENT_SECRET: oidcClientSecret }
+    for (const [name, value] of Object.entries(needed)) {
+      if (!value) throw new ConfigError(`${name} is required when company sign-in (OIDC) is set up`)
+    }
+    const issuer = (oidcIssuer ?? "").replace(/\/\.well-known\/openid-configuration\/?$/, "").replace(/\/+$/, "")
+    if (!/^https?:\/\/\S+$/i.test(issuer)) throw new ConfigError("OIDC_ISSUER must be an http(s) URL")
+    if (oidcName && oidcName.length > 40) throw new ConfigError("OIDC_NAME must be at most 40 characters")
+    oidc = { issuer, clientId: oidcClientId ?? "", clientSecret: oidcClientSecret ?? "", name: oidcName ?? null }
+  }
+
   const emailDriver = optional("EMAIL_DRIVER")
   let email: EmailConfig | null
   if (emailDriver === "resend") {
@@ -244,8 +274,11 @@ export function loadConfig(env: Env): Config {
   } else {
     throw new ConfigError("EMAIL_DRIVER must be 'resend' or 'smtp'")
   }
-  if (!google && !github && !gitlab && !email) {
-    throw new ConfigError("Enable at least one sign-in method: Google, GitHub, GitLab or email (EMAIL_DRIVER)")
+  const emailSignIn = email !== null && flag("EMAIL_SIGN_IN", true)
+  if (!google && !github && !gitlab && !oidc && !emailSignIn) {
+    throw new ConfigError(
+      "Enable at least one sign-in method: Google, GitHub, GitLab, company sign-in (OIDC_ISSUER) or email codes (EMAIL_DRIVER)",
+    )
   }
 
   const demoRequestEmail = optional("DEMO_REQUEST_EMAIL") ?? null
@@ -271,7 +304,9 @@ export function loadConfig(env: Env): Config {
     google,
     github,
     gitlab,
+    oidc,
     email,
+    emailSignIn,
     allowedEmailDomains,
     extensionId: optional("EXTENSION_ID") ?? null,
     extensionInstallUrl,
