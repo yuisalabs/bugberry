@@ -82,3 +82,29 @@ describe("company sign-in", () => {
     expect(trusted(testConfig(oidcOverride(fake)))).toContain("oidc")
   })
 })
+
+const errorOf = (location: string) => new URL(location, "http://x").searchParams.get("error")
+
+describe("what the IdP says about the email", () => {
+  test("no email from the IdP is refused, with no fallback to a username", async () => {
+    fake.setClaims({ sub: "kc-2", preferred_username: "ana", name: "Ana" })
+    const done = await signInThroughOidc(ctx)
+    expect(errorOf(done.location)).toBe("email_not_found")
+    expect(done.cookie).toBeNull()
+  })
+
+  test("email_verified false is refused; a missing claim counts as verified", async () => {
+    fake.setClaims({ sub: "kc-3", email: "budi@kantor.test", email_verified: false, name: "Budi" })
+    expect(errorOf((await signInThroughOidc(ctx)).location)).toBe("email_not_verified")
+    // Entra ID sends no email_verified at all.
+    fake.setClaims({ sub: "kc-3", email: "budi@kantor.test", name: "Budi" })
+    expect((await signInThroughOidc(ctx)).location).toBe("/app")
+  })
+
+  test("ALLOWED_EMAIL_DOMAINS applies to the IdP", async () => {
+    fake.setClaims({ sub: "kc-4", email: "eve@other.test", email_verified: true, name: "Eve" })
+    const done = await signInThroughOidc(ctx)
+    expect(errorOf(done.location)).toBe("email_not_allowed")
+    expect(done.cookie).toBeNull()
+  })
+})

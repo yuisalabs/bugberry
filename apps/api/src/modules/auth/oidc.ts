@@ -20,6 +20,8 @@ export function oidcPlugin(oidc: OidcConfig, _startupTimeoutMs?: number) {
         disableProviderLogout: true,
         // An IdP without signing keys would have its id tokens read unchecked.
         requireIdTokenVerification: true,
+        // Entra ID never sends email_verified, so only an explicit false is a refusal.
+        mapProfileToUser: (profile) => ({ emailVerified: profile.email_verified !== false }),
       },
     ],
   })
