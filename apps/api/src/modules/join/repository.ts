@@ -49,6 +49,15 @@ export async function findDomainWorkspace(db: Db, workspaceId: string, domain: s
   return row ?? null
 }
 
+/** Workspaces that take this email domain without an admin's approval. */
+export async function listDirectDomainWorkspaces(db: Db, domain: string): Promise<string[]> {
+  const rows = await executor(db)
+    .select({ id: workspace.id })
+    .from(workspace)
+    .where(and(eq(workspace.joinDomain, domain), eq(workspace.joinMode, "direct")))
+  return rows.map((row) => row.id)
+}
+
 /** Workspaces taking people with this email domain that the person is not in yet, by name. */
 export function listDomainWorkspacesNotJoined(db: Db, domain: string, userId: string) {
   const x = executor(db)
