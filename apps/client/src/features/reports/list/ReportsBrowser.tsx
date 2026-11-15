@@ -3,6 +3,7 @@ import { useInfiniteQuery, useQuery } from "@tanstack/react-query"
 import { type ReactNode, useState } from "react"
 import { useNow } from "../../../hooks/useNow"
 import { invitesAllowed, usageText } from "../../workspaces/usage"
+import { useListPeople } from "./list-people"
 import { feedItems } from "./report-feed"
 import { hasFilters, type ReportSearch, toReportsQuery } from "./report-search"
 import { readLayout, type ReportLayout, saveLayout } from "./report-layout"
@@ -43,7 +44,7 @@ export function ReportsBrowser({
   const now = useNow()
   const { workspace } = useCurrentWorkspace()
   const workspaceId = workspace?.id ?? ""
-  const members = useQuery({ ...workspaceQueries.members(workspaceId), enabled: Boolean(workspace) })
+  const members = useListPeople(workspaceId, Boolean(workspace))
   // The project filter needs them on the all-reports page; the list view names projects on every page.
   const projects = useQuery({ ...projectQueries.projects(workspaceId), enabled: Boolean(workspace) })
   const reports = useInfiniteQuery({ ...reportQueries.reportFeed(workspaceId, toReportsQuery(scope, search)), enabled: Boolean(workspace) })

@@ -88,7 +88,7 @@ Two things to do by hand:
 docker compose exec api bun apps/api/scripts/promote-admin.ts --workspace acme --email someone-else@example.com
 ```
 
-`--workspace` is the workspace's URL name (the `acme` in its settings). The person becomes an admin whether or not they were a member. The workspace's owner stays who it was.
+`--workspace` is the workspace's URL name (the `acme` in its settings); the command that deactivated the account prints the exact line. The person becomes an admin whether or not they were a member. The workspace's owner stays who it was.
 
 To let the account back in:
 

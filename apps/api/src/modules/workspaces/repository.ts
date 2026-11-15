@@ -1,5 +1,5 @@
 import type { CaptureType, Visibility, WorkspaceRole } from "@bugberry/shared"
-import { and, asc, count, eq, gt, inArray, isNull, like, ne, or, sql } from "drizzle-orm"
+import { and, asc, count, eq, gt, inArray, isNotNull, isNull, like, ne, notInArray, or, sql } from "drizzle-orm"
 import { type Db, executor } from "../../db/client"
 import { pendingLogo, project, report, user, workspace, workspaceInvitation, workspaceMember } from "../../db/schema"
 import { newId } from "../../lib/ids"
@@ -83,12 +83,23 @@ export async function findOwnerId(db: Db, workspaceId: string): Promise<string |
   return row?.ownerId ?? null
 }
 
-/** Locks the workspace's admin rows until the transaction ends, and returns who they are. */
+/**
+ * Locks the workspace's admin rows until the transaction ends, and returns who they are. A deactivated
+ * admin is not one of them: they can't sign in, so they can't be the admin who remains.
+ */
 export async function lockAdmins(db: Db, workspaceId: string): Promise<string[]> {
-  const admins = await executor(db)
+  const x = executor(db)
+  const deactivated = x.select({ id: user.id }).from(user).where(isNotNull(user.deactivatedAt))
+  const admins = await x
     .select({ userId: workspaceMember.userId })
     .from(workspaceMember)
-    .where(and(eq(workspaceMember.workspaceId, workspaceId), eq(workspaceMember.role, "admin")))
+    .where(
+      and(
+        eq(workspaceMember.workspaceId, workspaceId),
+        eq(workspaceMember.role, "admin"),
+        notInArray(workspaceMember.userId, deactivated),
+      ),
+    )
     .for("update")
   return admins.map((admin) => admin.userId)
 }

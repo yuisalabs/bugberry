@@ -10,7 +10,7 @@ import { apiToken, oauthAccessToken, oauthConsent, oauthRefreshToken, session, u
 export async function deactivateUser(
   db: Db,
   email: string,
-): Promise<{ userId: string; email: string; alreadyDeactivated: boolean; withoutAdmin: Array<{ name: string; slug: string }> }> {
+): Promise<{ userId: string; email: string; alreadyDeactivated: boolean; withoutAdmin: Array<{ name: string; ref: string }> }> {
   const normalized = email.trim().toLowerCase()
   return db.transaction(async (tx) => {
     const [person] = await tx
@@ -38,7 +38,7 @@ export async function deactivateUser(
       .innerJoin(user, eq(user.id, workspaceMember.userId))
       .where(and(eq(workspaceMember.role, "admin"), isNull(user.deactivatedAt)))
     const stranded = await tx
-      .select({ name: workspace.name, slug: workspace.slug })
+      .select({ id: workspace.id, name: workspace.name, slug: workspace.slug })
       .from(workspace)
       .where(and(inArray(workspace.id, wasAdminOf), notInArray(workspace.id, hasActiveAdmin)))
       .orderBy(asc(workspace.name))
@@ -47,7 +47,8 @@ export async function deactivateUser(
       userId: person.id,
       email: person.email,
       alreadyDeactivated: person.deactivatedAt !== null,
-      withoutAdmin: stranded.map((row) => ({ name: row.name, slug: row.slug ?? "" })),
+      // What promote-admin takes: the URL name, or the id of a workspace from before URL names.
+      withoutAdmin: stranded.map((row) => ({ name: row.name, ref: row.slug ?? row.id })),
     }
   })
 }

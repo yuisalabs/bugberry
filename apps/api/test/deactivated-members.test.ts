@@ -49,6 +49,15 @@ describe("deactivated people in a workspace", () => {
     expect(await ctx.db.select().from(workspaceMember).where(eq(workspaceMember.userId, gone.user.id))).toHaveLength(0)
   })
 
+  test("a deactivated admin does not count as the admin who must remain", async () => {
+    const other = await createUserWithToken(ctx.db, { email: "other@kantor.test", role: "admin" })
+    await deactivateUser(ctx.db, other.user.email)
+    const demote = await members()({ userId: admin.user.id }).patch({ role: "member" }, { headers: admin.headers })
+    expect(demote.error?.value).toMatchObject({ code: "last_admin" })
+    const leave = await members()({ userId: admin.user.id }).delete(undefined, { headers: admin.headers })
+    expect(leave.error?.value).toMatchObject({ code: "last_admin" })
+  })
+
   test("a report can't be assigned to them, and an old assignment stays", async () => {
     const old = await createReadyReport(ctx.db, { reporterId: admin.user.id, assigneeId: gone.user.id })
     const fresh = await createReadyReport(ctx.db, { reporterId: admin.user.id })

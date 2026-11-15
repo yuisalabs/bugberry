@@ -101,6 +101,16 @@ describe("what the IdP says about the email", () => {
     expect((await signInThroughOidc(ctx)).location).toBe("/app")
   })
 
+  test("email_verified sent as a string is read the same way", async () => {
+    // Some IdPs and claim mappers send this claim as text.
+    fake.setClaims({ sub: "kc-5", email: "cici@kantor.test", email_verified: "false", name: "Cici" })
+    const refused = await signInThroughOidc(ctx)
+    expect(errorOf(refused.location)).toBe("email_not_verified")
+    expect(refused.cookie).toBeNull()
+    fake.setClaims({ sub: "kc-5", email: "cici@kantor.test", email_verified: "true", name: "Cici" })
+    expect((await signInThroughOidc(ctx)).location).toBe("/app")
+  })
+
   test("ALLOWED_EMAIL_DOMAINS applies to the IdP", async () => {
     fake.setClaims({ sub: "kc-4", email: "eve@other.test", email_verified: true, name: "Eve" })
     const done = await signInThroughOidc(ctx)

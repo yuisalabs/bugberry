@@ -24,7 +24,7 @@ try {
   if (result.withoutAdmin.length > 0) {
     console.info("No active admin is left in:")
     for (const workspace of result.withoutAdmin) {
-      console.info(`  ${workspace.name}: bun apps/api/scripts/promote-admin.ts --workspace ${workspace.slug} --email <someone>`)
+      console.info(`  ${workspace.name}: bun apps/api/scripts/promote-admin.ts --workspace ${workspace.ref} --email <someone>`)
     }
   }
   process.exit(0)

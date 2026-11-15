@@ -20,8 +20,11 @@ export function oidcPlugin(oidc: OidcConfig, startupTimeoutMs = DEFAULT_STARTUP_
     disableProviderLogout: true,
     // An IdP without signing keys would have its id tokens read unchecked.
     requireIdTokenVerification: true,
-    // Entra ID never sends email_verified, so only an explicit false is a refusal.
-    mapProfileToUser: (profile) => ({ emailVerified: profile.email_verified !== false }),
+    // Entra ID never sends email_verified, so a missing claim passes; anything but true (some IdPs send text) is a refusal.
+    mapProfileToUser: (profile) => {
+      const claim: unknown = profile.email_verified
+      return { emailVerified: claim === undefined || claim === null || claim === true || claim === "true" }
+    },
   }
   const plugin = genericOAuth({ config: [entry] })
   const init = plugin.init

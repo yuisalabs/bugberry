@@ -36,6 +36,15 @@ describe("promoteAdmin", () => {
     expect(await roleOf(cici.id)).toBe("admin")
   })
 
+  test("the workspace can be named by its id, for one without a URL name", async () => {
+    await ctx.db.update(workspace).set({ slug: null }).where(eq(workspace.id, ctx.workspace.id))
+    const budi = await createUser(ctx.db, { email: "budi@kantor.test", role: "admin" })
+    const stranded = (await deactivateUser(ctx.db, budi.email)).withoutAdmin
+    expect(stranded).toEqual([{ name: "Test", ref: ctx.workspace.id }])
+    await createUser(ctx.db, { email: "cici@kantor.test" })
+    expect(await promoteAdmin(ctx.db, stranded[0]?.ref ?? "", "cici@kantor.test")).toMatchObject({ workspace: "Test" })
+  })
+
   test("the owner does not change", async () => {
     const owner = await createUser(ctx.db, { role: "admin" })
     await ctx.db.update(workspace).set({ ownerId: owner.id }).where(eq(workspace.id, ctx.workspace.id))

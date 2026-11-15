@@ -18,6 +18,8 @@ playwright-report/
 apps/extension/e2e/.state.json
 apps/extension/docs-shots/.state.json
 *.pem
+# A throwaway CA and localhost certificate for one test; see the README beside them.
+!apps/api/test/fixtures/tls/*.pem
 
 .mcp.json
 AGENTS.md

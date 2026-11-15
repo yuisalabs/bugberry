@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm"
+import { and, eq, or } from "drizzle-orm"
 import type { Db } from "../db/client"
 import { user, workspace, workspaceMember } from "../db/schema"
 
@@ -8,14 +8,19 @@ import { user, workspace, workspaceMember } from "../db/schema"
  */
 export async function promoteAdmin(
   db: Db,
-  workspaceSlug: string,
+  /** The workspace's URL name, or its id for one that has none. */
+  workspaceRef: string,
   email: string,
 ): Promise<{ workspace: string; email: string; added: boolean }> {
-  const slug = workspaceSlug.trim().toLowerCase()
+  const ref = workspaceRef.trim()
   const normalized = email.trim().toLowerCase()
   return db.transaction(async (tx) => {
-    const [target] = await tx.select({ id: workspace.id, name: workspace.name }).from(workspace).where(eq(workspace.slug, slug)).limit(1)
-    if (!target) throw new Error(`No workspace with the URL ${slug}`)
+    const [target] = await tx
+      .select({ id: workspace.id, name: workspace.name })
+      .from(workspace)
+      .where(or(eq(workspace.slug, ref.toLowerCase()), eq(workspace.id, ref)))
+      .limit(1)
+    if (!target) throw new Error(`No workspace with the URL ${ref}`)
     const [person] = await tx
       .select({ id: user.id, email: user.email, deactivatedAt: user.deactivatedAt })
       .from(user)

@@ -49,7 +49,7 @@ describe("deactivateUser", () => {
   test("it never refuses, and lists workspaces left without an active admin", async () => {
     await createUser(ctx.db, { email: "ana@kantor.test", role: "admin" })
     await createUser(ctx.db, { role: "member" })
-    expect((await deactivateUser(ctx.db, "ana@kantor.test")).withoutAdmin).toEqual([{ name: "Test", slug: ctx.workspace.slug ?? "" }])
+    expect((await deactivateUser(ctx.db, "ana@kantor.test")).withoutAdmin).toEqual([{ name: "Test", ref: ctx.workspace.slug ?? "" }])
   })
 
   test("a second run says so, keeps the first time, and still cleans up", async () => {
