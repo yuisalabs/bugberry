@@ -70,7 +70,12 @@ export async function verifyLoginCode(email: string, code: string, next: unknown
     throw new Error("BugBerry can't be reached. Check your connection and try again.")
   }
   if (response.status === 429) throw new Error("Too many attempts. Wait a few minutes and try again.")
-  if (!response.ok) throw new Error("That code is wrong or has expired. Request a new one.")
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { code?: unknown } | null
+    // The code was right; asking for a new one would never help.
+    if (body?.code === "account_deactivated") throw new Error("This account is deactivated. Ask your admin.")
+    throw new Error("That code is wrong or has expired. Request a new one.")
+  }
   deps.assign(safeNext(next))
 }
 

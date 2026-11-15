@@ -24,6 +24,7 @@ import { otpEmail } from "./otp-email"
 import { createEmailSender, type EmailSender } from "../../lib/email/sender"
 import { githubUserInfo, gitlabUserInfo } from "./identity"
 import { provisionNewUser } from "../workspaces/provision"
+import { isDeactivated } from "../account/repository"
 import { MCP_SCOPES, mcpResource } from "./mcp-oauth"
 import { OIDC_PROVIDER_ID, oidcPlugin } from "./oidc"
 import { isEmailAllowed } from "./policy"
@@ -199,6 +200,16 @@ export function createAuth(config: Config, db: Db, options: { email?: EmailSende
       },
     },
     databaseHooks: {
+      session: {
+        create: {
+          // Every sign-in method ends in a new session, so this one check closes them all.
+          before: async (created) => {
+            if (await isDeactivated(db, created.userId)) {
+              throw new APIError("FORBIDDEN", { code: "account_deactivated", message: "This account is deactivated. Ask your admin." })
+            }
+          },
+        },
+      },
       user: {
         create: {
           // Second line of defence.

@@ -87,6 +87,14 @@ describe("email codes", () => {
   })
 })
 
+describe("email codes for a deactivated account", () => {
+  test("the code screen says the account is deactivated, not that the code is wrong", async () => {
+    const { assigned, deps } = recorder(Response.json({ code: "account_deactivated", message: "x" }, { status: 403 }))
+    await expect(verifyLoginCode("ana@kantor.com", "123456", "/", deps)).rejects.toThrow("This account is deactivated. Ask your admin.")
+    expect(assigned).toEqual([])
+  })
+})
+
 describe("signOut", () => {
   test("posts to Better Auth", async () => {
     const { calls, deps } = recorder(Response.json({ success: true }))

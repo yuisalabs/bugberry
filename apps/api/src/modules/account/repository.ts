@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm"
+import { and, asc, eq, isNotNull, isNull } from "drizzle-orm"
 import { type Db, executor } from "../../db/client"
 import { account, pendingAvatar, user } from "../../db/schema"
 import type { CurrentUser } from "../../plugins/auth"
@@ -11,9 +11,23 @@ const currentUserColumns = {
   lastWorkspaceId: user.lastWorkspaceId,
 }
 
+/** Null for a deactivated account too: every session cookie and OAuth access token is resolved through here. */
 export async function findCurrentUser(db: Db, userId: string): Promise<CurrentUser | null> {
-  const [row] = await executor(db).select(currentUserColumns).from(user).where(eq(user.id, userId)).limit(1)
+  const [row] = await executor(db)
+    .select(currentUserColumns)
+    .from(user)
+    .where(and(eq(user.id, userId), isNull(user.deactivatedAt)))
+    .limit(1)
   return row ?? null
+}
+
+export async function isDeactivated(db: Db, userId: string): Promise<boolean> {
+  const [row] = await executor(db)
+    .select({ id: user.id })
+    .from(user)
+    .where(and(eq(user.id, userId), isNotNull(user.deactivatedAt)))
+    .limit(1)
+  return row !== undefined
 }
 
 export async function updateUser(
