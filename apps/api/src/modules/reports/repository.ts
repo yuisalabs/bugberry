@@ -1,5 +1,5 @@
 import { and, asc, count, desc, eq, exists, gte, ilike, inArray, isNull, lt, ne, or, type SQL, sql } from "drizzle-orm"
-import { alias } from "drizzle-orm/pg-core"
+import { alias, union, unionAll } from "drizzle-orm/pg-core"
 import { type Db, executor } from "../../db/client"
 import { agentUpload, comment, notification, project, report, reportFix, type ReportFixRow, user, workspace } from "../../db/schema"
 import { newId } from "../../lib/ids"
@@ -17,10 +17,10 @@ const keyed = (key: ReportKey) =>
   "id" in key ? eq(report.id, key.id) : and(eq(report.shareSlug, key.shareSlug), eq(report.uploadStatus, "ready"))
 
 /**
- * Which reports a list holds: one workspace's finished uploads, narrowed by the list's filters. The counts per
- * status leave the status filter out (`withStatus: false`), so each status chip says what picking it would show.
+ * Which reports a list holds before its search: one workspace's finished uploads, narrowed by the list's filters. The
+ * counts per status leave the status filter out (`withStatus: false`), so each status chip says what picking it would show.
  */
-function listConditions(db: Db, workspaceId: string, input: ListReportsInput, { withStatus = true } = {}): SQL[] {
+function listFilters(workspaceId: string, input: ListReportsInput, { withStatus = true } = {}): SQL[] {
   const conditions: SQL[] = [eq(report.workspaceId, workspaceId), eq(report.uploadStatus, "ready")]
   if (input.projectId === NO_PROJECT) conditions.push(isNull(report.projectId))
   else if (input.projectId) conditions.push(eq(report.projectId, input.projectId))
@@ -33,34 +33,75 @@ function listConditions(db: Db, workspaceId: string, input: ListReportsInput, { 
   if (input.createdAfter) conditions.push(gte(report.createdAt, new Date(input.createdAfter)))
   if (input.createdBefore) conditions.push(lt(report.createdAt, new Date(input.createdBefore)))
   if (input.hasErrors) conditions.push(eq(report.hasErrors, true))
-  const search = input.q?.trim()
-  if (search) {
-    const pattern = `%${escapeLike(search)}%`
-    const inComments = exists(
-      executor(db)
-        .select({ one: sql`1` })
-        .from(comment)
-        .where(and(eq(comment.reportId, report.id), ilike(comment.body, pattern))),
-    )
-    const matches = or(ilike(report.title, pattern), ilike(report.pageUrl, pattern), ilike(report.description, pattern), inComments)
-    if (matches) conditions.push(matches)
-  }
   return conditions
+}
+
+/*
+ * A search matches a report by its own text or by one of its comments. The two ways are separate queries, because a
+ * single `OR … EXISTS` condition cannot read the trigram indexes. Inside these subqueries `report` is their own rows.
+ */
+function searchPattern(input: ListReportsInput): string | null {
+  const search = input.q?.trim()
+  return search ? `%${escapeLike(search)}%` : null
+}
+
+const inOwnText = (pattern: string) => or(ilike(report.title, pattern), ilike(report.pageUrl, pattern), ilike(report.description, pattern))
+
+/** Every report of the workspace the search matches, for counting them. */
+function allMatches(db: Db, workspaceId: string, pattern: string) {
+  const x = executor(db)
+  return union(
+    x.select({ id: report.id }).from(report).where(and(eq(report.workspaceId, workspaceId), inOwnText(pattern))),
+    x
+      .select({ id: comment.reportId })
+      .from(comment)
+      .innerJoin(report, eq(report.id, comment.reportId))
+      .where(and(eq(report.workspaceId, workspaceId), ilike(comment.body, pattern))),
+  )
+}
+
+/**
+ * The first `limit` matches of each way in the list's order; a page of `limit` reports is among them. Each half
+ * stops once it has enough, where collecting every match first takes a second for a word most reports hold.
+ */
+function topMatches(db: Db, filters: SQL[], pattern: string, orderBy: SQL[], limit: number) {
+  const x = executor(db)
+  const inAComment = exists(
+    x
+      .select({ one: sql`1` })
+      .from(comment)
+      .where(and(eq(comment.reportId, report.id), ilike(comment.body, pattern))),
+  )
+  const top = (matches: SQL | undefined) =>
+    x
+      .select({ id: report.id })
+      .from(report)
+      .where(and(...filters, matches))
+      .orderBy(...orderBy)
+      .limit(limit)
+  return unionAll(top(inOwnText(pattern)), top(inAComment))
 }
 
 /** How many of the list's reports each status holds, its status filter left out. */
 export function countListByStatus(db: Db, workspaceId: string, input: ListReportsInput) {
+  const pattern = searchPattern(input)
   return executor(db)
     .select({ status: report.status, count: count() })
     .from(report)
-    .where(and(...listConditions(db, workspaceId, input, { withStatus: false })))
+    .where(
+      and(
+        ...listFilters(workspaceId, input, { withStatus: false }),
+        pattern ? inArray(report.id, allMatches(db, workspaceId, pattern)) : undefined,
+      ),
+    )
     .groupBy(report.status)
 }
 
 /** One page of the list, sorted as asked, and how many reports the whole list holds. */
 export async function listPage(db: Db, workspaceId: string, input: ListReportsInput, page: number, perPage: number) {
   const x = executor(db)
-  const where = and(...listConditions(db, workspaceId, input))
+  const filters = listFilters(workspaceId, input)
+  const pattern = searchPattern(input)
   const orderBy =
     input.sort === "priority"
       ? // The enum was created from none up to critical, so its own order is the rank.
@@ -93,11 +134,14 @@ export async function listPage(db: Db, workspaceId: string, input: ListReportsIn
     })
     .from(report)
     .innerJoin(reporterUser, eq(report.reporterId, reporterUser.id))
-    .where(where)
+    .where(pattern ? inArray(report.id, topMatches(db, filters, pattern, orderBy, page * perPage)) : and(...filters))
     .orderBy(...orderBy)
     .limit(perPage)
     .offset((page - 1) * perPage)
-  const [totals] = await x.select({ total: count() }).from(report).where(where)
+  const [totals] = await x
+    .select({ total: count() })
+    .from(report)
+    .where(and(...filters, pattern ? inArray(report.id, allMatches(db, workspaceId, pattern)) : undefined))
   return { rows, total: totals?.total ?? 0 }
 }
 

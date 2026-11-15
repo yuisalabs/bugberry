@@ -90,6 +90,93 @@ describe("GET /api/reports", () => {
     expect(underscore.data?.items.map((r) => r.title)).toEqual(["snake_case field"])
   })
 
+  test("q finds a term in the title, the URL, the description and a comment, whatever its case", async () => {
+    await make({ title: "Zebra crossing" })
+    await make({ title: "url", pageUrl: "https://app.kantor.test/zebra/1" })
+    await make({ title: "desc", description: "seen near the ZEBRA" })
+    const commented = await make({ title: "comment" })
+    await ctx.db.insert(comment).values({ id: newId(), reportId: commented.id, authorId: member.user.id, body: "zebra again" })
+    await make({ title: "none" })
+    const { data } = await ctx.api.api.reports.get({ query: { q: "zEbRa" }, headers: member.headers })
+    expect(data?.items.map((r) => r.title).sort()).toEqual(["Zebra crossing", "comment", "desc", "url"])
+  })
+
+  test("q of one or two characters still searches", async () => {
+    await make({ title: "qz" })
+    await make({ title: "xy" })
+    for (const q of ["q", "qz"]) {
+      const { data } = await ctx.api.api.reports.get({ query: { q }, headers: member.headers })
+      expect(data?.items.map((r) => r.title)).toEqual(["qz"])
+    }
+  })
+
+  test("q treats a backslash as a plain character", async () => {
+    await make({ title: "C:\\temp\\log" })
+    await make({ title: "C:/temp/log" })
+    const { data } = await ctx.api.api.reports.get({ query: { q: "\\temp" }, headers: member.headers })
+    expect(data?.items.map((r) => r.title)).toEqual(["C:\\temp\\log"])
+  })
+
+  test("q does not reach another workspace's reports or comments", async () => {
+    const other = await createWorkspaceRow(ctx.db, "Other")
+    const outsider = await createUser(ctx.db, { workspaceId: other.id })
+    const theirs = await createReadyReport(ctx.db, { reporterId: outsider.id, workspaceId: other.id, title: "zebra elsewhere" })
+    await ctx.db.insert(comment).values({ id: newId(), reportId: theirs.id, authorId: outsider.id, body: "zebra" })
+    const { data } = await ctx.api.api.reports.get({ query: { q: "zebra" }, headers: member.headers })
+    expect(data?.items).toEqual([])
+  })
+
+  test("the status counts follow the same search", async () => {
+    await make({ title: "zebra open", status: "open" })
+    await make({ title: "zebra closed", status: "closed" })
+    await make({ title: "other", status: "open" })
+    const { data } = await ctx.api.api.reports.counts.get({ query: { q: "zebra" }, headers: member.headers })
+    expect(data).toMatchObject({ total: 2, byStatus: { open: 1, closed: 1 } })
+  })
+
+  describe("a search that matches by title in some reports and by comment in others", () => {
+    /** Seven matches a day apart: odd days by title, even days by a comment, day 5 by both; day 8 does not match. */
+    beforeEach(async () => {
+      const day = (n: number) => new Date(`2026-01-0${n}T00:00:00Z`)
+      const says = (reportId: string, body: string) =>
+        ctx.db.insert(comment).values({ id: newId(), reportId, authorId: member.user.id, body })
+      await make({ title: "zebra 1", createdAt: day(1), priority: "high" })
+      await says((await make({ title: "plain 2", createdAt: day(2), priority: "critical" })).id, "a zebra")
+      await make({ title: "zebra 3", createdAt: day(3), status: "closed" })
+      const twice = await make({ title: "plain 4", createdAt: day(4) })
+      await says(twice.id, "zebra")
+      await says(twice.id, "zebra, again")
+      await says((await make({ title: "zebra 5", createdAt: day(5) })).id, "zebra")
+      await says((await make({ title: "plain 6", createdAt: day(6), status: "closed" })).id, "Zebra")
+      await make({ title: "zebra 7", createdAt: day(7) })
+      await says((await make({ title: "plain 8", createdAt: day(8) })).id, "nothing")
+    })
+
+    const titles = async (query: Record<string, unknown>) => {
+      const { data } = await ctx.api.api.reports.get({ query: { q: "zebra", ...query }, headers: member.headers })
+      return data?.items.map((r) => r.title)
+    }
+
+    test("a page holds the newest of both kinds, each report once", async () => {
+      expect(await titles({ perPage: 3 })).toEqual(["zebra 7", "plain 6", "zebra 5"])
+      expect(await titles({})).toEqual(["zebra 7", "plain 6", "zebra 5", "plain 4", "zebra 3", "plain 2", "zebra 1"])
+    })
+
+    test("oldest first and by priority order both kinds together", async () => {
+      expect(await titles({ perPage: 3, sort: "oldest" })).toEqual(["zebra 1", "plain 2", "zebra 3"])
+      expect(await titles({ perPage: 3, sort: "priority" })).toEqual(["plain 2", "zebra 1", "zebra 7"])
+    })
+
+    test("the other filters still narrow it", async () => {
+      expect(await titles({ status: ["closed"] })).toEqual(["plain 6", "zebra 3"])
+    })
+
+    test("the status counts hold exactly the reports the list shows", async () => {
+      const { data } = await ctx.api.api.reports.counts.get({ query: { q: "zebra" }, headers: member.headers })
+      expect(data).toMatchObject({ total: 7, byStatus: { open: 5, closed: 2 } })
+    })
+  })
+
   test("sorts by priority and paginates", async () => {
     await make({ title: "low", priority: "low" })
     await make({ title: "critical", priority: "critical" })
