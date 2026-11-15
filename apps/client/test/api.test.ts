@@ -23,14 +23,14 @@ describe("API requests", () => {
   })
 
   test("sends list filters as repeated query parameters", async () => {
-    const { requests } = fakeFetch(() => Response.json({ items: [], page: 2, perPage: 20, total: 0 }))
+    const { requests } = fakeFetch(() => Response.json({ items: [], nextCursor: null }))
     await reports("w1", {
       projectId: "p1",
       status: ["open", "closed"],
       captureType: "video",
       reporterId: "u1",
       sort: "priority",
-      page: 2,
+      cursor: "abc",
       perPage: 20,
     })
     const url = new URL(requests[0]?.url ?? "")
@@ -39,7 +39,9 @@ describe("API requests", () => {
     expect(url.searchParams.get("projectId")).toBe("p1")
     expect(url.searchParams.get("captureType")).toBe("video")
     expect(url.searchParams.get("reporterId")).toBe("u1")
-    expect(url.searchParams.get("page")).toBe("2")
+    expect(url.searchParams.get("cursor")).toBe("abc")
+    expect(url.searchParams.get("perPage")).toBe("20")
+    expect(url.searchParams.has("page")).toBe(false)
     expect(url.searchParams.has("q")).toBe(false)
   })
 

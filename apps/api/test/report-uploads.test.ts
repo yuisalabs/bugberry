@@ -39,6 +39,19 @@ describe("POST /api/reports/uploads", () => {
     expect(await statusOf(session.reportId)).toBe("uploading")
   })
 
+  test("a debugger count the database cannot hold is refused when the upload starts", async () => {
+    const summary = { logs: 0, errors: 0, requests: 0, failedRequests: 0, actions: 0, incomplete: [] }
+    for (const field of ["errors", "failedRequests", "logs"] as const) {
+      const { status } = await ctx.api.api.reports.uploads.post(
+        uploadBody(projectId, { debuggerSummary: { ...summary, [field]: 3_000_000_000 } }),
+        { headers: member.headers },
+      )
+      expect({ field, status }).toEqual({ field, status: 422 })
+    }
+    const largest = await startUpload({ debuggerSummary: { ...summary, errors: 2_147_483_647 } })
+    expect(await statusOf(largest.reportId)).toBe("uploading")
+  })
+
   test("a report sent without a title is named after its kind and its reporter", async () => {
     const titleOf = async (id: string) => (await ctx.db.select({ title: report.title }).from(report).where(eq(report.id, id)))[0]?.title
     const name = member.user.name

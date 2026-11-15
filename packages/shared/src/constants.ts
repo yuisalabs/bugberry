@@ -51,6 +51,9 @@ export const DEBUGGER_CONTENT_TYPE = "application/gzip"
 /** The small JPEG preview the extension uploads with each report; best effort, never required. */
 export const THUMBNAIL_CONTENT_TYPE = "image/jpeg"
 export const MAX_THUMBNAIL_BYTES = 1024 * 1024
+
+/** The largest count a debugger summary may carry: the database reads `errors` and `failedRequests` as 32-bit integers. */
+export const MAX_SUMMARY_COUNT = 2_147_483_647
 /** Previews are at most this wide; the server makes the same ones for older reports. */
 export const THUMBNAIL_MAX_WIDTH = 640
 /** JPEG quality from 0 to 1. */

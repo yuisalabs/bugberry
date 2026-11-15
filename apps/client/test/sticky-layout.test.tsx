@@ -12,7 +12,7 @@ function props(): ComponentProps<typeof ReportsView> {
     title: "All reports",
     members: [],
     search: {},
-    list: { items: [listItemFixture({ id: "a" })], total: 1, hasMore: false, loadingMore: false, moreFailed: false },
+    list: { items: [listItemFixture({ id: "a" })], total: 1, hasMore: false, loadingMore: false, moreFailed: false, refreshing: false },
     now: 0,
     canInvite: false,
     onInvite: () => {},

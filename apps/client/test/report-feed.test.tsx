@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { LoadMore } from "../src/features/reports/list/LoadMore"
 import { REPORT_LIST_REFRESH_MS, reportQueries } from "../src/features/reports/queries"
-import { feedItems, nextReportsPage, REPORTS_PAGE_SIZE, reportsPageQuery } from "../src/features/reports/list/report-feed"
+import { feedItems, feedTotal, nextReportsCursor, REPORTS_PAGE_SIZE, reportsPageQuery } from "../src/features/reports/list/report-feed"
 import { listItemFixture } from "./fixtures"
 
 /**
@@ -46,37 +46,44 @@ afterEach(() => {
 describe("the report feed", () => {
   test("asks for 9 reports at a time", () => {
     expect(REPORTS_PAGE_SIZE).toBe(9)
-    expect(reportsPageQuery({ sort: "newest", status: ["open"] }, 3)).toEqual({ sort: "newest", status: ["open"], page: 3, perPage: 9 })
+    expect(reportsPageQuery({ sort: "newest", status: ["open"] }, null)).toEqual({ sort: "newest", status: ["open"], perPage: 9 })
+    expect(reportsPageQuery({ sort: "newest" }, "abc")).toEqual({ sort: "newest", perPage: 9, cursor: "abc" })
   })
 
-  test("there is a next part only while reports are left", () => {
-    expect(nextReportsPage({ items: [], page: 1, perPage: 9, total: 20 })).toBe(2)
-    expect(nextReportsPage({ items: [], page: 2, perPage: 9, total: 20 })).toBe(3)
-    expect(nextReportsPage({ items: [], page: 3, perPage: 9, total: 20 })).toBeUndefined()
-    expect(nextReportsPage({ items: [], page: 1, perPage: 9, total: 9 })).toBeUndefined()
-    expect(nextReportsPage({ items: [], page: 1, perPage: 9, total: 0 })).toBeUndefined()
+  test("there is a next part only while the server names one", () => {
+    expect(nextReportsCursor({ items: [], nextCursor: "abc" })).toBe("abc")
+    expect(nextReportsCursor({ items: [], nextCursor: null })).toBeUndefined()
   })
 
   test("a report that moved into the next part (a new one arrived meanwhile) is listed once", () => {
     const [a, b, c] = ["a", "b", "c"].map((id) => listItemFixture({ id }))
     const pages = [
-      { items: [a, b], page: 1, perPage: 2, total: 3 },
-      { items: [b, c], page: 2, perPage: 2, total: 3 },
+      { items: [a, b], nextCursor: "x" },
+      { items: [b, c], nextCursor: null },
     ]
     expect(feedItems(pages as never).map((item) => item.id)).toEqual(["a", "b", "c"])
   })
 
-  test("the query starts at part 1, follows nextReportsPage, and keeps the previews fresh", () => {
+  test("the total is the counts of the picked statuses, and unknown while the counts on hand are for other filters", () => {
+    const data = { total: 9, byStatus: { open: 6, in_progress: 1, resolved: 2, closed: 0 } }
+    expect(feedTotal({ data, isPlaceholderData: false })).toBe(9)
+    expect(feedTotal({ data, isPlaceholderData: false }, ["open", "resolved"])).toBe(8)
+    // The new filters' list arrives before their counts: the old number would sit beside the new reports.
+    expect(feedTotal({ data, isPlaceholderData: true })).toBeNull()
+    expect(feedTotal({ data: undefined, isPlaceholderData: false })).toBeNull()
+  })
+
+  test("the query starts without a cursor, follows nextReportsCursor, and keeps the previews fresh", () => {
     const options = reportQueries.reportFeed("w1", { sort: "newest" })
-    expect(options.initialPageParam).toBe(1)
-    expect(options.getNextPageParam).toBe(nextReportsPage)
+    expect(options.initialPageParam).toBeNull()
+    expect(options.getNextPageParam).toBe(nextReportsCursor)
     expect(options.refetchInterval).toBe(REPORT_LIST_REFRESH_MS)
     expect([...options.queryKey]).toEqual(["reports", "w1", { sort: "newest" }])
   })
 })
 
 describe("LoadMore", () => {
-  const props = { shown: 9, total: 20, hasMore: true, loading: false, failed: false }
+  const props = { shown: 9, hasMore: true, loading: false, failed: false }
 
   test("reaching the end of the list asks for the next part once, however often it is seen", () => {
     const onLoadMore = mock()
@@ -107,6 +114,16 @@ describe("LoadMore", () => {
     expect(onLoadMore).toHaveBeenCalledTimes(2)
   })
 
+  test("while the parts shown are fetched again it waits, then looks again whether the end is in view", () => {
+    const onLoadMore = mock()
+    const { rerender } = render(<LoadMore {...props} waiting onLoadMore={onLoadMore} />)
+    expect(live()).toHaveLength(0)
+    rerender(<LoadMore {...props} onLoadMore={onLoadMore} />)
+    expect(live()).toHaveLength(1)
+    reach()
+    expect(onLoadMore).toHaveBeenCalledTimes(1)
+  })
+
   test("a part that failed is not asked for again by itself; Try again asks once", () => {
     const onLoadMore = mock()
     render(<LoadMore {...props} failed onLoadMore={onLoadMore} />)
@@ -121,6 +138,11 @@ describe("LoadMore", () => {
     render(<LoadMore {...props} shown={20} hasMore={false} onLoadMore={onLoadMore} />)
     expect(live()).toHaveLength(0)
     expect(screen.getByText("All 20 reports shown")).toBeTruthy()
+  })
+
+  test("a list of one says report, not reports", () => {
+    render(<LoadMore {...props} shown={1} hasMore={false} onLoadMore={() => {}} />)
+    expect(screen.getByText("All 1 report shown")).toBeTruthy()
   })
 
   test("it stops watching when it goes away", () => {

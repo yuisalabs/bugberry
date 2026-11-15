@@ -11,3 +11,8 @@ Compose always runs its own Postgres, and the `DATABASE_URL` in `docker-compose.
 4. Start again: `docker compose up -d --build`. The server creates its tables on the first start.
 
 Postgres 16 is what the bundled service runs; use that version or newer.
+
+BugBerry needs the `pg_trgm` extension, which ships with Postgres. The server creates it when it starts, which works
+when its database user owns the database. If your provider does not allow that, run
+`CREATE EXTENSION IF NOT EXISTS pg_trgm;` once as an administrator before you upgrade. Without the extension the
+server does not start.

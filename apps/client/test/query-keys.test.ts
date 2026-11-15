@@ -50,7 +50,9 @@ describe("qk keeps today's key values", () => {
     expect(qk.reports.feed("w", filters)).toEqual(["reports", "w", filters])
     expect(qk.reports.count("w")).toEqual(["reports", "w", "count", null])
     expect(qk.reports.count("w", "p")).toEqual(["reports", "w", "count", "p"])
-    expect(qk.reports.statusCounts("w", filters)).toEqual(["reports", "w", "status-counts", { ...filters, status: undefined }])
+    expect(qk.reports.statusCounts("w", filters)).toEqual(["reports", "w", "status-counts", { ...filters, status: undefined, sort: undefined }])
+    // Neither the status picked nor the order changes what the counts are.
+    expect(qk.reports.statusCounts("w", { ...filters, sort: "oldest", status: ["closed"] })).toEqual(qk.reports.statusCounts("w", filters))
     expect(qk.report("r")).toEqual(["report", "r"])
     expect(qk.share("s")).toEqual(["share", "s"])
     expect(qk.comments("r")).toEqual(["comments", "r"])

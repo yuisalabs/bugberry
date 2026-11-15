@@ -1,9 +1,10 @@
-import { and, asc, count, desc, eq, exists, gt, gte, ilike, inArray, isNull, lt, ne, or, type SQL, sql } from "drizzle-orm"
-import { alias } from "drizzle-orm/pg-core"
+import { and, asc, count, desc, eq, exists, gte, ilike, inArray, isNull, lt, ne, or, type SQL, sql } from "drizzle-orm"
+import { alias, union, unionAll } from "drizzle-orm/pg-core"
 import { type Db, executor } from "../../db/client"
 import { agentUpload, comment, notification, project, report, reportFix, type ReportFixRow, user, workspace } from "../../db/schema"
 import { newId } from "../../lib/ids"
 import { escapeLike } from "../../lib/sql"
+import type { ListCursor, ListSort } from "./cursor"
 import { type listReportsQuery, NO_ASSIGNEE, NO_PROJECT } from "./model"
 
 export type ReportRow = typeof report.$inferSelect
@@ -13,25 +14,14 @@ export type ReportKey = { id: string } | { shareSlug: string }
 
 const reporterUser = alias(user, "reporter")
 const assigneeUser = alias(user, "assignee")
-const priorityRank = sql<number>`case ${report.priority}
-  when 'critical' then 4 when 'high' then 3 when 'medium' then 2 when 'low' then 1 else 0 end`
-
 const keyed = (key: ReportKey) =>
   "id" in key ? eq(report.id, key.id) : and(eq(report.shareSlug, key.shareSlug), eq(report.uploadStatus, "ready"))
 
 /**
- * A count from `debugger_summary`. The driver stores jsonb values as a JSON string scalar, so the
- * string is unwrapped first; an object (written by hand or a later driver) is read as it is.
+ * Which reports a list holds before its search: one workspace's finished uploads, narrowed by the list's filters. The
+ * counts per status leave the status filter out (`withStatus: false`), so each status chip says what picking it would show.
  */
-const summaryCount = (field: "errors" | "failedRequests") =>
-  sql<number>`coalesce(((case when jsonb_typeof(${report.debuggerSummary}) = 'string'
-    then (${report.debuggerSummary} #>> '{}')::jsonb else ${report.debuggerSummary} end) ->> ${field})::int, 0)`
-
-/**
- * Which reports a list holds: one workspace's finished uploads, narrowed by the list's filters. The counts per
- * status leave the status filter out (`withStatus: false`), so each status chip says what picking it would show.
- */
-function listConditions(db: Db, workspaceId: string, input: ListReportsInput, { withStatus = true } = {}): SQL[] {
+function listFilters(workspaceId: string, input: ListReportsInput, { withStatus = true } = {}): SQL[] {
   const conditions: SQL[] = [eq(report.workspaceId, workspaceId), eq(report.uploadStatus, "ready")]
   if (input.projectId === NO_PROJECT) conditions.push(isNull(report.projectId))
   else if (input.projectId) conditions.push(eq(report.projectId, input.projectId))
@@ -43,45 +33,108 @@ function listConditions(db: Db, workspaceId: string, input: ListReportsInput, { 
   if (input.reporterId) conditions.push(eq(report.reporterId, input.reporterId))
   if (input.createdAfter) conditions.push(gte(report.createdAt, new Date(input.createdAfter)))
   if (input.createdBefore) conditions.push(lt(report.createdAt, new Date(input.createdBefore)))
-  if (input.hasErrors) {
-    const withErrors = or(gt(summaryCount("errors"), 0), gt(summaryCount("failedRequests"), 0))
-    if (withErrors) conditions.push(withErrors)
-  }
-  const search = input.q?.trim()
-  if (search) {
-    const pattern = `%${escapeLike(search)}%`
-    const inComments = exists(
-      executor(db)
-        .select({ one: sql`1` })
-        .from(comment)
-        .where(and(eq(comment.reportId, report.id), ilike(comment.body, pattern))),
-    )
-    const matches = or(ilike(report.title, pattern), ilike(report.pageUrl, pattern), ilike(report.description, pattern), inComments)
-    if (matches) conditions.push(matches)
-  }
+  if (input.hasErrors) conditions.push(eq(report.hasErrors, true))
   return conditions
+}
+
+function searchPattern(input: ListReportsInput): string | null {
+  const search = input.q?.trim()
+  return search ? `%${escapeLike(search)}%` : null
+}
+
+const inOwnText = (pattern: string) => or(ilike(report.title, pattern), ilike(report.pageUrl, pattern), ilike(report.description, pattern))
+
+/**
+ * Every report of the workspace the search matches, by its own text or by a comment, for counting them. The two ways
+ * are separate queries because one `OR … EXISTS` condition cannot read the trigram indexes. `report` in here is the
+ * subquery's own rows, not the query's around it.
+ */
+function allMatches(db: Db, workspaceId: string, pattern: string) {
+  const x = executor(db)
+  return union(
+    x.select({ id: report.id }).from(report).where(and(eq(report.workspaceId, workspaceId), inOwnText(pattern))),
+    x
+      .select({ id: comment.reportId })
+      .from(comment)
+      .innerJoin(report, eq(report.id, comment.reportId))
+      .where(and(eq(report.workspaceId, workspaceId), ilike(comment.body, pattern))),
+  )
+}
+
+/**
+ * The first `limit` matches of each way in the list's order; a page of `limit` reports is among them. Each half
+ * stops once it has enough, where collecting every match first takes a second for a word most reports hold.
+ * `filters` and `orderBy` name `report`, which in here is each half's own rows.
+ */
+function topMatches(db: Db, filters: SQL[], pattern: string, orderBy: SQL[], limit: number) {
+  const x = executor(db)
+  const inAComment = exists(
+    x
+      .select({ one: sql`1` })
+      .from(comment)
+      .where(and(eq(comment.reportId, report.id), ilike(comment.body, pattern))),
+  )
+  const top = (matches: SQL | undefined) =>
+    x
+      .select({ id: report.id })
+      .from(report)
+      .where(and(...filters, matches))
+      .orderBy(...orderBy)
+      .limit(limit)
+  return unionAll(top(inOwnText(pattern)), top(inAComment))
 }
 
 /** How many of the list's reports each status holds, its status filter left out. */
 export function countListByStatus(db: Db, workspaceId: string, input: ListReportsInput) {
+  const pattern = searchPattern(input)
   return executor(db)
     .select({ status: report.status, count: count() })
     .from(report)
-    .where(and(...listConditions(db, workspaceId, input, { withStatus: false })))
+    .where(
+      and(
+        ...listFilters(workspaceId, input, { withStatus: false }),
+        pattern ? inArray(report.id, allMatches(db, workspaceId, pattern)) : undefined,
+      ),
+    )
     .groupBy(report.status)
 }
 
-/** One page of the list, sorted as asked, and how many reports the whole list holds. */
-export async function listPage(db: Db, workspaceId: string, input: ListReportsInput, page: number, perPage: number) {
-  const x = executor(db)
-  const where = and(...listConditions(db, workspaceId, input))
-  const orderBy =
-    input.sort === "priority"
-      ? [desc(priorityRank), desc(report.createdAt), desc(report.id)]
-      : input.sort === "oldest"
-        ? [asc(report.createdAt), asc(report.id)]
-        : [desc(report.createdAt), desc(report.id)]
-  const rows = await x
+/** `created_at` with its microseconds, as a cursor carries it. */
+const createdAtText = sql<string>`to_char(${report.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`
+
+/** The list's order for a sort, and which reports come after `after` in it. Every order ends in the id, so no two reports tie. */
+function listOrder(sort: ListSort, after: ListCursor | null): { orderBy: SQL[]; position: SQL | undefined } {
+  const at = after && sql`${after.createdAt}::timestamptz`
+  if (sort === "priority") {
+    return {
+      // The enum was created from none up to critical, so its own order is the rank.
+      orderBy: [desc(report.priority), desc(report.createdAt), desc(report.id)],
+      position: after ? sql`(${report.priority}, ${report.createdAt}, ${report.id}) < (${after.priority}::priority, ${at}, ${after.id})` : undefined,
+    }
+  }
+  if (sort === "oldest") {
+    return {
+      orderBy: [asc(report.createdAt), asc(report.id)],
+      position: after ? sql`(${report.createdAt}, ${report.id}) > (${at}, ${after.id})` : undefined,
+    }
+  }
+  return {
+    orderBy: [desc(report.createdAt), desc(report.id)],
+    position: after ? sql`(${report.createdAt}, ${report.id}) < (${at}, ${after.id})` : undefined,
+  }
+}
+
+/**
+ * The `perPage` reports after `after` in the list's order (from its start when null), and where the page after
+ * this one starts. It reads one report more than it returns to know whether there is such a page.
+ */
+export async function listPage(db: Db, workspaceId: string, input: ListReportsInput, perPage: number, after: ListCursor | null) {
+  const sort: ListSort = input.sort ?? "newest"
+  const { orderBy, position } = listOrder(sort, after)
+  const conditions = listFilters(workspaceId, input)
+  if (position) conditions.push(position)
+  const pattern = searchPattern(input)
+  const found = await executor(db)
     .select({
       id: report.id,
       projectId: report.projectId,
@@ -103,15 +156,19 @@ export async function listPage(db: Db, workspaceId: string, input: ListReportsIn
       mediaKey: report.mediaKey,
       mediaType: report.mediaType,
       thumbnailKey: report.thumbnailKey,
+      createdAtText,
     })
     .from(report)
     .innerJoin(reporterUser, eq(report.reporterId, reporterUser.id))
-    .where(where)
+    .where(pattern ? inArray(report.id, topMatches(db, conditions, pattern, orderBy, perPage + 1)) : and(...conditions))
     .orderBy(...orderBy)
-    .limit(perPage)
-    .offset((page - 1) * perPage)
-  const [totals] = await x.select({ total: count() }).from(report).where(where)
-  return { rows, total: totals?.total ?? 0 }
+    .limit(perPage + 1)
+  const rows = found.slice(0, perPage).map(({ createdAtText: at, ...row }) => ({ row, at }))
+  const last = found.length > perPage ? rows.at(-1) : undefined
+  const next: ListCursor | null = last
+    ? { sort, createdAt: last.at, id: last.row.id, ...(sort === "priority" ? { priority: last.row.priority } : {}) }
+    : null
+  return { rows: rows.map(({ row }) => row), next }
 }
 
 /** The report with its reporter and assignee, for the report page and the share page. */

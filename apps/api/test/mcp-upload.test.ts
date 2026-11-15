@@ -46,6 +46,18 @@ describe("createUpload", () => {
     expect(result.text).toContain(READ_ONLY_MESSAGE)
   })
 
+  test("a debugger count the database cannot hold is refused as a bad argument", async () => {
+    const debuggerSummary = { logs: 2, errors: 3_000_000_000, requests: 4, failedRequests: 1, actions: 3, incomplete: [] }
+    const outcome = await create({ title: "Too many errors", recording: recording({ debuggerSummary }) }).then(
+      (result) => ({ failed: result.isError, text: result.text }),
+      (error: unknown) => ({ failed: true, text: String(error) }),
+    )
+    expect(outcome.failed).toBe(true)
+    expect(outcome.text).toContain("errors")
+    expect(outcome.text).not.toContain("Something went wrong")
+    expect(await ctx.db.select({ id: report.id }).from(report).where(eq(report.title, "Too many errors"))).toEqual([])
+  })
+
   test("creates an uploading report with viaAgent and returns an upload link", async () => {
     const result = await create()
     expect(result.isError).toBe(false)

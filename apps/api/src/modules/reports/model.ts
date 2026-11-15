@@ -3,6 +3,7 @@ import {
   MAX_FIX_URL_LENGTH,
   MAX_FIXES_PER_REPORT,
   MAX_PER_PAGE,
+  MAX_SUMMARY_COUNT,
   MAX_THUMBNAIL_BYTES,
   PRIORITIES,
   REPORT_STATUSES,
@@ -17,12 +18,14 @@ export const deviceSchema = t.Object({
   viewport: t.String({ maxLength: 50 }),
 })
 
+const summaryCount = () => t.Integer({ minimum: 0, maximum: MAX_SUMMARY_COUNT })
+
 export const debuggerSummarySchema = t.Object({
-  logs: t.Integer({ minimum: 0 }),
-  errors: t.Integer({ minimum: 0 }),
-  requests: t.Integer({ minimum: 0 }),
-  failedRequests: t.Integer({ minimum: 0 }),
-  actions: t.Integer({ minimum: 0 }),
+  logs: summaryCount(),
+  errors: summaryCount(),
+  requests: summaryCount(),
+  failedRequests: summaryCount(),
+  actions: summaryCount(),
   incomplete: t.Array(t.String({ maxLength: 50 }), { maxItems: 20 }),
 })
 
@@ -83,8 +86,10 @@ export const listReportsQuery = t.Object({
   /** Only reports whose debugger caught errors or failed requests. */
   hasErrors: t.Optional(t.BooleanString()),
   sort: t.Optional(t.UnionEnum(["newest", "oldest", "priority"])),
-  // Whole numbers only; the cap keeps the OFFSET inside what Postgres accepts.
-  page: t.Optional(t.Numeric({ minimum: 1, maximum: 100_000, multipleOf: 1 })),
+  /** The `nextCursor` of the page before; omitted for the first page. */
+  cursor: t.Optional(t.String({ maxLength: 400 })),
+  /** How the list paged before 0.13.1. Still read, so it is refused by name instead of ignored. */
+  page: t.Optional(t.String({ maxLength: 20 })),
   perPage: t.Optional(t.Numeric({ minimum: 1, maximum: MAX_PER_PAGE, multipleOf: 1 })),
 })
 

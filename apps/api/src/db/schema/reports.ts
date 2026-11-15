@@ -1,5 +1,6 @@
 import type { DebuggerSummary, DeviceInfo } from "@bugberry/shared"
-import { index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core"
+import { sql } from "drizzle-orm"
+import { boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core"
 import { createdAt, updatedAt } from "./columns"
 import { activityKindEnum, captureTypeEnum, integrationProviderEnum, priorityEnum, reportStatusEnum, uploadStatusEnum, visibilityEnum } from "./enums"
 import { user } from "./auth"
@@ -48,6 +49,15 @@ export const report = pgTable(
     /** Frame times in ms from the replay's start, one per reports/<id>/frames/NNN.jpg; null for other types and before finalize. */
     replayFrames: jsonb("replay_frames").$type<number[]>(),
     debuggerSummary: jsonb("debugger_summary").$type<DebuggerSummary>().notNull(),
+    /**
+     * Whether the debugger caught an error or a failed request. The driver stores `debugger_summary` as a JSON string
+     * inside jsonb, so the string is unwrapped first; an object (written by hand or a later driver) is read as it is.
+     */
+    hasErrors: boolean("has_errors")
+      .notNull()
+      .generatedAlwaysAs(
+        sql`coalesce(((case when jsonb_typeof(debugger_summary) = 'string' then (debugger_summary #>> '{}')::jsonb else debugger_summary end) ->> 'errors')::int, 0) > 0 or coalesce(((case when jsonb_typeof(debugger_summary) = 'string' then (debugger_summary #>> '{}')::jsonb else debugger_summary end) ->> 'failedRequests')::int, 0) > 0`,
+      ),
     uploadStatus: uploadStatusEnum("upload_status").notNull().default("uploading"),
     uploadError: text("upload_error"),
     /** "City, Country" from the reporter's location, when they chose to include it. Never coordinates. */
@@ -59,8 +69,15 @@ export const report = pgTable(
   },
   (table) => [
     index("report_project_created_idx").on(table.projectId, table.createdAt),
-    index("report_workspace_created_idx").on(table.workspaceId, table.createdAt),
-    index("report_status_idx").on(table.status),
+    // The report list: each of its orders and its commonest filters, ending in the (created_at, id) it pages by.
+    index("report_workspace_created_id_idx").on(table.workspaceId, table.createdAt, table.id),
+    index("report_workspace_status_created_idx").on(table.workspaceId, table.status, table.createdAt, table.id),
+    index("report_workspace_assignee_created_idx").on(table.workspaceId, table.assigneeId, table.createdAt, table.id),
+    index("report_workspace_priority_created_idx").on(table.workspaceId, table.priority, table.createdAt, table.id),
+    // Search is `ILIKE '%term%'`, which only a trigram index can serve.
+    index("report_title_trgm_idx").using("gin", table.title.op("gin_trgm_ops")),
+    index("report_page_url_trgm_idx").using("gin", table.pageUrl.op("gin_trgm_ops")),
+    index("report_description_trgm_idx").using("gin", table.description.op("gin_trgm_ops")),
     index("report_upload_status_created_idx").on(table.uploadStatus, table.createdAt),
     uniqueIndex("report_workspace_number_idx").on(table.workspaceId, table.number),
     // The Getting started checklist asks what this person has captured.
