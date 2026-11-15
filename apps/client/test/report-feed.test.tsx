@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { LoadMore } from "../src/features/reports/list/LoadMore"
 import { REPORT_LIST_REFRESH_MS, reportQueries } from "../src/features/reports/queries"
-import { feedItems, nextReportsCursor, REPORTS_PAGE_SIZE, reportsPageQuery } from "../src/features/reports/list/report-feed"
+import { feedItems, feedTotal, nextReportsCursor, REPORTS_PAGE_SIZE, reportsPageQuery } from "../src/features/reports/list/report-feed"
 import { listItemFixture } from "./fixtures"
 
 /**
@@ -62,6 +62,15 @@ describe("the report feed", () => {
       { items: [b, c], nextCursor: null },
     ]
     expect(feedItems(pages as never).map((item) => item.id)).toEqual(["a", "b", "c"])
+  })
+
+  test("the total is the counts of the picked statuses, and unknown while the counts on hand are for other filters", () => {
+    const data = { total: 9, byStatus: { open: 6, in_progress: 1, resolved: 2, closed: 0 } }
+    expect(feedTotal({ data, isPlaceholderData: false })).toBe(9)
+    expect(feedTotal({ data, isPlaceholderData: false }, ["open", "resolved"])).toBe(8)
+    // The new filters' list arrives before their counts: the old number would sit beside the new reports.
+    expect(feedTotal({ data, isPlaceholderData: true })).toBeNull()
+    expect(feedTotal({ data: undefined, isPlaceholderData: false })).toBeNull()
   })
 
   test("the query starts without a cursor, follows nextReportsCursor, and keeps the previews fresh", () => {

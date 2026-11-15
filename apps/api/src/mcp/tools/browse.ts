@@ -100,7 +100,7 @@ export function registerBrowseTools(server: McpServer, ctx: McpContext): void {
         const result = await listReports(ctx.deps, ctx.caller.user, { ...filters, perPage: args.limit ?? SEARCH_DEFAULT, cursor: args.cursor })
         if (result.items.length === 0) return textResult(args.cursor ? "No more reports." : "No reports match.", { reports: [] })
         const names = await memberNames(ctx, workspaceId)
-        // The list no longer counts itself. The first page asks for the count; the pages after it would get the same answer.
+        // Only the first page asks for the count; the pages after it would get the same answer.
         const total = args.cursor ? null : listedCount(await countReportsByStatus(ctx.deps, ctx.caller.user, filters), args.status)
         const text = [
           ...(total === null ? [] : [`${total} report${total === 1 ? "" : "s"} found.`]),

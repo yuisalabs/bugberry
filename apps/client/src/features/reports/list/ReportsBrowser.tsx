@@ -1,11 +1,10 @@
-import { listedCount } from "@bugberry/shared"
 import { RiRecordCircleLine } from "@remixicon/react"
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query"
 import { type ReactNode, useState } from "react"
 import { useNow } from "../../../hooks/useNow"
 import { invitesAllowed, usageText } from "../../workspaces/usage"
 import { useListPeople } from "./list-people"
-import { feedItems } from "./report-feed"
+import { feedItems, feedTotal } from "./report-feed"
 import { hasFilters, type ReportSearch, toReportsQuery } from "./report-search"
 import { readLayout, type ReportLayout, saveLayout } from "./report-layout"
 import { useCurrentWorkspace } from "../../workspaces/workspace"
@@ -81,7 +80,7 @@ export function ReportsBrowser({
             ? { error: reports.error, retry: () => void reports.refetch() }
             : {
                 items: feedItems(pages),
-                total: statusCounts.data ? listedCount(statusCounts.data, filters.status) : null,
+                total: feedTotal(statusCounts, filters.status),
                 hasMore: reports.hasNextPage,
                 loadingMore: reports.isFetchingNextPage,
                 moreFailed: reports.isFetchNextPageError,

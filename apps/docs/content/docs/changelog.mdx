@@ -15,8 +15,10 @@ release with no extension change still gets its own entry, and the entry says th
   upgrade is refused; search again without one.
 - **Self-hosting:** update the server and the dashboard with `docker compose up -d --build`. Migration `0037` runs
   when the server starts and needs Postgres' `pg_trgm` extension. The bundled database has it; with an external
-  Postgres, see [External Postgres](/self-host/external-postgres). The migration builds indexes, and new reports and
-  comments wait until it is done: 72 seconds for 500,000 reports and 1.5 million comments on our test machine.
+  Postgres, see [External Postgres](/self-host/external-postgres). The migration builds indexes, and the server
+  answers nothing until it is done: 72 seconds for 500,000 reports and 1.5 million comments on our test machine. On
+  a database that large, `docker compose up` may report the api as unhealthy before the migration ends; let it
+  finish (`docker compose logs -f api`), then run the command again.
   `GET /api/reports` now pages with `cursor` and `nextCursor` in place of `page` and `total`; a request that still
   sends `page` gets a 400 with the code `page_removed`. The extension stays at 0.12.2.
 

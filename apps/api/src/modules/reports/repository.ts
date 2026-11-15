@@ -37,10 +37,6 @@ function listFilters(workspaceId: string, input: ListReportsInput, { withStatus 
   return conditions
 }
 
-/*
- * A search matches a report by its own text or by one of its comments. The two ways are separate queries, because a
- * single `OR … EXISTS` condition cannot read the trigram indexes. Inside these subqueries `report` is their own rows.
- */
 function searchPattern(input: ListReportsInput): string | null {
   const search = input.q?.trim()
   return search ? `%${escapeLike(search)}%` : null
@@ -48,7 +44,11 @@ function searchPattern(input: ListReportsInput): string | null {
 
 const inOwnText = (pattern: string) => or(ilike(report.title, pattern), ilike(report.pageUrl, pattern), ilike(report.description, pattern))
 
-/** Every report of the workspace the search matches, for counting them. */
+/**
+ * Every report of the workspace the search matches, by its own text or by a comment, for counting them. The two ways
+ * are separate queries because one `OR … EXISTS` condition cannot read the trigram indexes. `report` in here is the
+ * subquery's own rows, not the query's around it.
+ */
 function allMatches(db: Db, workspaceId: string, pattern: string) {
   const x = executor(db)
   return union(
@@ -64,6 +64,7 @@ function allMatches(db: Db, workspaceId: string, pattern: string) {
 /**
  * The first `limit` matches of each way in the list's order; a page of `limit` reports is among them. Each half
  * stops once it has enough, where collecting every match first takes a second for a word most reports hold.
+ * `filters` and `orderBy` name `report`, which in here is each half's own rows.
  */
 function topMatches(db: Db, filters: SQL[], pattern: string, orderBy: SQL[], limit: number) {
   const x = executor(db)

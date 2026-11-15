@@ -1,4 +1,5 @@
-import type { ReportList, ReportListItem, ReportsQuery } from "../queries"
+import { listedCount, type ReportStatus } from "@bugberry/shared"
+import type { ReportCounts, ReportList, ReportListItem, ReportsQuery } from "../queries"
 
 /** Reports fetched per part as the list scrolls: three rows of the three-column grid. */
 export const REPORTS_PAGE_SIZE = 9
@@ -30,6 +31,17 @@ export function feedItems(pages: readonly ReportList[]): ReportListItem[] {
       return true
     }),
   )
+}
+
+/**
+ * How many reports the list holds, from the status counts query. Null while that query has no answer for these
+ * filters: it keeps showing the answer for the filters before, and the list itself arrives sooner.
+ */
+export function feedTotal(
+  counts: { data: ReportCounts | undefined; isPlaceholderData: boolean },
+  statuses?: readonly ReportStatus[],
+): number | null {
+  return counts.data && !counts.isPlaceholderData ? listedCount(counts.data, statuses) : null
 }
 
 /** What the list page shows: the reports so far, and how fetching the rest is going. */

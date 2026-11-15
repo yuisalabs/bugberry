@@ -49,7 +49,7 @@ export const qk = {
     feed: (workspaceId: string, filters: ReportFilterQuery) => ["reports", workspaceId, filters],
     count: (workspaceId: string, projectId?: string) => ["reports", workspaceId, "count", projectId ?? null],
     statusCounts: (workspaceId: string, filters: ReportFilterQuery) =>
-      ["reports", workspaceId, "status-counts", { ...filters, status: undefined }],
+      ["reports", workspaceId, "status-counts", { ...filters, status: undefined, sort: undefined }],
   },
   report: (id: string) => ["report", id],
   share: (slug: string) => ["share", slug],
