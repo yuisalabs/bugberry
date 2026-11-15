@@ -3,7 +3,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { z } from "zod"
 import { listNotifications } from "../../modules/notifications/service"
 import { NO_ASSIGNEE, NO_PROJECT } from "../../modules/reports/model"
-import { countReportsByStatus, listReports, type ReportListItem } from "../../modules/reports/service"
+import { countReportsByStatus, type ListReportsInput, listReports, type ReportListItem } from "../../modules/reports/service"
 import { findProjectByRef, listProjectSummaries } from "../../modules/projects/repository"
 import { resolveWorkspace } from "../../modules/workspaces/access"
 import { listMemberContacts, listMemberNames, listWorkspaceRoles } from "../../modules/workspaces/repository"
@@ -15,6 +15,19 @@ import { reportSummary } from "./report-read"
 const SEARCH_DEFAULT = 20
 
 const workspaceArg = z.string().max(200).optional().describe("Workspace id or slug; defaults to your current workspace.")
+
+/**
+ * How many reports the filters hold, or null when counting fails. The count reads every match and can run into
+ * MCP's statement timeout where the page of reports does not, and those reports are still worth sending.
+ */
+async function matchCount(ctx: McpContext, filters: ListReportsInput): Promise<number | null> {
+  try {
+    return listedCount(await countReportsByStatus(ctx.deps, ctx.caller.user, filters), filters.status)
+  } catch (error) {
+    console.error("MCP searchReports could not count its matches", error)
+    return null
+  }
+}
 
 /** A project named by id or slug inside the workspace, or "none". */
 async function projectFilter(ctx: McpContext, workspaceId: string, value: string | undefined): Promise<string | undefined> {
@@ -101,7 +114,7 @@ export function registerBrowseTools(server: McpServer, ctx: McpContext): void {
         if (result.items.length === 0) return textResult(args.cursor ? "No more reports." : "No reports match.", { reports: [] })
         const names = await memberNames(ctx, workspaceId)
         // Only the first page asks for the count; the pages after it would get the same answer.
-        const total = args.cursor ? null : listedCount(await countReportsByStatus(ctx.deps, ctx.caller.user, filters), args.status)
+        const total = args.cursor ? null : await matchCount(ctx, filters)
         const text = [
           ...(total === null ? [] : [`${total} report${total === 1 ? "" : "s"} found.`]),
           ...result.items.map((item) => reportLine(config.appUrl, item, names)),

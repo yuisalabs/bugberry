@@ -1,9 +1,9 @@
-import { beforeEach, describe, expect, test } from "bun:test"
+import { beforeEach, describe, expect, spyOn, test } from "bun:test"
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { comment, notification } from "../src/db/schema"
 import { newId } from "../src/lib/ids"
 import { addMember, createProject, createReadyReport, createUserWithToken, createWorkspaceRow, setupTestApp } from "./helpers"
-import { callTool, mcpClient } from "./mcp-helpers"
+import { callTool, directClient, mcpClient, testMcpContext } from "./mcp-helpers"
 import { resolveReport } from "../src/modules/reports/fixes"
 
 let ctx: Awaited<ReturnType<typeof setupTestApp>>
@@ -54,6 +54,33 @@ describe("searchReports", () => {
     expect((await callTool(client, "searchReports", { status: ["open"], limit: 1 })).text.split("\n")[0]).toBe("2 reports found.")
     expect((await callTool(client, "searchReports", { status: ["resolved"] })).text.split("\n")[0]).toBe("1 report found.")
     expect((await callTool(client, "searchReports", { status: ["closed"] })).text).toBe("No reports match.")
+  })
+
+  test("when the count fails the reports are still sent, without the number", async () => {
+    for (const title of ["Pay fails", "Login loop"]) await createReadyReport(ctx.db, { reporterId: ana.user.id, title })
+    // A database whose status count fails, as one cut off by MCP's statement timeout does; every other query works.
+    const db = new Proxy(ctx.db, {
+      get(target, key) {
+        if (key !== "select") return Reflect.get(target, key, target)
+        return (fields?: Record<string, unknown>) => {
+          if (fields && "count" in fields && "status" in fields) throw new Error("canceling statement due to statement timeout")
+          return fields ? target.select(fields as never) : target.select()
+        }
+      },
+    })
+    const logged = spyOn(console, "error").mockImplementation(() => {})
+    try {
+      const direct = await directClient(testMcpContext(ctx, ana.user, { deps: { ...ctx, db } }))
+      const result = await callTool(direct, "searchReports", { limit: 1 })
+      expect(result.isError).toBe(false)
+      expect(entries(result.text)).toHaveLength(1)
+      expect(result.text).not.toContain("found")
+      expect(result.text).toContain("More available. Call again with cursor=")
+      expect(result.structured).not.toHaveProperty("total")
+      expect(logged).toHaveBeenCalledTimes(1)
+    } finally {
+      logged.mockRestore()
+    }
   })
 
   test("a cursor of the old kind, or for another sort, is refused", async () => {
