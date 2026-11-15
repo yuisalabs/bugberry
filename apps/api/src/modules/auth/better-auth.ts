@@ -25,6 +25,7 @@ import { createEmailSender, type EmailSender } from "../../lib/email/sender"
 import { githubUserInfo, gitlabUserInfo } from "./identity"
 import { provisionNewUser } from "../workspaces/provision"
 import { MCP_SCOPES, mcpResource } from "./mcp-oauth"
+import { OIDC_PROVIDER_ID, oidcPlugin } from "./oidc"
 import { isEmailAllowed } from "./policy"
 
 type GithubUserInfo = NonNullable<NonNullable<Parameters<typeof betterAuth>[0]["socialProviders"]>["github"]> extends infer P
@@ -63,7 +64,7 @@ const CLOSED_PATHS = new Set([
   "/admin/oauth2/resources",
 ])
 
-export function createAuth(config: Config, db: Db, options: { email?: EmailSender } = {}) {
+export function createAuth(config: Config, db: Db, options: { email?: EmailSender; oidcStartupTimeoutMs?: number } = {}) {
   const domainMessage = `Use an email address from: ${config.allowedEmailDomains.join(", ")}`
   const sender = options.email ?? (config.email ? createEmailSender(config.email) : null)
   const gitlabUrl = config.gitlab?.url ?? ""
@@ -121,7 +122,11 @@ export function createAuth(config: Config, db: Db, options: { email?: EmailSende
     },
     // One person, one account: a verified email reaches the same user by any sign-in method.
     account: {
-      accountLinking: { enabled: true, trustedProviders: ["google", "github", "gitlab", "email-otp"] },
+      accountLinking: {
+        enabled: true,
+        // The company's own IdP vouches for its emails; see the trust note in the self-host sign-in docs.
+        trustedProviders: ["google", "github", "gitlab", "email-otp", ...(config.oidc ? [OIDC_PROVIDER_ID] : [])],
+      },
     },
     // Per IP, on top of the per-address limit below; Better Auth enables it in production.
     rateLimit: {
@@ -164,6 +169,7 @@ export function createAuth(config: Config, db: Db, options: { email?: EmailSende
         clientRegistrationDefaultApplicationType: "infer",
         accessTokenExpiresIn: ACCESS_TOKEN_SECONDS,
       }),
+      ...(config.oidc ? [oidcPlugin(config.oidc, options.oidcStartupTimeoutMs)] : []),
       ...(sender
         ? [
           emailOTP({
