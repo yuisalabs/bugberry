@@ -7,7 +7,6 @@ import { SettingRow, SettingsCardHeader, settingsCard, settingsPadding } from ".
 import { toast } from "../../lib/toast"
 import { errorMessage } from "../../lib/query/unwrap"
 import { accountQueries } from "../account/queries"
-import { authQueries } from "../auth/queries"
 import { useUpdateWorkspaceAccess, type WorkspaceAccess, workspaceQueries } from "./queries"
 
 const MODES = [
@@ -24,7 +23,6 @@ export function WorkspaceAccessView({
   onDomain,
   membersAllowed = true,
   emailDomain = null,
-  autoJoin = false,
 }: {
   access: WorkspaceAccess
   origin: string
@@ -35,8 +33,6 @@ export function WorkspaceAccessView({
   membersAllowed?: boolean
   /** The domain of my own email, to name it when it can't be used (gmail.com). */
   emailDomain?: string | null
-  /** On a company server, a new account joins a direct-join workspace for its domain without clicking anything. */
-  autoJoin?: boolean
 }) {
   // The stored domain when there is one (it may be another admin's), else the domain I could turn on.
   const domain = access.joinDomain ?? access.ownDomain
@@ -98,14 +94,7 @@ export function WorkspaceAccessView({
         )}
       </SettingRow>
 
-      <SettingRow
-        title="Join by email domain"
-        description={
-          autoJoin && access.joinDomain !== null && access.joinMode === "direct"
-            ? "New people with a matching work email join automatically the first time they sign in."
-            : "People with a matching work email can join without an invite."
-        }
-      >
+      <SettingRow title="Join by email domain" description="People with a matching work email can join without an invite.">
         {!membersAllowed ? (
           access.joinDomain ? (
             <Button size="sm" intent="outline" className="self-start" isDisabled={busy} onPress={() => onDomain({ joinDomain: null })}>
@@ -169,7 +158,6 @@ export function WorkspaceAccessSection({ workspaceId }: { workspaceId: string })
   const access = useQuery(workspaceQueries.workspaceAccess(workspaceId))
   const limits = useQuery(workspaceQueries.workspaceLimits(workspaceId))
   const update = useUpdateWorkspaceAccess(workspaceId)
-  const config = useQuery(authQueries.clientConfig())
   // Nothing until both are known, so a limited workspace never flashes controls that would be refused.
   if (!access.data || !limits.data) return null
   return (
@@ -182,7 +170,6 @@ export function WorkspaceAccessSection({ workspaceId }: { workspaceId: string })
         onDomain={(patch) => update.mutate(patch)}
         membersAllowed={!limits.data.limited}
         emailDomain={me.data?.email.split("@")[1] ?? null}
-        autoJoin={config.data?.autoJoin ?? false}
       />
       {update.error && (
         <p role="alert" className="text-sm text-danger-subtle-foreground">

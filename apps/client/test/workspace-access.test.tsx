@@ -5,15 +5,8 @@ import { WorkspaceAccessView } from "../src/features/workspaces/WorkspaceAccessV
 type Access = Parameters<typeof WorkspaceAccessView>[0]["access"]
 const base: Access = { shareCode: null, joinDomain: null, joinMode: null, ownDomain: "javan.co.id" }
 
-function view(access: Partial<Access> = {}, autoJoin = false) {
-  const props = {
-    access: { ...base, ...access },
-    origin: "https://bugberry.kantor.com",
-    busy: false,
-    autoJoin,
-    onShareLink: mock(),
-    onDomain: mock(),
-  }
+function view(access: Partial<Access> = {}) {
+  const props = { access: { ...base, ...access }, origin: "https://bugberry.kantor.com", busy: false, onShareLink: mock(), onDomain: mock() }
   render(<WorkspaceAccessView {...props} />)
   return props
 }
@@ -104,38 +97,5 @@ describe("WorkspaceAccessView on a limited account", () => {
     expect(props.onShareLink).toHaveBeenCalledWith("off")
     fireEvent.click(screen.getByRole("button", { name: "Turn off joining by email domain" }))
     expect(props.onDomain).toHaveBeenCalledWith({ joinDomain: null })
-  })
-})
-
-describe("joining by email domain on a company server", () => {
-  const AUTOMATIC = "New people with a matching work email join automatically the first time they sign in."
-  const BY_HAND = "People with a matching work email can join without an invite."
-
-  test("joining directly is described as automatic", () => {
-    view({ joinDomain: "javan.co.id", joinMode: "direct" }, true)
-    expect(screen.getByText(AUTOMATIC)).toBeTruthy()
-    expect(screen.queryByText(BY_HAND)).toBeNull()
-  })
-
-  test("approval mode, a setting that is off, and other servers keep the usual description", () => {
-    for (const [access, autoJoin] of [
-      [{ joinDomain: "javan.co.id", joinMode: "approval" }, true],
-      [{ joinDomain: null }, true],
-      [{ joinDomain: "javan.co.id", joinMode: "direct" }, false],
-    ] as const) {
-      const { unmount } = render(
-        <WorkspaceAccessView
-          access={{ ...base, ...access }}
-          origin="https://bugberry.kantor.com"
-          busy={false}
-          autoJoin={autoJoin}
-          onShareLink={mock()}
-          onDomain={mock()}
-        />,
-      )
-      expect(screen.getByText(BY_HAND)).toBeTruthy()
-      expect(screen.queryByText(AUTOMATIC)).toBeNull()
-      unmount()
-    }
   })
 })

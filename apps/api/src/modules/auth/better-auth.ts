@@ -243,7 +243,7 @@ export function createAuth(config: Config, db: Db, options: { email?: EmailSende
           },
           // Everyone starts in a workspace: their own, unless an invitation is waiting for them.
           after: async (created) => {
-            await provisionNewUser(db, created, config.accountLimits, config.allowedEmailDomains)
+            await provisionNewUser(db, created, config.accountLimits)
           },
         },
       },

@@ -13,8 +13,6 @@ export interface ClientConfig {
   maxUploadMb: number
   /** False on self-hosted servers: the marketing pages go to sign-in there. */
   publicSite: boolean
-  /** True on a company server: joining a workspace by email domain happens by itself at first sign-in. */
-  autoJoin: boolean
 }
 
 export interface AuthMethods {

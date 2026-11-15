@@ -55,6 +55,6 @@ export async function issueExtensionToken(
     tokenHash: hashToken(token),
     label: input.label?.trim() || "Chrome extension (CLI)",
   })
-  if (!existing) await provisionNewUser(db, { id: userId, name: input.name?.trim() || email.split("@")[0] || email, email }, config.accountLimits, config.allowedEmailDomains)
+  if (!existing) await provisionNewUser(db, { id: userId, name: input.name?.trim() || email.split("@")[0] || email, email }, config.accountLimits)
   return { userId, email, token, createdUser: !existing }
 }
