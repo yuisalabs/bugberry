@@ -5,6 +5,7 @@ import { AppError, badRequest, forbidden, notFound, unprocessable } from "../../
 import { newShareSlug } from "../../lib/ids"
 import { memberRole, requireMember, requireReportMember, resolveWorkspace } from "../workspaces/access"
 import { isDeactivated } from "../account/repository"
+import { decodeListCursor, encodeListCursor } from "./cursor"
 import { recordActivity } from "../activity/repository"
 import { projectInWorkspace } from "../projects/repository"
 import { reportAccess } from "./access"
@@ -42,12 +43,18 @@ export async function countReportsByStatus({ db }: Deps, caller: CurrentUser, in
   return { total: rows.reduce((sum, row) => sum + row.count, 0), byStatus }
 }
 
-/** The report list a member sees in one workspace: finished uploads only, filtered, sorted and paged. */
+/**
+ * The report list a member sees in one workspace: finished uploads only, filtered and sorted, a page at a time.
+ * `nextCursor` asks for the page after this one, and is null on the last.
+ */
 export async function listReports({ db, storage }: Deps, caller: CurrentUser, input: ListReportsInput) {
   const workspaceId = await resolveWorkspace(db, caller, input.workspaceId)
-  const page = input.page ?? 1
-  const perPage = input.perPage ?? DEFAULT_PER_PAGE
-  const { rows, total } = await listPage(db, workspaceId, input, page, perPage)
+  // A caller still counting pages would get the first one every time and never reach an end.
+  if (input.page !== undefined) {
+    throw badRequest("page_removed", "The report list no longer takes `page`. Pass the `nextCursor` of the page before as `cursor`.")
+  }
+  const after = input.cursor === undefined ? null : decodeListCursor(input.cursor, input.sort ?? "newest")
+  const { rows, next } = await listPage(db, workspaceId, input, input.perPage ?? DEFAULT_PER_PAGE, after)
   // Cards show the uploaded thumbnail; an older screenshot shows itself, an older video nothing.
   const items = await Promise.all(
     rows.map(async ({ mediaKey, mediaType, thumbnailKey, reporterDomain, ...item }) => ({
@@ -62,7 +69,7 @@ export async function listReports({ db, storage }: Deps, caller: CurrentUser, in
     })),
   )
 
-  return { items, page, perPage, total }
+  return { items, nextCursor: next ? encodeListCursor(next) : null }
 }
 
 export type ReportListItem = Awaited<ReturnType<typeof listReports>>["items"][number]

@@ -83,8 +83,10 @@ export const listReportsQuery = t.Object({
   /** Only reports whose debugger caught errors or failed requests. */
   hasErrors: t.Optional(t.BooleanString()),
   sort: t.Optional(t.UnionEnum(["newest", "oldest", "priority"])),
-  // Whole numbers only; the cap keeps the OFFSET inside what Postgres accepts.
-  page: t.Optional(t.Numeric({ minimum: 1, maximum: 100_000, multipleOf: 1 })),
+  /** The `nextCursor` of the page before; omitted for the first page. */
+  cursor: t.Optional(t.String({ maxLength: 400 })),
+  /** How the list paged before 0.13.1. Still read, so it is refused by name instead of ignored. */
+  page: t.Optional(t.String({ maxLength: 20 })),
   perPage: t.Optional(t.Numeric({ minimum: 1, maximum: MAX_PER_PAGE, multipleOf: 1 })),
 })
 

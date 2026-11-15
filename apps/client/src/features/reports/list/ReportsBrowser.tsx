@@ -1,3 +1,4 @@
+import { listedCount } from "@bugberry/shared"
 import { RiRecordCircleLine } from "@remixicon/react"
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query"
 import { type ReactNode, useState } from "react"
@@ -47,7 +48,8 @@ export function ReportsBrowser({
   const members = useListPeople(workspaceId, Boolean(workspace))
   // The project filter needs them on the all-reports page; the list view names projects on every page.
   const projects = useQuery({ ...projectQueries.projects(workspaceId), enabled: Boolean(workspace) })
-  const reports = useInfiniteQuery({ ...reportQueries.reportFeed(workspaceId, toReportsQuery(scope, search)), enabled: Boolean(workspace) })
+  const filters = toReportsQuery(scope, search)
+  const reports = useInfiniteQuery({ ...reportQueries.reportFeed(workspaceId, filters), enabled: Boolean(workspace) })
   const config = useQuery(authQueries.clientConfig())
   // The server's own install link, else BugBerry's Chrome Web Store page.
   const installUrl = installHref(config.data?.extensionInstallUrl ?? null)
@@ -57,13 +59,10 @@ export function ReportsBrowser({
 
   const update = (patch: Partial<ReportSearch>) => setSearch((prev) => ({ ...prev, ...patch }))
   const pages = reports.data?.pages ?? []
+  // Each status's count under the other filters: the phone's status chips, and added up, how many reports the list holds.
+  const statusCounts = useQuery({ ...reportQueries.reportStatusCounts(workspaceId, filters), enabled: Boolean(workspace) })
   // Filters left nothing: count the whole list, so the page can say how much was searched.
-  // The phone's status chips: each status's count under the other filters.
-  const statusCounts = useQuery({
-    ...reportQueries.reportStatusCounts(workspaceId, toReportsQuery(scope, search)),
-    enabled: Boolean(workspace),
-  })
-  const nothingMatches = hasFilters(search) && pages.length > 0 && (pages.at(-1)?.total ?? 0) === 0
+  const nothingMatches = hasFilters(search) && pages[0]?.items.length === 0
   const everything = useQuery({ ...reportQueries.reportCount(workspaceId, scope.projectId), enabled: Boolean(workspace) && nothingMatches })
 
   return (
@@ -82,7 +81,7 @@ export function ReportsBrowser({
             ? { error: reports.error, retry: () => void reports.refetch() }
             : {
                 items: feedItems(pages),
-                total: pages.at(-1)?.total ?? 0,
+                total: statusCounts.data ? listedCount(statusCounts.data, filters.status) : null,
                 hasMore: reports.hasNextPage,
                 loadingMore: reports.isFetchingNextPage,
                 moreFailed: reports.isFetchNextPageError,

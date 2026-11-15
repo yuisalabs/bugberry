@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test"
-import { eq } from "drizzle-orm"
+import { eq, sql } from "drizzle-orm"
 import { comment, report } from "../src/db/schema"
 import { newId } from "../src/lib/ids"
 import { LocalStorageDriver } from "../src/storage/local"
@@ -18,6 +18,23 @@ beforeEach(async () => {
 const make = (overrides: Partial<Parameters<typeof createReadyReport>[1]> = {}) =>
   createReadyReport(ctx.db, { projectId, reporterId: member.user.id, ...overrides })
 
+const day = (n: number) => new Date(`2026-01-0${n}T00:00:00Z`)
+const listPage = (query: Record<string, unknown>) => ctx.api.api.reports.get({ query, headers: member.headers })
+
+/** The titles of the whole list, read a page at a time by following `nextCursor`. */
+async function walk(query: Record<string, unknown>) {
+  const titles: string[] = []
+  let cursor: string | undefined
+  for (let guard = 0; guard < 50; guard++) {
+    const { data, status } = await listPage({ ...query, ...(cursor ? { cursor } : {}) })
+    expect(status).toBe(200)
+    titles.push(...(data?.items.map((r) => r.title) ?? []))
+    if (!data?.nextCursor) return titles
+    cursor = data.nextCursor
+  }
+  throw new Error("the list never ended")
+}
+
 describe("GET /api/reports", () => {
   test("q matches description and comment text", async () => {
     await make({ title: "Checkout", description: "Only on Safari 17" })
@@ -26,7 +43,6 @@ describe("GET /api/reports", () => {
     await make({ title: "Unrelated" })
     const { data } = await ctx.api.api.reports.get({ query: { q: "Safari" }, headers: member.headers })
     expect(data?.items.map((r) => r.title).sort()).toEqual(["Checkout", "Login"])
-    expect(data?.total).toBe(2)
   })
 
   test("createdAfter and createdBefore bound the list", async () => {
@@ -62,7 +78,6 @@ describe("GET /api/reports", () => {
     await make({ title: "still uploading", uploadStatus: "uploading" })
     const { data } = await ctx.api.api.reports.get({ headers: member.headers })
     expect(data?.items.map((r) => r.title)).toEqual(["new", "old"])
-    expect(data?.total).toBe(2)
     expect(data?.items[0]?.reporter).toEqual({ id: member.user.id, name: "Ana", image: null })
     expect(data?.items.map((item) => typeof item.number)).toEqual(data?.items.map(() => "number"))
   })
@@ -137,7 +152,6 @@ describe("GET /api/reports", () => {
   describe("a search that matches by title in some reports and by comment in others", () => {
     /** Seven matches a day apart: odd days by title, even days by a comment, day 5 by both; day 8 does not match. */
     beforeEach(async () => {
-      const day = (n: number) => new Date(`2026-01-0${n}T00:00:00Z`)
       const says = (reportId: string, body: string) =>
         ctx.db.insert(comment).values({ id: newId(), reportId, authorId: member.user.id, body })
       await make({ title: "zebra 1", createdAt: day(1), priority: "high" })
@@ -162,6 +176,21 @@ describe("GET /api/reports", () => {
       expect(await titles({})).toEqual(["zebra 7", "plain 6", "zebra 5", "plain 4", "zebra 3", "plain 2", "zebra 1"])
     })
 
+    test("walking it a page at a time gives each match once, for each sort", async () => {
+      const newest = ["zebra 7", "plain 6", "zebra 5", "plain 4", "zebra 3", "plain 2", "zebra 1"]
+      expect(await walk({ q: "zebra", perPage: 2 })).toEqual(newest)
+      expect(await walk({ q: "zebra", perPage: 2, sort: "oldest" })).toEqual([...newest].reverse())
+      expect(await walk({ q: "zebra", perPage: 2, sort: "priority" })).toEqual([
+        "plain 2",
+        "zebra 1",
+        "zebra 7",
+        "plain 6",
+        "zebra 5",
+        "plain 4",
+        "zebra 3",
+      ])
+    })
+
     test("oldest first and by priority order both kinds together", async () => {
       expect(await titles({ perPage: 3, sort: "oldest" })).toEqual(["zebra 1", "plain 2", "zebra 3"])
       expect(await titles({ perPage: 3, sort: "priority" })).toEqual(["plain 2", "zebra 1", "zebra 7"])
@@ -177,16 +206,92 @@ describe("GET /api/reports", () => {
     })
   })
 
-  test("sorts by priority and paginates", async () => {
-    await make({ title: "low", priority: "low" })
-    await make({ title: "critical", priority: "critical" })
-    await make({ title: "medium", priority: "medium" })
-    const { data } = await ctx.api.api.reports.get({
-      query: { sort: "priority", page: 2, perPage: 1 },
-      headers: member.headers,
-    })
-    expect(data?.items.map((r) => r.title)).toEqual(["medium"])
-    expect(data).toMatchObject({ page: 2, perPage: 1, total: 3 })
+  test("walking the list gives every report once, in order, for each sort", async () => {
+    const priorities = ["none", "low", "low", "medium", "high", "critical", "none"] as const
+    for (const [index, priority] of priorities.entries()) await make({ title: `r${index + 1}`, createdAt: day(index + 1), priority })
+    const newest = ["r7", "r6", "r5", "r4", "r3", "r2", "r1"]
+    expect(await walk({ perPage: 3 })).toEqual(newest)
+    expect(await walk({ perPage: 3, sort: "oldest" })).toEqual([...newest].reverse())
+    expect(await walk({ perPage: 3, sort: "priority" })).toEqual(["r6", "r5", "r4", "r3", "r2", "r7", "r1"])
+  })
+
+  test("reports created a microsecond apart, or in the same one, are each listed once", async () => {
+    const at = (micros: number) => sql`${`2026-03-01 00:00:00.00000${micros}+00`}::timestamptz`
+    for (const [title, micros] of [["a", 1], ["b", 2], ["c", 3], ["d", 3]] as const) {
+      const made = await make({ title })
+      await ctx.db.update(report).set({ createdAt: at(micros) }).where(eq(report.id, made.id))
+    }
+    const newest = await walk({ perPage: 1 })
+    expect(newest.slice(2)).toEqual(["b", "a"])
+    // c and d share their time, so their ids order them, however the database collates ids.
+    expect(newest.slice(0, 2).sort()).toEqual(["c", "d"])
+    expect(await walk({ perPage: 1, sort: "oldest" })).toEqual([...newest].reverse())
+  })
+
+  test("a list of exactly one page has no next cursor", async () => {
+    for (let n = 0; n < 3; n++) await make()
+    const { data } = await listPage({ perPage: 3 })
+    expect(data?.items).toHaveLength(3)
+    expect(data?.nextCursor).toBeNull()
+    expect(data).not.toHaveProperty("total")
+    expect(data).not.toHaveProperty("page")
+    expect(Object.keys(data?.items[0] ?? {}).filter((key) => /cursor|text|position/i.test(key))).toEqual([])
+  })
+
+  test("a report that arrives while walking does not repeat or hide another", async () => {
+    for (let n = 1; n <= 4; n++) await make({ title: `r${n}`, createdAt: day(n) })
+    const first = await listPage({ perPage: 2 })
+    expect(first.data?.items.map((r) => r.title)).toEqual(["r4", "r3"])
+    await make({ title: "r5", createdAt: day(5) })
+    const second = await listPage({ perPage: 2, cursor: first.data?.nextCursor })
+    expect(second.data?.items.map((r) => r.title)).toEqual(["r2", "r1"])
+    expect(second.data?.nextCursor).toBeNull()
+  })
+
+  test("a cursor keeps its place when the filters change", async () => {
+    for (const [n, status] of [[1, "closed"], [2, "open"], [3, "closed"], [4, "open"], [5, "open"]] as const) {
+      await make({ title: `${status} ${n}`, createdAt: day(n), status })
+    }
+    const first = await listPage({ perPage: 2 })
+    expect(first.data?.items.map((r) => r.title)).toEqual(["open 5", "open 4"])
+    const { data, status } = await listPage({ perPage: 2, cursor: first.data?.nextCursor, status: ["closed"] })
+    expect(status).toBe(200)
+    expect(data?.items.map((r) => r.title)).toEqual(["closed 3", "closed 1"])
+  })
+
+  test("a report whose priority changes mid-walk does not break the next page", async () => {
+    const made: Record<string, string> = {}
+    for (const [n, priority] of [[1, "none"], [2, "low"], [3, "low"], [4, "high"], [5, "critical"]] as const) {
+      made[`r${n}`] = (await make({ title: `r${n}`, createdAt: day(n), priority })).id
+    }
+    const first = await listPage({ perPage: 2, sort: "priority" })
+    expect(first.data?.items.map((r) => r.title)).toEqual(["r5", "r4"])
+    await ctx.db.update(report).set({ priority: "critical" }).where(eq(report.id, made.r2 ?? ""))
+    const { data, status } = await listPage({ perPage: 2, sort: "priority", cursor: first.data?.nextCursor })
+    expect(status).toBe(200)
+    // r2 moved to before the cursor, so this walk no longer meets it.
+    expect(data?.items.map((r) => r.title)).toEqual(["r3", "r1"])
+  })
+
+  test("a cursor from another sort, or one that cannot be read, is a 400", async () => {
+    await make()
+    await make()
+    const fromNewest = (await listPage({ perPage: 1 })).data?.nextCursor
+    expect(fromNewest).toBeString()
+    for (const cursor of [fromNewest, "garbage", Buffer.from("page:2").toString("base64url")]) {
+      const response = await ctx.app.handle(new Request(`http://localhost/api/reports?sort=oldest&cursor=${cursor}`, { headers: member.headers }))
+      expect({ cursor, status: response.status }).toEqual({ cursor, status: 400 })
+      expect(await response.text()).toContain("bad_cursor")
+    }
+  })
+
+  test("the page number of older versions is refused, not answered with the first page again", async () => {
+    await make()
+    for (const page of [1, 2]) {
+      const response = await ctx.app.handle(new Request(`http://localhost/api/reports?page=${page}`, { headers: member.headers }))
+      expect({ page, status: response.status }).toEqual({ page, status: 400 })
+      expect(await response.text()).toContain("page_removed")
+    }
   })
 
   test("the priority sort runs from critical down to none", async () => {
@@ -203,11 +308,9 @@ describe("GET /api/reports", () => {
     expect(data?.items.map((r) => r.title)).toEqual(["first", "second"])
   })
 
-  test("page and perPage must be reasonable whole numbers", async () => {
-    for (const query of ["page=1.5", "page=1e20", "page=100001", "perPage=2.5"]) {
-      const response = await ctx.app.handle(
-        new Request(`http://localhost/api/reports?${query}`, { headers: member.headers }),
-      )
+  test("perPage must be a reasonable whole number, and a cursor a short one", async () => {
+    for (const query of ["perPage=2.5", "perPage=0", "perPage=51", `cursor=${"x".repeat(401)}`]) {
+      const response = await ctx.app.handle(new Request(`http://localhost/api/reports?${query}`, { headers: member.headers }))
       expect({ query, status: response.status }).toEqual({ query, status: 422 })
     }
   })

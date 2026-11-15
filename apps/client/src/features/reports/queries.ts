@@ -2,7 +2,7 @@ import { infiniteQueryOptions, keepPreviousData, queryOptions, useMutation, useQ
 import { eden } from "../../lib/query/eden"
 import { qk } from "../../lib/query/keys"
 import { unwrap } from "../../lib/query/unwrap"
-import { nextReportsPage, type ReportFilterQuery, reportsPageQuery } from "./list/report-feed"
+import { nextReportsCursor, type ReportFilterQuery, reportsPageQuery } from "./list/report-feed"
 
 /**
  * Report lists carry signed preview links that expire (READ_URL_TTL_SECONDS, an hour by default), so a
@@ -20,16 +20,16 @@ type ReportsRouteQuery = NonNullable<NonNullable<Parameters<typeof eden.api.repo
 
 /**
  * The list's filters; `projectId` is a project id, "none" for reports without a project, or absent for all reports.
- * The dashboard always sends a sort and a page.
+ * The dashboard always sends a sort and a page size; `page` is what the list took before 0.13.1.
  */
 export type ReportsQuery = Omit<ReportsRouteQuery, "workspaceId" | "sort" | "page" | "perPage"> &
-  Required<Pick<ReportsRouteQuery, "sort" | "page" | "perPage">>
+  Required<Pick<ReportsRouteQuery, "sort" | "perPage">>
 
 /** A null `projectId` takes the report out of its project. */
 export type ReportPatch = NonNullable<Parameters<ReturnType<typeof eden.api.reports>["patch"]>[0]>
 
 export const reports = (workspaceId: string, query: ReportsQuery) => unwrap(eden.api.reports.get({ query: { workspaceId, ...query } }))
-export const reportCounts = (workspaceId: string, query: Omit<ReportsQuery, "page" | "perPage">) =>
+export const reportCounts = (workspaceId: string, query: ReportFilterQuery) =>
   unwrap(eden.api.reports.counts.get({ query: { workspaceId, ...query } }))
 export const report = (id: string) => unwrap(eden.api.reports({ id }).get())
 export const updateReport = (id: string, patch: ReportPatch) => unwrap(eden.api.reports({ id }).patch(patch))
@@ -67,20 +67,20 @@ export const reportQueries = {
     infiniteQueryOptions({
       queryKey: qk.reports.feed(workspaceId, filters),
       queryFn: ({ pageParam }) => reports(workspaceId, reportsPageQuery(filters, pageParam)),
-      initialPageParam: 1,
-      getNextPageParam: nextReportsPage,
+      initialPageParam: null as string | null,
+      getNextPageParam: nextReportsCursor,
       placeholderData: keepPreviousData,
       staleTime: REPORT_LIST_STALE_MS,
       refetchInterval: REPORT_LIST_REFRESH_MS,
     }),
   /**
-   * How many reports a list holds before any filter: one report fetched for its total. Kept under "reports" so
-   * whatever refreshes the lists refreshes this too.
+   * How many reports a list holds before any filter, from its status counts. Kept under "reports" so whatever
+   * refreshes the lists refreshes this too.
    */
   reportCount: (workspaceId: string, projectId?: string) =>
     queryOptions({
       queryKey: qk.reports.count(workspaceId, projectId),
-      queryFn: async () => (await reports(workspaceId, { ...(projectId ? { projectId } : {}), sort: "newest", page: 1, perPage: 1 })).total,
+      queryFn: async () => (await reportCounts(workspaceId, { ...(projectId ? { projectId } : {}), sort: "newest" })).total,
       staleTime: REPORT_LIST_STALE_MS,
     }),
   /** How many reports each status holds under the list's other filters, for the status chips. */

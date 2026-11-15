@@ -4,6 +4,7 @@ import { type Db, executor } from "../../db/client"
 import { agentUpload, comment, notification, project, report, reportFix, type ReportFixRow, user, workspace } from "../../db/schema"
 import { newId } from "../../lib/ids"
 import { escapeLike } from "../../lib/sql"
+import type { ListCursor, ListSort } from "./cursor"
 import { type listReportsQuery, NO_ASSIGNEE, NO_PROJECT } from "./model"
 
 export type ReportRow = typeof report.$inferSelect
@@ -97,19 +98,42 @@ export function countListByStatus(db: Db, workspaceId: string, input: ListReport
     .groupBy(report.status)
 }
 
-/** One page of the list, sorted as asked, and how many reports the whole list holds. */
-export async function listPage(db: Db, workspaceId: string, input: ListReportsInput, page: number, perPage: number) {
-  const x = executor(db)
-  const filters = listFilters(workspaceId, input)
+/** `created_at` with its microseconds, as a cursor carries it. */
+const createdAtText = sql<string>`to_char(${report.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`
+
+/** The list's order for a sort, and which reports come after `after` in it. Every order ends in the id, so no two reports tie. */
+function listOrder(sort: ListSort, after: ListCursor | null): { orderBy: SQL[]; position: SQL | undefined } {
+  const at = after && sql`${after.createdAt}::timestamptz`
+  if (sort === "priority") {
+    return {
+      // The enum was created from none up to critical, so its own order is the rank.
+      orderBy: [desc(report.priority), desc(report.createdAt), desc(report.id)],
+      position: after ? sql`(${report.priority}, ${report.createdAt}, ${report.id}) < (${after.priority}::priority, ${at}, ${after.id})` : undefined,
+    }
+  }
+  if (sort === "oldest") {
+    return {
+      orderBy: [asc(report.createdAt), asc(report.id)],
+      position: after ? sql`(${report.createdAt}, ${report.id}) > (${at}, ${after.id})` : undefined,
+    }
+  }
+  return {
+    orderBy: [desc(report.createdAt), desc(report.id)],
+    position: after ? sql`(${report.createdAt}, ${report.id}) < (${at}, ${after.id})` : undefined,
+  }
+}
+
+/**
+ * The `perPage` reports after `after` in the list's order (from its start when null), and where the page after
+ * this one starts. It reads one report more than it returns to know whether there is such a page.
+ */
+export async function listPage(db: Db, workspaceId: string, input: ListReportsInput, perPage: number, after: ListCursor | null) {
+  const sort: ListSort = input.sort ?? "newest"
+  const { orderBy, position } = listOrder(sort, after)
+  const conditions = listFilters(workspaceId, input)
+  if (position) conditions.push(position)
   const pattern = searchPattern(input)
-  const orderBy =
-    input.sort === "priority"
-      ? // The enum was created from none up to critical, so its own order is the rank.
-        [desc(report.priority), desc(report.createdAt), desc(report.id)]
-      : input.sort === "oldest"
-        ? [asc(report.createdAt), asc(report.id)]
-        : [desc(report.createdAt), desc(report.id)]
-  const rows = await x
+  const found = await executor(db)
     .select({
       id: report.id,
       projectId: report.projectId,
@@ -131,18 +155,19 @@ export async function listPage(db: Db, workspaceId: string, input: ListReportsIn
       mediaKey: report.mediaKey,
       mediaType: report.mediaType,
       thumbnailKey: report.thumbnailKey,
+      createdAtText,
     })
     .from(report)
     .innerJoin(reporterUser, eq(report.reporterId, reporterUser.id))
-    .where(pattern ? inArray(report.id, topMatches(db, filters, pattern, orderBy, page * perPage)) : and(...filters))
+    .where(pattern ? inArray(report.id, topMatches(db, conditions, pattern, orderBy, perPage + 1)) : and(...conditions))
     .orderBy(...orderBy)
-    .limit(perPage)
-    .offset((page - 1) * perPage)
-  const [totals] = await x
-    .select({ total: count() })
-    .from(report)
-    .where(and(...filters, pattern ? inArray(report.id, allMatches(db, workspaceId, pattern)) : undefined))
-  return { rows, total: totals?.total ?? 0 }
+    .limit(perPage + 1)
+  const rows = found.slice(0, perPage).map(({ createdAtText: at, ...row }) => ({ row, at }))
+  const last = found.length > perPage ? rows.at(-1) : undefined
+  const next: ListCursor | null = last
+    ? { sort, createdAt: last.at, id: last.row.id, ...(sort === "priority" ? { priority: last.row.priority } : {}) }
+    : null
+  return { rows: rows.map(({ row }) => row), next }
 }
 
 /** The report with its reporter and assignee, for the report page and the share page. */

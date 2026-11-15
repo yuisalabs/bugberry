@@ -4,21 +4,22 @@ import type { ReportList, ReportListItem, ReportsQuery } from "../queries"
 export const REPORTS_PAGE_SIZE = 9
 
 /** A report list's filters and order; the feed adds which part to fetch. */
-export type ReportFilterQuery = Omit<ReportsQuery, "page" | "perPage">
+export type ReportFilterQuery = Omit<ReportsQuery, "cursor" | "perPage">
 
-/** The request for one part of the list. */
-export function reportsPageQuery(filters: ReportFilterQuery, page: number): ReportsQuery {
-  return { ...filters, page, perPage: REPORTS_PAGE_SIZE }
+/** The request for one part of the list: the first without a cursor, each next one with the cursor the part before gave. */
+export function reportsPageQuery(filters: ReportFilterQuery, cursor: string | null): ReportsQuery {
+  return { ...filters, perPage: REPORTS_PAGE_SIZE, ...(cursor ? { cursor } : {}) }
 }
 
-/** The part after `last`, or undefined once every report has been fetched. */
-export function nextReportsPage(last: ReportList): number | undefined {
-  return last.page * last.perPage < last.total ? last.page + 1 : undefined
+/** The cursor of the part after `last`, or undefined once every report has been fetched. */
+export function nextReportsCursor(last: ReportList): string | undefined {
+  return last.nextCursor ?? undefined
 }
 
 /**
- * Every fetched part as one list. Parts are cut by position, so a report that arrived while scrolling pushes
- * the last one of a part into the next; it is listed once, where it was first seen.
+ * Every fetched part as one list. A refresh fetches the parts again one after another, and a report that moved
+ * between two of them meanwhile (its priority changed, say) can come back in both; it is listed once, where it
+ * was first seen.
  */
 export function feedItems(pages: readonly ReportList[]): ReportListItem[] {
   const seen = new Set<string>()
@@ -34,7 +35,8 @@ export function feedItems(pages: readonly ReportList[]): ReportListItem[] {
 /** What the list page shows: the reports so far, and how fetching the rest is going. */
 export interface ReportFeed {
   items: ReportListItem[]
-  total: number
+  /** How many reports the list holds, which the server counts apart from the list; null until that answer is in. */
+  total: number | null
   hasMore: boolean
   loadingMore: boolean
   /** The last part failed; it is not asked for again until the person says so. */

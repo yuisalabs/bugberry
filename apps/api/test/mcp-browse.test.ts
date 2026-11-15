@@ -40,8 +40,27 @@ describe("searchReports", () => {
 
     const first = await callTool(client, "searchReports", { limit: 2 })
     expect(entries(first.text)).toHaveLength(2)
+    expect(first.text.split("\n")[0]).toBe("3 reports found.")
+    expect(first.text).toContain("More available. Call again with cursor=")
     const cursor = first.text.match(/cursor="([^"]+)"/)?.[1]
-    expect(entries((await callTool(client, "searchReports", { limit: 2, cursor })).text)).toHaveLength(1)
+    const second = await callTool(client, "searchReports", { limit: 2, cursor })
+    expect(entries(second.text)).toHaveLength(1)
+    expect(second.text).not.toContain("found")
+    expect(second.text).not.toContain("cursor=")
+  })
+
+  test("the first page says how many reports the filters hold, whatever the page size", async () => {
+    for (const status of ["open", "open", "resolved"] as const) await createReadyReport(ctx.db, { reporterId: ana.user.id, status })
+    expect((await callTool(client, "searchReports", { status: ["open"], limit: 1 })).text.split("\n")[0]).toBe("2 reports found.")
+    expect((await callTool(client, "searchReports", { status: ["resolved"] })).text.split("\n")[0]).toBe("1 report found.")
+    expect((await callTool(client, "searchReports", { status: ["closed"] })).text).toBe("No reports match.")
+  })
+
+  test("a cursor of the old kind, or for another sort, is refused", async () => {
+    for (let n = 0; n < 3; n++) await createReadyReport(ctx.db, { reporterId: ana.user.id })
+    expect((await callTool(client, "searchReports", { cursor: Buffer.from("page:2").toString("base64url") })).text).toBe("Invalid cursor")
+    const cursor = (await callTool(client, "searchReports", { limit: 1 })).text.match(/cursor="([^"]+)"/)?.[1]
+    expect((await callTool(client, "searchReports", { limit: 1, cursor, sort: "oldest" })).text).toBe("Invalid cursor")
   })
 
   test("assignee me and none", async () => {

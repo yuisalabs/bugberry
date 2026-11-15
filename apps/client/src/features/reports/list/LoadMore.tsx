@@ -8,14 +8,12 @@ import { Button } from "@bugberry/ui/button"
  */
 export function LoadMore({
   shown,
-  total,
   hasMore,
   loading,
   failed,
   onLoadMore,
 }: {
   shown: number
-  total: number
   hasMore: boolean
   loading: boolean
   failed: boolean
@@ -56,7 +54,7 @@ export function LoadMore({
           </Button>
         </div>
       ) : !hasMore && shown > 0 ? (
-        <span>{`All ${total} ${total === 1 ? "report" : "reports"} shown`}</span>
+        <span>{`All ${shown} ${shown === 1 ? "report" : "reports"} shown`}</span>
       ) : null}
     </div>
   )

@@ -125,6 +125,19 @@ describe("ReportsView", () => {
     expect(screen.getByRole("status").textContent).toContain("Loading more reports")
   })
 
+  test("the count by the title is the feed's total, and is left out until that is known", () => {
+    const { rerender } = render(<ReportsView {...props({ showCount: true, list: listOf([listItemFixture()], { total: 45, hasMore: true }) })} />)
+    expect(screen.getAllByText("45 reports").length).toBeGreaterThan(0)
+    rerender(<ReportsView {...props({ showCount: true, list: listOf([listItemFixture()], { total: null, hasMore: true }) })} />)
+    expect(screen.queryByText(/\d+ reports?/)).toBeNull()
+    expect(screen.queryByText(/null/)).toBeNull()
+    expect(screen.getAllByRole("listitem")).toHaveLength(1)
+    rerender(<ReportsView {...props({ subtitle: "Kantor", list: listOf([listItemFixture()], { total: null }) })} />)
+    expect(screen.getByText("Kantor")).toBeTruthy()
+    rerender(<ReportsView {...props({ subtitle: "Kantor", list: listOf([listItemFixture()], { total: 1 }) })} />)
+    expect(screen.getByText("1 report in Kantor")).toBeTruthy()
+  })
+
   test("a part that failed to load offers Try again, which asks for it", () => {
     const onLoadMore = mock()
     render(<ReportsView {...props({ list: listOf([listItemFixture()], { total: 45, hasMore: true, moreFailed: true }), onLoadMore })} />)

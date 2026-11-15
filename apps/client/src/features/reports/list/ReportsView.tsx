@@ -162,7 +162,7 @@ export function ReportsView({
   const loaded = typeof list === "object" && "items" in list ? list : null
   // Nothing recorded yet and nothing filtered: filters and order would have nothing to work on.
   const bare = loaded !== null && loaded.items.length === 0 && !hasFilters(search)
-  const count = loaded ? `${loaded.total} ${loaded.total === 1 ? "report" : "reports"}` : null
+  const count = loaded && loaded.total !== null ? `${loaded.total} ${loaded.total === 1 ? "report" : "reports"}` : null
 
   return (
     <section className={fab ? "pb-20 md:pb-0" : undefined}>
@@ -282,7 +282,6 @@ export function ReportsView({
           )}
           <LoadMore
             shown={loaded.items.length}
-            total={loaded.total}
             hasMore={loaded.hasMore}
             loading={loaded.loadingMore}
             failed={loaded.moreFailed}

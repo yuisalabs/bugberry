@@ -1,9 +1,9 @@
-import { CAPTURE_TYPES, MAX_PER_PAGE, PRIORITIES, REPORT_STATUSES } from "@bugberry/shared"
+import { CAPTURE_TYPES, listedCount, MAX_PER_PAGE, PRIORITIES, REPORT_STATUSES } from "@bugberry/shared"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { z } from "zod"
 import { listNotifications } from "../../modules/notifications/service"
 import { NO_ASSIGNEE, NO_PROJECT } from "../../modules/reports/model"
-import { listReports, type ReportListItem } from "../../modules/reports/service"
+import { countReportsByStatus, listReports, type ReportListItem } from "../../modules/reports/service"
 import { findProjectByRef, listProjectSummaries } from "../../modules/projects/repository"
 import { resolveWorkspace } from "../../modules/workspaces/access"
 import { listMemberContacts, listMemberNames, listWorkspaceRoles } from "../../modules/workspaces/repository"
@@ -15,13 +15,6 @@ import { reportSummary } from "./report-read"
 const SEARCH_DEFAULT = 20
 
 const workspaceArg = z.string().max(200).optional().describe("Workspace id or slug; defaults to your current workspace.")
-
-const encodePage = (page: number) => Buffer.from(`page:${page}`).toString("base64url")
-function decodePage(cursor: string): number {
-  const match = Buffer.from(cursor, "base64url").toString("utf8").match(/^page:(\d{1,6})$/)
-  if (!match?.[1]) throw new McpToolError("bad_cursor", "Invalid cursor")
-  return Number(match[1])
-}
 
 /** A project named by id or slug inside the workspace, or "none". */
 async function projectFilter(ctx: McpContext, workspaceId: string, value: string | undefined): Promise<string | undefined> {
@@ -83,16 +76,14 @@ export function registerBrowseTools(server: McpServer, ctx: McpContext): void {
         hasErrors: z.boolean().optional().describe("Only reports that caught errors or failed requests."),
         sort: z.enum(["newest", "oldest", "priority"]).optional(),
         limit: z.number().int().min(1).max(MAX_PER_PAGE).optional().describe(`How many reports (default ${SEARCH_DEFAULT}, max ${MAX_PER_PAGE}).`),
-        cursor: z.string().max(100).optional(),
+        cursor: z.string().max(400).optional().describe("From the last line of the page before, to get the next one."),
       },
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     (args) =>
       runTool(async () => {
         const workspaceId = await workspaceFor(ctx, args.workspace)
-        const page = args.cursor ? decodePage(args.cursor) : 1
-        const perPage = args.limit ?? SEARCH_DEFAULT
-        const result = await listReports(ctx.deps, ctx.caller.user, {
+        const filters = {
           workspaceId,
           q: args.query,
           status: args.status,
@@ -105,19 +96,19 @@ export function registerBrowseTools(server: McpServer, ctx: McpContext): void {
           createdBefore: args.createdBefore,
           hasErrors: args.hasErrors,
           sort: args.sort,
-          page,
-          perPage,
-        })
-        if (result.items.length === 0) return textResult("No reports match.", { reports: [] })
+        }
+        const result = await listReports(ctx.deps, ctx.caller.user, { ...filters, perPage: args.limit ?? SEARCH_DEFAULT, cursor: args.cursor })
+        if (result.items.length === 0) return textResult(args.cursor ? "No more reports." : "No reports match.", { reports: [] })
         const names = await memberNames(ctx, workspaceId)
-        const remaining = Math.max(0, result.total - page * perPage)
+        // The list no longer counts itself. The first page asks for the count; the pages after it would get the same answer.
+        const total = args.cursor ? null : listedCount(await countReportsByStatus(ctx.deps, ctx.caller.user, filters), args.status)
         const text = [
-          `${result.total} report${result.total === 1 ? "" : "s"} found.`,
+          ...(total === null ? [] : [`${total} report${total === 1 ? "" : "s"} found.`]),
           ...result.items.map((item) => reportLine(config.appUrl, item, names)),
-          ...(remaining > 0 ? [`${remaining} more. Call again with cursor="${encodePage(page + 1)}"`] : []),
+          ...(result.nextCursor ? [`More available. Call again with cursor="${result.nextCursor}"`] : []),
         ].join("\n")
         return textResult(text, {
-          total: result.total,
+          ...(total === null ? {} : { total }),
           reports: result.items.map((item) => ({
             id: item.id,
             number: item.number,
