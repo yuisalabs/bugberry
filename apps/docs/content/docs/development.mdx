@@ -11,7 +11,7 @@ This page gives an overview of the code and the tools behind it. The full steps 
 - Docker, for Postgres and the local S3 storage (`bun run dev:db`).
 - Chrome, for the extension. Firefox 140 or newer to try the Firefox build.
 
-## The repository
+## The Repository
 
 BugBerry is a Bun monorepo written in TypeScript (5.9).
 
@@ -43,7 +43,7 @@ BugBerry is a Bun monorepo written in TypeScript (5.9).
 
 Files go to a local folder or to S3-compatible storage (AWS S3, Cloudflare R2, MinIO, RustFS), through Bun's built-in S3 client.
 
-## The dashboard
+## The Dashboard
 
 | Library | Version | Used for |
 | --- | --- | --- |
@@ -59,7 +59,7 @@ Files go to a local folder or to S3-compatible storage (AWS S3, Cloudflare R2, M
 | Sonner | 2.0.8 | Toasts |
 | [Video.js](https://videojs.com) | 8.24.1 | Playing recordings (in `packages/player`) |
 
-## The extension
+## The Extension
 
 | Library | Version | Used for |
 | --- | --- | --- |
@@ -69,7 +69,7 @@ Files go to a local folder or to S3-compatible storage (AWS S3, Cloudflare R2, M
 | Tailwind CSS | 4.3.3 | Styling |
 | web-ext | 10.8.0 | Checking and signing the Firefox build |
 
-## The docs
+## The Docs
 
 | Library | Version | Used for |
 | --- | --- | --- |
@@ -96,7 +96,7 @@ bun run typecheck
 
 The API tests need the database from `bun run dev:db`.
 
-## Running in production
+## Running in Production
 
 A self-hosted server is a Docker Compose project with these images:
 
@@ -108,7 +108,7 @@ A self-hosted server is a Docker Compose project with these images:
 | `caddy` (alpine) | 2 | HTTPS, optional |
 | `rustfs/rustfs` | pinned by digest | S3-compatible storage, optional |
 
-See [Self-host](/self-host) for setting it up.
+See [Self-Host](/self-host) for setting it up.
 
 ## Contributing
 

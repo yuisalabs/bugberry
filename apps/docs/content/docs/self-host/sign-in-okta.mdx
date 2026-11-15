@@ -1,0 +1,43 @@
+---
+title: Sign In with Okta
+description: Company sign-in through Okta, step by step.
+---
+
+This sets up [company sign-in](/self-host/sign-in#company-sign-in-oidc) with Okta. You need admin access to your Okta organization, and your BugBerry address (`APP_URL`).
+
+## In Okta
+
+1. In the Okta Admin Console, open **Applications** and select **Create App Integration**.
+2. Choose **OIDC - OpenID Connect** as the **Sign-in method** and **Web Application** as the **Application type**. Select **Next**.
+3. Give it a name, for example `BugBerry`. Leave **Authorization Code** as the grant type.
+4. Set **Sign-in redirect URIs** to `<APP_URL>/api/auth/callback/oidc`, for example `https://bugberry.example.com/api/auth/callback/oidc`.
+5. Under **Assignments**, choose who may use BugBerry: everyone in your organization, or the groups you pick. Select **Save**.
+6. On the app's **General** tab, copy the **Client ID** and the **Client secret**.
+
+Only people assigned to the app can sign in. Someone added to Okta later needs the assignment too, unless you chose everyone.
+
+## In BugBerry
+
+Add to `.env`, then restart with `docker compose up -d`:
+
+```bash
+OIDC_ISSUER=https://example.okta.com
+OIDC_CLIENT_ID=<the client ID>
+OIDC_CLIENT_SECRET=<the client secret>
+OIDC_NAME="Okta"
+```
+
+`OIDC_ISSUER` is your Okta address with nothing after it. Take the `-admin` out if you copy it from the Admin Console: `https://example-admin.okta.com` is the console, not the issuer.
+
+The sign-in page now shows **Continue with Okta**.
+
+## If It Doesn't Work
+
+| What you see | Cause |
+| --- | --- |
+| Okta says the `redirect_uri` must be a sign-in redirect URI of the app | The redirect URI in the app doesn't match `<APP_URL>/api/auth/callback/oidc` exactly. |
+| Okta refuses the person before they come back to BugBerry | They aren't assigned to the app. |
+| "Company sign-in isn't reachable right now" | BugBerry can't read `<OIDC_ISSUER>/.well-known/openid-configuration` from inside its container. Check the address, and that it has no `-admin` in it. |
+| "Sign-in couldn't be completed" | `OIDC_CLIENT_SECRET` doesn't match the app's client secret. |
+| "Verify your email address with your sign-in provider first" | Okta marks that person's email address as unverified. |
+| "This email can't sign in" | The address is outside `ALLOWED_EMAIL_DOMAINS`. |

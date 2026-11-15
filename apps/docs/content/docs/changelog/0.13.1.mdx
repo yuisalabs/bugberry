@@ -1,0 +1,20 @@
+---
+title: 0.13.1
+description: Released 15 November 2026.
+---
+
+- **The report list stays fast as it grows.** Search now uses an index, a page deep in the list loads as fast as the
+  first, and scrolling no longer counts the whole list for every part. The list looks the same and a search finds the
+  same reports.
+- **The report list no longer stops loading more** when its end is reached while it refreshes, which it does every
+  five minutes and when a preview fails to load.
+- **AI agents:** `searchReports` gives the number of matches once, with the first answer. A cursor from before the
+  upgrade is refused; search again without one.
+- **Self-hosting:** update the server and the dashboard with `docker compose up -d --build`. Migration `0037` runs
+  when the server starts and needs Postgres' `pg_trgm` extension. The bundled database has it; with an external
+  Postgres, see [External Postgres](/self-host/external-postgres). The migration builds indexes, and the server
+  answers nothing until it is done: 72 seconds for 500,000 reports and 1.5 million comments on our test machine. On
+  a database that large, `docker compose up` may report the api as unhealthy before the migration ends; let it
+  finish (`docker compose logs -f api`), then run the command again.
+  `GET /api/reports` now pages with `cursor` and `nextCursor` in place of `page` and `total`; a request that still
+  sends `page` gets a 400 with the code `page_removed`. The extension stays at 0.12.2.

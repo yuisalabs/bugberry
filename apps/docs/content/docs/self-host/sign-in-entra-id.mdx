@@ -1,0 +1,51 @@
+---
+title: Sign In with Microsoft Entra ID
+description: Company sign-in through Microsoft Entra ID, step by step.
+---
+
+This sets up [company sign-in](/self-host/sign-in#company-sign-in-oidc) with Microsoft Entra ID, which used to be called Azure AD. You need a role that can register applications in your tenant, such as Application Developer, and your BugBerry address (`APP_URL`).
+
+## In Entra ID
+
+1. In the [Microsoft Entra admin center](https://entra.microsoft.com), go to **Entra ID → App registrations** and select **New registration**.
+2. Give it a name, for example `BugBerry`. Under **Supported account types**, choose **Single tenant only**. Select **Register**.
+3. On the app's **Overview** page, copy the **Application (client) ID** and the **Directory (tenant) ID**.
+4. Under **Manage**, open **Authentication** and select **Add Redirect URI**. Pick the **Web** platform, enter `<APP_URL>/api/auth/callback/oidc`, for example `https://bugberry.example.com/api/auth/callback/oidc`, and select **Configure**.
+5. Open **Certificates & secrets → Client secrets** and select **New client secret**. Choose when it expires and select **Add**. Copy the secret's **Value** now: Entra shows it only once. The **Secret ID** next to it is not the secret.
+
+Keep the app single-tenant. A multi-tenant app accepts accounts from other organizations, and their admins choose their own email addresses; see [the note on trust](/self-host/sign-in#company-sign-in-oidc).
+
+Each person needs an email address on their Entra profile. BugBerry uses that address, not the name they sign in with, and refuses someone who has none.
+
+## In BugBerry
+
+Add to `.env`, then restart with `docker compose up -d`:
+
+```bash
+OIDC_ISSUER=https://login.microsoftonline.com/<Directory (tenant) ID>/v2.0
+OIDC_CLIENT_ID=<Application (client) ID>
+OIDC_CLIENT_SECRET=<the secret's Value>
+OIDC_NAME="Microsoft"
+```
+
+Keep `/v2.0` at the end, and put your tenant's ID in the address. `common` and `organizations` don't work there: the sign-ins Entra sends back name your tenant, and BugBerry refuses one that doesn't match the issuer.
+
+The sign-in page now shows **Continue with Microsoft**.
+
+The first time someone signs in, Entra asks them to let BugBerry sign them in and read their profile. If your tenant doesn't let people agree to that themselves, they see **Need admin approval**. Open the app's **API permissions** and select **Grant admin consent** for your tenant.
+
+## When the Secret Expires
+
+A client secret in Entra lasts two years at most. Once it has expired, nobody can sign in through Entra; people already signed in to BugBerry stay signed in. Create a new secret before that day, put its **Value** in `OIDC_CLIENT_SECRET`, and restart.
+
+## If It Doesn't Work
+
+| What you see | Cause |
+| --- | --- |
+| Entra says "AADSTS50011", a redirect URI mismatch | The redirect URI in the app doesn't match `<APP_URL>/api/auth/callback/oidc` exactly, or it was added under a platform other than **Web**. |
+| Entra says "Need admin approval" | People can't agree to the app's permissions themselves. Grant admin consent under **API permissions**. |
+| "Company sign-in isn't reachable right now" | BugBerry can't read `<OIDC_ISSUER>/.well-known/openid-configuration` from inside its container. Check the tenant ID and the `/v2.0` at the end. |
+| "Your company sign-in didn't share an email address" | That person has no email address on their Entra profile. |
+| "Sign-in couldn't be completed" | The client secret is wrong or has expired, or `OIDC_CLIENT_SECRET` holds the **Secret ID** in place of the **Value**. |
+| "Sign-in failed. Try again." | `OIDC_ISSUER` names `common` or `organizations`, not your tenant's ID. |
+| "This email can't sign in" | The address is outside `ALLOWED_EMAIL_DOMAINS`. |

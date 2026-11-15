@@ -1,5 +1,5 @@
 ---
-title: Account limits
+title: Account Limits
 description: Cap what ordinary accounts keep on a server that's open to everyone.
 ---
 
@@ -19,7 +19,7 @@ The limits belong to the workspace, and they follow its owner. Every report in t
 
 An upload in progress counts until its upload link expires. The extension shows what's left, stops a recording at `LIMIT_RECORDING_SECONDS`, and won't send a longer one (trimmed to fit, it can); the server checks the length the extension declares again either way. Storage isn't limited per account: `MAX_UPLOAD_MB` still bounds every file on the server.
 
-## Unlimited accounts
+## Unlimited Accounts
 
 Accounts marked **unlimited** have none of these limits, and neither does anyone working in a workspace they own:
 
@@ -29,7 +29,7 @@ docker compose exec api bun apps/api/scripts/set-unlimited.ts --email someone@ex
 
 `--off` takes it away again. Both apply immediately.
 
-## Turning limits on
+## Turning Limits On
 
 In this order, so nobody who should stay unlimited is limited in between:
 

@@ -21,7 +21,7 @@ Replacing a connection's token fixes every project that uses it at once. Deletin
 
 Because members can point a project at anything a connection's token reaches, give each token only the access projects should have: a fine-grained GitHub token for the right repositories, a GitLab account that is a member of the right projects, and so on.
 
-## Tracker integrations
+## Tracker Integrations
 
 A report can be sent from its page, or automatically when a new report that belongs to the project finishes uploading (turn on auto-send where the project uses the connection). A project may use one connection several times with different targets, such as two repositories.
 
@@ -45,11 +45,11 @@ Enter the site address (`https://<your-site>.atlassian.net`) and the email of th
 
 Works with Plane Cloud and self-hosted Plane. Keep the address at `https://api.plane.so` for Plane Cloud, or enter your own Plane's address. Enter the workspace slug, the part after the address in Plane's URLs (`my-team` in `app.plane.so/my-team/projects`); one connection holds one Plane workspace. Create a **personal access token** in Plane under **Profile Settings → Personal Access Tokens**, with a user that is a member of the projects reports should go to. Projects then pick the Plane project and its labels from the lists, and each report becomes a work item such as `WEB-142`.
 
-### ActiveCollab (self-hosted)
+### ActiveCollab (Self-Hosted)
 
 Enter the ActiveCollab address and the API token of an account that can create tasks. Projects then pick the ActiveCollab project and task list from the lists.
 
-### How sending works
+### How Sending Works
 
 - A report without a project is never sent to a tracker; add it to a project first, from its page.
 - Moving a report into a project doesn't send it automatically; send it from the report's **More** menu.
@@ -115,7 +115,7 @@ function isFromBugBerry(rawBody: string, header: string | null, secret: string):
 
 Compute the signature over the body exactly as it arrived, before parsing the JSON.
 
-## Private network addresses
+## Private Network Addresses
 
 By default BugBerry refuses integration addresses that point to a private network (such as `10.x`, `192.168.x`, `localhost` or a cloud metadata address). The check runs when an integration is saved and again before every request and redirect, so a name that later resolves to a private address is refused too. This keeps a workspace admin from using an integration to reach services inside your network.
 
@@ -125,16 +125,16 @@ If your GitLab, ActiveCollab or webhook receiver lives on your own network, set 
 ALLOW_PRIVATE_INTEGRATION_HOSTS=true
 ```
 
-See [Environment variables](/self-host/environment).
+See [Environment Variables](/self-host/environment).
 
-## AI agents (MCP)
+## AI Agents (MCP)
 
-BugBerry runs an MCP server at `<APP_URL>/api/mcp`. AI apps such as Claude Code, Claude.ai, Cursor, VS Code, Windsurf, and ChatGPT connect to it, read reports, and work on them. Each person sets it up for themselves under **AI Agents** in the dashboard's top bar; see [AI agents](/guide/ai-agents).
+BugBerry runs an MCP server at `<APP_URL>/api/mcp`. AI apps such as Claude Code, Claude.ai, Cursor, VS Code, Windsurf, and ChatGPT connect to it, read reports, and work on them. Each person sets it up for themselves under **AI Agents** in the dashboard's top bar; see [AI Agents](/guide/ai-agents).
 
 What the server side needs:
 
 - **Nothing to turn on.** The MCP server is part of the API.
-- **The discovery paths.** MCP clients find the sign-in server at `/.well-known/oauth-*` and `/.well-known/openid-configuration` on your domain. The bundled nginx forwards them; behind your own proxy, make sure they reach BugBerry too (see [Reverse proxy](/self-host/reverse-proxy#paths-to-pass-through)).
+- **The discovery paths.** MCP clients find the sign-in server at `/.well-known/oauth-*` and `/.well-known/openid-configuration` on your domain. The bundled nginx forwards them; behind your own proxy, make sure they reach BugBerry too (see [Reverse Proxy](/self-host/reverse-proxy#paths-to-pass-through)).
 - **HTTPS.** Apps connect from the internet or from people's laptops.
 
 Apps sign in with OAuth: the person approves the app on a BugBerry consent page, and access tokens last one hour. For apps without OAuth, people can create personal tokens on the same page and send `Authorization: Bearer <token>`; those tokens only work on `/api/mcp`. Revoking an app or a token stops it immediately.

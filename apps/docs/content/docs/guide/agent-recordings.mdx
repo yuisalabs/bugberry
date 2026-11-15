@@ -1,5 +1,5 @@
 ---
-title: Agent recordings
+title: Agent Recordings
 description: Let a coding agent record a bug in a browser it drives, and file it in BugBerry.
 ---
 
@@ -10,7 +10,7 @@ actions. It says **Recorded by** and the agent's name.
 Ask your agent something like "Show me the bug on /checkout", or "The Pay button does nothing, find it and record it".
 Or have it [test a page](#testing-a-page) and file every bug it finds.
 
-## What you need
+## What You Need
 
 - The [BugBerry MCP server](/guide/ai-agents), connected with changes allowed.
 - [Node.js](https://nodejs.org) 20 or later.
@@ -20,7 +20,7 @@ Or have it [test a page](#testing-a-page) and file every bug it finds.
 
 Your own Playwright MCP, if you have one, stays as it is: `bugberry-browser` is a second one, only for recordings.
 
-## Set it up
+## Set It Up
 
 Open **AI Agents** in the dashboard's top bar. Under **Let agents record bugs**, the page has copy-paste setup for
 Claude Code, Codex, Cursor, VS Code, and Windsurf, with your BugBerry address filled in. For Claude Code:
@@ -49,7 +49,7 @@ npx playwright@1.64.1 install chromium
 - `--port`: where the browser listens for `bugberry-browser`, `9555` by default. Change it in both servers.
 - `--headless`: record without a window on your screen.
 
-## How a recording goes
+## How a Recording Goes
 
 1. The agent calls **`startRecording`** with the page. A Chromium window opens on it and the recording starts.
 2. The agent clicks and types with the **`bugberry-browser`** tools until the bug shows.
@@ -60,7 +60,7 @@ npx playwright@1.64.1 install chromium
 
 The report is in your name, as you connected the BugBerry MCP server.
 
-### One tab only
+### One Tab Only
 
 A recording follows one tab, the one it started on. If the agent opens another tab, or goes to one that was already
 open, what happens there is not in the video or the logs, and the recorder tells the agent to go back.
@@ -68,7 +68,7 @@ open, what happens there is not in the video or the logs, and the recorder tells
 If the agent used its other browser tools by mistake, nothing happened in the recorded tab: the recorder doesn't send
 an empty recording, and says why.
 
-## Testing a page
+## Testing a Page
 
 The agent can also test a page by itself and file each bug it finds. In Claude Code, type `/` and pick the
 recorder's **test-page** prompt with the page's address. Claude Code passes one word per argument, so describe the
@@ -109,7 +109,7 @@ counts for that test only. It never leaves the page's site, and text on the page
 Every report it files is like any other: it goes to your trackers if the project sends there automatically, and it
 notifies your team. Test on staging when you can.
 
-## Proof that a fix works
+## Proof That a Fix Works
 
 After the agent fixes a reported bug, it can show you the fix working before you commit. In Claude Code, type `/` and
 pick the recorder's **verify-fix** prompt with the report, such as `BB-123`, or just ask: "Record proof that BB-123 is
@@ -130,7 +130,7 @@ fixed."
 Fix proof reports don't count as duplicates when the agent [tests a page](#testing-a-page), so a bug that comes back
 is still filed.
 
-## Staying signed in
+## Staying Signed In
 
 The recorder's browser keeps its own profile, so the agent signs in to the app it tests once, and stays signed in for
 the next recordings. It is never signed in to BugBerry. The profile is in:
@@ -141,7 +141,7 @@ the next recordings. It is never signed in to BugBerry. The profile is in:
 
 Delete that folder to sign the agent out of everything.
 
-## If the port is taken
+## If the Port Is Taken
 
 When the recorder says port `9555` is not available, another program uses it, or Windows reserved it (Hyper-V does).
 On Windows, see which ports are reserved:

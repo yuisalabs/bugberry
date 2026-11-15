@@ -1,5 +1,5 @@
 ---
-title: Sign-in methods
+title: Sign-In Methods
 description: Google, GitHub, GitLab, your company's own sign-in, and email codes, and how to decide who may sign in.
 ---
 
@@ -34,7 +34,7 @@ Works with gitlab.com and with your own GitLab.
 3. Set `GITLAB_CLIENT_ID` and `GITLAB_CLIENT_SECRET`.
 4. For your own GitLab, also set `GITLAB_URL`, for example `https://gitlab.example.com`. Without it, gitlab.com is used.
 
-## Company sign-in (OIDC)
+## Company Sign-In (OIDC)
 
 People sign in with the login your company already runs: Keycloak, Microsoft Entra ID, Okta, Authentik, Google Workspace, or anything else that speaks OpenID Connect. One identity provider per server.
 
@@ -50,7 +50,7 @@ OIDC_CLIENT_SECRET=...
 OIDC_NAME="Example SSO"
 ```
 
-`OIDC_ISSUER` is the address your provider publishes its settings under: BugBerry reads `<OIDC_ISSUER>/.well-known/openid-configuration`. Issuer, client ID and secret go together; the server refuses to start with only some of them. For a step-by-step example, see [Keycloak](/self-host/sign-in-keycloak).
+`OIDC_ISSUER` is the address your provider publishes its settings under: BugBerry reads `<OIDC_ISSUER>/.well-known/openid-configuration`. Issuer, client ID and secret go together; the server refuses to start with only some of them. For the address and the steps at your provider, see [Your Provider](#your-provider).
 
 BugBerry asks for `openid email profile` and needs an email address from the provider. A provider that sends none is refused; there is no fallback to a username.
 
@@ -60,7 +60,24 @@ Company sign-in decides who can sign in, not which workspace they land in: a new
 
 Signing out of BugBerry does not sign anyone out of the provider. After the first sign-in, the account is tied to the person's ID at the provider; a later change of name or email there changes nothing in BugBerry.
 
-### SSO only
+### Your Provider
+
+| Provider | `OIDC_ISSUER` | Step by step |
+| --- | --- | --- |
+| Keycloak | `https://id.example.com/realms/company` | [Sign In with Keycloak](/self-host/sign-in-keycloak) |
+| Microsoft Entra ID | `https://login.microsoftonline.com/<tenant ID>/v2.0` | [Sign In with Microsoft Entra ID](/self-host/sign-in-entra-id) |
+| Okta | `https://example.okta.com` | [Sign In with Okta](/self-host/sign-in-okta) |
+| Authentik | `https://auth.example.com/application/o/bugberry/` | [Sign In with Authentik](/self-host/sign-in-authentik) |
+| Google Workspace | `https://accounts.google.com` | [Sign In with Google Workspace](/self-host/sign-in-google-workspace) |
+
+Any other provider works when it has all of this:
+
+- its settings at `<OIDC_ISSUER>/.well-known/openid-configuration`, with its signing keys listed there (`jwks_uri`);
+- the authorization code flow for a client with a secret. BugBerry sends the secret in the body of the token request (`client_secret_post`) and uses PKCE;
+- signed ID tokens. BugBerry checks each one against those keys;
+- an `email` for each person, in the ID token or from the userinfo endpoint.
+
+### SSO Only
 
 The other methods stay on until you turn them off. Remove the Google, GitHub and GitLab variables, and for email codes set:
 
@@ -70,13 +87,13 @@ EMAIL_SIGN_IN=false
 
 That turns off signing in with an emailed code and nothing else: invitations and notifications still go out through `EMAIL_DRIVER`. Do this once company sign-in is proven to work, not in the same change.
 
-### When the provider is down
+### When the Provider Is Down
 
 If the provider is unreachable when BugBerry starts, BugBerry still starts, and sign-in works again once the provider is back; no restart is needed. People who are already signed in stay signed in.
 
 If it stays down and someone must get in, turn another method on (for example `EMAIL_SIGN_IN=true`) and restart.
 
-### A provider with an internal certificate
+### A Provider with an Internal Certificate
 
 When the provider's certificate comes from your company's own certificate authority, give BugBerry that authority's certificate through `NODE_EXTRA_CA_CERTS`. With Docker Compose, in a `docker-compose.override.yml`:
 
@@ -96,7 +113,7 @@ services:
 
 There is no setting to skip certificate checks.
 
-## Email and a code
+## Email and a Code
 
 People type their email and receive a 6-digit code. Choose a mail service:
 
@@ -135,7 +152,7 @@ Without `EMAIL_DRIVER`, email sign-in is off in production. During development, 
 
 `EMAIL_DRIVER` also sends invitations and notifications. To keep those and turn off signing in with a code, set `EMAIL_SIGN_IN=false`.
 
-## Who may sign in
+## Who May Sign In
 
 ```bash
 ALLOWED_EMAIL_DOMAINS=example.com,example.co.id
@@ -144,11 +161,11 @@ ALLOWED_EMAIL_DOMAINS=example.com,example.co.id
 - **Empty (the default):** anyone can sign up and gets a workspace of their own.
 - **Set:** only those domains can sign in. New employees still need an invitation to the company workspace; without one, they get an empty workspace of their own.
 
-## When someone leaves
+## When Someone Leaves
 
 The "verified" mark on an email at GitHub and GitLab doesn't go away when a work mailbox is shut down. Someone who once verified their work email on a personal GitHub or GitLab account can still sign in through that button, and `ALLOWED_EMAIL_DOMAINS` lets them in, because the address is still on your domain.
 
-When someone leaves, deactivate their account from the server's command line: see [When someone leaves](/self-host/operations#when-someone-leaves). That signs them out everywhere and refuses them on every sign-in method.
+When someone leaves, deactivate their account from the server's command line: see [When Someone Leaves](/self-host/operations#when-someone-leaves). That signs them out everywhere and refuses them on every sign-in method.
 
 Removing them on the **Members** page alone is not enough: it ends their access to that workspace's reports, but **Internal** reports stay open to anyone signed in with your company's email domain, member or not, so a former employee who can still sign in can open their share links.
 

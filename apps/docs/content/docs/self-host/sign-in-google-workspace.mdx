@@ -1,0 +1,41 @@
+---
+title: Sign In with Google Workspace
+description: Company sign-in through Google Workspace, step by step.
+---
+
+This sets up [company sign-in](/self-host/sign-in#company-sign-in-oidc) with your Google Workspace accounts. You need a Google Cloud project that belongs to your organization, and your BugBerry address (`APP_URL`).
+
+If [Google](/self-host/sign-in#google) is already on, you don't need this page: both sign people in with the same Google accounts. Company sign-in puts your own name on the button, and one of the two is enough.
+
+## In Google Cloud
+
+1. In the Google Cloud console, pick a project inside your organization and open **Google Auth Platform**. If the project has never been set up for sign-in, select **Get started** and fill in the app's name and a support email.
+2. Under **Audience**, set **User type** to **Internal**. Only accounts in your organization can then sign in.
+3. Under **Clients**, select **Create client** and choose **Web application**.
+4. Add the **Authorized redirect URI** `<APP_URL>/api/auth/callback/oidc`, for example `https://bugberry.example.com/api/auth/callback/oidc`. Create the client.
+5. Copy the **Client ID** and the **Client secret**.
+
+With **External** in place of **Internal**, anyone with a Google account gets as far as BugBerry, and only `ALLOWED_EMAIL_DOMAINS` decides who may sign in.
+
+## In BugBerry
+
+Add to `.env`, then restart with `docker compose up -d`:
+
+```bash
+OIDC_ISSUER=https://accounts.google.com
+OIDC_CLIENT_ID=<the client ID>
+OIDC_CLIENT_SECRET=<the client secret>
+OIDC_NAME="Example"
+```
+
+The sign-in page now shows **Continue with Example**.
+
+## If It Doesn't Work
+
+| What you see | Cause |
+| --- | --- |
+| Google says "Error 400: redirect_uri_mismatch" | The redirect URI in the client doesn't match `<APP_URL>/api/auth/callback/oidc` exactly. |
+| Google says "Error 403: org_internal" | The account is outside your organization, and the app's user type is **Internal**. |
+| "Company sign-in isn't reachable right now" | BugBerry can't reach `accounts.google.com` from inside its container. |
+| "Sign-in couldn't be completed" | `OIDC_CLIENT_SECRET` doesn't match the client's secret. |
+| "This email can't sign in" | The address is outside `ALLOWED_EMAIL_DOMAINS`. |

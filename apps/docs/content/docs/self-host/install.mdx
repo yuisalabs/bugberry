@@ -8,7 +8,7 @@ This page installs BugBerry with Docker Compose. It assumes the [requirements](/
 <Steps>
 <Step>
 
-### Get the code and the settings file
+### Get the Code and the Settings File
 
 ```bash
 git clone https://github.com/yuisalabs/bugberry.git
@@ -21,7 +21,7 @@ All settings live in `.env`. The [environment reference](/self-host/environment)
 </Step>
 <Step>
 
-### Set the address
+### Set the Address
 
 ```bash
 APP_URL=https://bugberry.example.com
@@ -32,7 +32,7 @@ APP_URL=https://bugberry.example.com
 </Step>
 <Step>
 
-### Generate the secrets
+### Generate the Secrets
 
 Run this three times and paste each result into its own variable:
 
@@ -53,7 +53,7 @@ ENCRYPTION_KEY=...
 </Step>
 <Step>
 
-### Turn on a sign-in method
+### Turn On a Sign-In Method
 
 For Google, create an OAuth client of type "Web application" with the redirect URI `https://bugberry.example.com/api/auth/callback/google`, then:
 
@@ -62,12 +62,12 @@ GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
 ```
 
-GitHub, GitLab, and email codes work the same way; see [Sign-in methods](/self-host/sign-in). For a company server, also set `ALLOWED_EMAIL_DOMAINS=example.com` so only your domain can sign in.
+GitHub, GitLab, and email codes work the same way; see [Sign-In Methods](/self-host/sign-in). For a company server, also set `ALLOWED_EMAIL_DOMAINS=example.com` so only your domain can sign in.
 
 </Step>
 <Step>
 
-### Choose storage
+### Choose Storage
 
 The default, `STORAGE_DRIVER=local`, keeps files in the `uploads` volume and needs nothing else. For a bucket, see [Storage](/self-host/storage).
 
@@ -97,7 +97,7 @@ docker compose --profile caddy up -d --build
 docker compose up -d --build
 ```
 
-Point your proxy at `127.0.0.1:3000` (`BUGBERRY_PORT`) and set `TRUST_PROXY=true`. See [Reverse proxy](/self-host/reverse-proxy) for the paths it must pass through.
+Point your proxy at `127.0.0.1:3000` (`BUGBERRY_PORT`) and set `TRUST_PROXY=true`. See [Reverse Proxy](/self-host/reverse-proxy) for the paths it must pass through.
 
 </Tab>
 </Tabs>
@@ -107,7 +107,7 @@ The first build takes a few minutes. The `api` container runs the database migra
 </Step>
 <Step>
 
-### Check the installation
+### Check the Installation
 
 Run the smoke test against the address people will use:
 
@@ -124,7 +124,7 @@ It checks the API, the dashboard, caching headers, OAuth callbacks, a 5 MB uploa
 </Step>
 <Step>
 
-### Sign in
+### Sign In
 
 Open `https://bugberry.example.com` and sign in. Someone who signs up without an invitation gets a workspace of their own and becomes its admin. Invite your team from **Members** in the dashboard's top bar.
 
@@ -133,6 +133,6 @@ Open `https://bugberry.example.com` and sign in. Someone who signs up without an
 
 ## Next
 
-- Give your team the extension: [The extension for your team](/self-host/extension).
+- Give your team the extension: [The Extension for Your Team](/self-host/extension).
 - Connect GitHub Issues or ActiveCollab: [Integrations](/self-host/integrations).
 - Set up backups: [Operations](/self-host/operations).

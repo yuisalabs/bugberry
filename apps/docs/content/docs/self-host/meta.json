@@ -1,10 +1,14 @@
 {
-  "title": "Self-host",
+  "title": "Self-Host",
   "pages": [
     "index",
     "install",
     "sign-in",
     "sign-in-keycloak",
+    "sign-in-entra-id",
+    "sign-in-okta",
+    "sign-in-authentik",
+    "sign-in-google-workspace",
     "storage",
     "reverse-proxy",
     "extension",

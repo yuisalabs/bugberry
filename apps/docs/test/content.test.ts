@@ -70,6 +70,14 @@ describe("docs content", () => {
       })
     }
   })
+
+  test("the changelog index lists every version newest first, in the sidebar's order", () => {
+    const folder = join(CONTENT, "changelog")
+    const meta = JSON.parse(readFileSync(join(folder, "meta.json"), "utf8")) as { pages: string[] }
+    const listed = [...readFileSync(join(folder, "index.mdx"), "utf8").matchAll(/\]\(\/changelog\/([^)]+)\)/g)].map((match) => match[1]!)
+    expect(listed).toEqual(meta.pages.filter((page) => page !== "index"))
+    expect(listed).toEqual([...listed].sort((a, b) => b.localeCompare(a, "en", { numeric: true })))
+  })
 })
 
 describe("env reference", () => {
