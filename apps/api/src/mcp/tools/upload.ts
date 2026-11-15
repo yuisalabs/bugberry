@@ -1,4 +1,4 @@
-import { MAX_THUMBNAIL_BYTES, matchProject, PRIORITIES } from "@bugberry/shared"
+import { MAX_SUMMARY_COUNT, MAX_THUMBNAIL_BYTES, matchProject, PRIORITIES } from "@bugberry/shared"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { z } from "zod"
 import { findProjectByRef, listProjectPatterns } from "../../modules/projects/repository"
@@ -13,6 +13,8 @@ import { textResult } from "../format"
 /** Shared by every request, like the dashboard's upload sessions: one agent can't flood a workspace. */
 const limiter = createRateLimiter({ limit: UPLOAD_SESSIONS_PER_MINUTE, windowMs: 60_000 })
 
+const summaryCount = z.number().int().min(0).max(MAX_SUMMARY_COUNT)
+
 /** Exactly what the recorder's stopRecording returns as `recording`. */
 const recordingArg = z
   .object({
@@ -24,11 +26,11 @@ const recordingArg = z
     pageTitle: z.string().max(500),
     device: z.object({ browser: z.string().max(100), os: z.string().max(100), viewport: z.string().max(50) }),
     debuggerSummary: z.object({
-      logs: z.number().int().min(0),
-      errors: z.number().int().min(0),
-      requests: z.number().int().min(0),
-      failedRequests: z.number().int().min(0),
-      actions: z.number().int().min(0),
+      logs: summaryCount,
+      errors: summaryCount,
+      requests: summaryCount,
+      failedRequests: summaryCount,
+      actions: summaryCount,
       incomplete: z.array(z.string().max(50)).max(20),
     }),
   })

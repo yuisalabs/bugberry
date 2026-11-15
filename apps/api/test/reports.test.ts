@@ -285,6 +285,29 @@ describe("GET /api/reports", () => {
     }
   })
 
+  test("a cursor that reads well but holds odd values is answered, never a server error", async () => {
+    await make({ priority: "high" })
+    await make()
+    const at = "2026-03-01T10:00:00.123456Z"
+    const enc = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url")
+    const cursors: Array<[string, string]> = [
+      ["newest", enc({ sort: "newest", createdAt: at, id: "'; DROP TABLE report; --" })],
+      ["newest", enc({ sort: "newest", createdAt: at, id: "\ud83d" })],
+      ["newest", enc({ sort: "newest", createdAt: at, id: "\u{1f41e}".repeat(50) })],
+      ["newest", enc({ sort: "newest", createdAt: at, id: "a\u0001\n\tb" })],
+      ["oldest", enc({ sort: "oldest", createdAt: "0001-01-01T00:00:00.000000Z", id: "r1" })],
+      ["newest", enc({ sort: "newest", createdAt: "9999-12-31T23:59:59.999999Z", id: "r1" })],
+      ["priority", enc({ sort: "priority", createdAt: at, id: "r1", priority: "low" })],
+    ]
+    for (const [sort, cursor] of cursors) {
+      const response = await ctx.app.handle(new Request(`http://localhost/api/reports?sort=${sort}&cursor=${cursor}`, { headers: member.headers }))
+      expect({ cursor, status: response.status }).toEqual({ cursor, status: 200 })
+      expect(Array.isArray(((await response.json()) as { items: unknown }).items)).toBe(true)
+    }
+    const { count } = (await ctx.db.execute(sql`select count(*)::int as count from report`))[0] as { count: number }
+    expect(count).toBe(2)
+  })
+
   test("the page number of older versions is refused, not answered with the first page again", async () => {
     await make()
     for (const page of [1, 2]) {
