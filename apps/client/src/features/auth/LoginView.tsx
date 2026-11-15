@@ -1,6 +1,7 @@
 import {
   RiArrowRightLine,
   RiGlobalLine,
+  RiKeyLine,
   RiMailLine,
   RiRecordCircleLine,
   RiSeedlingLine,
@@ -62,7 +63,7 @@ export function GoogleIcon() {
   )
 }
 
-const PROVIDERS: Array<{ id: SocialProvider; label: string; icon: ReactNode }> = [
+const PROVIDERS: Array<{ id: Exclude<SocialProvider, "oidc">; label: string; icon: ReactNode }> = [
   { id: "github", label: "GitHub", icon: <GithubIcon /> },
   { id: "gitlab", label: "GitLab", icon: <GitlabIcon /> },
   { id: "google", label: "Google", icon: <GoogleIcon /> },
@@ -100,7 +101,10 @@ export function LoginView({
     return () => clearTimeout(timer)
   }, [resendIn])
 
-  const providers = PROVIDERS.filter((provider) => methods[provider.id])
+  const providers: Array<{ id: SocialProvider; label: string; icon: ReactNode }> = [
+    ...PROVIDERS.filter((provider) => methods[provider.id]),
+    ...(methods.oidc ? [{ id: "oidc" as const, label: methods.oidc.name ?? "SSO", icon: <RiKeyLine aria-hidden className="size-5" /> }] : []),
+  ]
   const run = async (work: () => Promise<void>) => {
     setBusy(true)
     setError(null)

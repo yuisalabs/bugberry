@@ -105,4 +105,23 @@ describe("provisionNewUser", () => {
     const [created] = await ctx.db.select({ id: user.id }).from(user).where(eq(user.email, "new@kantor.test"))
     expect(await workspacesOf(created?.id ?? "")).toEqual([{ name: "new's workspace", role: "admin" }])
   })
+
+  test("joining by email domain stays a click: a workspace that takes the domain is not joined at sign-up", async () => {
+    const outbox: EmailMessage[] = []
+    const app = (await setupTestApp({ allowedEmailDomains: ["kantor.test"] }, { email: { send: async (message) => void outbox.push(message) } })).app
+    await ctx.db.insert(workspace).values({ id: newId(), name: "Acme", slug: "acme", joinDomain: "kantor.test", joinMode: "direct" })
+    const post = (path: string, body: object) =>
+      app.handle(
+        new Request(`http://localhost/api/auth${path}`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        }),
+      )
+    await post("/email-otp/send-verification-otp", { email: "nina@kantor.test", type: "sign-in" })
+    const code = outbox[0]?.text.match(/\b(\d{6})\b/)?.[1] ?? ""
+    expect((await post("/sign-in/email-otp", { email: "nina@kantor.test", otp: code })).status).toBe(200)
+    const [created] = await ctx.db.select({ id: user.id }).from(user).where(eq(user.email, "nina@kantor.test"))
+    expect(await workspacesOf(created?.id ?? "")).toEqual([{ name: "nina's workspace", role: "admin" }])
+  })
 })

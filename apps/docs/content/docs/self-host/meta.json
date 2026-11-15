@@ -4,6 +4,7 @@
     "index",
     "install",
     "sign-in",
+    "sign-in-keycloak",
     "storage",
     "reverse-proxy",
     "extension",

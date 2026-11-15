@@ -25,6 +25,8 @@ export const user = pgTable("user", {
   unlimited: boolean("unlimited").default(false).notNull(),
   /** The Getting started checklist; null for accounts made before it existed, which never see it. */
   onboarding: jsonb("onboarding").$type<OnboardingState>(),
+  /** Set only from the server's CLI (deactivate-user): the account can't sign in or be reached by a token. */
+  deactivatedAt: timestamp("deactivated_at", { withTimezone: true }),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 })

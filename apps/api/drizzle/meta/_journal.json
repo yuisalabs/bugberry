@@ -253,6 +253,13 @@
       "when": 1793993081249,
       "tag": "0035_rate_limit_hit",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1794705461594,
+      "tag": "0036_deactivated_user",
+      "breakpoints": true
     }
   ]
 }

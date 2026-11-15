@@ -73,6 +73,14 @@ describe("AccountSettingsView", () => {
     ])
   })
 
+  test("company sign-in is listed under the name the server gives it", () => {
+    view({ methods: ["oidc"], ssoName: "Acme SSO" })
+    openSignIn()
+    expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual([
+      "Acme SSOSign in with your Acme SSO accountConnected",
+    ])
+  })
+
   test("the save bar follows the name", () => {
     view({ saved: true })
     expect(screen.getByRole("status").textContent).toBe("Saved")

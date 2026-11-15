@@ -264,9 +264,15 @@ export async function insertAgentUpload(db: Db, values: Omit<typeof agentUpload.
   await executor(db).insert(agentUpload).values({ id: newId(), ...values })
 }
 
+/** The link's token is its only credential, so the account behind it is checked here: none for a deactivated one. */
 export async function findAgentUpload(db: Db, tokenHash: string) {
-  const [ticket] = await executor(db).select().from(agentUpload).where(eq(agentUpload.tokenHash, tokenHash)).limit(1)
-  return ticket ?? null
+  const [row] = await executor(db)
+    .select({ ticket: agentUpload })
+    .from(agentUpload)
+    .innerJoin(user, eq(user.id, agentUpload.userId))
+    .where(and(eq(agentUpload.tokenHash, tokenHash), isNull(user.deactivatedAt)))
+    .limit(1)
+  return row?.ticket ?? null
 }
 
 export async function markAgentUploadFinalized(db: Db, ticketId: string): Promise<void> {

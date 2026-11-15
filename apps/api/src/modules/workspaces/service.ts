@@ -59,9 +59,9 @@ export async function changeWorkspace(db: Db, workspaceId: string, body: { name?
   }
 }
 
-export async function membersOf(db: Db, workspaceId: string) {
+export async function membersOf(db: Db, workspaceId: string, includeDeactivated = false) {
   const ownerId = await findOwnerId(db, workspaceId)
-  const rows = await listMembers(db, workspaceId)
+  const rows = await listMembers(db, workspaceId, includeDeactivated)
   return rows.map((row) => ({ ...row, owner: row.id === ownerId }))
 }
 

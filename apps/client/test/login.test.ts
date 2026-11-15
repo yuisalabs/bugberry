@@ -23,6 +23,16 @@ describe("loginErrorMessage", () => {
     expect(loginErrorMessage("access_denied", undefined)).toBe("Sign-in was cancelled.")
     expect(loginErrorMessage(undefined, undefined)).toBeNull()
   })
+
+  test("sentences for company sign-in failures", () => {
+    expect(loginErrorMessage("email_not_found", undefined)).toBe("Your company sign-in didn't share an email address. Ask your admin.")
+    expect(loginErrorMessage("account_deactivated", undefined)).toBe("This account is deactivated. Ask your admin.")
+    expect(loginErrorMessage("oauth_provider_not_found", undefined)).toBe(
+      "The sign-in provider isn't reachable right now. Try again in a moment.",
+    )
+    // Also what a reused or expired sign-in link gives, so it must not blame the provider.
+    expect(loginErrorMessage("invalid_code", undefined)).toBe("Sign-in couldn't be completed. Try again in a moment.")
+  })
 })
 
 describe("validateLoginSearch", () => {

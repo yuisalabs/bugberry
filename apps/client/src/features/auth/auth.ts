@@ -12,9 +12,10 @@ const browserDeps: AuthDeps = {
 
 const JSON_HEADERS = { "content-type": "application/json" }
 
-export type SocialProvider = "github" | "gitlab" | "google"
+/** `oidc` is the company's own identity provider, when the server has one. */
+export type SocialProvider = "github" | "gitlab" | "google" | "oidc"
 
-const PROVIDER_NAMES: Record<SocialProvider, string> = { github: "GitHub", gitlab: "GitLab", google: "Google" }
+const PROVIDER_NAMES: Record<SocialProvider, string> = { github: "GitHub", gitlab: "GitLab", google: "Google", oidc: "Company" }
 
 /** Starts sign-in with a provider through Better Auth; failures come back to /login as `?error=…`. */
 export async function signInWithProvider(
@@ -30,6 +31,10 @@ export async function signInWithProvider(
     body: JSON.stringify({ provider, callbackURL: target, errorCallbackURL }),
   })
   const body = (await response.json().catch(() => null)) as { url?: unknown; message?: unknown } | null
+  // The server offers company sign-in, so "provider not found" means it could not reach the IdP.
+  if (provider === "oidc" && response.status === 404) {
+    throw new Error("Company sign-in isn't reachable right now. Try again in a moment.")
+  }
   if (!response.ok || typeof body?.url !== "string") {
     throw new Error(typeof body?.message === "string" ? body.message : `${PROVIDER_NAMES[provider]} sign-in could not start`)
   }
@@ -65,7 +70,12 @@ export async function verifyLoginCode(email: string, code: string, next: unknown
     throw new Error("BugBerry can't be reached. Check your connection and try again.")
   }
   if (response.status === 429) throw new Error("Too many attempts. Wait a few minutes and try again.")
-  if (!response.ok) throw new Error("That code is wrong or has expired. Request a new one.")
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { code?: unknown } | null
+    // The code was right; asking for a new one would never help.
+    if (body?.code === "account_deactivated") throw new Error("This account is deactivated. Ask your admin.")
+    throw new Error("That code is wrong or has expired. Request a new one.")
+  }
   deps.assign(safeNext(next))
 }
 

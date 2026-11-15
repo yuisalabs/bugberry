@@ -1,4 +1,4 @@
-import { and, asc, count, eq, inArray, ne, or } from "drizzle-orm"
+import { and, asc, count, eq, inArray, isNull, ne, or } from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"
 import { type Db, executor, withTransaction } from "../../db/client"
 import { comment, commentReaction, notification, report, user, workspaceMember } from "../../db/schema"
@@ -77,8 +77,12 @@ export async function findReportHeading(db: Db, reportId: string) {
   return row ?? null
 }
 
+/** Where to email these people; a deactivated account gets no email. */
 export function userEmails(db: Db, userIds: string[]) {
-  return executor(db).select({ email: user.email }).from(user).where(inArray(user.id, userIds))
+  return executor(db)
+    .select({ email: user.email })
+    .from(user)
+    .where(and(inArray(user.id, userIds), isNull(user.deactivatedAt)))
 }
 
 export async function insertComment(

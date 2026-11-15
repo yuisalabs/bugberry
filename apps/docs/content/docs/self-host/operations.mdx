@@ -62,6 +62,51 @@ docker compose exec -T postgres psql -U fdebag -d fdebag < fdebag-<date>.sql
 docker run --rm -v fdebag-prod_uploads:/data -v "$PWD":/backup alpine tar xzf /backup/uploads-<date>.tar.gz -C /data
 ```
 
+## When someone leaves
+
+Removing someone on the **Members** page takes them out of that workspace. It does not sign them out or stop them signing in. To cut an account off from the whole server, deactivate it:
+
+```bash
+docker compose exec api bun apps/api/scripts/deactivate-user.ts --email someone@example.com
+```
+
+From the next request on, that account is refused everywhere:
+
+- every browser and extension where it was signed in is signed out;
+- every personal token is revoked;
+- every AI app it connected is disconnected, and upload links its recorder was given stop working;
+- its waiting requests to join a workspace are withdrawn;
+- signing in again is refused on every method, with "This account is deactivated."
+
+What stays: the account's reports, comments and activity, its place in each workspace, reports assigned to it, and the share links to its reports. On the **Members** page the person is marked **Deactivated**; they no longer appear when assigning a report or mentioning someone, and BugBerry stops emailing and notifying them. A workspace admin can reassign their reports, or remove them from the workspace, which unassigns them.
+
+One limit: a link to a screenshot or video that their browser already loaded keeps working until it expires, an hour by default (`READ_URL_TTL_SECONDS`). They can't get new ones.
+
+Two things to do by hand:
+
+- **Integrations they set up keep running.** A GitHub, GitLab or other tracker connection uses the token stored when it was created. If that token was the person's own, replace it under **Integrations**.
+- **A workspace can be left without an admin.** The command prints each such workspace with the line to run. Pick who takes over:
+
+```bash
+docker compose exec api bun apps/api/scripts/promote-admin.ts --workspace acme --email someone-else@example.com
+```
+
+`--workspace` is the workspace's URL name (the `acme` in its settings); the command that deactivated the account prints the exact line. The person becomes an admin whether or not they were a member. The workspace's owner stays who it was.
+
+To let the account back in:
+
+```bash
+docker compose exec api bun apps/api/scripts/reactivate-user.ts --email someone@example.com
+```
+
+Signing in works again. Tokens stay revoked and AI apps must be connected again.
+
+Deactivating is always a command you run: BugBerry does not learn from your identity provider that someone left.
+
+## When your company changes its email domain
+
+Accounts keep the address they were created with. Keep the old domain in `ALLOWED_EMAIL_DOMAINS` beside the new one, or everyone with an old address is refused.
+
 ## API tokens for automation
 
 For scripts and bot accounts. The extension doesn't use tokens, and the dashboard doesn't create or show them:

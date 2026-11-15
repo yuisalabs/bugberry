@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { eq } from "drizzle-orm"
 import type { CurrentUser } from "../src/plugins/auth"
-import { agentUpload, report } from "../src/db/schema"
+import { agentUpload, report, user } from "../src/db/schema"
 import { AGENT_UPLOAD_TTL_MS, issueAgentUpload } from "../src/modules/reports/agent-uploads"
 import { createReportUpload } from "../src/modules/reports/upload-flow"
 import { createProject, createUserWithToken, putUpload, setupTestApp, uploadBody } from "./helpers"
@@ -146,5 +146,17 @@ describe("agent upload links", () => {
     const response = await linkFinalize(token)
     expect(response.status).toBe(410)
     expect(((await response.json()) as { code: string }).code).toBe("upload_link_expired")
+  })
+})
+
+describe("an upload link of a deactivated account", () => {
+  test("is refused for targets and for finalize, on the mark alone", async () => {
+    const { token } = await ticket()
+    expect((await linkGet(token)).status).toBe(200)
+    await ctx.db.update(user).set({ deactivatedAt: new Date() }).where(eq(user.id, reporter.id))
+    const targets = await linkGet(token)
+    expect(targets.status).toBe(404)
+    expect(((await targets.json()) as { code: string }).code).toBe("upload_link_unknown")
+    expect((await linkFinalize(token)).status).toBe(404)
   })
 })

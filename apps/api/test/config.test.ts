@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { accountLimitsNotice, ConfigError, loadConfig } from "../src/config"
+import { accountLimitsNotice, ConfigError, loadConfig, oidcNotice } from "../src/config"
 
 const baseEnv: Record<string, string | undefined> = {
   APP_URL: "http://localhost:3000/",
@@ -257,5 +257,68 @@ describe("loadConfig", () => {
     expect(() => loadConfig(env)).toThrow(new ConfigError("LIMIT_RECORDINGS must be an integer between 1 and 10000"))
     const short = { ...baseEnv, ACCOUNT_LIMITS: "true", LIMIT_RECORDING_SECONDS: "5" }
     expect(() => loadConfig(short)).toThrow(new ConfigError("LIMIT_RECORDING_SECONDS must be an integer between 10 and 3600"))
+  })
+
+  const env = (extra: Record<string, string | undefined>) => ({ ...baseEnv, ...extra })
+
+  test("company sign-in needs issuer, client id and secret together", () => {
+    const oidc = { OIDC_ISSUER: "https://id.kantor.test/realms/a", OIDC_CLIENT_ID: "bb", OIDC_CLIENT_SECRET: "s" }
+    expect(loadConfig(env(oidc)).oidc).toEqual({ issuer: "https://id.kantor.test/realms/a", clientId: "bb", clientSecret: "s", name: null })
+    expect(loadConfig(env({ ...oidc, OIDC_NAME: " Acme SSO " })).oidc?.name).toBe("Acme SSO")
+    expect(loadConfig(env({})).oidc).toBeNull()
+    for (const missing of Object.keys(oidc)) {
+      const partial: Record<string, string> = { ...oidc }
+      delete partial[missing]
+      expect(() => loadConfig(env(partial))).toThrow(`${missing} is required`)
+    }
+    expect(() => loadConfig(env({ OIDC_NAME: "Acme" }))).toThrow("OIDC_ISSUER is required")
+    expect(() => loadConfig(env({ ...oidc, OIDC_ISSUER: "id.kantor.test" }))).toThrow("OIDC_ISSUER must be an http(s) URL")
+    expect(() => loadConfig(env({ ...oidc, OIDC_NAME: "x".repeat(41) }))).toThrow("OIDC_NAME must be at most 40 characters")
+  })
+
+  test("the issuer is stored without a trailing slash or the discovery path", () => {
+    const base = { OIDC_CLIENT_ID: "bb", OIDC_CLIENT_SECRET: "s" }
+    for (const typed of ["https://id.kantor.test/realms/a/", "https://id.kantor.test/realms/a/.well-known/openid-configuration"]) {
+      expect(loadConfig(env({ ...base, OIDC_ISSUER: typed })).oidc?.issuer).toBe("https://id.kantor.test/realms/a")
+    }
+  })
+
+  test("EMAIL_SIGN_IN=false turns email codes off and keeps the email driver", () => {
+    const mail = { EMAIL_DRIVER: "resend", EMAIL_FROM: "a@b.test", RESEND_API_KEY: "k" }
+    expect(loadConfig(env(mail)).emailSignIn).toBe(true)
+    const off = loadConfig(env({ ...mail, EMAIL_SIGN_IN: "false" }))
+    expect(off.emailSignIn).toBe(false)
+    expect(off.email?.driver).toBe("resend")
+    // No driver in production: there is nothing to turn on.
+    expect(loadConfig(env({ NODE_ENV: "production" })).emailSignIn).toBe(false)
+  })
+
+  test("EMAIL_SIGN_IN is checked even when there is no email driver to turn off", () => {
+    expect(() => loadConfig(env({ NODE_ENV: "production", EMAIL_SIGN_IN: "flase" }))).toThrow("EMAIL_SIGN_IN must be 'true' or 'false'")
+  })
+
+  test("the startup line warns about an identity provider reached over plain http", () => {
+    const oidc = { clientId: "bb", clientSecret: "s", name: null }
+    expect(oidcNotice(null)).toBeNull()
+    expect(oidcNotice({ ...oidc, issuer: "https://id.kantor.test/realms/a" })).toBeNull()
+    expect(oidcNotice({ ...oidc, issuer: "http://localhost:8080/realms/a" })).toBeNull()
+    expect(oidcNotice({ ...oidc, issuer: "http://127.0.0.1:8080/realms/a" })).toBeNull()
+    expect(oidcNotice({ ...oidc, issuer: "http://id.kantor.test/realms/a" })).toBe(
+      "Company sign-in reaches its identity provider over http://: sign-ins cross the network unencrypted. Use https:// outside a private network.",
+    )
+  })
+
+  test("at least one sign-in method counts company sign-in and ignores email codes that are off", () => {
+    const none = {
+      GOOGLE_CLIENT_ID: undefined,
+      GOOGLE_CLIENT_SECRET: undefined,
+      EMAIL_DRIVER: "resend",
+      EMAIL_FROM: "a@b.test",
+      RESEND_API_KEY: "k",
+      EMAIL_SIGN_IN: "false",
+    }
+    expect(() => loadConfig(env(none))).toThrow("Enable at least one sign-in method")
+    const withOidc = { ...none, OIDC_ISSUER: "https://id.kantor.test", OIDC_CLIENT_ID: "bb", OIDC_CLIENT_SECRET: "s" }
+    expect(loadConfig(env(withOidc)).oidc).not.toBeNull()
   })
 })

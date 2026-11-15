@@ -24,7 +24,9 @@ import { otpEmail } from "./otp-email"
 import { createEmailSender, type EmailSender } from "../../lib/email/sender"
 import { githubUserInfo, gitlabUserInfo } from "./identity"
 import { provisionNewUser } from "../workspaces/provision"
+import { isDeactivated } from "../account/repository"
 import { MCP_SCOPES, mcpResource } from "./mcp-oauth"
+import { OIDC_PROVIDER_ID, oidcPlugin } from "./oidc"
 import { isEmailAllowed } from "./policy"
 
 type GithubUserInfo = NonNullable<NonNullable<Parameters<typeof betterAuth>[0]["socialProviders"]>["github"]> extends infer P
@@ -63,7 +65,9 @@ const CLOSED_PATHS = new Set([
   "/admin/oauth2/resources",
 ])
 
-export function createAuth(config: Config, db: Db, options: { email?: EmailSender } = {}) {
+const withoutProviderTokens = <T extends object>(row: T) => ({ ...row, accessToken: null, refreshToken: null, idToken: null })
+
+export function createAuth(config: Config, db: Db, options: { email?: EmailSender; oidcStartupTimeoutMs?: number } = {}) {
   const domainMessage = `Use an email address from: ${config.allowedEmailDomains.join(", ")}`
   const sender = options.email ?? (config.email ? createEmailSender(config.email) : null)
   const gitlabUrl = config.gitlab?.url ?? ""
@@ -121,7 +125,11 @@ export function createAuth(config: Config, db: Db, options: { email?: EmailSende
     },
     // One person, one account: a verified email reaches the same user by any sign-in method.
     account: {
-      accountLinking: { enabled: true, trustedProviders: ["google", "github", "gitlab", "email-otp"] },
+      accountLinking: {
+        enabled: true,
+        // The company's own IdP vouches for its emails; see the trust note in the self-host sign-in docs.
+        trustedProviders: ["google", "github", "gitlab", "email-otp", ...(config.oidc ? [OIDC_PROVIDER_ID] : [])],
+      },
     },
     // Per IP, on top of the per-address limit below; Better Auth enables it in production.
     rateLimit: {
@@ -138,6 +146,13 @@ export function createAuth(config: Config, db: Db, options: { email?: EmailSende
         // Name and photo change through /api/me, which checks them; Better Auth's own route would take any image URL.
         if (ctx.path === "/update-user") throw new APIError("FORBIDDEN", { message: "Change your profile in Account settings" })
         if (CLOSED_PATHS.has(ctx.path)) throw new APIError("NOT_FOUND")
+        // Company sign-in only through the redirect: a presented id token would skip the state and nonce checks.
+        if (ctx.path === "/sign-in/social") {
+          const attempt = (ctx.body ?? {}) as { provider?: unknown; idToken?: unknown }
+          if (attempt.provider === OIDC_PROVIDER_ID && attempt.idToken !== undefined) {
+            throw new APIError("FORBIDDEN", { message: "Sign in through the sign-in page" })
+          }
+        }
         if (ctx.path !== "/email-otp/send-verification-otp") return
         const body = (ctx.body ?? {}) as { email?: unknown; type?: unknown }
         if (typeof body.email !== "string") return
@@ -164,7 +179,9 @@ export function createAuth(config: Config, db: Db, options: { email?: EmailSende
         clientRegistrationDefaultApplicationType: "infer",
         accessTokenExpiresIn: ACCESS_TOKEN_SECONDS,
       }),
-      ...(sender
+      ...(config.oidc ? [oidcPlugin(config.oidc, options.oidcStartupTimeoutMs)] : []),
+      // EMAIL_SIGN_IN=false leaves the endpoints unmounted; hiding the form would not be enough.
+      ...(sender && config.emailSignIn
         ? [
           emailOTP({
             otpLength: 6,
@@ -192,6 +209,25 @@ export function createAuth(config: Config, db: Db, options: { email?: EmailSende
       },
     },
     databaseHooks: {
+      account: {
+        // BugBerry never calls the IdP again after sign-in, so its tokens are not worth keeping.
+        create: { before: async (row) => (row.providerId === OIDC_PROVIDER_ID ? { data: withoutProviderTokens(row) } : undefined) },
+        // A later sign-in updates the row without naming its provider; the callback's own path does.
+        update: {
+          before: async (row, ctx) =>
+            ctx?.path === "/callback/:id" && ctx.params?.id === OIDC_PROVIDER_ID ? { data: withoutProviderTokens(row) } : undefined,
+        },
+      },
+      session: {
+        create: {
+          // Every sign-in method ends in a new session, so this one check closes them all.
+          before: async (created) => {
+            if (await isDeactivated(db, created.userId)) {
+              throw new APIError("FORBIDDEN", { code: "account_deactivated", message: "This account is deactivated. Ask your admin." })
+            }
+          },
+        },
+      },
       user: {
         create: {
           // Second line of defence.

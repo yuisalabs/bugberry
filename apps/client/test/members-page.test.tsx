@@ -6,8 +6,8 @@ import { MembersView } from "../src/features/workspaces/MembersView"
 import { choose } from "./fields"
 
 const members = [
-  { id: "u1", name: "Budi", email: "budi@kantor.test", image: null, role: "admin" as const, owner: false, joinedAt: new Date("2026-09-12T00:00:00Z") },
-  { id: "u2", name: "Sari", email: "sari@kantor.test", image: null, role: "member" as const, owner: false, joinedAt: new Date("2026-09-12T00:00:00Z") },
+  { id: "u1", name: "Budi", email: "budi@kantor.test", image: null, role: "admin" as const, owner: false, deactivated: false, joinedAt: new Date("2026-09-12T00:00:00Z") },
+  { id: "u2", name: "Sari", email: "sari@kantor.test", image: null, role: "member" as const, owner: false, deactivated: false, joinedAt: new Date("2026-09-12T00:00:00Z") },
 ]
 const pending = [
   {
@@ -111,8 +111,8 @@ describe("MembersView owner", () => {
     view({
       meId: "u2",
       members: [
-        { id: "u1", name: "Budi", email: "budi@kantor.test", image: null, role: "admin", owner: true, joinedAt: new Date("2026-09-12T00:00:00Z") },
-        { id: "u2", name: "Sari", email: "sari@kantor.test", image: null, role: "admin", owner: false, joinedAt: new Date("2026-09-12T00:00:00Z") },
+        { id: "u1", name: "Budi", email: "budi@kantor.test", image: null, role: "admin", owner: true, deactivated: false, joinedAt: new Date("2026-09-12T00:00:00Z") },
+        { id: "u2", name: "Sari", email: "sari@kantor.test", image: null, role: "admin", owner: false, deactivated: false, joinedAt: new Date("2026-09-12T00:00:00Z") },
       ],
     })
     const row = screen.getByText("Budi").closest("li") as HTMLElement
@@ -203,7 +203,7 @@ describe("Members page details", () => {
   test("rows show who you are, each role, when people joined, and what each invite joins as", () => {
     view({
       members: [
-        { id: "u0", name: "Ana", email: "ana@kantor.test", image: null, role: "admin", owner: true, joinedAt: new Date("2026-09-12T12:00:00Z") },
+        { id: "u0", name: "Ana", email: "ana@kantor.test", image: null, role: "admin", owner: true, deactivated: false, joinedAt: new Date("2026-09-12T12:00:00Z") },
         ...members,
       ],
     })
@@ -234,5 +234,42 @@ describe("MembersView search", () => {
     view()
     expect(screen.getByRole("heading", { name: "Who can do what" })).toBeTruthy()
     expect(screen.getByText("Manage members, projects and integrations.")).toBeTruthy()
+  })
+})
+
+describe("deactivated members", () => {
+  test("a deactivated member is marked, and nobody else is", () => {
+    const gone = {
+      id: "u3",
+      name: "Gone Person",
+      email: "gone@kantor.test",
+      image: null,
+      role: "member" as const,
+      owner: false,
+      deactivated: true,
+      joinedAt: new Date("2026-09-12T00:00:00Z"),
+    }
+    view({ members: [...members, gone] })
+    const row = screen.getByText("Gone Person").closest("li") as HTMLElement
+    expect(row.textContent).toContain("Deactivated")
+    expect(screen.getAllByText("Deactivated")).toHaveLength(1)
+  })
+
+  test("a deactivated member can be removed, but not given a role", () => {
+    const gone = {
+      id: "u3",
+      name: "Gone Person",
+      email: "gone@kantor.test",
+      image: null,
+      role: "member" as const,
+      owner: false,
+      deactivated: true,
+      joinedAt: new Date("2026-09-12T00:00:00Z"),
+    }
+    const props = view({ members: [...members, gone] })
+    fireEvent.click(screen.getByRole("button", { name: "More for Gone Person" }))
+    expect(screen.queryByRole("menuitem", { name: "Make admin" })).toBeNull()
+    fireEvent.click(screen.getByRole("menuitem", { name: "Remove from workspace" }))
+    expect(props.onRemove).toHaveBeenCalledWith("u3")
   })
 })

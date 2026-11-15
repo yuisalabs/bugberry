@@ -21,6 +21,8 @@ export const qk = {
   },
   workspaces: ["workspaces"],
   members: (workspaceId: string) => ["members", workspaceId],
+  /** Deactivated people included; under `members`, so one invalidation refreshes both. */
+  allMembers: (workspaceId: string) => ["members", workspaceId, "all"],
   invitations: (workspaceId: string) => ["invitations", workspaceId],
   myInvitations: ["my-invitations"],
   invitation: (token: string) => ["invitation", token],

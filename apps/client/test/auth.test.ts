@@ -32,6 +32,13 @@ describe("signInWithProvider", () => {
     expect(assigned).toEqual(["https://accounts.google.com/o/oauth2/auth?x=1"])
   })
 
+  test("starting company sign-in while the IdP is unreachable says so", async () => {
+    const { deps } = recorder(Response.json({ message: "Provider not found" }, { status: 404 }))
+    await expect(signInWithProvider("oidc", undefined, deps)).rejects.toThrow(
+      "Company sign-in isn't reachable right now. Try again in a moment.",
+    )
+  })
+
   test("never asks for an off-site callback", async () => {
     const { calls, deps } = recorder(Response.json({ url: "https://accounts.google.com/x" }))
     await signInWithProvider("google", "//evil.com", deps)
@@ -76,6 +83,14 @@ describe("email codes", () => {
     await expect(verifyLoginCode("ana@kantor.com", "000000", "/", deps)).rejects.toThrow(
       "That code is wrong or has expired. Request a new one.",
     )
+    expect(assigned).toEqual([])
+  })
+})
+
+describe("email codes for a deactivated account", () => {
+  test("the code screen says the account is deactivated, not that the code is wrong", async () => {
+    const { assigned, deps } = recorder(Response.json({ code: "account_deactivated", message: "x" }, { status: 403 }))
+    await expect(verifyLoginCode("ana@kantor.com", "123456", "/", deps)).rejects.toThrow("This account is deactivated. Ask your admin.")
     expect(assigned).toEqual([])
   })
 })

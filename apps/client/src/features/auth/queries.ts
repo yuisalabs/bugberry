@@ -5,7 +5,7 @@ import { unwrap } from "../../lib/query/unwrap"
 import { fetchOAuthClient } from "./oauth"
 
 /** Which sign-in methods the server enables (GET /api/auth-methods). */
-export type SignInMethod = "google" | "github" | "gitlab" | "email"
+export type SignInMethod = "google" | "github" | "gitlab" | "oidc" | "email"
 
 /** Public settings the dashboard reads before anyone signs in. */
 export interface ClientConfig {
@@ -20,6 +20,8 @@ export interface AuthMethods {
   gitlab: boolean
   google: boolean
   emailOtp: boolean
+  /** The company's identity provider and the name for its button; null when the server has none. */
+  oidc: { name: string | null } | null
 }
 
 // Eden widens this public route's type with Response; the server only ever answers this object.

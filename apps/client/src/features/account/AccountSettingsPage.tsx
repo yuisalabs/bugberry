@@ -1,4 +1,4 @@
-import { RiDeleteBinLine, RiLockLine, RiMailLine, RiShieldKeyholeLine, RiUploadLine, RiUserLine } from "@remixicon/react"
+import { RiDeleteBinLine, RiKeyLine, RiLockLine, RiMailLine, RiShieldKeyholeLine, RiUploadLine, RiUserLine } from "@remixicon/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { type ReactNode, useEffect, useId, useState } from "react"
 import { Avatar } from "@bugberry/ui/avatar"
@@ -20,7 +20,7 @@ import {
 } from "../../components/layout/SettingsCard"
 import { SettingsTabs } from "../../components/layout/SettingsTabs"
 import { SettingsPageSkeleton } from "../../components/layout/Skeletons"
-import type { SignInMethod } from "../auth/queries"
+import { authQueries, type SignInMethod } from "../auth/queries"
 import { initialsOf } from "../../lib/people"
 import { errorMessage } from "../../lib/query/unwrap"
 import { accountQueries, avatarUploadTarget, confirmAvatar, refreshPeople, useRemoveAvatar, useUpdateName } from "./queries"
@@ -28,18 +28,27 @@ import { accountQueries, avatarUploadTarget, confirmAvatar, refreshPeople, useRe
 const MAX_PHOTO_BYTES = 2 * 1024 * 1024
 const PHOTO_TYPES = ["image/png", "image/jpeg"]
 const PHOTO_RULE = "PNG or JPG, up to 2 MB"
-const METHOD_LABELS: Record<SignInMethod, string> = { google: "Google", github: "GitHub", gitlab: "GitLab", email: "Email code" }
+const METHOD_LABELS: Record<Exclude<SignInMethod, "oidc">, string> = { google: "Google", github: "GitHub", gitlab: "GitLab", email: "Email code" }
+
+/** Company sign-in carries the name the server gives it. */
+const methodLabel = (method: SignInMethod, ssoName: string | null) => (method === "oidc" ? (ssoName ?? "SSO") : METHOD_LABELS[method])
 
 /** Each sign-in method's mark, what it is for this person, and how its badge reads. */
-function methodDetails(method: SignInMethod, email: string): { icon: ReactNode; detail: string; state: "Connected" | "Enabled" } {
+function methodDetails(
+  method: SignInMethod,
+  email: string,
+  ssoName: string | null,
+): { icon: ReactNode; detail: string; state: "Connected" | "Enabled" } {
   if (method === "email") return { icon: <RiMailLine className="size-5" />, detail: `A one-time code sent to ${email}`, state: "Enabled" }
-  const icon = method === "google" ? <GoogleIcon /> : method === "github" ? <GithubIcon /> : <GitlabIcon />
-  return { icon, detail: `Sign in with your ${METHOD_LABELS[method]} account`, state: "Connected" }
+  const icon =
+    method === "google" ? <GoogleIcon /> : method === "github" ? <GithubIcon /> : method === "gitlab" ? <GitlabIcon /> : <RiKeyLine className="size-5" />
+  return { icon, detail: `Sign in with your ${methodLabel(method, ssoName)} account`, state: "Connected" }
 }
 
 export function AccountSettingsView({
   me,
   methods,
+  ssoName = null,
   busy,
   saved = false,
   onSaveName,
@@ -48,6 +57,8 @@ export function AccountSettingsView({
 }: {
   me: { id: string; name: string; email: string; image: string | null }
   methods: readonly SignInMethod[]
+  /** The name on the company sign-in button, when the server has one. */
+  ssoName?: string | null
   busy: boolean
   /** The last name change went through, so the save bar can say so. */
   saved?: boolean
@@ -138,14 +149,14 @@ export function AccountSettingsView({
       </div>
       <ul aria-labelledby={methodsLabel} className="divide-y divide-border border-t border-border">
         {methods.map((method) => {
-          const { icon, detail, state } = methodDetails(method, me.email)
+          const { icon, detail, state } = methodDetails(method, me.email, ssoName)
           return (
             <li key={method} className={`flex flex-wrap items-center gap-4 py-4 ${settingsPadding}`}>
               <span aria-hidden className="grid size-11 shrink-0 place-content-center rounded-xl border border-border bg-background text-foreground">
                 {icon}
               </span>
               <span className="flex min-w-0 flex-1 flex-col">
-                <span className="font-medium text-foreground">{METHOD_LABELS[method]}</span>
+                <span className="font-medium text-foreground">{methodLabel(method, ssoName)}</span>
                 <span className="truncate text-sm text-muted-foreground">{detail}</span>
               </span>
               <Badge className="bg-success-subtle text-success-subtle-foreground">
@@ -179,6 +190,7 @@ export function AccountSettingsPage() {
   const queryClient = useQueryClient()
   const me = useQuery(accountQueries.me())
   const methods = useQuery(accountQueries.signInMethods())
+  const authMethods = useQuery(authQueries.authMethods())
   const saveName = useUpdateName()
   const upload = useMutation({
     mutationFn: async (file: File) => {
@@ -199,6 +211,7 @@ export function AccountSettingsPage() {
       <AccountSettingsView
         me={me.data}
         methods={methods.data?.methods ?? []}
+        ssoName={authMethods.data?.oidc?.name ?? null}
         busy={saveName.isPending || upload.isPending || remove.isPending}
         saved={saveName.isSuccess}
         onSaveName={(name) => saveName.mutate(name)}

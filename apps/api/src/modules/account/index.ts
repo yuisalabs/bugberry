@@ -18,7 +18,7 @@ import {
 } from "./repository"
 
 export const MAX_AVATAR_BYTES = 2 * 1024 * 1024
-const PROVIDERS = ["google", "github", "gitlab"] as const
+const PROVIDERS = ["google", "github", "gitlab", "oidc"] as const
 const UPLOADS_PER_PERSON_PER_HOUR = 20
 
 /** The signed-in person: who they are, their limits and checklist, their profile, photo and sign-in methods. */
@@ -135,7 +135,7 @@ export function accountModule(deps: AppDeps) {
       async ({ user: current }) => {
         const linked = new Set(await linkedProviders(db, current.id))
         const methods: Array<(typeof PROVIDERS)[number] | "email"> = PROVIDERS.filter((provider) => linked.has(provider))
-        if (config.email) methods.push("email")
+        if (config.emailSignIn) methods.push("email")
         return { methods }
       },
       { auth: true },

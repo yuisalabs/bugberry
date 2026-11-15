@@ -170,3 +170,12 @@ describe("account", () => {
     expect(() => loadConfig({ ...env, EXTENSION_INSTALL_URL: "ftp://x" })).toThrow(/EXTENSION_INSTALL_URL/)
   })
 })
+
+describe("sign-in methods with company sign-in", () => {
+  test("lists company sign-in when linked, and email only while codes are on", async () => {
+    const off = await setupTestApp({ emailSignIn: false })
+    const ana = await createUserWithToken(off.db)
+    await off.db.insert(account).values({ id: newId(), accountId: "kc-1", providerId: "oidc", userId: ana.user.id })
+    expect((await off.api.api.me["sign-in-methods"].get({ headers: ana.headers })).data).toEqual({ methods: ["oidc"] })
+  })
+})

@@ -36,7 +36,7 @@ export async function revokeMcpToken(db: Db, userId: string, tokenId: string): P
   return revoked.length > 0
 }
 
-/** The signed-in person behind an unrevoked token, with the token's id, kind and last use. */
+/** The signed-in person behind an unrevoked token, with the token's id, kind and last use; null once deactivated. */
 export async function findActiveTokenCaller(db: Db, tokenHash: string) {
   const [row] = await executor(db)
     .select({
@@ -51,7 +51,7 @@ export async function findActiveTokenCaller(db: Db, tokenHash: string) {
     })
     .from(apiToken)
     .innerJoin(user, eq(apiToken.userId, user.id))
-    .where(and(eq(apiToken.tokenHash, tokenHash), isNull(apiToken.revokedAt)))
+    .where(and(eq(apiToken.tokenHash, tokenHash), isNull(apiToken.revokedAt), isNull(user.deactivatedAt)))
     .limit(1)
   return row ?? null
 }

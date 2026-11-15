@@ -9,10 +9,10 @@ beforeEach(async () => {
 
 describe("app", () => {
   test("tells the login page which sign-in methods are on, without any secrets", async () => {
-    const ctx = await setupTestApp({ github: { clientId: "gh", clientSecret: "s" }, gitlab: null, email: null })
+    const ctx = await setupTestApp({ github: { clientId: "gh", clientSecret: "s" }, gitlab: null, email: null, emailSignIn: false })
     const response = await ctx.app.handle(new Request("http://localhost/api/auth-methods"))
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ github: true, gitlab: false, google: true, emailOtp: false })
+    expect(await response.json()).toEqual({ github: true, gitlab: false, google: true, emailOtp: false, oidc: null })
   })
 
   test("health", async () => {

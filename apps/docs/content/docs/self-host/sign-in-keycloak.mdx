@@ -1,0 +1,40 @@
+---
+title: Sign in with Keycloak
+description: Company sign-in through Keycloak, step by step.
+---
+
+This sets up [company sign-in](/self-host/sign-in#company-sign-in-oidc) with Keycloak. You need admin access to a Keycloak realm, and your BugBerry address (`APP_URL`).
+
+## In Keycloak
+
+1. Open the realm your people sign in to, or create one. Its name is part of the issuer address: a realm named `company` on `https://id.example.com` has the issuer `https://id.example.com/realms/company`.
+2. Go to **Clients → Create client**.
+   - **Client type:** OpenID Connect.
+   - **Client ID:** `bugberry`.
+3. On the next step, turn **Client authentication** on and leave **Standard flow** checked. The other flows can be off.
+4. On the last step, set **Valid redirect URIs** to `<APP_URL>/api/auth/callback/oidc`, for example `https://bugberry.example.com/api/auth/callback/oidc`. Save.
+5. Open the client's **Credentials** tab and copy the **Client secret**.
+
+Each person needs an email address in Keycloak with **Email verified** on. Keycloak tells BugBerry when an address is unverified, and BugBerry refuses it.
+
+## In BugBerry
+
+Add to `.env`, then restart with `docker compose up -d`:
+
+```bash
+OIDC_ISSUER=https://id.example.com/realms/company
+OIDC_CLIENT_ID=bugberry
+OIDC_CLIENT_SECRET=<the client secret>
+OIDC_NAME="Example SSO"
+```
+
+The sign-in page now shows **Continue with Example SSO**.
+
+## If it doesn't work
+
+| What you see | Cause |
+| --- | --- |
+| Keycloak says "Invalid parameter: redirect_uri" | The redirect URI in the client doesn't match `<APP_URL>/api/auth/callback/oidc` exactly. |
+| "Company sign-in isn't reachable right now" | BugBerry can't read `<OIDC_ISSUER>/.well-known/openid-configuration` from inside its container. Check the address, and see [a provider with an internal certificate](/self-host/sign-in#a-provider-with-an-internal-certificate). |
+| "Verify your email address with your sign-in provider first" | **Email verified** is off for that user in Keycloak. |
+| "This email can't sign in" | The address is outside `ALLOWED_EMAIL_DOMAINS`. |

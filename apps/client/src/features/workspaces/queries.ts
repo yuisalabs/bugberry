@@ -17,7 +17,11 @@ export const logoUploadTarget = (workspaceId: string, contentType: "image/png" |
   unwrap(eden.api.workspaces({ id: workspaceId }).logo.post({ contentType, size }))
 export const confirmLogo = (workspaceId: string, logoId: string) => unwrap(eden.api.workspaces({ id: workspaceId }).logo({ logoId }).post())
 export const removeLogo = (workspaceId: string) => unwrap(eden.api.workspaces({ id: workspaceId }).logo.delete())
+/** The people who can be assigned and mentioned: deactivated accounts are left out. */
 export const members = (workspaceId: string) => unwrap(eden.api.workspaces({ id: workspaceId }).members.get())
+/** Everyone in the workspace, for the Members page. */
+export const allMembers = (workspaceId: string) =>
+  unwrap(eden.api.workspaces({ id: workspaceId }).members.get({ query: { include: "deactivated" } }))
 export const setMemberRole = (workspaceId: string, userId: string, role: WorkspaceRole) =>
   unwrap(eden.api.workspaces({ id: workspaceId }).members({ userId }).patch({ role }))
 export const removeMember = (workspaceId: string, userId: string) =>
@@ -63,6 +67,7 @@ export type InvitationInfo = Awaited<ReturnType<typeof invitation>>
 export const workspaceQueries = {
   workspaces: () => queryOptions({ queryKey: qk.workspaces, queryFn: () => workspaces(), staleTime: 60_000 }),
   members: (workspaceId: string) => queryOptions({ queryKey: qk.members(workspaceId), queryFn: () => members(workspaceId) }),
+  allMembers: (workspaceId: string) => queryOptions({ queryKey: qk.allMembers(workspaceId), queryFn: () => allMembers(workspaceId) }),
   invitations: (workspaceId: string) => queryOptions({ queryKey: qk.invitations(workspaceId), queryFn: () => invitations(workspaceId) }),
   myInvitations: () => queryOptions({ queryKey: qk.myInvitations, queryFn: () => myInvitations() }),
   domainWorkspaces: () => queryOptions({ queryKey: qk.domainWorkspaces, queryFn: () => domainWorkspaces() }),

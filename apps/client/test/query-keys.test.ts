@@ -22,6 +22,8 @@ describe("qk keeps today's key values", () => {
   test("workspaces and joining", () => {
     expect(qk.workspaces).toEqual(["workspaces"])
     expect(qk.members("w")).toEqual(["members", "w"])
+    // Under the members key, so refreshing members refreshes the full list too.
+    expect(qk.allMembers("w")).toEqual(["members", "w", "all"])
     expect(qk.invitations("w")).toEqual(["invitations", "w"])
     expect(qk.myInvitations).toEqual(["my-invitations"])
     expect(qk.invitation("t")).toEqual(["invitation", "t"])

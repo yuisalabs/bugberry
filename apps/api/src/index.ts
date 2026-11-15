@@ -1,6 +1,6 @@
 import { createApp, createMcpApp } from "./app"
 import { createAuth } from "./modules/auth/better-auth"
-import { accountLimitsNotice, loadConfig } from "./config"
+import { accountLimitsNotice, loadConfig, oidcNotice } from "./config"
 import { createDb } from "./db/client"
 import { runMigrations } from "./db/migrate"
 import { cleanupStaleUploads, startCleanupSchedule } from "./jobs/cleanup"
@@ -53,3 +53,5 @@ installShutdown(process, async () => {
 console.info(`BugBerry server (${role}) listening on port ${app.server?.port}; ${clientIpSource(config.proxyHops)}`)
 const limitsNotice = accountLimitsNotice(config.accountLimits)
 if (limitsNotice) console.info(limitsNotice)
+const ssoNotice = oidcNotice(config.oidc)
+if (ssoNotice) console.warn(ssoNotice)

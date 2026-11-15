@@ -4,6 +4,7 @@ import type { CurrentUser } from "../../plugins/auth"
 import { AppError, badRequest, forbidden, notFound, unprocessable } from "../../lib/errors"
 import { newShareSlug } from "../../lib/ids"
 import { memberRole, requireMember, requireReportMember, resolveWorkspace } from "../workspaces/access"
+import { isDeactivated } from "../account/repository"
 import { recordActivity } from "../activity/repository"
 import { projectInWorkspace } from "../projects/repository"
 import { reportAccess } from "./access"
@@ -101,6 +102,9 @@ export async function updateReport(
   }
   if (input.assigneeId && !(await memberRole(db, input.assigneeId, target.workspaceId))) {
     throw unprocessable("assignee_not_found", "Assignee is not in this workspace")
+  }
+  if (input.assigneeId && (await isDeactivated(db, input.assigneeId))) {
+    throw unprocessable("assignee_deactivated", "This person's account is deactivated")
   }
   if (input.projectId) {
     if (!(await projectInWorkspace(db, input.projectId, target.workspaceId))) {

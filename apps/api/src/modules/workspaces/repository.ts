@@ -1,5 +1,5 @@
 import type { CaptureType, Visibility, WorkspaceRole } from "@bugberry/shared"
-import { and, asc, count, eq, gt, inArray, isNull, like, ne, or, sql } from "drizzle-orm"
+import { and, asc, count, eq, gt, inArray, isNotNull, isNull, like, ne, notInArray, or, sql } from "drizzle-orm"
 import { type Db, executor } from "../../db/client"
 import { pendingLogo, project, report, user, workspace, workspaceInvitation, workspaceMember } from "../../db/schema"
 import { newId } from "../../lib/ids"
@@ -83,17 +83,32 @@ export async function findOwnerId(db: Db, workspaceId: string): Promise<string |
   return row?.ownerId ?? null
 }
 
-/** Locks the workspace's admin rows until the transaction ends, and returns who they are. */
+/**
+ * Locks the workspace's admin rows until the transaction ends, and returns who they are. A deactivated
+ * admin is not one of them: they can't sign in, so they can't be the admin who remains.
+ */
 export async function lockAdmins(db: Db, workspaceId: string): Promise<string[]> {
-  const admins = await executor(db)
+  const x = executor(db)
+  const deactivated = x.select({ id: user.id }).from(user).where(isNotNull(user.deactivatedAt))
+  const admins = await x
     .select({ userId: workspaceMember.userId })
     .from(workspaceMember)
-    .where(and(eq(workspaceMember.workspaceId, workspaceId), eq(workspaceMember.role, "admin")))
+    .where(
+      and(
+        eq(workspaceMember.workspaceId, workspaceId),
+        eq(workspaceMember.role, "admin"),
+        notInArray(workspaceMember.userId, deactivated),
+      ),
+    )
     .for("update")
   return admins.map((admin) => admin.userId)
 }
 
-export function listMembers(db: Db, workspaceId: string) {
+/**
+ * Deactivated people are left out unless asked for: the assignee pickers, in the dashboard and in
+ * extensions already installed, are filled from this list.
+ */
+export function listMembers(db: Db, workspaceId: string, includeDeactivated: boolean) {
   return executor(db)
     .select({
       id: user.id,
@@ -102,10 +117,11 @@ export function listMembers(db: Db, workspaceId: string) {
       image: user.image,
       role: workspaceMember.role,
       joinedAt: workspaceMember.createdAt,
+      deactivated: sql<boolean>`${user.deactivatedAt} is not null`,
     })
     .from(workspaceMember)
     .innerJoin(user, eq(user.id, workspaceMember.userId))
-    .where(eq(workspaceMember.workspaceId, workspaceId))
+    .where(and(eq(workspaceMember.workspaceId, workspaceId), includeDeactivated ? undefined : isNull(user.deactivatedAt)))
     .orderBy(asc(user.name), asc(user.email))
 }
 
@@ -291,13 +307,13 @@ export function listWorkspaceRoles(db: Db, userId: string) {
     .orderBy(asc(workspace.name), asc(workspace.id))
 }
 
-/** Members with their address and role, by name. */
+/** Members an agent can assign to or mention, with their address and role, by name. */
 export function listMemberContacts(db: Db, workspaceId: string) {
   return executor(db)
     .select({ id: user.id, name: user.name, email: user.email, role: workspaceMember.role })
     .from(workspaceMember)
     .innerJoin(user, eq(user.id, workspaceMember.userId))
-    .where(eq(workspaceMember.workspaceId, workspaceId))
+    .where(and(eq(workspaceMember.workspaceId, workspaceId), isNull(user.deactivatedAt)))
     .orderBy(asc(user.name), asc(user.email))
 }
 
