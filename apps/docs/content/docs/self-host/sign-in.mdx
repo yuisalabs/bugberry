@@ -56,6 +56,8 @@ BugBerry asks for `openid email profile` and needs an email address from the pro
 
 **BugBerry trusts the email your provider sends.** Someone who signs in through it with the address of an existing account reaches that account, whichever method created it. So use a provider where people cannot set their own email address, and in Microsoft Entra ID make the app **single-tenant**: a multi-tenant app accepts accounts from other organizations, whose admins choose their own addresses. A provider that says an address is unverified (`email_verified: false`) is refused; one that says nothing about it, as Entra ID does, is accepted.
 
+Company sign-in decides who can sign in, not which workspace they land in. For new employees to arrive in the company workspace without an invitation, also set `ALLOWED_EMAIL_DOMAINS` and turn on [joining by email domain](/guide/workspaces-and-access#joining-by-email-domain) in that workspace.
+
 Signing out of BugBerry does not sign anyone out of the provider. After the first sign-in, the account is tied to the person's ID at the provider; a later change of name or email there changes nothing in BugBerry.
 
 ### SSO only
@@ -140,7 +142,7 @@ ALLOWED_EMAIL_DOMAINS=example.com,example.co.id
 ```
 
 - **Empty (the default):** anyone can sign up and gets a workspace of their own.
-- **Set:** only those domains can sign in. New employees still need an invitation to the company workspace; without one, they get an empty workspace of their own.
+- **Set:** only those domains can sign in. A new employee lands in the company workspace by themselves when that workspace takes your email domain directly (see [Joining by email domain](/guide/workspaces-and-access#joining-by-email-domain)); otherwise they need an invitation, and without one they get an empty workspace of their own.
 
 ## When someone leaves
 

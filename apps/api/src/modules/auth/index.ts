@@ -23,6 +23,8 @@ export function authModule({ config, betterAuth }: Pick<AppDeps, "config" | "bet
         publicSite: config.publicSite,
         // The longest recording under ACCOUNT_LIMITS: a signed-out extension can't read a workspace's limits.
         maxRecordingSeconds: config.accountLimits ? config.accountLimits.recordingMs / 1000 : null,
+        // With ALLOWED_EMAIL_DOMAINS set, a new account joins the one workspace that takes its email domain.
+        autoJoin: config.allowedEmailDomains.length > 0,
       }))
       // Method-specific routes: an `all` route loses to the dashboard's GET catch-all (scripts/e2e-dashboard.ts).
       .get("/auth/*", ({ request, server }) => betterAuth.handler(withClientIp(request, server, config.proxyHops)), {

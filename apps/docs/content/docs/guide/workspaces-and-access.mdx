@@ -27,11 +27,19 @@ Set them with **Edit** next to a project's patterns, or from its **⋯** menu wi
 
 ## Inviting people
 
-Joining someone else's workspace always takes an invitation. A workspace admin opens **Members** in the top bar and types email addresses under **Invite teammates**, choosing **Member** or **Admin**; BugBerry sends each an invitation link. A link is valid for 7 days and only works for the address it was sent to.
+The usual way into someone else's workspace is an invitation. A workspace admin opens **Members** in the top bar and types email addresses under **Invite teammates**, choosing **Member** or **Admin**; BugBerry sends each an invitation link. A link is valid for 7 days and only works for the address it was sent to.
 
 Admins can also change a member's role or remove them on the same page. **Who can do what** sums up the roles: an **Owner** can delete the workspace, an **Admin** manages members, projects and integrations, and a **Member** records, views and comments on reports.
 
 <Screenshot src="/screenshots/workspaces-and-access/members.png" alt="The Members page: the member list, the Invite teammates box with Invite as Member and Send invites, and Who can do what" />
+
+## Joining by email domain
+
+An admin can also let everyone with the company's email domain in, under **Workspace settings → Joining → Join by email domain**. The domain is the admin's own work domain; free email providers such as Gmail can't be used. People either join directly or ask, and an admin approves.
+
+Someone with that domain who is already signed in finds the workspace under **Join a workspace** and joins with a click.
+
+On a self-hosted server that sets `ALLOWED_EMAIL_DOMAINS`, joining directly needs no click: a new account lands in the workspace the first time the person signs in, and gets no workspace of its own. That happens when exactly one workspace takes the domain directly. With several, the person chooses; with approval, they ask as usual.
 
 ## Who can see a report
 
