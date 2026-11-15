@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, exists, gt, gte, ilike, inArray, isNull, lt, ne, or, type SQL, sql } from "drizzle-orm"
+import { and, asc, count, desc, eq, exists, gte, ilike, inArray, isNull, lt, ne, or, type SQL, sql } from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"
 import { type Db, executor } from "../../db/client"
 import { agentUpload, comment, notification, project, report, reportFix, type ReportFixRow, user, workspace } from "../../db/schema"
@@ -13,19 +13,8 @@ export type ReportKey = { id: string } | { shareSlug: string }
 
 const reporterUser = alias(user, "reporter")
 const assigneeUser = alias(user, "assignee")
-const priorityRank = sql<number>`case ${report.priority}
-  when 'critical' then 4 when 'high' then 3 when 'medium' then 2 when 'low' then 1 else 0 end`
-
 const keyed = (key: ReportKey) =>
   "id" in key ? eq(report.id, key.id) : and(eq(report.shareSlug, key.shareSlug), eq(report.uploadStatus, "ready"))
-
-/**
- * A count from `debugger_summary`. The driver stores jsonb values as a JSON string scalar, so the
- * string is unwrapped first; an object (written by hand or a later driver) is read as it is.
- */
-const summaryCount = (field: "errors" | "failedRequests") =>
-  sql<number>`coalesce(((case when jsonb_typeof(${report.debuggerSummary}) = 'string'
-    then (${report.debuggerSummary} #>> '{}')::jsonb else ${report.debuggerSummary} end) ->> ${field})::int, 0)`
 
 /**
  * Which reports a list holds: one workspace's finished uploads, narrowed by the list's filters. The counts per
@@ -43,10 +32,7 @@ function listConditions(db: Db, workspaceId: string, input: ListReportsInput, { 
   if (input.reporterId) conditions.push(eq(report.reporterId, input.reporterId))
   if (input.createdAfter) conditions.push(gte(report.createdAt, new Date(input.createdAfter)))
   if (input.createdBefore) conditions.push(lt(report.createdAt, new Date(input.createdBefore)))
-  if (input.hasErrors) {
-    const withErrors = or(gt(summaryCount("errors"), 0), gt(summaryCount("failedRequests"), 0))
-    if (withErrors) conditions.push(withErrors)
-  }
+  if (input.hasErrors) conditions.push(eq(report.hasErrors, true))
   const search = input.q?.trim()
   if (search) {
     const pattern = `%${escapeLike(search)}%`
@@ -77,7 +63,8 @@ export async function listPage(db: Db, workspaceId: string, input: ListReportsIn
   const where = and(...listConditions(db, workspaceId, input))
   const orderBy =
     input.sort === "priority"
-      ? [desc(priorityRank), desc(report.createdAt), desc(report.id)]
+      ? // The enum was created from none up to critical, so its own order is the rank.
+        [desc(report.priority), desc(report.createdAt), desc(report.id)]
       : input.sort === "oldest"
         ? [asc(report.createdAt), asc(report.id)]
         : [desc(report.createdAt), desc(report.id)]

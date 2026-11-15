@@ -102,6 +102,12 @@ describe("GET /api/reports", () => {
     expect(data).toMatchObject({ page: 2, perPage: 1, total: 3 })
   })
 
+  test("the priority sort runs from critical down to none", async () => {
+    for (const priority of ["medium", "none", "critical", "low", "high"] as const) await make({ title: priority, priority })
+    const { data } = await ctx.api.api.reports.get({ query: { sort: "priority" }, headers: member.headers })
+    expect(data?.items.map((r) => r.title)).toEqual(["critical", "high", "medium", "low", "none"])
+  })
+
   test("sorts oldest first", async () => {
     await make({ title: "first" })
     await new Promise((resolve) => setTimeout(resolve, 5))

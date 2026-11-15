@@ -27,6 +27,8 @@ export const comment = pgTable(
     index("comment_report_created_idx").on(table.reportId, table.createdAt),
     index("comment_parent_idx").on(table.parentId),
     index("comment_author_idx").on(table.authorId),
+    // The report list's search also looks in comments.
+    index("comment_body_trgm_idx").using("gin", table.body.op("gin_trgm_ops")),
   ],
 )
 
