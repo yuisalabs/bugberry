@@ -32,6 +32,13 @@ describe("signInWithProvider", () => {
     expect(assigned).toEqual(["https://accounts.google.com/o/oauth2/auth?x=1"])
   })
 
+  test("starting company sign-in while the IdP is unreachable says so", async () => {
+    const { deps } = recorder(Response.json({ message: "Provider not found" }, { status: 404 }))
+    await expect(signInWithProvider("oidc", undefined, deps)).rejects.toThrow(
+      "Company sign-in isn't reachable right now. Try again in a moment.",
+    )
+  })
+
   test("never asks for an off-site callback", async () => {
     const { calls, deps } = recorder(Response.json({ url: "https://accounts.google.com/x" }))
     await signInWithProvider("google", "//evil.com", deps)

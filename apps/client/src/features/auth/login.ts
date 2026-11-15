@@ -33,6 +33,13 @@ export function loginErrorMessage(code: string | undefined, description: string 
       return "Verify your email address with your sign-in provider first."
     case "access_denied":
       return "Sign-in was cancelled."
+    case "email_not_found":
+      return "Your company sign-in didn't share an email address. Ask your admin."
+    case "account_deactivated":
+      return "This account is deactivated. Ask your admin."
+    case "oauth_provider_not_found":
+    case "invalid_code":
+      return "The sign-in provider isn't reachable right now. Try again in a moment."
     default:
       return "Sign-in failed. Try again."
   }

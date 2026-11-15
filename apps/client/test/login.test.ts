@@ -23,6 +23,14 @@ describe("loginErrorMessage", () => {
     expect(loginErrorMessage("access_denied", undefined)).toBe("Sign-in was cancelled.")
     expect(loginErrorMessage(undefined, undefined)).toBeNull()
   })
+
+  test("sentences for company sign-in failures", () => {
+    expect(loginErrorMessage("email_not_found", undefined)).toBe("Your company sign-in didn't share an email address. Ask your admin.")
+    expect(loginErrorMessage("account_deactivated", undefined)).toBe("This account is deactivated. Ask your admin.")
+    const unreachable = "The sign-in provider isn't reachable right now. Try again in a moment."
+    expect(loginErrorMessage("oauth_provider_not_found", undefined)).toBe(unreachable)
+    expect(loginErrorMessage("invalid_code", undefined)).toBe(unreachable)
+  })
 })
 
 describe("validateLoginSearch", () => {

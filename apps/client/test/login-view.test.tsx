@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import { LoginView } from "../src/features/auth/LoginView"
 import { DOCS_URL } from "../src/features/landing/docs-url"
 
-const all = { github: true, gitlab: true, google: true, emailOtp: true }
+const all = { github: true, gitlab: true, google: true, emailOtp: true, oidc: null }
 const handlers = () => ({ onProvider: mock(), onSendCode: mock(async () => {}), onVerifyCode: mock(async () => {}) })
 
 describe("LoginView", () => {
@@ -17,11 +17,11 @@ describe("LoginView", () => {
       "Continue with GitLab",
       "Continue with Google",
     ])
-    rerender(<LoginView methods={{ github: false, gitlab: false, google: false, emailOtp: true }} message={null} {...handlers()} />)
+    rerender(<LoginView methods={{ github: false, gitlab: false, google: false, emailOtp: true, oidc: null }} message={null} {...handlers()} />)
     expect(screen.queryByRole("button", { name: /^Continue with/ })).toBeNull()
     expect(screen.queryByText("or")).toBeNull()
     expect(screen.getByLabelText("Work email")).toBeTruthy()
-    rerender(<LoginView methods={{ github: true, gitlab: false, google: false, emailOtp: false }} message={null} {...handlers()} />)
+    rerender(<LoginView methods={{ github: true, gitlab: false, google: false, emailOtp: false, oidc: null }} message={null} {...handlers()} />)
     expect(screen.queryByLabelText("Work email")).toBeNull()
   })
 
@@ -90,5 +90,27 @@ describe("LoginView", () => {
     expect(art?.querySelector('img[src="/assets/bugberry_icon_medium.webp"]')).toBeTruthy()
     expect(screen.getByText("POST /api/checkout")).toBeTruthy()
     expect(screen.getByText("Recording")).toBeTruthy()
+  })
+})
+
+describe("company sign-in", () => {
+  const none = { github: false, gitlab: false, google: false, emailOtp: false }
+
+  test("shows a button with the server's name, and starts it", () => {
+    const h = handlers()
+    render(<LoginView methods={{ ...none, oidc: { name: "Acme SSO" } }} message={null} {...h} />)
+    fireEvent.click(screen.getByRole("button", { name: "Continue with Acme SSO" }))
+    expect(h.onProvider).toHaveBeenCalledWith("oidc")
+    // SSO only: no email field and no divider.
+    expect(screen.queryByLabelText("Work email")).toBeNull()
+    expect(screen.queryByText("or")).toBeNull()
+  })
+
+  test("without a name the button says SSO, after the other providers", () => {
+    render(<LoginView methods={{ ...none, google: true, oidc: { name: null } }} message={null} {...handlers()} />)
+    expect(screen.getAllByRole("button", { name: /^Continue with/ }).map((button) => button.textContent)).toEqual([
+      "Continue with Google",
+      "Continue with SSO",
+    ])
   })
 })
