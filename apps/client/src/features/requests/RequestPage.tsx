@@ -6,9 +6,10 @@ import { qk } from "../../lib/query/keys"
 import { frameToPng, putWithProgress, videoThumbnail } from "./frames"
 import { requestApi, requestLink, requestQueries } from "./queries"
 import { sendRecording } from "./request-upload"
-import { sendFailure } from "./send-failure"
+import { useLeaveWarning } from "./leave-warning"
+import { captureFailure, lookupFailure, sendFailure } from "./send-failure"
 import { type Capture, type RequestForm, type RequestState, RequestView } from "./RequestView"
-import { CaptureDenied, type CaptureDeps, captureSupport, type RecordingHandle, startRecording, takeScreenshot } from "./screen-capture"
+import { type CaptureDeps, captureSupport, type RecordingHandle, startRecording, takeScreenshot } from "./screen-capture"
 
 const routeApi = getRouteApi("/request/$token")
 
@@ -40,16 +41,6 @@ function useNoIndex() {
     document.head.append(meta)
     return () => meta.remove()
   }, [])
-}
-
-/** Leaving with a recording not yet sent asks first. */
-function useLeaveWarning(on: boolean) {
-  useEffect(() => {
-    if (!on) return
-    const warn = (event: BeforeUnloadEvent) => event.preventDefault()
-    window.addEventListener("beforeunload", warn)
-    return () => window.removeEventListener("beforeunload", warn)
-  }, [on])
 }
 
 const EMPTY_FORM: RequestForm = { name: "", email: "", description: "", pageUrl: "" }
@@ -105,8 +96,9 @@ export function RequestPage() {
       recording.current = null
       keep("video", done.video, done.durationMs)
     } catch (error) {
+      recording.current = null
       setStep("intro")
-      if (!(error instanceof CaptureDenied)) setSendError("The recording couldn't start. Try again, or take a screenshot.")
+      setSendError(captureFailure(error, "video"))
     }
   }
 
@@ -115,7 +107,7 @@ export function RequestPage() {
     try {
       keep("screenshot", await takeScreenshot(browserCapture(), frameToPng), null)
     } catch (error) {
-      if (!(error instanceof CaptureDenied)) setSendError("The screenshot couldn't be taken. Try again.")
+      setSendError(captureFailure(error, "screenshot"))
     }
   }
 
@@ -167,10 +159,10 @@ export function RequestPage() {
     setStep("intro")
   }
 
-  const state: RequestState = link.isPending
+  const state: RequestState = link.isPending || (link.isError && link.isFetching)
     ? "loading"
     : link.isError && step !== "closed"
-      ? "unavailable"
+      ? lookupFailure(link.error)
       : support === "none"
         ? "unsupported"
         : step
@@ -196,6 +188,7 @@ export function RequestPage() {
       onSend={() => void send()}
       onDiscard={discard}
       onAnother={another}
+      onRetry={() => void link.refetch()}
     />
   )
 }

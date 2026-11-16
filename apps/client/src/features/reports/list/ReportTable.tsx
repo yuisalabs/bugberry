@@ -105,6 +105,7 @@ export function ReportTableBody({
                 <TableCell className={`${cell} ${wide}`}>{PRIORITY_LABELS[item.priority]}</TableCell>
                 <TableCell className={`${cell} ${large}`}>
                   <Person person={item.reporter} />
+                  {item.senderName && <span className="block truncate text-xs text-muted-foreground">Sent by {item.senderName}</span>}
                 </TableCell>
                 <TableCell className={`${cell} ${wide}`}>
                   {assignee ? <Person person={assignee} /> : <span className="text-muted-foreground">Unassigned</span>}

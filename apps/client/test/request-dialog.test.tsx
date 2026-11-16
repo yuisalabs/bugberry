@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { DebuggerTabs } from "../src/features/reports/debugger/DebuggerTabs"
 import { ReportMeta } from "../src/features/reports/detail/ReportMeta"
 import { ReportCardBody } from "../src/features/reports/list/ReportCard"
+import { ReportTableBody } from "../src/features/reports/list/ReportTable"
 import { RequestLinkListView } from "../src/features/requests/RequestLinkList"
 import { MadeLink, RequestLinkForm } from "../src/features/requests/RequestRecordingDialog"
 import { listItemFixture, reportFixture } from "./fixtures"
@@ -57,12 +58,19 @@ describe("asking for a recording", () => {
       />,
     )
     expect(screen.getByText("2 of 5 used · expires in 6 days")).toBeTruthy()
+    expect(screen.queryByText("Expired")).toBeNull()
+    fireEvent.click(screen.getByRole("button", { name: "Show 1 ended link" }))
     expect(screen.getByText("Expired")).toBeTruthy()
     expect(screen.getByRole("link", { name: "BB-12" }).getAttribute("href")).toBe("/app/r/r1")
     expect(screen.getAllByRole("button", { name: /^Revoke/ })).toHaveLength(1)
     fireEvent.click(screen.getByRole("button", { name: /^Revoke/ }))
     fireEvent.click(await screen.findByRole("button", { name: "Revoke link" }))
     await waitFor(() => expect(onRevoke).toHaveBeenCalledWith("q1"))
+  })
+
+  test("a revoke that failed says so", () => {
+    render(<RequestLinkListView now={NOW} me="u1" isAdmin={false} projects={projects} items={[]} revokeError="The link couldn't be revoked. Try again." onRevoke={mock()} />)
+    expect(screen.getByRole("alert").textContent).toBe("The link couldn't be revoked. Try again.")
   })
 })
 
@@ -74,6 +82,11 @@ describe("a recording that came through a link", () => {
     render(<ReportMeta report={reportFixture({ sender: { name: "Budi", email: "budi@client.test" } })} issues={[]} />)
     expect(screen.getByText("Sent by Budi through a request link")).toBeTruthy()
     expect(screen.getByText("budi@client.test")).toBeTruthy()
+  })
+
+  test("the table says who sent it too", () => {
+    render(<ReportTableBody items={[listItemFixture({ senderName: "Budi" })]} now={NOW} rowLink={(item) => item.title} />)
+    expect(screen.getByText("Sent by Budi")).toBeTruthy()
   })
 
   test("a request-link report explains its empty DevTools", () => {

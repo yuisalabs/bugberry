@@ -5,12 +5,13 @@ import { Input } from "@bugberry/ui/input"
 import { TextField } from "@bugberry/ui/text-field"
 import { Textarea } from "@bugberry/ui/textarea"
 import { MAX_SENDER_NAME_LENGTH } from "@bugberry/shared"
+import { useState } from "react"
 import { BugBerryLogo } from "../../components/layout/BugBerryLogo"
 import { Loading } from "../../components/ui/loading"
 import { formatLength } from "../../lib/format"
 import type { CaptureSupport } from "./screen-capture"
 
-export type RequestState = "loading" | "unavailable" | "unsupported" | "intro" | "recording" | "review" | "sending" | "sent" | "closed"
+export type RequestState = "loading" | "unavailable" | "unreachable" | "unsupported" | "intro" | "recording" | "review" | "sending" | "sent" | "closed"
 
 export interface RequestLink {
   workspaceName: string
@@ -58,6 +59,8 @@ export interface RequestViewProps {
   onSend(): void
   onDiscard(): void
   onAnother(): void
+  /** Looks the link up again after a lookup that got no answer. */
+  onRetry(): void
 }
 
 function lengthLabel(seconds: number): string {
@@ -149,6 +152,7 @@ function Preview({ capture }: { capture: Capture }) {
 function Review(props: RequestViewProps & { link: RequestLink; capture: Capture }) {
   const { form, onForm, capture, link } = props
   const sending = props.state === "sending"
+  const [discarding, setDiscarding] = useState(false)
   return (
     <form
       className="flex flex-col gap-4"
@@ -181,12 +185,24 @@ function Review(props: RequestViewProps & { link: RequestLink; capture: Capture 
           <p className="text-sm font-medium text-foreground">Sending… {Math.round(props.progress * 100)}%</p>
           <p className="text-xs text-muted-foreground">Keep this page open until it's done.</p>
         </div>
+      ) : discarding ? (
+        <div className="flex flex-col gap-3">
+          <p className="text-sm font-medium text-foreground">Throw this {capture.kind === "video" ? "recording" : "screenshot"} away?</p>
+          <div className="flex flex-wrap gap-3">
+            <Button intent="danger" onPress={props.onDiscard}>
+              Throw it away
+            </Button>
+            <Button intent="outline" onPress={() => setDiscarding(false)}>
+              Keep it
+            </Button>
+          </div>
+        </div>
       ) : (
         <div className="flex flex-wrap gap-3">
           <Button type="submit" isDisabled={!form.name.trim()}>
             Send
           </Button>
-          <Button intent="outline" onPress={props.onDiscard}>
+          <Button intent="outline" onPress={() => setDiscarding(true)}>
             {capture.kind === "video" ? "Record again" : "Take again"}
           </Button>
         </div>
@@ -199,6 +215,16 @@ function Review(props: RequestViewProps & { link: RequestLink; capture: Capture 
 function Body(props: RequestViewProps) {
   const { state, link, capture } = props
   if (state === "loading") return <Loading />
+  if (state === "unreachable") {
+    return (
+      <div className="flex flex-col gap-4">
+        <p className="text-foreground">The link couldn't be checked. Wait a moment, then try again.</p>
+        <Button intent="outline" className="self-start" onPress={props.onRetry}>
+          Try again
+        </Button>
+      </div>
+    )
+  }
   if (state === "unavailable" || !link) {
     return <p className="text-foreground">This link doesn't take recordings. Ask the person who sent it for a new one.</p>
   }

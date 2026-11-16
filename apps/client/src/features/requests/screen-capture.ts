@@ -37,6 +37,14 @@ export interface RecordingHandle {
   stream: MediaStream
 }
 
+/** The recording stopped before the recorder handed over any of it. */
+export class EmptyRecording extends Error {
+  constructor() {
+    super("Nothing was recorded")
+    this.name = "EmptyRecording"
+  }
+}
+
 /** The person closed the browser's picker, or refused to share. */
 export class CaptureDenied extends Error {
   constructor() {
@@ -95,7 +103,7 @@ export async function startRecording(
     stopAll()
   }
 
-  const done = new Promise<Recording>((resolve) => {
+  const done = new Promise<Recording>((resolve, reject) => {
     recorder.ondataavailable = (event) => {
       if (event.data.size === 0) return
       chunks.push(event.data)
@@ -103,6 +111,12 @@ export async function startRecording(
       if (bytes >= options.maxBytes * BYTES_MARGIN) stop("limit")
     }
     recorder.onstop = () => {
+      // The recorder can stop by itself, before the track's ended listener runs: the time is taken here then.
+      stop("browser")
+      if (chunks.length === 0) {
+        reject(new EmptyRecording())
+        return
+      }
       // A timer fires late, never early: a recording the limit stopped is the limit long.
       const durationMs = Math.min(stoppedAt - startedAt, options.maxMs)
       const raw = new Blob(chunks, { type: WEBM })

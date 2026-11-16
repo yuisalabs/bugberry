@@ -11,3 +11,4 @@ description: Released 16 November 2026.
   starts. With S3 storage, the bucket's CORS rule must allow `PUT` from `APP_URL`; the shipped
   `deploy/bucket-cors.json` already does, but an older bucket may allow only `GET`. The extension stays at 0.13.2; it
   only takes two helpers from a shared package.
+- **Self-hosting:** with local storage, file links send `X-Content-Type-Options: nosniff`.

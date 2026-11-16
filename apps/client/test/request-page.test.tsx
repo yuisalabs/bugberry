@@ -1,8 +1,10 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { ApiError } from "@bugberry/shared"
-import { sendFailure } from "../src/features/requests/send-failure"
+import { warnBeforeLeaving } from "../src/features/requests/leave-warning"
+import { captureFailure, lookupFailure, sendFailure } from "../src/features/requests/send-failure"
 import { RequestClosed } from "../src/features/requests/request-upload"
+import { CaptureDenied, EmptyRecording } from "../src/features/requests/screen-capture"
 import { RequestView, type RequestViewProps } from "../src/features/requests/RequestView"
 
 const link = { workspaceName: "Acme QA", requesterName: "Ana", note: "The checkout bug, please", pageUrl: "https://shop.test/cart", maxSeconds: 300, maxBytes: 99_614_720 }
@@ -26,6 +28,7 @@ function view(props: Partial<RequestViewProps> & Pick<RequestViewProps, "state">
     onSend: mock(),
     onDiscard: mock(),
     onAnother: mock(),
+    onRetry: mock(),
     ...props,
   }
   render(<RequestView {...all} />)
@@ -123,5 +126,47 @@ describe("the request page", () => {
   test("sent, with no uses left: no Send another", () => {
     view({ state: "sent", canSendAnother: false })
     expect(screen.queryByRole("button", { name: "Send another" })).toBeNull()
+  })
+
+  test("a link that couldn't be checked offers Try again instead of calling it dead", () => {
+    const props = view({ state: "unreachable", link: null })
+    expect(screen.getByText("The link couldn't be checked. Wait a moment, then try again.")).toBeTruthy()
+    expect(screen.queryByText(/doesn't take recordings/)).toBeNull()
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }))
+    expect(props.onRetry).toHaveBeenCalled()
+  })
+
+  test("Record again asks before it throws the recording away", () => {
+    const props = view({ state: "review", capture: video })
+    fireEvent.click(screen.getByRole("button", { name: "Record again" }))
+    expect(props.onDiscard).not.toHaveBeenCalled()
+    expect(screen.getByText("Throw this recording away?")).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: "Keep it" }))
+    expect(screen.queryByText("Throw this recording away?")).toBeNull()
+    fireEvent.click(screen.getByRole("button", { name: "Record again" }))
+    fireEvent.click(screen.getByRole("button", { name: "Throw it away" }))
+    expect(props.onDiscard).toHaveBeenCalled()
+  })
+})
+
+describe("what the page makes of a failure", () => {
+  test("only a 404 means the link is dead; anything else can be tried again", () => {
+    expect(lookupFailure(new ApiError(404, "request_unavailable", "gone"))).toBe("unavailable")
+    expect(lookupFailure(new ApiError(429, "too_many_requests", "slow down"))).toBe("unreachable")
+    expect(lookupFailure(new ApiError(0, "network", "offline"))).toBe("unreachable")
+  })
+
+  test("a cancelled picker says nothing; an empty recording says what happened", () => {
+    expect(captureFailure(new CaptureDenied(), "video")).toBeNull()
+    expect(captureFailure(new EmptyRecording(), "video")).toBe("Nothing was recorded. Record again, and keep it going for a second or two.")
+    expect(captureFailure(new Error("codec"), "video")).toBe("The recording couldn't start. Try again, or take a screenshot.")
+    expect(captureFailure(new Error("frame"), "screenshot")).toBe("The screenshot couldn't be taken. Try again.")
+  })
+
+  test("leaving asks first, in the old browsers too", () => {
+    const event = new Event("beforeunload", { cancelable: true }) as BeforeUnloadEvent
+    warnBeforeLeaving(event)
+    expect(event.defaultPrevented).toBe(true)
+    expect(event.returnValue).toBeTruthy()
   })
 })

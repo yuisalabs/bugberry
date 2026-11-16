@@ -24,7 +24,7 @@ A workspace can have up to 50 links that still take recordings.
 The page names you, your workspace and your note. Their browser asks what to share (a tab, a window or the whole screen), and only that is recorded. Nothing is sent until they press **Send**, after typing their name. Their email and a description are optional.
 
 - They need a computer: phones can't record the screen from a browser. Chrome, Edge and Firefox record video; a browser that can't record WebM, such as an older Safari, sends a screenshot instead.
-- A recording can be up to 5 minutes (less if your workspace's own recording limit is shorter) and 95 MB.
+- A recording can be up to 5 minutes (less if your workspace's own recording limit is shorter) and 95 MB (less if the server's `MAX_UPLOAD_MB` is lower).
 - If sending stops halfway, say the connection drops, pressing **Send** again goes on with the same upload. Reloading the page loses the recording: they record again, and the unfinished upload gives its use back to the link after about an hour and a quarter.
 - If the link stops working before they press Send, the page lets them save the recording as a file.
 
@@ -35,11 +35,12 @@ The report is filed in your name, as its reporter, and says **Sent by** with the
 - A video or a screenshot, and nothing else: no console, network or actions, since the page can't see what happens in their other tabs.
 - You get a notification in the bell and an email. The workspace's Slack, Discord, Telegram and webhook channels hear about it like any new report.
 - It's **not** sent to the project's trackers by itself, even with auto-send on. Look at it first, then send it from the report's page.
-- Only workspace members can see it. The sender never gets a link to the report.
+- Only workspace members can see it. The sender never gets a link to the report, or its number.
+- An AI agent reading it over MCP is told the description is the sender's words, written from outside the workspace.
 
 ## Links in This Workspace
 
-The same dialog lists the workspace's links: how many recordings each took, when it expires, and the reports that came through it. Whoever made a link, or an admin, can **Revoke** it. A revoked link stops taking recordings at once; reports already sent stay.
+The same dialog lists the workspace's links: how many recordings each took, when it expires, and the reports that came through it. Whoever made a link, or an admin, can **Revoke** it. A revoked link stops taking recordings at once; reports already sent stay. Expired, used-up and revoked links are folded under **Show ended links**.
 
 A link also stops working when the member who made it leaves the workspace or is deactivated.
 

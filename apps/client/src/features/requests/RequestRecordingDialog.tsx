@@ -182,6 +182,7 @@ export function RequestRecordingDialog({
               now={now}
               me={me.data?.id ?? ""}
               isAdmin={isAdmin}
+              revokeError={revoke.isError ? "The link couldn't be revoked. Try again." : null}
               onRevoke={(id) => revoke.mutate(id)}
             />
           </section>

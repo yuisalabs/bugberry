@@ -1,6 +1,7 @@
 import { Button } from "@bugberry/ui/button"
 import { useConfirm } from "@bugberry/ui/confirm-dialog"
 import { Link } from "@bugberry/ui/link"
+import { useState } from "react"
 import type { RecordingRequest } from "./queries"
 
 const DAY_MS = 86_400_000
@@ -24,6 +25,7 @@ export function RequestLinkListView({
   now,
   me,
   isAdmin,
+  revokeError = null,
   onRevoke,
 }: {
   items: readonly RecordingRequest[]
@@ -31,10 +33,27 @@ export function RequestLinkListView({
   now: number
   me: string
   isAdmin: boolean
+  revokeError?: string | null
   onRevoke(id: string): void
 }) {
   const { confirm, dialog } = useConfirm()
-  if (items.length === 0) return <p className="text-sm text-muted-foreground">No request links yet.</p>
+  const [showEnded, setShowEnded] = useState(false)
+  const failed = revokeError && (
+    <p role="alert" className="text-sm text-danger-subtle-foreground">
+      {revokeError}
+    </p>
+  )
+  if (items.length === 0) {
+    return (
+      <>
+        {failed}
+        <p className="text-sm text-muted-foreground">No request links yet.</p>
+      </>
+    )
+  }
+  // Ended links stay for their reports, folded away so the live ones don't drown in them.
+  const ended = items.filter((item) => item.status !== "live")
+  const shown = showEnded ? items : items.filter((item) => item.status === "live")
   const revoke = async (item: RecordingRequest) => {
     const yes = await confirm({
       title: "Revoke this link?",
@@ -44,36 +63,44 @@ export function RequestLinkListView({
     if (yes) onRevoke(item.id)
   }
   return (
-    <ul className="flex flex-col divide-y divide-border">
-      {dialog}
-      {items.map((item) => {
-        const project = projects.find((candidate) => candidate.id === item.projectId)?.name ?? "No project"
-        return (
-          <li key={item.id} className="flex items-start justify-between gap-3 py-3">
-            <div className="flex min-w-0 flex-col gap-0.5">
-              <p className="truncate text-sm font-medium text-foreground">{item.note || project}</p>
-              <p className="text-xs text-muted-foreground">
-                {project} · by {item.createdBy.name}
-              </p>
-              <p className="text-xs text-foreground">{usage(item, now)}</p>
-              {item.reports.length > 0 && (
-                <p className="flex flex-wrap gap-2 text-xs">
-                  {item.reports.map((sent) => (
-                    <Link key={sent.id} href={`/app/r/${sent.id}`} className="font-medium text-primary hover:underline">
-                      BB-{sent.number}
-                    </Link>
-                  ))}
+    <div className="flex flex-col gap-2">
+      {failed}
+      <ul className="flex flex-col divide-y divide-border">
+        {dialog}
+        {shown.map((item) => {
+          const project = projects.find((candidate) => candidate.id === item.projectId)?.name ?? "No project"
+          return (
+            <li key={item.id} className="flex items-start justify-between gap-3 py-3">
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <p className="truncate text-sm font-medium text-foreground">{item.note || project}</p>
+                <p className="text-xs text-muted-foreground">
+                  {project} · by {item.createdBy.name}
                 </p>
+                <p className="text-xs text-foreground">{usage(item, now)}</p>
+                {item.reports.length > 0 && (
+                  <p className="flex flex-wrap gap-2 text-xs">
+                    {item.reports.map((sent) => (
+                      <Link key={sent.id} href={`/app/r/${sent.id}`} className="font-medium text-primary hover:underline">
+                        BB-{sent.number}
+                      </Link>
+                    ))}
+                  </p>
+                )}
+              </div>
+              {item.status === "live" && (item.createdBy.id === me || isAdmin) && (
+                <Button intent="outline" size="xs" aria-label={`Revoke ${item.note || "link"}`} onPress={() => void revoke(item)}>
+                  Revoke
+                </Button>
               )}
-            </div>
-            {item.status === "live" && (item.createdBy.id === me || isAdmin) && (
-              <Button intent="outline" size="xs" aria-label={`Revoke ${item.note || "link"}`} onPress={() => void revoke(item)}>
-                Revoke
-              </Button>
-            )}
-          </li>
-        )
-      })}
-    </ul>
+            </li>
+          )
+        })}
+      </ul>
+      {ended.length > 0 && (
+        <Button intent="plain" size="xs" className="self-start" onPress={() => setShowEnded((on) => !on)}>
+          {showEnded ? "Hide ended links" : `Show ${ended.length} ended ${ended.length === 1 ? "link" : "links"}`}
+        </Button>
+      )}
+    </div>
   )
 }

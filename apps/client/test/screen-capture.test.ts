@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test"
-import { CaptureDenied, type CaptureDeps, captureSupport, startRecording, takeScreenshot } from "../src/features/requests/screen-capture"
+import { CaptureDenied, type CaptureDeps, captureSupport, EmptyRecording, startRecording, takeScreenshot } from "../src/features/requests/screen-capture"
 
 class FakeTrack {
   kind: "video" | "audio"
@@ -146,6 +146,30 @@ describe("recording", () => {
     expect(done.stoppedBy).toBe("limit")
     // A timer never fires early, so the clock runs past the limit; the recording is the limit long.
     expect(done.durationMs).toBe(120_000)
+  })
+
+  test("a recorder that stops by itself keeps the time recorded and stops the tracks", async () => {
+    const s = setup()
+    const handle = await startRecording(s.deps, limits)
+    s.recorder.emit(new Blob([new Uint8Array(10)]))
+    s.advance(3000)
+    s.recorder.state = "inactive"
+    s.recorder.onstop?.()
+    const done = await handle.done
+    expect(done.durationMs).toBe(3000)
+    expect(done.stoppedBy).toBe("browser")
+    expect(s.video.readyState).toBe("ended")
+  })
+
+  test("a recording stopped before its first chunk is refused as empty", async () => {
+    const s = setup()
+    s.recorder.stop.mockImplementation(() => {
+      s.recorder.state = "inactive"
+      s.recorder.onstop?.()
+    })
+    const handle = await startRecording(s.deps, limits)
+    handle.stop()
+    await expect(handle.done).rejects.toBeInstanceOf(EmptyRecording)
   })
 
   test("a recorder that won't start stops the shared screen", async () => {
