@@ -1,0 +1,38 @@
+[variables]
+main_domain = "${domain}"
+postgres_password = "${password:32}"
+auth_secret = "${password:64}"
+# The server needs base64 of exactly 32 bytes; Dokploy's N counts the bytes.
+encryption_key = "${base64:32}"
+
+[config]
+[[config.domains]]
+serviceName = "client"
+port = 80
+host = "${main_domain}"
+
+[config.env]
+APP_URL = "https://${main_domain}"
+POSTGRES_PASSWORD = "${postgres_password}"
+BETTER_AUTH_SECRET = "${auth_secret}"
+ENCRYPTION_KEY = "${encryption_key}"
+# One sign-in method is required. Email codes over SMTP are the simplest: fill these four in before deploying.
+EMAIL_FROM = ""
+SMTP_HOST = ""
+SMTP_PORT = "587"
+SMTP_USER = ""
+SMTP_PASSWORD = ""
+SMTP_SECURE = "false"
+# Optional sign-in methods. Redirect address: https://<domain>/api/auth/callback/<google|github|gitlab|oidc>
+GOOGLE_CLIENT_ID = ""
+GOOGLE_CLIENT_SECRET = ""
+GITHUB_CLIENT_ID = ""
+GITHUB_CLIENT_SECRET = ""
+GITLAB_CLIENT_ID = ""
+GITLAB_CLIENT_SECRET = ""
+OIDC_ISSUER = ""
+OIDC_CLIENT_ID = ""
+OIDC_CLIENT_SECRET = ""
+ALLOWED_EMAIL_DOMAINS = ""
+EXTENSION_ID = ""
+MAX_UPLOAD_MB = "300"
