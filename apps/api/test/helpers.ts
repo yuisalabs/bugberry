@@ -18,7 +18,7 @@ import type { EmailSender } from "../src/lib/email/sender"
 import type { Config } from "../src/config"
 import { createDb, type Db } from "../src/db/client"
 import { runMigrations } from "../src/db/migrate"
-import { apiToken, connection, integration, project, report, user, workspace, workspaceMember } from "../src/db/schema"
+import { apiToken, connection, integration, project, projectGuest, report, user, workspace, workspaceMember } from "../src/db/schema"
 import { createSecretBox } from "../src/lib/secret-box"
 import { generateApiToken, hashToken } from "../src/modules/tokens/token"
 import { newId, newShareSlug } from "../src/lib/ids"
@@ -193,6 +193,11 @@ export async function createWorkspaceRow(db: Db, name: string) {
   const [row] = await db.insert(workspace).values({ id: newId(), name, slug: await freeSlug(db, name) }).returning()
   if (!row) throw new Error("failed to insert workspace")
   return row
+}
+
+/** A guest of one project: never a workspace member. */
+export async function addGuest(db: Db, projectId: string, userId: string) {
+  await db.insert(projectGuest).values({ projectId, userId })
 }
 
 export async function addMember(db: Db, workspaceId: string, userId: string, role: WorkspaceRole = "member") {

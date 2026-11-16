@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm"
-import { type AnyPgColumn, pgTable, text, uniqueIndex } from "drizzle-orm/pg-core"
+import { type AnyPgColumn, index, pgTable, primaryKey, text, uniqueIndex } from "drizzle-orm/pg-core"
+import { user } from "./auth"
 import { createdAt } from "./columns"
 import { workspace } from "./workspaces"
 import { reportTemplate } from "./ai"
@@ -25,4 +26,20 @@ export const project = pgTable(
     createdAt: createdAt(),
   },
   (table) => [uniqueIndex("project_workspace_slug_idx").on(table.workspaceId, table.slug)],
+)
+
+/** Someone outside the workspace who may read one project's reports and comment on them. Never a workspace member. */
+export const projectGuest = pgTable(
+  "project_guest",
+  {
+    projectId: text("project_id")
+      .notNull()
+      .references(() => project.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    invitedById: text("invited_by_id").references(() => user.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (table) => [primaryKey({ columns: [table.projectId, table.userId] }), index("project_guest_user_idx").on(table.userId)],
 )

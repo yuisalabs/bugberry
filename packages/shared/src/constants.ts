@@ -3,6 +3,9 @@ export type Role = (typeof ROLES)[number]
 
 export const WORKSPACE_ROLES = ["admin", "member"] as const
 export type WorkspaceRole = (typeof WORKSPACE_ROLES)[number]
+/** What someone is in a workspace: a member's role, or a guest of some of its projects (never a member). */
+export type AccessRole = WorkspaceRole | "guest"
+export const MAX_GUESTS_PER_PROJECT = 50
 
 export const REPORT_STATUSES = ["open", "in_progress", "resolved", "closed"] as const
 export type ReportStatus = (typeof REPORT_STATUSES)[number]
