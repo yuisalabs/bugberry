@@ -59,6 +59,12 @@ Nothing else in the workspace: no other project, member emails, labels, activity
 
 A **Public** report's link carries a preview for chat apps: its number, title, the page's host, how many errors and failed requests it has, and its thumbnail. Anyone holding the link sees that much without opening it. Reports that aren't public show a plain card that names nothing, the same for every link. A chat app keeps a preview it has already fetched, so one shown before a report stopped being public stays in that chat. Share pages ask search engines not to index them.
 
+### Request Links
+
+A [request link](/guide/request-links) lets someone without an account send one recording or screenshot into the workspace, up to the number of recordings the link takes. The link is the only key: whoever holds it can send, until it expires, is revoked, is used up, or the member who made it leaves the workspace. Its page shows the requester's name, the workspace's name and their note, and nothing else of the workspace.
+
+Of the sender, BugBerry keeps the name they type and, if they give one, their email; both are shown to workspace members only (share viewers see the name). Nothing is recorded but what they pick to share: no console, network or actions. The server stores only a hash of the link.
+
 AI agents connected through MCP see exactly what their person sees, and can't change who can see a report.
 
 ## On Your Own Server

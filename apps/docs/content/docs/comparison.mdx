@@ -20,7 +20,7 @@ They fall into two groups. Jam, Marker.io, and Crikket are built for bug reports
 | Source code | Open (AGPL-3.0) | Closed | Closed | Open (AGPL-3.0) |
 | Run it on your own server | Yes, Docker Compose | No | No | Yes, Docker Compose |
 | Hosted version | Yes | Yes | Yes | Yes |
-| How people report | Browser extension | Browser extension, or a Recording Link for customers | A widget on your site, or a browser extension | Browser extension, or a widget on your site |
+| How people report | Browser extension, or a request link for people without it | Browser extension, or a Recording Link for customers | A widget on your site, or a browser extension | Browser extension, or a widget on your site |
 | Native mobile apps | No | Not covered | Not covered | No |
 | Screenshot with annotations | Yes | Yes | Yes | Yes |
 | Video of a tab, window, or screen | Yes, with sound and a camera bubble | Yes | Not covered | Yes |
@@ -41,7 +41,7 @@ They fall into two groups. Jam, Marker.io, and Crikket are built for bug reports
 | Source code | Open (AGPL-3.0) | Closed | Closed | Closed | Closed |
 | Run it on your own server | Yes, Docker Compose | No | No | No | No |
 | Hosted version | Yes | Yes | Yes | Yes | Yes |
-| How people report | Browser extension | A sidebar on your site that pins feedback to page elements, or a browser extension | A widget on your site, or a browser extension for Chrome, Firefox, and Edge | A widget on your site, or a browser extension for Chrome and Firefox | A widget in your web or mobile app |
+| How people report | Browser extension, or a request link for people without it | A sidebar on your site that pins feedback to page elements, or a browser extension | A widget on your site, or a browser extension for Chrome, Firefox, and Edge | A widget on your site, or a browser extension for Chrome and Firefox | A widget in your web or mobile app |
 | Native mobile apps | No | No | Yes, iOS and Android SDK | Not covered | Yes, iOS, Android, React Native, Flutter, and others |
 | Screenshot with annotations | Yes | Yes | Yes | Yes | Yes, with a blur tool |
 | Video | Yes, with sound and a camera bubble | Up to one minute, with audio | Yes | Yes, with audio | Yes, up to 2 minutes |
@@ -67,7 +67,7 @@ They fall into two groups. Jam, Marker.io, and Crikket are built for bug reports
 
 ## When Another Tool Fits Better
 
-**Your customers report the bugs.** BugBerry needs its browser extension. If the people reporting are visitors to your site who won't install anything, a widget on the page is easier for them: Marker.io, Crikket, BugHerd, Userback, Usersnap, and Gleap offer one, and Jam offers Recording Links that open in the browser.
+**Your customers report the bugs.** A member can send a customer a [request link](/guide/request-links): they record their screen or take a screenshot in a desktop browser, without an account or the extension, but the report has no console or network data, and each link has to be sent by hand. For visitors who should be able to report from the page at any time, a widget is easier: Marker.io, Crikket, BugHerd, Userback, Usersnap, and Gleap offer one. Jam offers Recording Links, which open in the browser like BugBerry's request links.
 
 **Your clients review a website.** BugBerry can invite a client as a [guest](/guide/workspaces-and-access#guests) of one project, to read its reports and comment on them. They can't send reports yet, feedback isn't pinned to page elements, and a client needs an account. BugHerd pins each comment to the element it's about and puts it on a task board, and clients can leave feedback without an account.
 

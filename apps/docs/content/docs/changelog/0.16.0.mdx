@@ -1,0 +1,13 @@
+---
+title: 0.16.0
+description: Released 16 November 2026.
+---
+
+- **Request links.** Send a link to someone without an account or the extension: they record their screen or take a
+  screenshot in a desktop browser, and it arrives as a report filed in your name, marked **Sent by** them. You hear
+  about it in the bell and by email, and it waits for you before going to any tracker. See
+  [Request Links](/guide/request-links).
+- **Self-hosting:** the server adds migration `0040` (the `recording_request` table and three report columns) when it
+  starts. With S3 storage, the bucket's CORS rule must allow `PUT` from `APP_URL`; the shipped
+  `deploy/bucket-cors.json` already does, but an older bucket may allow only `GET`. The extension stays at 0.13.2; it
+  only takes two helpers from a shared package.
