@@ -182,6 +182,34 @@ test("a draft that can't be sent without the editor fails with a message", async
   expect(api.createUpload).not.toHaveBeenCalled()
 })
 
+test("the next try is booked before the send starts", async () => {
+  let seen: DraftOutbox | null | undefined
+  putFile = async () => {
+    seen = (await store.get(DRAFT_ID))?.outbox
+  }
+  await run()
+  expect(seen).toMatchObject({ tries: 1, nextTryAt: NOW + 2 * 60_000 })
+})
+
+test("a draft taken out of the queue before the lock was had is not sent", async () => {
+  lock = async (_name, work) => {
+    const current = (await store.get(DRAFT_ID))!
+    await store.put({ ...current, status: "editing" })
+    return work()
+  }
+  await run()
+  expect(api.createUpload).not.toHaveBeenCalled()
+  expect((await store.get(DRAFT_ID))?.status).toBe("editing")
+})
+
+test("a draft for another server that is being sent elsewhere is left as it was", async () => {
+  await store.put(queued({ outbox: outbox({ serverUrl: "https://a.test" }) }))
+  const before = await store.get(DRAFT_ID)
+  lock = async () => LOCKED
+  await run()
+  expect(await store.get(DRAFT_ID)).toEqual(before)
+})
+
 test("two calls at once run one flush", async () => {
   await Promise.all([run(), run()])
   expect(api.createUpload).toHaveBeenCalledTimes(1)

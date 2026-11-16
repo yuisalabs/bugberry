@@ -27,6 +27,7 @@ import type {
 import { type MicAccess, micAccess, micChoiceAfterCheck, micDevices } from "../../lib/devices/microphone"
 import { controlError, recordStartNote, replyResult, sendingDraftIds, uncapturableNote } from "../../lib/drafts/popup"
 import type { SentAway } from "../../lib/drafts/sent-away"
+import { deleteUnlessSending } from "../../lib/drafts/draft-lock"
 import { pickEditorWorkspace } from "../../lib/review/report-form"
 import type { PopupRecordingStatus, RecordingStatus } from "../../lib/recording/recording-state"
 import { checkSession, type SessionState, serverLabel, signInUrl } from "../../lib/server/session"
@@ -336,8 +337,9 @@ export function App() {
       confirmLabel: "Delete draft",
     })
     if (!yes) return
-    await store.delete(id)
-    setDrafts(await store.list())
+    // Refused while it is being sent; the list then shows it as sending.
+    await deleteUnlessSending(store, id)
+    readDrafts()
   }
 
   // Until the session is known, so the popup doesn't open on the capture tiles and then jump to "Sign in".

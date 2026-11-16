@@ -33,6 +33,7 @@ import { startReplayReport } from "../../lib/replay/replay-capture"
 import { createReplayController } from "../../lib/replay/replay-controller"
 import { createMessageListener, RECORDER_BUILD } from "./on-message"
 import { startOutbox } from "./outbox"
+import { deleteUnlessSending } from "../../lib/drafts/draft-lock"
 import { promptTickets } from "./prompt-tickets"
 import { readPageCapture, readPageEnvironment, reinjectCaptureScripts, toActiveTab } from "./tabs"
 
@@ -328,7 +329,7 @@ export default defineBackground(() => {
   const takeAgainDeps: Parameters<typeof createTakeAgain>[0] = {
     getDraft: (id) => store.get(id),
     getTab: async (tabId) => toActiveTab(await browser.tabs.get(tabId).catch(() => undefined)),
-    deleteDraft: (id) => store.delete(id),
+    deleteDraft: async (id) => void (await deleteUnlessSending(store, id)),
     hideReview: async (tabId) => {
       await browser.tabs.update(tabId, { active: true }).catch(() => {})
       // The review must be off the page before the next capture sees it.

@@ -19,7 +19,8 @@ export function newOutbox(draft: ReportDraft, media: Blob, thumbnail: Blob | nul
   return { screenshot: draft.captureType === "screenshot" ? media : null, thumbnail, serverUrl, tries: 0, nextTryAt: nextTryAt(0, now) }
 }
 
-const waiting = (draft: ReportDraft) =>
+/** Whether the background may send it: queued, or left uploading by a closed tab, with what it needs. */
+export const waiting = (draft: ReportDraft) =>
   (draft.status === "queued" || draft.status === "uploading") && draft.outbox != null && draft.form != null
 
 /** Drafts the background may send now: queued or uploading, with an outbox and a form, due, oldest first. */

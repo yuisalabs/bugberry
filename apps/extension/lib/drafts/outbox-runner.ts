@@ -1,11 +1,10 @@
 import { defaultReportTitle } from "@bugberry/shared"
 import type { BugberryApi } from "../server/api"
 import type { Settings } from "../server/settings"
-import { LOCKED, submitDraft, type UploadDeps } from "../review/upload"
-import type { ReportDraft } from "../shared/types"
+import { submitDraft, type UploadDeps } from "../review/upload"
 import type { DraftStore } from "./draft-store"
 import { createDraftWriter } from "./draft-writer"
-import { dueDrafts, nextTryAt, outboxSend, waitingCount } from "./outbox"
+import { dueDrafts, nextTryAt, outboxSend, waiting, waitingCount } from "./outbox"
 import type { SentAwayStorage } from "./sent-away"
 
 export interface OutboxDeps {
@@ -28,47 +27,48 @@ export function createOutboxRunner(deps: OutboxDeps): () => Promise<{ sent: numb
   const fail = (id: string, error: string) => write(id, (current) => ({ ...current, status: "failed", error }))
   let running: Promise<{ sent: number; waiting: number }> | null = null
 
-  const sendOne = async (draft: ReportDraft, settings: Settings): Promise<boolean> => {
+  /** Under the draft's lock: the draft as stored now, checked again, its next try booked before any byte goes out. */
+  const sendLocked = async (id: string, settings: Settings, upload: UploadDeps): Promise<boolean> => {
+    const draft = await deps.store.get(id)
+    // Taken out of the queue (opened in the editor, sent, deleted) since the list was read.
+    if (!draft || !waiting(draft)) return false
     const outbox = draft.outbox!
     const form = draft.form!
     if (outbox.serverUrl !== settings.serverUrl) {
-      await fail(draft.id, OTHER_SERVER_ERROR)
+      await fail(id, OTHER_SERVER_ERROR)
       return false
     }
     const send = outboxSend(draft)
     if (!send) {
-      await fail(draft.id, NEEDS_EDITOR_ERROR)
+      await fail(id, NEEDS_EDITOR_ERROR)
       return false
     }
-    const upload = deps.uploadDeps(settings)
-    let locked = false
-    const lock: NonNullable<UploadDeps["lock"]> = async (name, work) => {
-      const result = upload.lock ? await upload.lock(name, work) : await work()
-      if (result === LOCKED) locked = true
-      return result
-    }
+    // Booked first: a service worker stopped mid-upload never reaches a catch.
+    const tries = outbox.tries + 1
+    await deps.store.put({ ...draft, outbox: { ...outbox, tries, nextTryAt: nextTryAt(tries, deps.now()) } })
     try {
-      const sent = await submitDraft(draft.id, form, send.media, { ...upload, lock }, send.thumbnail, send.options)
+      const sent = await submitDraft(id, form, send.media, { ...upload, lock: undefined }, send.thumbnail, send.options)
       if (form.workspaceId) await deps.setLastWorkspace(form.workspaceId).catch(() => undefined)
       // The report exists by now: a refused assignment leaves it unassigned rather than unsent.
       if (form.assigneeId) await deps.apiFor(settings).updateReport(sent.id, { assigneeId: form.assigneeId }).catch(() => undefined)
       await deps.sentAway.add({
-        draftId: draft.id,
+        draftId: id,
         title: form.title.trim() || defaultReportTitle(draft.captureType, "you"),
         reportUrl: sent.reportUrl,
         sentAt: deps.now(),
       })
       return true
     } catch {
-      // Another page is sending it: that page owns the draft until it lets go.
-      if (locked) return false
-      await write(draft.id, (current) =>
-        current.status === "queued" && current.outbox
-          ? { ...current, outbox: { ...current.outbox, tries: current.outbox.tries + 1, nextTryAt: nextTryAt(current.outbox.tries + 1, deps.now()) } }
-          : null,
-      )
       return false
     }
+  }
+
+  const sendOne = async (id: string, settings: Settings): Promise<boolean> => {
+    const upload = deps.uploadDeps(settings)
+    if (!upload.lock) return sendLocked(id, settings, upload)
+    // Another page holding the lock owns the draft until it lets go.
+    const result = await upload.lock(`bugberry-draft-${id}`, () => sendLocked(id, settings, upload))
+    return result === true
   }
 
   const flush = async () => {
@@ -77,7 +77,7 @@ export function createOutboxRunner(deps: OutboxDeps): () => Promise<{ sent: numb
     if (!settings || !deps.online()) return { sent: 0, waiting: waitingCount(drafts) }
     let sent = 0
     for (const draft of dueDrafts(drafts, deps.now())) {
-      if (await sendOne(draft, settings)) sent += 1
+      if (await sendOne(draft.id, settings)) sent += 1
     }
     return { sent, waiting: waitingCount(await deps.store.list()) }
   }

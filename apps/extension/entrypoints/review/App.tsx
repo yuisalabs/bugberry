@@ -9,7 +9,7 @@ import { relayFetcher } from "../../lib/server/api-relay"
 import { BUILD_SERVER_ORIGIN, browserSettingsStorage, includeCityStorage, lastWorkspaceStorage } from "../../lib/server/browser-settings"
 import { createIndexedDbDraftStore, saveAnnotations } from "../../lib/drafts/draft-store"
 import { createDraftWriter } from "../../lib/drafts/draft-writer"
-import { draftLock } from "../../lib/drafts/draft-lock"
+import { deleteUnlessSending, draftLock, takeOutOfQueue } from "../../lib/drafts/draft-lock"
 import { newOutbox } from "../../lib/drafts/outbox"
 import { type EditorDeps, loadDestination, loadEditor, loadProjects } from "../../lib/review/editor-load"
 import { limitsFor } from "../../lib/server/limits"
@@ -127,7 +127,9 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
         return objectUrl
       },
     }
-    loadEditor(draftId, deps, () => cancelled)
+    takeOutOfQueue(store, draftId)
+      .catch(() => undefined)
+      .then(() => loadEditor(draftId, deps, () => cancelled))
       .then((state) => {
         if (!state || cancelled) return
         if (state.kind === "error") return setError(state.message)
@@ -442,8 +444,8 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       cityNote={cityNote}
       onSend={(form, notes, options) => void send(form, notes, options)}
       onDiscard={async () => {
-        await store.delete(draftId)
-        close()
+        if (await deleteUnlessSending(store, draftId)) close()
+        else setStatus({ failed: "This report is being sent right now, so it can't be discarded." })
       }}
       onAgain={async () => {
         // Over a page the background takes the review off first; a review tab closes once it has answered.

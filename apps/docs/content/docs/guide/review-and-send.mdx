@@ -55,6 +55,7 @@ If the BugBerry server can't be reached when you press **Create report**, the re
 - The extension sends the report by itself once the server answers again: it tries every few minutes, when your connection comes back and when the browser starts. **Try now** in the review sends it at once.
 - While it waits, the report is under **Unsent drafts** marked **(waiting for connection)**. It waits until it is sent or you delete its draft.
 - A report sent this way shows in the popup as **Sent:** with its title. **Open** opens it in the dashboard; **Dismiss** removes the line.
+- Opening a waiting report in the review takes it out of the queue, so nothing you change there goes out half-done. **Create report** sends it; if you close the review instead, it stays an unsent draft.
 - A report sent this way has no city, even with **Include my city** on: the location is never stored with a draft.
 - If your dashboard session ended in the meantime, or you switched the extension to another server, the draft is marked **(failed)** instead. Open it to sign in or send it again.
 

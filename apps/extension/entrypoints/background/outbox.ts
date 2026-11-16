@@ -32,12 +32,16 @@ export function startOutbox(store: DraftStore): () => Promise<void> {
   })
   // The alarm exists only while a draft waits, so an idle extension is never woken.
   const run = async () => {
+    // Chrome stops an idle service worker after 30 s; an extension call keeps it up through a long upload.
+    const keepAlive = setInterval(() => void browser.runtime.getPlatformInfo().catch(() => undefined), 20_000)
     try {
       const { waiting } = await outbox()
       if (waiting > 0) await browser.alarms.create(OUTBOX_ALARM, { periodInMinutes: 1 })
       else await browser.alarms.clear(OUTBOX_ALARM)
     } catch (error) {
       console.warn("outbox flush failed", error)
+    } finally {
+      clearInterval(keepAlive)
     }
   }
   browser.alarms.onAlarm.addListener((alarm) => {
