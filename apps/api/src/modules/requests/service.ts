@@ -1,12 +1,12 @@
 import { MAX_LIVE_REQUESTS_PER_WORKSPACE } from "@bugberry/shared"
-import type { Db } from "../../db/client"
+import { type Db, withTransaction } from "../../db/client"
 import { forbidden, notFound, unprocessable } from "../../lib/errors"
 import { AGENT_UPLOAD_TTL_MS } from "../reports/agent-uploads"
 import { newId } from "../../lib/ids"
 import { projectInWorkspace } from "../projects/repository"
 import { hashToken } from "../tokens/token"
 import { memberRole, requireMember } from "../workspaces/access"
-import { countLiveRequests, findRequest, insertRequest, listRequests, reportsOfRequests, revokeRequest } from "./repository"
+import { countLiveRequests, findRequest, insertRequest, listRequests, lockWorkspaceRequests, reportsOfRequests, revokeRequest } from "./repository"
 
 export type RequestStatus = "live" | "expired" | "used_up" | "revoked"
 
@@ -56,21 +56,24 @@ export async function createRequest(
   if (input.projectId && !(await projectInWorkspace(db, input.projectId, workspaceId))) {
     throw unprocessable("project_not_found", "Project not found in this workspace")
   }
-  if ((await countLiveRequests(db, workspaceId, now, usesCountedSince(uploadUrlTtlSeconds, now))) >= MAX_LIVE_REQUESTS_PER_WORKSPACE) {
-    throw unprocessable("request_limit", `A workspace can have at most ${MAX_LIVE_REQUESTS_PER_WORKSPACE} live request links`)
-  }
   const token = Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url")
-  const row = await insertRequest(db, {
-    id: newId(),
-    workspaceId,
-    projectId: input.projectId ?? null,
-    createdById: caller.id,
-    tokenHash: hashToken(token),
-    note: input.note?.trim() ?? "",
-    pageUrl,
-    maxUses: input.maxUses,
-    expiresAt: new Date(now.getTime() + input.expiresInDays * DAY_MS),
-    createdAt: now,
+  const row = await withTransaction(db, async () => {
+    await lockWorkspaceRequests(db, workspaceId)
+    if ((await countLiveRequests(db, workspaceId, now, usesCountedSince(uploadUrlTtlSeconds, now))) >= MAX_LIVE_REQUESTS_PER_WORKSPACE) {
+      throw unprocessable("request_limit", `A workspace can have at most ${MAX_LIVE_REQUESTS_PER_WORKSPACE} live request links`)
+    }
+    return insertRequest(db, {
+      id: newId(),
+      workspaceId,
+      projectId: input.projectId ?? null,
+      createdById: caller.id,
+      tokenHash: hashToken(token),
+      note: input.note?.trim() ?? "",
+      pageUrl,
+      maxUses: input.maxUses,
+      expiresAt: new Date(now.getTime() + input.expiresInDays * DAY_MS),
+      createdAt: now,
+    })
   })
   return { id: row.id, url: requestUrl(appUrl, token), expiresAt: row.expiresAt, maxUses: row.maxUses }
 }

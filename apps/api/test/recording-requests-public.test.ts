@@ -44,7 +44,7 @@ const reportCount = async () => {
 }
 
 beforeEach(async () => {
-  ctx = await setupTestApp({ appUrl: "https://bb.test", allowedEmailDomains: [] })
+  ctx = await setupTestApp({ appUrl: "https://bb.test", allowedEmailDomains: [], maxUploadBytes: 300 * 1024 * 1024 })
   await ctx.db.update(workspace).set({ name: "Acme QA" }).where(eq(workspace.id, ctx.workspace.id))
   maker = await createUserWithToken(ctx.db, { role: "member", name: "Ana", email: "ana@acme.test" })
   projectId = (await createProject(ctx.db, { name: "Storefront" })).id
@@ -181,6 +181,36 @@ describe("starting an upload", () => {
     await ctx.db.execute(sql`UPDATE report SET created_at = now() - interval '2 hours' WHERE recording_request_id = ${one.id}`)
     expect((await lookup(one.token)).status).toBe(200)
     expect((await start(one.token)).status).toBe(200)
+  })
+
+  test("a server whose MAX_UPLOAD_MB is lower than 95 tells the sender that size", async () => {
+    ctx = await setupTestApp({ appUrl: "https://bb.test", allowedEmailDomains: [], maxUploadBytes: 10 * 1024 * 1024 })
+    maker = await createUserWithToken(ctx.db, { role: "member", name: "Ana" })
+    projectId = (await createProject(ctx.db)).id
+    const made = await makeLink()
+    expect((await json(await lookup(made.token))).maxBytes).toBe(10 * 1024 * 1024)
+    expect((await start(made.token, { ...video, mediaSize: 10 * 1024 * 1024 + 1 })).status).toBe(413)
+    expect(await reportCount()).toBe(0)
+  })
+
+  test("an email that would add fields to a mailto link is refused", async () => {
+    for (const email of ["budi?cc=boss@client.test", "budi&body=hi@client.test", "budi%3F@client.test"]) {
+      const refused = await start(token, { ...video, email })
+      expect(refused.status).toBe(422)
+    }
+    expect(await reportCount()).toBe(0)
+  })
+
+  test("the ticket and finalize tell the sender nothing of the report", async () => {
+    const started = await json(await start(token))
+    const ticket = await json(await call("GET", `/api/agent-uploads/${started.uploadToken}`))
+    expect(ticket.mediaUpload).toBeTruthy()
+    expect(ticket.reportId).toBeUndefined()
+    expect(ticket.number).toBeUndefined()
+    await putUpload(ctx.app, started.mediaUpload, new Uint8Array([1, 2, 3, 4]))
+    const done = await call("POST", `/api/agent-uploads/${started.uploadToken}/finalize`)
+    expect(done.status).toBe(200)
+    expect(await json(done)).toEqual({ uploadStatus: "ready" })
   })
 
   test("a screenshot needs no length", async () => {

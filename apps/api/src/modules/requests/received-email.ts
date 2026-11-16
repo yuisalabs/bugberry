@@ -32,5 +32,6 @@ export function receivedEmail(input: {
     </table>
   </td></tr></table>
 </body></html>`
-  return { subject: `${input.senderName} sent the recording you asked for (${where})`, text, html }
+  // The name is whatever the sender typed, so it stays out of the subject, where it would read as BugBerry's words.
+  return { subject: `The recording you asked for arrived (${where})`, text, html }
 }

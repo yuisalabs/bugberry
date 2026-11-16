@@ -92,6 +92,12 @@ describe("making request links", () => {
     expect((await make(member)).status).toBe(200)
   })
 
+  test("two links made at once on the 50th place: one is refused", async () => {
+    for (let i = 0; i < 49; i++) expect((await make(member)).status).toBe(200)
+    const answers = await Promise.all([make(member), make(member), make(member)])
+    expect(answers.map((answer) => answer.status).sort()).toEqual([200, 422, 422])
+  })
+
   test("a project of another workspace is refused", async () => {
     const theirs = await createProject(ctx.db, { name: "Theirs", workspaceId: (await createWorkspaceRow(ctx.db, "Other")).id })
     const response = await make(member, { projectId: theirs.id })

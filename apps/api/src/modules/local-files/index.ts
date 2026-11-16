@@ -47,6 +47,7 @@ export function localFilesModule(deps: Pick<AppDeps, "storage">) {
       if (!(await file.exists())) throw notFound("file_not_found", "File not found")
       set.headers["content-type"] = claims.t
       set.headers["cache-control"] = "private, max-age=300"
+      set.headers["x-content-type-options"] = "nosniff"
       return file
     })
 }

@@ -55,7 +55,9 @@ export function agentUploadsModule(deps: AppDeps) {
       if (row.uploadStatus === "failed") {
         throw unprocessable("upload_failed", `This report's upload failed (${row.uploadError ?? "unknown error"}). Call createUpload again.`)
       }
-      return { reportId: row.id, number: row.number, ...(await uploadTargetsFor(deps, row)) }
+      const targets = await uploadTargetsFor(deps, row)
+      // Someone sending through a request link isn't a member: the report stays out of their sight.
+      return ticket.fromRequestLink ? targets : { reportId: row.id, number: row.number, ...targets }
     })
     .post("/agent-uploads/:token/finalize", async ({ params }) => {
       const ticket = await ticketFor(params.token)
@@ -63,6 +65,6 @@ export function agentUploadsModule(deps: AppDeps) {
       if (!ticket.finalizedAt && pastFinalize(ticket)) throw expiredError()
       const result = await finalizeReportUpload(deps, dispatcher, ticket.reportId)
       if (!ticket.finalizedAt) await markAgentUploadFinalized(db, ticket.id)
-      return result
+      return ticket.fromRequestLink ? { uploadStatus: result.uploadStatus } : result
     })
 }

@@ -39,6 +39,14 @@ function senderName(input: string): string {
   return name
 }
 
+/** Members open the sender's email as a mailto link, so a character that would add a field to it is refused. */
+function senderEmail(input: string | undefined): string | null {
+  const email = input?.trim()
+  if (!email) return null
+  if (/[?&#%\s]/.test(email)) throw unprocessable("sender_email_invalid", "That email address can't be used")
+  return email
+}
+
 /**
  * The side of a request link that someone without an account uses. No session is read: the token is the only
  * credential, and every dead link answers alike, naming nothing of the workspace.
@@ -64,6 +72,8 @@ export function publicRequestsModule(deps: AppDeps) {
     const limits = await workspaceLimits(db, config, workspaceId)
     return limits.limited ? Math.min(REQUEST_MAX_SECONDS, Math.floor(limits.maxRecordingMs / 1000)) : REQUEST_MAX_SECONDS
   }
+  /** 95 MB, or less where the server's MAX_UPLOAD_MB is lower. */
+  const maxBytes = Math.min(REQUEST_MAX_MEDIA_BYTES, config.maxUploadBytes)
 
   return new Elysia()
     .get(
@@ -77,7 +87,7 @@ export function publicRequestsModule(deps: AppDeps) {
           note: link.request.note,
           pageUrl: link.request.pageUrl,
           maxSeconds: await maxSecondsIn(link.request.workspaceId),
-          maxBytes: REQUEST_MAX_MEDIA_BYTES,
+          maxBytes,
         }
       },
       { params: t.Object({ token: t.String({ maxLength: 200 }) }) },
@@ -88,8 +98,9 @@ export function publicRequestsModule(deps: AppDeps) {
         if (!starts.consume(clientIp(request, server, config.proxyHops))) throw tooManyRequests()
         const link = await liveLink(params.token)
         const name = senderName(body.name)
+        const email = senderEmail(body.email)
         const pageUrl = pageAddress(body.pageUrl) ?? link.request.pageUrl ?? "about:blank"
-        if (body.mediaSize > REQUEST_MAX_MEDIA_BYTES) throw payloadTooLarge(`A recording can be at most ${REQUEST_MAX_MEDIA_BYTES / 1024 / 1024} MB`)
+        if (body.mediaSize > maxBytes) throw payloadTooLarge(`A recording can be at most ${Math.floor(maxBytes / 1024 / 1024)} MB`)
         const maxSeconds = await maxSecondsIn(link.request.workspaceId)
         // The time limit stops a recording a moment late, never early: the same slack as every recording limit.
         if (body.captureType === "video" && tooLong(body.durationMs ?? 0, maxSeconds * 1000)) {
@@ -112,7 +123,7 @@ export function publicRequestsModule(deps: AppDeps) {
             durationMs: body.durationMs,
             debuggerSummary: { logs: 0, errors: 0, requests: 0, failedRequests: 0, actions: 0, incomplete: [] },
           },
-          { sender: { requestId: link.request.id, name, email: body.email?.trim() || null, maxUses: link.request.maxUses, usesSince: link.since } },
+          { sender: { requestId: link.request.id, name, email, maxUses: link.request.maxUses, usesSince: link.since } },
         )
         const ticket = await issueAgentUpload(db, created.reportId, link.maker.id)
         return { uploadToken: ticket.token, mediaUpload: created.mediaUpload, thumbnailUpload: created.thumbnailUpload }

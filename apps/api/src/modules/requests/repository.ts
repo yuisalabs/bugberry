@@ -78,6 +78,11 @@ export async function revokeRequest(db: Db, id: string): Promise<void> {
     .where(and(eq(recordingRequest.id, id), isNull(recordingRequest.revokedAt)))
 }
 
+/** Holds the workspace row so links made at the same moment take turns at the live-link count. */
+export async function lockWorkspaceRequests(db: Db, workspaceId: string): Promise<void> {
+  await executor(db).select({ id: workspace.id }).from(workspace).where(eq(workspace.id, workspaceId)).for("update")
+}
+
 /** Links still taking recordings: not revoked, not expired, not used up. */
 export async function countLiveRequests(db: Db, workspaceId: string, now: Date, since: Date): Promise<number> {
   const [row] = await executor(db)
