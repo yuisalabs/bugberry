@@ -37,3 +37,5 @@ export {
 } from "./session"
 export { summarize } from "./summary"
 export { redactUrl } from "./sanitize"
+export { deviceInfoFrom } from "./device"
+export { withWebmDuration } from "./webm-duration"

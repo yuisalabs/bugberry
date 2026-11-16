@@ -10,7 +10,7 @@ import {
   redactUrl,
 } from "@bugberry/capture"
 import type { ScreenshotMode } from "./capture-prefs"
-import { deviceInfoFrom } from "./device"
+import { deviceInfoFrom } from "@bugberry/capture"
 import { environmentFrom } from "./environment"
 import type { DraftStore } from "../drafts/draft-store"
 import { pickCustomFields } from "../recording/custom-fields"

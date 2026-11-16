@@ -1,6 +1,6 @@
 import { DEBUGGER_PAYLOAD_VERSION, type DebuggerPayload, redactUrl } from "@bugberry/capture"
 import { type ActiveTab, type CaptureResult, capturable, pagePayloadFor, sanitizePageCapture } from "../capture/capture-flow"
-import { deviceInfoFrom } from "../capture/device"
+import { deviceInfoFrom } from "@bugberry/capture"
 import type { DraftStore } from "../drafts/draft-store"
 import type { CameraChoice, CaptureSource, OffscreenMessage, RecordOptions } from "../shared/messages"
 import { pickCustomFields } from "./custom-fields"
