@@ -113,6 +113,7 @@ export function ReportCardBody({
             </span>
           )}
         </p>
+        {item.senderName && <p className="truncate text-xs text-muted-foreground">Sent by {item.senderName} through a request link</p>}
       </div>
     </div>
   )

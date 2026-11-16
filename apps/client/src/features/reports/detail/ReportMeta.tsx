@@ -47,6 +47,16 @@ export function ReportMeta({
           </span>
         </p>
       )}
+      {part !== "chips" && report.sender && (
+        <p className="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
+          <span>Sent by {report.sender.name} through a request link</span>
+          {report.sender.email && (
+            <a href={`mailto:${report.sender.email}`} className="text-foreground hover:underline">
+              {report.sender.email}
+            </a>
+          )}
+        </p>
+      )}
       {part !== "byline" && (
         <div className="flex flex-wrap items-center gap-2">
           <span className={chip}>

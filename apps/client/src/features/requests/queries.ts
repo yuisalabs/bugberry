@@ -17,6 +17,29 @@ export const requestApi: RequestApi = {
 
 export type RequestLinkInfo = Awaited<ReturnType<typeof requestLink>>
 
+export interface NewRequest {
+  workspaceId?: string
+  projectId: string | null
+  note: string
+  pageUrl: string
+  expiresInDays: 1 | 7 | 30
+  maxUses: 1 | 5 | 20
+}
+
+export const recordingRequests = (workspaceId: string) => unwrap(eden.api["recording-requests"].get({ query: { workspaceId } }))
+export const createRequest = (input: NewRequest) =>
+  unwrap(
+    eden.api["recording-requests"].post({
+      ...input,
+      note: input.note.trim() || undefined,
+      pageUrl: input.pageUrl.trim() || undefined,
+    }),
+  )
+export const revokeRequest = (id: string) => unwrap(eden.api["recording-requests"]({ id }).delete())
+
+export type RecordingRequest = Awaited<ReturnType<typeof recordingRequests>>[number]
+
 export const requestQueries = {
+  list: (workspaceId: string) => queryOptions({ queryKey: qk.recordingRequests(workspaceId), queryFn: () => recordingRequests(workspaceId) }),
   link: (token: string) => queryOptions({ queryKey: qk.requestLink(token), queryFn: () => requestLink(token), retry: false, staleTime: Infinity }),
 }

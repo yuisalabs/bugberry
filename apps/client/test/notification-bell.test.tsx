@@ -35,6 +35,11 @@ describe("NotificationBell", () => {
     expect(container.textContent).toBe("9+")
   })
 
+  test("the bell reads a recording that arrived", () => {
+    view({ items: [item(3, { kind: "recording_received", actor: null, senderName: "Budi", commentId: null, snippet: "" })], unreadCount: 1 })
+    expect(screen.getByText("Budi sent the recording you asked for")).toBeTruthy()
+  })
+
   test("lists mentions and opens one", () => {
     const first = item(7)
     const { onOpen } = view({ items: [first, item(8, { read: true, actor: null })], unreadCount: 1 })
