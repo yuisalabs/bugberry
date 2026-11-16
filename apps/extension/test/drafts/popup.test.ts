@@ -9,6 +9,7 @@ import {
   countText,
   draftNote,
   isSignedOut,
+  sendingDraftIds,
   recordingLabel,
   recordStartNote,
   replyResult,
@@ -32,6 +33,31 @@ describe("draftNote and canDelete", () => {
     expect(draftNote(draft("uploading"), { recording: false })).toBe("(upload interrupted)")
     expect(draftNote(draft("failed"), { recording: false })).toBe("(failed)")
     expect(draftNote(draft("editing"), { recording: false })).toBeNull()
+  })
+})
+
+describe("queued drafts", () => {
+  const IDLE = { recording: false as const }
+
+  test("a queued draft waits for the connection", () => {
+    expect(draftNote(draft("queued"), IDLE, false)).toBe("(waiting for connection)")
+  })
+
+  test("a draft being sent says so and can't be deleted", () => {
+    expect(draftNote(draft("queued"), IDLE, true)).toBe("(sending…)")
+    expect(draftNote(draft("uploading"), IDLE, true)).toBe("(sending…)")
+    expect(canDelete(draft("queued"), IDLE, true)).toBe(false)
+    expect(canDelete(draft("uploading"), IDLE, true)).toBe(false)
+  })
+
+  test("an idle queued draft can be deleted", () => {
+    expect(canDelete(draft("queued"), IDLE, false)).toBe(true)
+  })
+})
+
+describe("sendingDraftIds", () => {
+  test("the drafts whose send lock is held", () => {
+    expect(sendingDraftIds([{ name: "bugberry-draft-d1" }, { name: "other" }, {}, { name: "bugberry-draft-d2" }])).toEqual(["d1", "d2"])
   })
 })
 

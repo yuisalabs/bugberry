@@ -3,7 +3,7 @@ import { RiLoader4Line } from "@remixicon/react"
 import { useEffect, useState } from "react"
 import { browser } from "wxt/browser"
 import { createBugberryApi } from "../../lib/server/api"
-import { BUILD_SERVER_ORIGIN, browserSettingsStorage, capturePrefsStorage, lastSessionStorage, lastWorkspaceStorage } from "../../lib/server/browser-settings"
+import { BUILD_SERVER_ORIGIN, browserSettingsStorage, capturePrefsStorage, lastSessionStorage, lastWorkspaceStorage, sentAwayStorage } from "../../lib/server/browser-settings"
 import { type CameraAccess, cameraAccess, type CameraDevice, cameraDevices } from "../../lib/devices/camera"
 import { capturable } from "../../lib/capture/capture-flow"
 import { captureRunning } from "../../lib/capture/open-tabs"
@@ -13,6 +13,7 @@ import { createIndexedDbDraftStore } from "../../lib/drafts/draft-store"
 import { fullWarning, limitsFor, usageLine } from "../../lib/server/limits"
 import type {
   OpenDraftRequest,
+  OutboxFlushRequest,
   PopupPromptRequest,
   PopupRecordingAction,
   PopupRecordingRequest,
@@ -24,7 +25,8 @@ import type {
   ScreenshotRequest,
 } from "../../lib/shared/messages"
 import { type MicAccess, micAccess, micChoiceAfterCheck, micDevices } from "../../lib/devices/microphone"
-import { controlError, recordStartNote, replyResult, uncapturableNote } from "../../lib/drafts/popup"
+import { controlError, recordStartNote, replyResult, sendingDraftIds, uncapturableNote } from "../../lib/drafts/popup"
+import type { SentAway } from "../../lib/drafts/sent-away"
 import { pickEditorWorkspace } from "../../lib/review/report-form"
 import type { PopupRecordingStatus, RecordingStatus } from "../../lib/recording/recording-state"
 import { checkSession, type SessionState, serverLabel, signInUrl } from "../../lib/server/session"
@@ -74,6 +76,8 @@ export function App() {
   }, [])
   const [prefs, setPrefs] = useState<CapturePrefs>(DEFAULT_CAPTURE_PREFS)
   const [drafts, setDrafts] = useState<Awaited<ReturnType<typeof store.list>>>([])
+  const [sending, setSending] = useState<string[]>([])
+  const [sentAway, setSentAway] = useState<SentAway[]>([])
   const [recording, setRecording] = useState<RecordingStatus | undefined>(undefined)
   const [activeTab, setActiveTab] = useState<{ id?: number; url?: string } | null>(null)
   const [mic, setMic] = useState<MicList>({ access: "prompt", devices: [], defaultId: null })
@@ -137,11 +141,20 @@ export function App() {
     void readMic()
     void readCamera()
     readDrafts()
+    const flush: OutboxFlushRequest = { type: "bugberry:outbox-flush" }
+    void browser.runtime.sendMessage(flush).catch(() => {})
+    window.addEventListener("focus", readDrafts)
+    return () => window.removeEventListener("focus", readDrafts)
   }, [])
 
   /** The unsent drafts, and the recording they are checked against; read again once a Discard removed one. */
   const readDrafts = () => {
     store.list().then(setDrafts)
+    void sentAwayStorage.list().then(setSentAway)
+    void navigator.locks
+      .query()
+      .then((state) => setSending(sendingDraftIds(state.held ?? [])))
+      .catch(() => setSending([]))
     const status: RecordStatusRequest = { type: "bugberry:record-status" }
     browser.runtime
       .sendMessage(status)
@@ -346,6 +359,16 @@ export function App() {
         live={live}
         activeTabId={activeTab?.id ?? null}
         drafts={drafts}
+        sending={sending}
+        sentAway={sentAway}
+        onOpenSent={(sent) => {
+          void sentAwayStorage.remove(sent.draftId)
+          void browser.tabs.create({ url: sent.reportUrl })
+        }}
+        onDismissSent={(draftId) => {
+          setSentAway((rows) => rows.filter((row) => row.draftId !== draftId))
+          void sentAwayStorage.remove(draftId)
+        }}
         logsAvailable={capturable(activeTab?.url)}
         tabRecorder={tabRecorder}
         hostAccess={hostAccess}

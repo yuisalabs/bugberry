@@ -14,6 +14,8 @@ import type { ReplayAction, ReplayStatus } from "../../lib/shared/messages"
 import type { ReportDraft } from "../../lib/shared/types"
 import { CaptureControls, Tiles } from "./CapturePanel"
 import { DraftList } from "./DraftList"
+import { SentAwayList } from "./SentAwayList"
+import type { SentAway } from "../../lib/drafts/sent-away"
 import { RecordingPanel } from "./RecordingPanel"
 import { CameraPicker } from "./CameraPicker"
 import { MicPicker } from "./MicPicker"
@@ -50,6 +52,12 @@ export interface PopupViewProps {
   live: PopupRecordingStatus | undefined
   activeTabId: number | null
   drafts: ReportDraft[]
+  /** Drafts whose lock a page or the background holds right now. */
+  sending: string[]
+  /** Reports the background sent while the popup was closed. */
+  sentAway: SentAway[]
+  onOpenSent(sent: SentAway): void
+  onDismissSent(draftId: string): void
   /** False when the active tab isn't a web page: a screen or window recorded from it has no logs. */
   logsAvailable: boolean
   /** False in Firefox: no "Tab" tile and no system audio; the browser's picker chooses a screen or window. */
@@ -351,6 +359,7 @@ export function PopupView(props: PopupViewProps) {
           )}
         </>
       )}
+      {!live && <SentAwayList sent={props.sentAway} onOpen={props.onOpenSent} onDismiss={props.onDismissSent} />}
       {!live && blocked && props.error && (
         <Strip tone="danger" alert>
           {props.error}
