@@ -79,11 +79,6 @@ export const MEMBER_ONLY: Route[] = [
   at("PATCH /api/labels/:id", (ids) => `/api/labels/${ids.label}`, () => ({ name: "Renamed" })),
   at("PUT /api/reports/:id/labels", (ids) => `/api/reports/${ids.reportP1}/labels`, () => ({ labelIds: [] })),
   at("DELETE /api/labels/:id", (ids) => `/api/labels/${ids.label}`),
-  at("GET /api/reports/:id/comments", (ids) => `/api/reports/${ids.reportP1}/comments`),
-  at("POST /api/reports/:id/comments", (ids) => `/api/reports/${ids.reportP1}/comments`, () => ({ body: "Hello" })),
-  at("PATCH /api/comments/:id", (ids) => `/api/comments/${ids.commentP1}`, () => ({ body: "Edited" })),
-  at("DELETE /api/comments/:id", (ids) => `/api/comments/${ids.commentP1}`),
-  at("POST /api/comments/:id/reactions", (ids) => `/api/comments/${ids.commentP1}/reactions`, () => ({ emoji: "👍" })),
   at("GET /api/reports/:id/activity", (ids) => `/api/reports/${ids.reportP1}/activity`),
   at("POST /api/notifications/:id/read", () => "/api/notifications/nope/read"),
   at("GET /api/projects/:id/integrations", (ids) => `/api/projects/${ids.p1}/integrations`),
@@ -128,6 +123,12 @@ export const GUEST_ROUTES: string[] = [
   "GET /api/reports",
   "GET /api/reports/counts",
   "GET /api/reports/:id",
+  "GET /api/reports/:id/comments",
+  "POST /api/reports/:id/comments",
+  "PATCH /api/comments/:id",
+  "DELETE /api/comments/:id",
+  "POST /api/comments/:id/reactions",
+  "GET /api/reports/:id/mentionable",
 ]
 
 /** The caller's own things, answering a guest and an outsider alike with their own (empty) data. */

@@ -1,6 +1,6 @@
 import type { Db } from "../../db/client"
 import { activeAmong } from "../account/repository"
-import { insertMentionNotifications, membersAmong } from "./repository"
+import { type CommentPlace, insertMentionNotifications, readersAmong } from "./repository"
 
 /** How a comment stores a mention: `@[user:<id>]`. The client shows it as "@Name". */
 export const MENTION_TOKEN = /@\[user:([A-Za-z0-9_-]{1,64})\]/g
@@ -23,10 +23,10 @@ export function snippetOf(body: string, names: Map<string, string>): string {
   return text.length > SNIPPET_LENGTH ? `${text.slice(0, SNIPPET_LENGTH - 1)}…` : text
 }
 
-/** Names of the mentioned people who are members of the workspace; everyone else is left out. */
-export async function memberNames(db: Db, workspaceId: string, ids: string[]): Promise<Map<string, string>> {
+/** Names of the mentioned people who can read a report here (members, and the project's guests); everyone else is left out. */
+export async function readerNames(db: Db, place: CommentPlace, ids: string[]): Promise<Map<string, string>> {
   if (ids.length === 0) return new Map()
-  const rows = await membersAmong(db, workspaceId, ids)
+  const rows = await readersAmong(db, place, ids)
   return new Map(rows.map((row) => [row.id, row.name]))
 }
 
@@ -45,11 +45,11 @@ export function mentionsOf(body: string, names: Map<string, string>): Array<{ id
  */
 export async function notifyMentions(
   db: Db,
-  input: { commentId: string; reportId: string; workspaceId: string; actorId: string; body: string; skip?: string[] },
+  input: { commentId: string; reportId: string; place: CommentPlace; actorId: string; body: string; skip?: string[] },
 ): Promise<string[]> {
   const ids = mentionedIds(input.body).filter((id) => id !== input.actorId && !input.skip?.includes(id))
   // A deactivated person keeps their name in the comment, but gets nothing in the bell.
-  const members = await activeAmong(db, [...(await memberNames(db, input.workspaceId, ids)).keys()])
+  const members = await activeAmong(db, [...(await readerNames(db, input.place, ids)).keys()])
   if (members.length === 0) return []
   const target = { commentId: input.commentId, reportId: input.reportId, actorId: input.actorId }
   return insertMentionNotifications(db, target, members)

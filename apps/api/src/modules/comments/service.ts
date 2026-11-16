@@ -1,16 +1,17 @@
 import type { AppDeps } from "../../deps"
 import type { CurrentUser } from "../../plugins/auth"
-import { memberRole, requireReportMember } from "../workspaces/access"
+import { requireReportReader, scopeReaches, workspaceScope } from "../workspaces/access"
 import { badRequest, forbidden, notFound, unprocessable } from "../../lib/errors"
 import { newId } from "../../lib/ids"
 import { mentionEmail } from "./mention-email"
 import { createEmailSender, type EmailSender } from "../../lib/email/sender"
-import { memberNames, mentionedIds, mentionsOf, notifyMentions, snippetOf } from "./mentions"
+import { mentionedIds, mentionsOf, notifyMentions, readerNames, snippetOf } from "./mentions"
 import { isEmoji, reactionsFor } from "./reactions"
 import { notifyReplies } from "./replies"
 import {
   type CommentRow,
   countReplies,
+  type CommentPlace,
   deleteComment,
   deleteReaction,
   findComment,
@@ -21,6 +22,7 @@ import {
   insertComment,
   insertReaction,
   isReadyReport,
+  listMentionable,
   listReportComments,
   updateCommentBody,
   userEmails,
@@ -47,9 +49,9 @@ export function createCommentsService(deps: AppDeps) {
    * What the API shows of each comment, with the current names of the members it mentions. A deleted comment
    * kept for its replies shows nothing of what it said or who said it.
    */
-  const toViews = async (rows: CommentRow[], workspaceId: string) => {
+  const toViews = async (rows: CommentRow[], place: CommentPlace) => {
     const live = rows.filter((row) => row.deletedAt === null)
-    const names = await memberNames(db, workspaceId, [...new Set(live.flatMap((row) => mentionedIds(row.body)))])
+    const names = await readerNames(db, place, [...new Set(live.flatMap((row) => mentionedIds(row.body)))])
     const reactions = await reactionsFor(db, live.map((row) => row.id))
     return rows.map((row) => {
       const deleted = row.deletedAt !== null
@@ -68,10 +70,10 @@ export function createCommentsService(deps: AppDeps) {
       }
     })
   }
-  const loadComment = async (id: string, workspaceId: string) => {
+  const loadComment = async (id: string, place: CommentPlace) => {
     const row = await findComment(db, id)
     if (!row) throw notFound("comment_not_found", "Comment not found")
-    const [shown] = await toViews([row], workspaceId)
+    const [shown] = await toViews([row], place)
     return shown as NonNullable<typeof shown>
   }
   /**
@@ -82,7 +84,7 @@ export function createCommentsService(deps: AppDeps) {
     userIds: string[]
     commentId: string
     reportId: string
-    workspaceId: string
+    place: CommentPlace
     actorName: string
     body: string
     viaAgent: string | null
@@ -92,7 +94,7 @@ export function createCommentsService(deps: AppDeps) {
     const task = (async () => {
       const target = await findReportHeading(db, input.reportId)
       if (!target) return
-      const names = await memberNames(db, input.workspaceId, mentionedIds(input.body))
+      const names = await readerNames(db, input.place, mentionedIds(input.body))
       const email = mentionEmail({
         actorName: input.actorName,
         reportNumber: target.number,
@@ -108,18 +110,20 @@ export function createCommentsService(deps: AppDeps) {
     })().catch((error) => console.error("mention email failed", error))
     deps.background?.(task)
   }
-  /** A ready report in a workspace the caller belongs to; returns that workspace. */
-  const requireReport = async (userId: string, id: string) => {
-    const { workspaceId } = await requireReportMember(db, userId, id)
+  /** A ready report the caller may read (a member, or a guest of its project); returns where it sits. */
+  const requireReport = async (userId: string, id: string): Promise<CommentPlace> => {
+    const { workspaceId, projectId } = await requireReportReader(db, userId, id)
     if (!(await isReadyReport(db, id))) throw notFound("report_not_found", "Report not found")
-    return workspaceId
+    return { workspaceId, projectId }
   }
-  /** The comment's author and the caller's role in its report's workspace; outsiders get 404. */
+  /** The comment's author and the caller's role where it sits; anyone who can't read its report gets 404. */
   const commentAccess = async (userId: string, id: string) => {
     const row = await findCommentPlace(db, id)
-    const role = row ? await memberRole(db, userId, row.workspaceId) : null
-    if (!row || !role || row.deletedAt !== null) throw notFound("comment_not_found", "Comment not found")
-    return { ...row, role }
+    const scope = row ? await workspaceScope(db, userId, row.workspaceId) : null
+    if (!row || !scope || !scopeReaches(scope, row.projectId) || row.deletedAt !== null) {
+      throw notFound("comment_not_found", "Comment not found")
+    }
+    return { ...row, place: { workspaceId: row.workspaceId, projectId: row.projectId }, role: scope.role }
   }
   /** The thread a reply goes into: the comment's own thread when it is itself a reply, so threads stay one level. */
   const threadRootOf = async (reportId: string, replyTo: string) => {
@@ -129,11 +133,15 @@ export function createCommentsService(deps: AppDeps) {
   }
 
   return {
+    /** Who can be mentioned on the report: the workspace's active members and its project's guests, without emails. */
+    async mentionable(current: CurrentUser, reportId: string) {
+      return listMentionable(db, await requireReport(current.id, reportId))
+    },
     /** Threads newest first by their first comment; each thread's replies oldest first. */
     async list(current: CurrentUser, reportId: string) {
-      const workspaceId = await requireReport(current.id, reportId)
+      const place = await requireReport(current.id, reportId)
       const rows = await listReportComments(db, reportId)
-      const views = await toViews(rows, workspaceId)
+      const views = await toViews(rows, place)
       const replies = new Map<string, typeof views>()
       for (const view of views) {
         if (view.parentId) replies.set(view.parentId, [...(replies.get(view.parentId) ?? []), view])
@@ -153,16 +161,16 @@ export function createCommentsService(deps: AppDeps) {
       body: string,
       opts: { viaAgent?: string; replyTo?: string; quietFor?: string[] } = {},
     ) {
-      const workspaceId = await requireReport(current.id, reportId)
+      const place = await requireReport(current.id, reportId)
       const id = newId()
       const text = cleanBody(body)
       const viaAgent = opts.viaAgent ?? null
       const parentId = opts.replyTo ? await threadRootOf(reportId, opts.replyTo) : null
       await insertComment(db, { id, reportId, authorId: current.id, body: text, viaAgent, parentId })
-      const notified = await notifyMentions(db, { commentId: id, reportId, workspaceId, actorId: current.id, body: text, skip: opts.quietFor })
-      if (parentId) await notifyReplies(db, { commentId: id, reportId, workspaceId, actorId: current.id, rootId: parentId })
-      emailMentions({ userIds: notified, commentId: id, reportId, workspaceId, actorName: current.name, body: text, viaAgent })
-      return loadComment(id, workspaceId)
+      const notified = await notifyMentions(db, { commentId: id, reportId, place, actorId: current.id, body: text, skip: opts.quietFor })
+      if (parentId) await notifyReplies(db, { commentId: id, reportId, place, actorId: current.id, rootId: parentId })
+      emailMentions({ userIds: notified, commentId: id, reportId, place, actorName: current.name, body: text, viaAgent })
+      return loadComment(id, place)
     },
     async edit(current: CurrentUser, commentId: string, body: string) {
       const access = await commentAccess(current.id, commentId)
@@ -172,7 +180,7 @@ export function createCommentsService(deps: AppDeps) {
       const notified = await notifyMentions(db, {
         commentId,
         reportId: access.reportId,
-        workspaceId: access.workspaceId,
+        place: access.place,
         actorId: current.id,
         body: text,
       })
@@ -180,12 +188,12 @@ export function createCommentsService(deps: AppDeps) {
         userIds: notified,
         commentId,
         reportId: access.reportId,
-        workspaceId: access.workspaceId,
+        place: access.place,
         actorName: current.name,
         body: text,
         viaAgent: access.viaAgent,
       })
-      return loadComment(commentId, access.workspaceId)
+      return loadComment(commentId, access.place)
     },
     /** Adds the caller's emoji to a comment, or takes it off when it is already there; returns its reactions. */
     async toggleReaction(current: CurrentUser, commentId: string, emoji: string) {

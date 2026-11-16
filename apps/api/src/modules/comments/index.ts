@@ -15,6 +15,7 @@ export function commentsModule(deps: AppDeps) {
   return new Elysia()
     .use(authPlugin(deps))
     .get("/reports/:id/comments", ({ user: current, params }) => comments.list(current, params.id), { auth: true })
+    .get("/reports/:id/mentionable", ({ user: current, params }) => comments.mentionable(current, params.id), { auth: true })
     .post(
       "/reports/:id/comments",
       ({ user: current, params, body }) => comments.create(current, params.id, body.body, { replyTo: body.replyTo }),
