@@ -80,6 +80,18 @@ describe("labels through MCP", () => {
     expect(result).toMatchObject({ isError: true, text: 'No label named "urgent". Labels here: Bug, Checkout.' })
   })
 
+  test("a refused label change leaves the other fields as they were", async () => {
+    const typo = await callTool(client, "updateReport", { report: reportId, status: "resolved", addLabels: ["regresion"] })
+    expect(typo.isError).toBe(true)
+    const ids: string[] = []
+    for (let i = 1; i <= 10; i++) ids.push((await createLabel(`L${i}`)).id)
+    await setReportLabels(ctx, ana.user, reportId, ids)
+    const full = await callTool(client, "updateReport", { report: reportId, priority: "critical", addLabels: ["Bug"] })
+    expect(full.isError).toBe(true)
+    const response = await ctx.app.handle(new Request(`http://localhost/api/reports/${reportId}`, { headers: ana.headers }))
+    expect(await response.json()).toMatchObject({ status: "open", priority: "none" })
+  })
+
   test("adding an 11th label is refused", async () => {
     const ids: string[] = []
     for (let i = 1; i <= 10; i++) ids.push((await createLabel(`L${i}`)).id)

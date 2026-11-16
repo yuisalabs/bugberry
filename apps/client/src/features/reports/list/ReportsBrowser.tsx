@@ -14,11 +14,22 @@ import { useReportFeed } from "./useReportFeed"
 import { installHref } from "../../landing/site-links"
 import { authQueries } from "../../auth/queries"
 import { projectQueries } from "../../projects/queries"
-import { labelQueries } from "../../labels/queries"
+import { type Label, labelQueries } from "../../labels/queries"
 import { workspaceQueries } from "../../workspaces/queries"
 import { reportQueries } from "../queries"
 
-export type SearchUpdater = (update: (prev: ReportSearch) => ReportSearch) => void
+/** `replace` corrects the URL in place, without a history entry Back would return to. */
+export type SearchUpdater = (update: (prev: ReportSearch) => ReportSearch, options?: { replace?: boolean }) => void
+
+/** A label deleted since the link was made leaves the URL once the labels are known. */
+export function useDropUnknownLabels(search: ReportSearch, labels: readonly Label[] | undefined, setSearch: SearchUpdater) {
+  const labelIds = search.label?.join(",")
+  useEffect(() => {
+    if (!labels || !search.label) return
+    const known = knownLabels(search, labels)
+    if (known?.length !== search.label.length) setSearch((prev) => ({ ...prev, label: known }), { replace: true })
+  }, [labels, labelIds])
+}
 
 /**
  * ReportsView wired to the API and the URL. `scope` fixes the project on a project page; the
@@ -49,13 +60,7 @@ export function ReportsBrowser({
   // The project filter needs them on the all-reports page; the list view names projects on every page.
   const projects = useQuery({ ...projectQueries.projects(workspaceId), enabled: Boolean(workspace) })
   const labels = useQuery({ ...labelQueries.labels(workspaceId), enabled: Boolean(workspace) })
-  // A label deleted since the link was made leaves the URL once the labels are known.
-  const labelIds = search.label?.join(",")
-  useEffect(() => {
-    if (!labels.data || !search.label) return
-    const known = knownLabels(search, labels.data)
-    if (known?.length !== search.label.length) setSearch((prev) => ({ ...prev, label: known }))
-  }, [labels.data, labelIds])
+  useDropUnknownLabels(search, labels.data, setSearch)
   const feed = useReportFeed(workspaceId, toReportsQuery(scope, search), Boolean(workspace))
   const config = useQuery(authQueries.clientConfig())
   // The server's own install link, else BugBerry's Chrome Web Store page.

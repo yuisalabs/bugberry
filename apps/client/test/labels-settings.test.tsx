@@ -65,5 +65,6 @@ describe("the labels page", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "New label" }), { target: { value: "Bug" } })
     fireEvent.click(screen.getByRole("button", { name: "Create label" }))
     expect(props.onCreate).toHaveBeenCalledWith("Bug")
+    expect(props.onCreate).toHaveBeenCalledTimes(1)
   })
 })

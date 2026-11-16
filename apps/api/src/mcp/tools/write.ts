@@ -1,4 +1,4 @@
-import { MAX_FIX_URL_LENGTH, MAX_FIXES_PER_REPORT, PRIORITIES, REPORT_STATUSES } from "@bugberry/shared"
+import { MAX_FIX_URL_LENGTH, MAX_FIXES_PER_REPORT, MAX_LABELS_PER_REPORT, PRIORITIES, REPORT_STATUSES } from "@bugberry/shared"
 import { findLabelsByNames, labelsOfReports, listLabels } from "../../modules/labels/repository"
 import { setReportLabels } from "../../modules/labels/service"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
@@ -133,16 +133,19 @@ export function registerWriteTools(server: McpServer, ctx: McpContext): void {
         }
         const viaAgent = agentLabel(ctx.caller)
         const changesLabels = Boolean(args.addLabels?.length || args.removeLabels?.length)
-        let detail = Object.keys(input).length || !changesLabels ? await updateReport(ctx.deps, ctx.caller.user, resolved.id, input, { viaAgent }) : null
+        // Checked before any field changes, so a refused label change leaves the report as it was.
+        const add = await labelsNamed(ctx, resolved.workspaceId, args.addLabels ?? [])
+        const remove = await labelsNamed(ctx, resolved.workspaceId, args.removeLabels ?? [])
+        const nextLabels = (current: string[]) =>
+          [...new Set([...current, ...add.map((label) => label.id)])].filter((id) => !remove.some((label) => label.id === id))
         if (changesLabels) {
-          const add = await labelsNamed(ctx, resolved.workspaceId, args.addLabels ?? [])
-          const remove = await labelsNamed(ctx, resolved.workspaceId, args.removeLabels ?? [])
           const current = (await labelsOfReports(ctx.deps.db, [resolved.id])).get(resolved.id) ?? []
-          const ids = [...new Set([...current.map((label) => label.id), ...add.map((label) => label.id)])].filter(
-            (id) => !remove.some((label) => label.id === id),
-          )
-          detail = await setReportLabels(ctx.deps, ctx.caller.user, resolved.id, ids, { viaAgent })
+          if (nextLabels(current.map((label) => label.id)).length > MAX_LABELS_PER_REPORT) {
+            throw new McpToolError("label_limit", `A report takes at most ${MAX_LABELS_PER_REPORT} labels`)
+          }
         }
+        let detail = Object.keys(input).length || !changesLabels ? await updateReport(ctx.deps, ctx.caller.user, resolved.id, input, { viaAgent }) : null
+        if (changesLabels) detail = await setReportLabels(ctx.deps, ctx.caller.user, resolved.id, nextLabels, { viaAgent })
         if (!detail) throw new McpToolError("report_not_found", "Report not found")
         return textResult(
           `Updated BB-${detail.number}: ${detail.status}/${detail.priority}, assignee ${detail.assignee?.name ?? "nobody"}. ${reportUrl(appUrl, detail.id)}`,

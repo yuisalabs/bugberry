@@ -15,6 +15,7 @@ import {
   insertLabel,
   type LabelView,
   labelsOfReports,
+  lockReportLabels,
   replaceReportLabels,
   updateLabel,
 } from "./repository"
@@ -92,20 +93,23 @@ export async function setReportLabels(
   deps: Pick<AppDeps, "db" | "storage">,
   caller: { id: string },
   reportId: string,
-  labelIds: readonly string[],
+  /** The new set, or how to make it from the set the report carries once it is locked (adding and removing). */
+  labelIds: readonly string[] | ((current: string[]) => string[]),
   opts: { viaAgent?: string } = {},
 ): Promise<ReportDetail> {
   const { db } = deps
   const target = await requireReportMember(db, caller.id, reportId)
-  const wanted = [...new Set(labelIds)]
-  if (wanted.length > MAX_LABELS_PER_REPORT) {
-    throw unprocessable("label_limit", `A report takes at most ${MAX_LABELS_PER_REPORT} labels`)
-  }
-  // A label of another workspace answers like one that doesn't exist.
-  const found = await findLabelsByIds(db, target.workspaceId, wanted)
-  if (found.length !== wanted.length) throw unprocessable("label_not_found", "Label not found in this workspace")
   await withTransaction(db, async () => {
+    // Two changes at once would each read the old set: one would undo the other, or pass the cap together.
+    await lockReportLabels(db, reportId)
     const before = (await labelsOfReports(db, [reportId])).get(reportId) ?? []
+    const wanted = [...new Set(typeof labelIds === "function" ? labelIds(before.map((label) => label.id)) : labelIds)]
+    if (wanted.length > MAX_LABELS_PER_REPORT) {
+      throw unprocessable("label_limit", `A report takes at most ${MAX_LABELS_PER_REPORT} labels`)
+    }
+    // A label of another workspace answers like one that doesn't exist.
+    const found = await findLabelsByIds(db, target.workspaceId, wanted)
+    if (found.length !== wanted.length) throw unprocessable("label_not_found", "Label not found in this workspace")
     const added = found.filter((label) => !before.some((had) => had.id === label.id))
     const removed = before.filter((had) => !wanted.includes(had.id))
     if (added.length === 0 && removed.length === 0) return

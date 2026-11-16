@@ -1,7 +1,7 @@
 import type { LabelColor } from "@bugberry/shared"
 import { and, asc, count, eq, inArray, notInArray, sql } from "drizzle-orm"
 import { type Db, executor } from "../../db/client"
-import { label, reportLabel } from "../../db/schema"
+import { label, report, reportLabel } from "../../db/schema"
 
 export interface LabelView {
   id: string
@@ -89,6 +89,11 @@ export async function labelsOfReports(db: Db, reportIds: readonly string[]): Pro
     .orderBy(...byName)
   for (const { reportId, ...labelView } of rows) found.set(reportId, [...(found.get(reportId) ?? []), labelView])
   return found
+}
+
+/** Until the transaction ends, other label changes on this report wait here. */
+export async function lockReportLabels(db: Db, reportId: string): Promise<void> {
+  await executor(db).select({ id: report.id }).from(report).where(eq(report.id, reportId)).for("update")
 }
 
 /** Makes the report carry exactly `labelIds`. */

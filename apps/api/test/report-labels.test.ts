@@ -73,6 +73,14 @@ describe("a report's labels", () => {
     expect((await setLabels(reportId, Array.from({ length: 11 }, (_, i) => `id-${i}`))).status).toBe(422)
   })
 
+  test("two sets at once never leave more than 10 labels", async () => {
+    const ids: string[] = []
+    for (let i = 0; i < 12; i++) ids.push((await json(await call("POST", "/api/labels", member, { name: `L${i}` }))).id)
+    await Promise.all([setLabels(reportId, ids.slice(0, 6)), setLabels(reportId, ids.slice(6, 12))])
+    const labels = (await json(await call("GET", `/api/reports/${reportId}`, member))).labels as unknown[]
+    expect(labels).toHaveLength(6)
+  })
+
   test("an outsider can't set labels", async () => {
     const answer = await setLabels(reportId, [], outsider)
     expect(answer.status).toBe(404)

@@ -12,7 +12,7 @@ export function AllReportsPage() {
       title="All reports"
       scope={{}}
       search={search}
-      setSearch={(update) => void navigate({ search: update })}
+      setSearch={(update, options) => void navigate({ search: update, replace: options?.replace })}
       showProjectFilter
     />
   )

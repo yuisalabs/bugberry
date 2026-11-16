@@ -164,7 +164,7 @@ export function LabelsSettingsView({
             </p>
           )}
         </div>
-        <Button type="submit" onPress={() => void submit()}>
+        <Button type="submit">
           Create label
         </Button>
       </form>
