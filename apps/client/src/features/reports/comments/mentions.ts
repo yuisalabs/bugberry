@@ -2,7 +2,8 @@
  * Mentions are stored in a comment as `@[user:<id>]` so they follow renames. People type and read
  * "@Name"; these helpers convert between the two.
  */
-export type Mentionable = { id: string; name: string; email: string }
+/** `email` only for members (a guest's isn't shown); `guest` marks a project's guest. */
+export type Mentionable = { id: string; name: string; email?: string; guest?: boolean }
 type Named = Pick<Mentionable, "id" | "name">
 /** Someone picked in the box; `label` is what follows "@" when it is not just the name. */
 export type Picked = Named & { label?: string }
@@ -22,7 +23,7 @@ export function mentionQuery(text: string, caret: number): { start: number; quer
 /** People whose name or email contains the query; names that start with it come first. */
 export function suggestions(people: Mentionable[], query: string, limit = 6): Mentionable[] {
   const needle = query.toLowerCase()
-  const matches = people.filter((person) => `${person.name}\n${person.email}`.toLowerCase().includes(needle))
+  const matches = people.filter((person) => `${person.name}\n${person.email ?? ""}`.toLowerCase().includes(needle))
   const starts = (person: Mentionable) => (person.name.toLowerCase().startsWith(needle) ? 0 : 1)
   return matches.sort((left, right) => starts(left) - starts(right)).slice(0, limit)
 }
@@ -34,7 +35,7 @@ export function suggestions(people: Mentionable[], query: string, limit = 6): Me
 export function mentionLabel(person: Mentionable, people: Mentionable[]): string {
   const name = person.name.toLowerCase()
   const shared = people.some((other) => other.id !== person.id && other.name.toLowerCase() === name)
-  const handle = person.email.split("@")[0]
+  const handle = person.email?.split("@")[0]
   return shared && handle ? `${person.name} (${handle})` : person.name
 }
 

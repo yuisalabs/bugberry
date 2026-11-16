@@ -16,6 +16,7 @@ import {
   RiSettings3Line,
   RiUserAddLine,
 } from "@remixicon/react"
+import { permissionsOf } from "../../features/workspaces/permissions"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, Outlet, useMatchRoute, useNavigate } from "@tanstack/react-router"
 import { useState } from "react"
@@ -88,6 +89,7 @@ export function AppShell() {
   const projects = useQuery({ ...projectQueries.projects(workspace?.id ?? ""), enabled: Boolean(workspace) })
   const waiting = useQuery({ ...workspaceQueries.joinRequests(workspace?.id ?? ""), enabled: workspace?.role === "admin" })
   const waitingCount = waiting.data?.length ?? 0
+  const can = permissionsOf(workspace?.role ?? null)
   const myLimits = useQuery(accountQueries.myLimits())
   const limits = useQuery({ ...workspaceQueries.workspaceLimits(workspace?.id ?? ""), enabled: workspace?.role === "admin" })
   const config = useQuery(authQueries.clientConfig())
@@ -122,7 +124,7 @@ export function AppShell() {
     return (
       <OnboardingProvider>
         <div className="min-h-screen bg-background">{content}</div>
-        <OnboardingWidget startAsPill aboveBottomBar />
+        {can.useWorkspaceTools && <OnboardingWidget startAsPill aboveBottomBar />}
       </OnboardingProvider>
     )
   }
@@ -170,23 +172,27 @@ export function AppShell() {
                 </>
               )}
             </Link>
-            <Link to="/app/settings/ai" {...drawerLink}>
-              {({ isActive }) => (
-                <>
-                  <ActiveIcon active={isActive} line={RiRobot2Line} fill={RiRobot2Fill} className={navIcon} />
-                  AI Agents
-                </>
-              )}
-            </Link>
-            <Link to="/app/settings/members" {...drawerLink}>
-              {({ isActive }) => (
-                <>
-                  <ActiveIcon active={isActive} line={RiGroupLine} fill={RiGroupFill} className={navIcon} />
-                  <span className="flex-1">Members</span>
-                  <WaitingBadge count={waitingCount} />
-                </>
-              )}
-            </Link>
+            {can.useWorkspaceTools && (
+              <Link to="/app/settings/ai" {...drawerLink}>
+                {({ isActive }) => (
+                  <>
+                    <ActiveIcon active={isActive} line={RiRobot2Line} fill={RiRobot2Fill} className={navIcon} />
+                    AI Agents
+                  </>
+                )}
+              </Link>
+            )}
+            {can.seePeople && (
+              <Link to="/app/settings/members" {...drawerLink}>
+                {({ isActive }) => (
+                  <>
+                    <ActiveIcon active={isActive} line={RiGroupLine} fill={RiGroupFill} className={navIcon} />
+                    <span className="flex-1">Members</span>
+                    <WaitingBadge count={waitingCount} />
+                  </>
+                )}
+              </Link>
+            )}
             {isAdmin && (
               <>
                 <Link to="/app/settings/integrations" {...drawerLink}>
@@ -271,14 +277,16 @@ export function AppShell() {
                     </>
                   )}
                 </Link>
-                <Link to="/app/settings/ai" {...topLink}>
-                  {({ isActive }) => (
-                    <>
-                      <ActiveIcon active={isActive} line={RiRobot2Line} fill={RiRobot2Fill} className={pillIcon} />
-                      AI Agents
-                    </>
-                  )}
-                </Link>
+                {can.useWorkspaceTools && (
+                  <Link to="/app/settings/ai" {...topLink}>
+                    {({ isActive }) => (
+                      <>
+                        <ActiveIcon active={isActive} line={RiRobot2Line} fill={RiRobot2Fill} className={pillIcon} />
+                        AI Agents
+                      </>
+                    )}
+                  </Link>
+                )}
                 <ProjectsMenu
                   projects={projects.data}
                   currentSlug={openProject ? openProject.projectSlug : undefined}
@@ -287,15 +295,17 @@ export function AppShell() {
                   onOpen={(projectSlug) => void navigate({ to: "/app/p/$projectSlug", params: { projectSlug } })}
                   onManage={isAdmin ? () => void navigate({ to: "/app/settings/projects" }) : undefined}
                 />
-                <Link to="/app/settings/members" {...topLink}>
-                  {({ isActive }) => (
-                    <>
-                      <ActiveIcon active={isActive} line={RiGroupLine} fill={RiGroupFill} className={pillIcon} />
-                      Members
-                      <WaitingBadge count={waitingCount} />
-                    </>
-                  )}
-                </Link>
+                {can.seePeople && (
+                  <Link to="/app/settings/members" {...topLink}>
+                    {({ isActive }) => (
+                      <>
+                        <ActiveIcon active={isActive} line={RiGroupLine} fill={RiGroupFill} className={pillIcon} />
+                        Members
+                        <WaitingBadge count={waitingCount} />
+                      </>
+                    )}
+                  </Link>
+                )}
                 {isAdmin && (
                   <Link to="/app/settings/integrations" {...topLink}>
                     {({ isActive }) => (
@@ -325,7 +335,7 @@ export function AppShell() {
                 <span className="hidden 2xl:inline">Invite</span>
               </Button>
             )}
-            {workspace && (
+            {workspace && can.useWorkspaceTools && (
               <span className="hidden sm:inline-flex">
                 <NewReportButton installUrl={installUrl} prominent className="rounded-full px-5 shadow-lg shadow-primary/25" />
               </span>
@@ -357,7 +367,7 @@ export function AppShell() {
         <CreateWorkspaceDialog isOpen={creating} onOpenChange={setCreating} />
         <JoinWorkspaceDialog isOpen={joining} onOpenChange={setJoining} />
         {workspace && <InviteDialog workspaceId={workspace.id} isOpen={inviting} onOpenChange={setInviting} />}
-        <OnboardingWidget startAsPill={!onAllReports} />
+        {can.useWorkspaceTools && <OnboardingWidget startAsPill={!onAllReports} />}
       </div>
     </OnboardingProvider>
   )

@@ -119,3 +119,23 @@ export function ReportFields({
     </div>
   )
 }
+
+/** Status, priority and assignee as text: what a project's guest sees, with nothing to change. */
+export function ReportFieldsText({ report }: { report: Pick<ReportDetail, "status" | "priority" | "assignee"> }) {
+  const row = (label: string, icon: ReactNode, value: string) => (
+    <div className="grid w-full grid-cols-[6rem_minmax(0,1fr)] items-center gap-3">
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+        {icon}
+        {value}
+      </span>
+    </div>
+  )
+  return (
+    <div className="flex flex-col gap-2.5">
+      {row("Status", <span aria-hidden className={`block size-2 rounded-full ${STATUS_DOT_STYLES[report.status]}`} />, STATUS_LABELS[report.status])}
+      {row("Priority", <RiFlagLine aria-hidden className={`size-3.5 ${PRIORITY_ICON_STYLES[report.priority]}`} />, PRIORITY_LABELS[report.priority])}
+      {row("Assignee", <RiAccountCircleLine aria-hidden className="size-4 text-muted-foreground" />, report.assignee?.name ?? "Unassigned")}
+    </div>
+  )
+}

@@ -176,7 +176,7 @@ export function MentionTextarea({
               className={`flex cursor-pointer flex-col px-3 py-1.5 ${index === current ? "bg-primary-subtle" : ""}`}
             >
               <span className="truncate font-medium text-foreground">{person.name}</span>
-              <span className="truncate text-xs text-muted-foreground">{person.email}</span>
+              <span className="truncate text-xs text-muted-foreground">{person.guest ? "Guest" : person.email}</span>
             </li>
           ))}
         </ul>

@@ -24,7 +24,8 @@ export function workspaceColor(id: string): string {
 }
 
 /** How a person's place in a workspace reads on screen; the owner is an admin who can't be removed. */
-export function roleLabel(workspace: { role: AccessRole; owner: boolean }): "Owner" | "Admin" | "Member" {
+export function roleLabel(workspace: { role: AccessRole; owner: boolean }): "Owner" | "Admin" | "Member" | "Guest" {
+  if (workspace.role === "guest") return "Guest"
   if (workspace.owner) return "Owner"
   return workspace.role === "admin" ? "Admin" : "Member"
 }

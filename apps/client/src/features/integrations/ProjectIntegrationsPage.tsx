@@ -32,7 +32,7 @@ import {
 import { IntegrationRow, titleOf } from "./IntegrationRow"
 import { ReadyToUse } from "./ReadyToUse"
 
-const routeApi = getRouteApi("/_authed/app/p/$projectSlug/integrations")
+const routeApi = getRouteApi("/_authed/_member/app/p/$projectSlug/integrations")
 
 /** What each group's last card says: the words of a project that uses nothing in it yet. */
 const EMPTY_GROUPS: Record<string, { title: string; text: (project: string) => string; action: string; marks: Connection["provider"][] }> = {

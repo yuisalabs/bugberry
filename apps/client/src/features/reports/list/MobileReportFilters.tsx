@@ -94,6 +94,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 export function FiltersSheetContent({
   search,
   members,
+  showPeople = true,
   projects,
   labels = [],
   onChange,
@@ -101,6 +102,8 @@ export function FiltersSheetContent({
 }: {
   search: ReportSearch
   members: readonly Member[]
+  /** False for a project's guest: no reporter or assignee filter. */
+  showPeople?: boolean
   /** Given on the all-reports page only. */
   projects?: readonly Project[]
   /** The workspace's labels; the section is left out while there are none. */
@@ -143,7 +146,7 @@ export function FiltersSheetContent({
           ))}
         </Section>
 
-        {members.length > 0 && (
+        {showPeople && members.length > 0 && (
           <Section title="Reporter">
             {members.map((member) => (
               <Chip
@@ -203,6 +206,7 @@ export function FiltersSheetContent({
           </Section>
         )}
 
+        {showPeople && (
         <section className="flex flex-col gap-2.5">
           <Select
             aria-label="Assignee"
@@ -216,6 +220,7 @@ export function FiltersSheetContent({
             </SelectContent>
           </Select>
         </section>
+        )}
       </div>
 
       <div className="border-t border-border px-5 py-4">
@@ -231,12 +236,14 @@ export function FiltersSheetContent({
 export function MobileFilters({
   search,
   members,
+  showPeople = true,
   projects,
   labels,
   onChange,
 }: {
   search: ReportSearch
   members: readonly Member[]
+  showPeople?: boolean
   projects?: readonly Project[]
   labels?: readonly Label[]
   onChange(patch: Partial<ReportSearch>): void
@@ -253,7 +260,7 @@ export function MobileFilters({
         )}
       </Button>
       <Sheet isOpen={open} onOpenChange={setOpen} position="bottom" aria-label="Filters">
-        <FiltersSheetContent search={search} members={members} projects={projects} labels={labels} onChange={onChange} onDone={() => setOpen(false)} />
+        <FiltersSheetContent search={search} members={members} showPeople={showPeople} projects={projects} labels={labels} onChange={onChange} onDone={() => setOpen(false)} />
       </Sheet>
     </>
   )

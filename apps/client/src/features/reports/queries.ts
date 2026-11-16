@@ -45,6 +45,7 @@ export const deleteComment = (id: string) => unwrap(eden.api.comments({ id }).de
 /** Adds the caller's emoji to a comment, or takes it off; returns the comment's reactions. */
 export const react = (commentId: string, emoji: string) => unwrap(eden.api.comments({ id: commentId }).reactions.post({ emoji }))
 export const activity = (reportId: string) => unwrap(eden.api.reports({ id: reportId }).activity.get())
+export const mentionable = (reportId: string) => unwrap(eden.api.reports({ id: reportId }).mentionable.get())
 export const regenerateShare = (id: string) => unwrap(eden.api.reports({ id }).share.regenerate.post())
 export const share = (slug: string) => unwrap(eden.api.share({ slug }).get())
 
@@ -100,6 +101,8 @@ export const reportQueries = {
   /** The report's activity lines; fetched only while "All activity" is on, and again on coming back to the page. */
   activity: (reportId: string) =>
     queryOptions({ queryKey: qk.activity(reportId), queryFn: () => activity(reportId), refetchOnWindowFocus: true }),
+  /** The workspace's members and the project's guests, for "@" in a comment. */
+  mentionable: (reportId: string) => queryOptions({ queryKey: qk.mentionable(reportId), queryFn: () => mentionable(reportId) }),
 }
 
 function useCommentMutation<T>(reportId: string, request: (input: T) => Promise<unknown>) {

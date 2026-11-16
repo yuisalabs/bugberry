@@ -1,3 +1,4 @@
+import { redirect } from "@tanstack/react-router"
 import type { QueryClient } from "@tanstack/react-query"
 import { pickWorkspace } from "../workspaces/workspace"
 import { ApiError } from "../../lib/query/unwrap"
@@ -23,4 +24,16 @@ export async function requireWorkspaceAdmin(
   if (pickWorkspace(workspaces, me.lastWorkspaceId)?.role !== "admin") {
     throw new ApiError(403, "forbidden", "Only workspace admins can open this page")
   }
+}
+
+/** Pages for workspace members: a guest of a project is sent to the reports instead. */
+export async function requireWorkspaceMember(
+  queryClient: QueryClient,
+  options: { me: ReturnType<typeof accountQueries.me>; workspaces: ReturnType<typeof workspaceQueries.workspaces> } = {
+    me: accountQueries.me(),
+    workspaces: workspaceQueries.workspaces(),
+  },
+): Promise<void> {
+  const [me, workspaces] = await Promise.all([queryClient.fetchQuery(options.me), queryClient.fetchQuery(options.workspaces)])
+  if (pickWorkspace(workspaces, me.lastWorkspaceId)?.role === "guest") throw redirect({ to: "/app" })
 }

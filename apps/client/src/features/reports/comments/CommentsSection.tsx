@@ -18,6 +18,7 @@ export function CommentsSection({
   busy,
   showActivity,
   onShowActivity,
+  activityAvailable = true,
   onAdd,
   onEdit,
   onDelete,
@@ -32,13 +33,15 @@ export function CommentsSection({
   busy: boolean
   showActivity: boolean
   onShowActivity(on: boolean): void
+  /** False for a project's guest: activity lines are the team's. */
+  activityAvailable?: boolean
   /** Resolves when saved; the typed text is kept until then, so a failed save loses nothing. */
   onAdd(body: string, replyTo?: string): Promise<unknown>
   onEdit(id: string, body: string): Promise<unknown>
   onDelete(id: string): void
   onReact(commentId: string, emoji: string): void
 }) {
-  const feed = mergeFeed(threads, showActivity ? activity : null)
+  const feed = mergeFeed(threads, showActivity && activityAvailable ? activity : null)
   const tab = (on: boolean, label: string) => (
     <button
       type="button"
@@ -59,10 +62,12 @@ export function CommentsSection({
           Comments
           <span className="rounded-full bg-muted px-2 text-xs font-medium text-muted-foreground">{commentCount(threads)}</span>
         </h2>
-        <div role="group" aria-label="Show" className="flex rounded-xl bg-muted p-1">
-          {tab(false, "Comments only")}
-          {tab(true, "All activity")}
-        </div>
+        {activityAvailable && (
+          <div role="group" aria-label="Show" className="flex rounded-xl bg-muted p-1">
+            {tab(false, "Comments only")}
+            {tab(true, "All activity")}
+          </div>
+        )}
       </div>
       <CommentComposer
         me={me}

@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { permissionsOf } from "../../workspaces/permissions"
+import { roleIn } from "../../workspaces/workspace"
 import { getRouteApi, useLocation, useNavigate } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { NotificationBell } from "../../notifications/NotificationBell"
 import { CopyLinkButton } from "../share/CopyLinkButton"
 import { MoreMenu } from "./MoreMenu"
 import { TrackerButton } from "./TrackerButton"
-import { ReportFields } from "./ReportFields"
+import { ReportFields, ReportFieldsText } from "./ReportFields"
 import { LabelPicker } from "../../labels/LabelPicker"
 import { ReportHeader } from "./ReportHeader"
 import { ReportTitle } from "./ReportTitle"
@@ -41,9 +43,10 @@ export function ReportPage() {
   const report = useQuery({ ...reportQueries.report(reportId), retry: false })
   const workspaceId = report.data?.workspaceId ?? ""
   const projects = useQuery({ ...projectQueries.projects(workspaceId), enabled: Boolean(report.data) })
-  const members = useQuery({ ...workspaceQueries.members(workspaceId), enabled: Boolean(report.data) })
-  const trackers = useQuery({ ...reportQueries.reportTrackers(reportId), enabled: Boolean(report.data) })
   const { workspace, workspaces, switchTo } = useCurrentWorkspace()
+  const can = permissionsOf(roleIn(workspaces, workspaceId))
+  const members = useQuery({ ...workspaceQueries.members(workspaceId), enabled: Boolean(report.data) && can.seePeople })
+  const trackers = useQuery({ ...reportQueries.reportTrackers(reportId), enabled: Boolean(report.data) && can.editReports })
 
   const reportKey = reportQueries.report(reportId).queryKey
   const updateKey = ["update-report", reportId]
@@ -98,16 +101,23 @@ export function ReportPage() {
       header={
         <ReportHeader back={backLink(report.data, projects.data ?? [], reportsFrom)} leading={<NotificationBell placement="bottom start" />}>
           {/* On phones both live elsewhere: Copy link in the bottom bar, trackers in the ⋯ sheet. */}
-          <span className="hidden gap-2 md:inline-flex">
-            <TrackerButton report={report.data} />
-            <CopyLinkButton report={report.data} />
-          </span>
-          <MoreMenu report={report.data} />
+          {can.editReports && (
+            <>
+              <span className="hidden gap-2 md:inline-flex">
+                <TrackerButton report={report.data} />
+                <CopyLinkButton report={report.data} />
+              </span>
+              <MoreMenu report={report.data} />
+            </>
+          )}
         </ReportHeader>
       }
-      footer={<CopyLinkButton report={report.data} bar />}
+      footer={can.editReports ? <CopyLinkButton report={report.data} bar /> : undefined}
       project={projects.data?.find((project) => project.id === report.data.projectId)?.name ?? null}
       fields={
+        !can.editReports ? (
+          <ReportFieldsText report={report.data} />
+        ) : (
         <div className="flex flex-col gap-2.5">
           <ReportFields
             report={report.data}
@@ -121,8 +131,9 @@ export function ReportPage() {
             <LabelPicker workspaceId={workspaceId} reportId={report.data.id} labels={report.data.labels ?? []} />
           </div>
         </div>
+        )
       }
-      fixedIn={
+      fixedIn={can.seeTeamDetails ? (
         <FixedInRow
           fixes={report.data.fixes ?? []}
           onAdd={(url) => addFix.mutateAsync(url)}
@@ -132,8 +143,8 @@ export function ReportPage() {
           saving={addFix.isPending}
           error={addFix.error ? errorMessage(addFix.error) : null}
         />
-      }
-      title={<ReportTitle title={report.data.title} editable onSave={(title) => update.mutate({ title })} />}
+      ) : undefined}
+      title={<ReportTitle title={report.data.title} editable={can.editReports} onSave={(title) => update.mutate({ title })} />}
       issues={sentIssues(trackers.data)}
       refreshReport={async () => (await report.refetch()).data}
       startAtSeconds={t}

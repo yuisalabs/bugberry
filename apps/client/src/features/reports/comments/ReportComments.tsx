@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
+import { permissionsOf } from "../../workspaces/permissions"
 import { useLocation } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { reportQueries, useAddComment, useDeleteComment, useEditComment, useReact } from "../queries"
@@ -34,8 +35,11 @@ export function ReportComments({ reportId, workspaceId }: { reportId: string; wo
   const me = useQuery(accountQueries.me())
   const workspaces = useQuery(workspaceQueries.workspaces())
   const comments = useQuery(reportQueries.comments(reportId))
-  const activity = useQuery({ ...reportQueries.activity(reportId), enabled: showActivity })
-  const members = useQuery(workspaceQueries.members(workspaceId))
+  const role = roleIn(workspaces.data ?? [], workspaceId)
+  const can = permissionsOf(role)
+  const activity = useQuery({ ...reportQueries.activity(reportId), enabled: showActivity && can.seeTeamDetails })
+  const members = useQuery({ ...workspaceQueries.members(workspaceId), enabled: can.seePeople })
+  const mentionable = useQuery(reportQueries.mentionable(reportId))
   const hash = useLocation({ select: (location) => location.hash })
   const loaded = comments.isSuccess
   // A link to "#comment-<id>" (from the bell or an email) lands on that comment once comments load.
@@ -58,15 +62,22 @@ export function ReportComments({ reportId, workspaceId }: { reportId: string; wo
       <CommentsSection
         threads={comments.data}
         activity={activity.data ?? null}
-        people={(members.data ?? []).map(({ id, name, email }) => ({ id, name, email }))}
+        people={[
+          // Members are offered with their emails, as before; the project's guests are marked, and are all a guest sees.
+          ...(members.data ?? []).map(({ id, name, email }) => ({ id, name, email })),
+          ...(mentionable.data ?? [])
+            .filter((person) => person.guest || !can.seePeople)
+            .map(({ id, name, guest }) => ({ id, name, guest })),
+        ]}
         me={{
           id: me.data.id,
-          role: roleIn(workspaces.data ?? [], workspaceId) ?? "member",
+          role: role ?? "member",
           name: me.data.name,
           image: me.data.image,
         }}
         busy={add.isPending || edit.isPending || remove.isPending}
         showActivity={showActivity}
+        activityAvailable={can.seeTeamDetails}
         onShowActivity={(on) => {
           setShowActivity(on)
           saveShowActivity(on)

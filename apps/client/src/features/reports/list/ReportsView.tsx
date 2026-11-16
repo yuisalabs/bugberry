@@ -91,6 +91,7 @@ export function ReportsView({
   installButton,
   checkedTotal = null,
   members,
+  showPeople = true,
   projects,
   projectsLoading,
   labels = [],
@@ -136,6 +137,8 @@ export function ReportsView({
   /** How many reports the list holds before filtering, when filters left none; null until known. */
   checkedTotal?: number | null
   members: readonly Member[]
+  /** False for a project's guest: no filter names people. */
+  showPeople?: boolean
   /** Given on the all-reports page, which can filter by project. */
   projects?: readonly Project[]
   projectsLoading?: boolean
@@ -194,7 +197,7 @@ export function ReportsView({
           <div className="order-3 flex w-full items-center gap-2 md:order-2 md:w-auto">
             <ReportSearchBox value={search.q} onSearch={(q) => onSearch({ q })} />
             <span className="md:hidden">
-              <MobileFilters search={search} members={members} projects={projects} labels={labels} onChange={onSearch} />
+              <MobileFilters search={search} members={members} showPeople={showPeople} projects={projects} labels={labels} onChange={onSearch} />
             </span>
             <span className="hidden items-center gap-2 md:flex">
               {actions}
@@ -227,6 +230,7 @@ export function ReportsView({
             <ReportFilters
               search={search}
               members={members}
+              showPeople={showPeople}
               projects={projects}
               projectsLoading={projectsLoading}
               labels={labels}
