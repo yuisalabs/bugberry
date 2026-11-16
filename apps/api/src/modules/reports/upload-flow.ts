@@ -23,6 +23,7 @@ import { afterFinalize } from "./after-finalize"
 import type { CreateUploadBody } from "./model"
 import { reportObjectKeys, unpackReplayFrames } from "./replay-frames"
 import { projectInWorkspace } from "../projects/repository"
+import { notifyRequester } from "../requests/arrival"
 import { countRequestUses } from "../requests/repository"
 import { requestUnavailable } from "../requests/unavailable"
 import {
@@ -294,8 +295,12 @@ export async function finalizeReportUpload(
   // In the background: a slow tracker must not delay the client.
   afterFinalize(deps, row.id, async () => {
     // Side by side and each on its own: a slow or failing tracker must not keep the channels waiting.
+    // A recording from a request link reaches no tracker until a member has looked at it; its requester hears instead.
+    const fromLink = row.recordingRequestId !== null
     await Promise.all([
-      dispatcher.autoSend(row.id).catch((error) => console.error("auto-send failed", { reportId: row.id, error })),
+      fromLink
+        ? notifyRequester(deps, row.id).catch((error) => console.error("requester notice failed", { reportId: row.id, error }))
+        : dispatcher.autoSend(row.id).catch((error) => console.error("auto-send failed", { reportId: row.id, error })),
       notifyNewReport(deps, row.id).catch((error) => console.error("notify failed", { reportId: row.id, error })),
     ])
   })

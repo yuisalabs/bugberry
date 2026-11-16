@@ -33,6 +33,7 @@ export function listVisibleNotifications(db: Db, userId: string, opts: { unreadO
       noteDeletedAt: note.deletedAt,
       workspaceId: report.workspaceId,
       report: { id: report.id, number: report.number, title: report.title },
+      senderName: report.senderName,
       actorId: actor.id,
       actorName: actor.name,
       actorImage: actor.image,

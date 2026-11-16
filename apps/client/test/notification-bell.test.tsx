@@ -12,6 +12,7 @@ const item = (index: number, overrides: Partial<Notifications["items"][number]> 
   createdAt: new Date(NOW - 5 * 60_000),
   actor: { id: "u1", name: "Ana", image: null },
   report: { id: `r${index}`, number: index, title: "Pay button fails" },
+  senderName: null,
   commentId: `c${index}`,
   snippet: "@Budi tolong cek",
   viaAgent: null,

@@ -1,6 +1,7 @@
 import { and, desc, eq, exists, gt, inArray, isNull, sql } from "drizzle-orm"
 import { type Db, executor } from "../../db/client"
-import { recordingRequest, report, user, workspace, workspaceMember } from "../../db/schema"
+import { notification, recordingRequest, report, user, workspace, workspaceMember } from "../../db/schema"
+import { newId } from "../../lib/ids"
 
 export type RequestRow = typeof recordingRequest.$inferSelect
 
@@ -87,6 +88,29 @@ export async function countLiveRequests(db: Db, workspaceId: string, now: Date):
       ),
     )
   return row?.value ?? 0
+}
+
+/** What the requester's notice says about a report that came through a link, and where to send it. */
+export async function findArrival(db: Db, reportId: string) {
+  const [row] = await executor(db)
+    .select({
+      makerId: report.reporterId,
+      makerEmail: user.email,
+      senderName: report.senderName,
+      number: report.number,
+      title: report.title,
+      workspaceName: workspace.name,
+    })
+    .from(report)
+    .innerJoin(user, eq(user.id, report.reporterId))
+    .innerJoin(workspace, eq(workspace.id, report.workspaceId))
+    .where(eq(report.id, reportId))
+    .limit(1)
+  return row ?? null
+}
+
+export async function insertReceivedNotification(db: Db, values: { userId: string; reportId: string }): Promise<void> {
+  await executor(db).insert(notification).values({ id: newId(), kind: "recording_received", commentId: null, actorId: null, ...values })
 }
 
 export async function countRequestUses(db: Db, requestId: string): Promise<number> {

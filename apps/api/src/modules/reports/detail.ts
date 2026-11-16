@@ -47,6 +47,8 @@ export async function loadReportDetail(
     uploadStatus: r.uploadStatus,
     /** The AI app that recorded it; null for a report made with the extension. */
     viaAgent: r.viaAgent,
+    /** Who sent it through a request link, as they typed it; the email for members only. Null for everything else. */
+    sender: r.senderName ? { name: r.senderName, ...(opts.forMember && r.senderEmail ? { email: r.senderEmail } : {}) } : null,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
     reporter: { id: row.reporter.id, name: row.reporter.name, image: row.reporter.image } satisfies PersonSummary,

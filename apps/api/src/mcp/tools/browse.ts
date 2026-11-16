@@ -245,7 +245,7 @@ export function registerBrowseTools(server: McpServer, ctx: McpContext): void {
         })
         if (items.length === 0) return textResult(`No notifications. ${unreadCount} unread.`)
         const lines = items.map((item) => {
-          const actor = `${item.actor?.name ?? "Someone"}${item.viaAgent ? ` (via ${item.viaAgent})` : ""}`
+          const actor = `${item.actor?.name ?? item.senderName ?? "Someone"}${item.viaAgent ? ` (via ${item.viaAgent})` : ""}`
           const where = item.kind === "resolved" || item.kind === "recording_received" ? "" : " in"
           const link = reportUrl(config.appUrl, item.report.id)
           return [

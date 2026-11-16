@@ -169,6 +169,7 @@ export async function listPage(
       captureType: report.captureType,
       pageUrl: report.pageUrl,
       assigneeId: report.assigneeId,
+      senderName: report.senderName,
       debuggerSummary: report.debuggerSummary,
       durationMs: report.durationMs,
       createdAt: report.createdAt,
