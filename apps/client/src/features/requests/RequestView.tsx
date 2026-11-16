@@ -48,6 +48,8 @@ export interface RequestViewProps {
   /** Why the last try failed, in words for the sender; shown on the intro and the review. */
   sendError: string | null
   canSendAnother: boolean
+  /** Why the page closed: the link stopped taking recordings, or the workspace keeps no more. */
+  closedReason?: "link" | "full"
   onMic(on: boolean): void
   onRecord(): void
   onScreenshot(): void
@@ -223,7 +225,9 @@ function Body(props: RequestViewProps) {
     return (
       <div className="flex flex-col gap-4">
         <p className="text-foreground">
-          This link stopped taking recordings before yours was sent. Save it to your computer and send it to {link.requesterName} another way.
+          {props.closedReason === "full"
+            ? `${link.requesterName}'s BugBerry can't take more recordings right now. Save yours to your computer and send it to them another way.`
+            : `This link stopped taking recordings before yours was sent. Save it to your computer and send it to ${link.requesterName} another way.`}
         </p>
         <a href={capture.url} download={file} className="self-start text-sm font-medium text-foreground underline">
           {capture.kind === "video" ? "Save the recording" : "Save the screenshot"}

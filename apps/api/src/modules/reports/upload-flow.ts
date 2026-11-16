@@ -47,6 +47,8 @@ export interface RequestSender {
   name: string
   email: string | null
   maxUses: number
+  /** Uploads started before this no longer hold a use (see usesCountedSince). */
+  usesSince: Date
 }
 
 /** Where the client sends a report's files; media goes in parts or in one PUT, never both. */
@@ -106,7 +108,7 @@ export async function createReportUpload(
     // Counted after the claim, which locks the workspace row: uploads at the same time take turns here.
     await assertCanCreateReport(db, config, workspaceId, body.captureType, body.durationMs ?? null)
     // Under the same lock: two senders on a link's last use can't both get it.
-    if (sender && (await countRequestUses(db, sender.requestId)) >= sender.maxUses) throw requestUnavailable()
+    if (sender && (await countRequestUses(db, sender.requestId, sender.usesSince)) >= sender.maxUses) throw requestUnavailable()
     return insertReport(db, {
       id,
       workspaceId,

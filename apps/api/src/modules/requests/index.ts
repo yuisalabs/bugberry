@@ -13,12 +13,12 @@ export function recordingRequestsModule(deps: AppDeps) {
     .post(
       "/recording-requests",
       async ({ user: current, body }) =>
-        createRequest({ db, appUrl: config.appUrl }, current, await resolveWorkspace(db, current, body.workspaceId), body),
+        createRequest({ db, appUrl: config.appUrl, uploadUrlTtlSeconds: config.uploadUrlTtlSeconds }, current, await resolveWorkspace(db, current, body.workspaceId), body),
       { auth: true, body: createRequestBody },
     )
     .get(
       "/recording-requests",
-      async ({ user: current, query }) => listWorkspaceRequests(db, current, await resolveWorkspace(db, current, query.workspaceId)),
+      async ({ user: current, query }) => listWorkspaceRequests({ db, uploadUrlTtlSeconds: config.uploadUrlTtlSeconds }, current, await resolveWorkspace(db, current, query.workspaceId)),
       { auth: true, query: listRequestsQuery },
     )
     .delete("/recording-requests/:id", ({ user: current, params }) => revokeWorkspaceRequest(db, current, params.id), {

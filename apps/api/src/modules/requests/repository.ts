@@ -1,12 +1,16 @@
-import { and, desc, eq, exists, gt, inArray, isNull, sql } from "drizzle-orm"
+import { and, desc, eq, exists, gt, inArray, isNull, or, sql } from "drizzle-orm"
 import { type Db, executor } from "../../db/client"
 import { notification, recordingRequest, report, user, workspace, workspaceMember } from "../../db/schema"
 import { newId } from "../../lib/ids"
 
 export type RequestRow = typeof recordingRequest.$inferSelect
 
-/** A report takes one of its link's uses while it uploads and once it arrived; a failed upload gives it back. */
-const takesAUse = inArray(report.uploadStatus, ["uploading", "ready"])
+/**
+ * A report takes one of its link's uses once it arrived, and while its upload can still be finished: an upload
+ * started before `since` can no longer be finalized, so a stalled or abandoned one gives its use back.
+ */
+const takesAUse = (since: Date) =>
+  or(eq(report.uploadStatus, "ready"), and(eq(report.uploadStatus, "uploading"), gt(report.createdAt, since)))
 
 export async function insertRequest(db: Db, row: typeof recordingRequest.$inferInsert): Promise<RequestRow> {
   const [created] = await executor(db).insert(recordingRequest).values(row).returning()
@@ -58,12 +62,12 @@ export function listRequests(db: Db, workspaceId: string) {
 }
 
 /** The reports of these links that take a use, oldest first. */
-export async function reportsOfRequests(db: Db, requestIds: string[]) {
+export async function reportsOfRequests(db: Db, requestIds: string[], since: Date) {
   if (requestIds.length === 0) return []
   return executor(db)
     .select({ requestId: report.recordingRequestId, id: report.id, number: report.number, uploadStatus: report.uploadStatus })
     .from(report)
-    .where(and(inArray(report.recordingRequestId, requestIds), takesAUse))
+    .where(and(inArray(report.recordingRequestId, requestIds), takesAUse(since)))
     .orderBy(report.createdAt)
 }
 
@@ -75,7 +79,7 @@ export async function revokeRequest(db: Db, id: string): Promise<void> {
 }
 
 /** Links still taking recordings: not revoked, not expired, not used up. */
-export async function countLiveRequests(db: Db, workspaceId: string, now: Date): Promise<number> {
+export async function countLiveRequests(db: Db, workspaceId: string, now: Date, since: Date): Promise<number> {
   const [row] = await executor(db)
     .select({ value: sql<number>`count(*)::int` })
     .from(recordingRequest)
@@ -84,7 +88,7 @@ export async function countLiveRequests(db: Db, workspaceId: string, now: Date):
         eq(recordingRequest.workspaceId, workspaceId),
         isNull(recordingRequest.revokedAt),
         gt(recordingRequest.expiresAt, now),
-        sql`(SELECT count(*) FROM ${report} WHERE ${report.recordingRequestId} = ${recordingRequest.id} AND ${report.uploadStatus} IN ('uploading', 'ready')) < ${recordingRequest.maxUses}`,
+        sql`(SELECT count(*) FROM ${report} WHERE ${report.recordingRequestId} = ${recordingRequest.id} AND ${takesAUse(since)}) < ${recordingRequest.maxUses}`,
       ),
     )
   return row?.value ?? 0
@@ -113,10 +117,10 @@ export async function insertReceivedNotification(db: Db, values: { userId: strin
   await executor(db).insert(notification).values({ id: newId(), kind: "recording_received", commentId: null, actorId: null, ...values })
 }
 
-export async function countRequestUses(db: Db, requestId: string): Promise<number> {
+export async function countRequestUses(db: Db, requestId: string, since: Date): Promise<number> {
   const [row] = await executor(db)
     .select({ value: sql<number>`count(*)::int` })
     .from(report)
-    .where(and(eq(report.recordingRequestId, requestId), takesAUse))
+    .where(and(eq(report.recordingRequestId, requestId), takesAUse(since)))
   return row?.value ?? 0
 }

@@ -1,32 +1,16 @@
 import { deviceInfoFrom } from "@bugberry/capture"
-import { ApiError } from "@bugberry/shared"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { getRouteApi } from "@tanstack/react-router"
 import { useEffect, useRef, useState } from "react"
 import { qk } from "../../lib/query/keys"
 import { frameToPng, putWithProgress, videoThumbnail } from "./frames"
 import { requestApi, requestLink, requestQueries } from "./queries"
-import { RequestClosed, sendRecording } from "./request-upload"
+import { sendRecording } from "./request-upload"
+import { sendFailure } from "./send-failure"
 import { type Capture, type RequestForm, type RequestState, RequestView } from "./RequestView"
 import { CaptureDenied, type CaptureDeps, captureSupport, type RecordingHandle, startRecording, takeScreenshot } from "./screen-capture"
 
 const routeApi = getRouteApi("/request/$token")
-
-/** The server's codes in words for someone who has never seen BugBerry; its own messages are written for agents. */
-const SEND_ERRORS: Record<string, string> = {
-  recording_too_long: "This recording is longer than the link takes. Record a shorter one.",
-  file_too_large: "This recording is too big to send. Record a shorter one.",
-  rate_limited: "Too many tries from your connection. Wait a few minutes, then press Send again.",
-  sender_name_invalid: "Type your name on one line, up to 80 characters.",
-  page_url_invalid: "The page address must start with http:// or https://.",
-  validation: "Check the email address, or leave it empty.",
-  network: "BugBerry can't be reached. Check your connection, then press Send again.",
-}
-
-function sendErrorText(error: unknown): string {
-  if (error instanceof ApiError) return SEND_ERRORS[error.code] ?? "Sending stopped. Press Send again."
-  return "Sending stopped. Press Send again."
-}
 
 function browserCapture(): CaptureDeps {
   return {
@@ -84,6 +68,7 @@ export function RequestPage() {
   const [progress, setProgress] = useState(0)
   const [sendError, setSendError] = useState<string | null>(null)
   const [canSendAnother, setCanSendAnother] = useState(false)
+  const [closedReason, setClosedReason] = useState<"link" | "full">("link")
   const recording = useRef<RecordingHandle | null>(null)
 
   useNoIndex()
@@ -158,11 +143,13 @@ export function RequestPage() {
       setCanSendAnother(again)
       setStep("sent")
     } catch (error) {
-      if (error instanceof RequestClosed) {
+      const failure = sendFailure(error)
+      if ("closed" in failure) {
+        setClosedReason(failure.closed)
         setStep("closed")
         return
       }
-      setSendError(sendErrorText(error))
+      setSendError(failure.message)
       setStep("review")
     }
   }
@@ -200,6 +187,7 @@ export function RequestPage() {
       progress={progress}
       sendError={sendError}
       canSendAnother={canSendAnother}
+      closedReason={closedReason}
       onMic={setMic}
       onRecord={() => void record()}
       onScreenshot={() => void screenshot()}

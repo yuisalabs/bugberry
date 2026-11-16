@@ -159,7 +159,7 @@ describe("starting an upload", () => {
   test("too big, too long, a replay, a name of spaces, a two-line name: refused, and no report row is made", async () => {
     const big = await start(token, { ...video, mediaSize: 95 * 1024 * 1024 + 1 })
     expect(big.status).toBe(413)
-    const long = await start(token, { ...video, durationMs: 300_001 })
+    const long = await start(token, { ...video, durationMs: 305_001 })
     expect(long.status).toBe(422)
     expect((await json(long)).code).toBe("recording_too_long")
     expect((await start(token, { ...video, captureType: "replay" })).status).toBe(422)
@@ -168,6 +168,19 @@ describe("starting an upload", () => {
     expect((await start(token, { ...video, name: "x".repeat(81) })).status).toBe(422)
     expect((await start(token, { ...video, pageUrl: "javascript:alert(1)" })).status).toBe(422)
     expect(await reportCount()).toBe(0)
+  })
+
+  test("a recording the time limit stopped a moment late is taken", async () => {
+    expect((await start(token, { ...video, durationMs: 300_050 })).status).toBe(200)
+  })
+
+  test("an upload that can no longer be finished gives its use back", async () => {
+    const one = await makeLink(maker, { maxUses: 1 })
+    expect((await start(one.token)).status).toBe(200)
+    expect((await start(one.token)).status).toBe(404)
+    await ctx.db.execute(sql`UPDATE report SET created_at = now() - interval '2 hours' WHERE recording_request_id = ${one.id}`)
+    expect((await lookup(one.token)).status).toBe(200)
+    expect((await start(one.token)).status).toBe(200)
   })
 
   test("a screenshot needs no length", async () => {

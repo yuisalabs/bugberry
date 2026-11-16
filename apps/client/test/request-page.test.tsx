@@ -1,5 +1,8 @@
 import { describe, expect, mock, test } from "bun:test"
 import { fireEvent, render, screen } from "@testing-library/react"
+import { ApiError } from "@bugberry/shared"
+import { sendFailure } from "../src/features/requests/send-failure"
+import { RequestClosed } from "../src/features/requests/request-upload"
 import { RequestView, type RequestViewProps } from "../src/features/requests/RequestView"
 
 const link = { workspaceName: "Acme QA", requesterName: "Ana", note: "The checkout bug, please", pageUrl: "https://shop.test/cart", maxSeconds: 300, maxBytes: 99_614_720 }
@@ -95,6 +98,19 @@ describe("the request page", () => {
   test("closed: the recording can be saved as a file", () => {
     view({ state: "closed", capture: video })
     expect(screen.getByRole("link", { name: "Save the recording" }).getAttribute("download")).toBe("recording.webm")
+  })
+
+  test("closed because the workspace is full: the recording can still be saved", () => {
+    view({ state: "closed", closedReason: "full", capture: video })
+    expect(screen.getByText("Ana's BugBerry can't take more recordings right now. Save yours to your computer and send it to them another way.")).toBeTruthy()
+    expect(screen.getByRole("link", { name: "Save the recording" })).toBeTruthy()
+  })
+
+  test("a full workspace closes the page instead of asking to send again", () => {
+    expect(sendFailure(new ApiError(403, "report_limit_reached", "full"))).toEqual({ closed: "full" })
+    expect(sendFailure(new ApiError(403, "duration_limit_reached", "long"))).toEqual({ closed: "full" })
+    expect(sendFailure(new RequestClosed())).toEqual({ closed: "link" })
+    expect(sendFailure(new ApiError(0, "network", "offline"))).toEqual({ message: "BugBerry can't be reached. Check your connection, then press Send again." })
   })
 
   test("sent: thanks, and Send another while the link has uses left", () => {

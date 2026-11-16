@@ -140,8 +140,22 @@ describe("recording", () => {
     const handle = await startRecording(s.deps, { ...limits, maxMs: 120_000 })
     const timer = s.timers.find((candidate) => candidate.ms === 120_000)
     expect(timer).toBeTruthy()
+    s.advance(120_030)
     timer?.run()
-    expect((await handle.done).stoppedBy).toBe("limit")
+    const done = await handle.done
+    expect(done.stoppedBy).toBe("limit")
+    // A timer never fires early, so the clock runs past the limit; the recording is the limit long.
+    expect(done.durationMs).toBe(120_000)
+  })
+
+  test("a recorder that won't start stops the shared screen", async () => {
+    const s = setup()
+    s.deps.createRecorder.mockImplementationOnce(() => {
+      throw new DOMException("codec", "NotSupportedError")
+    })
+    await expect(startRecording(s.deps, { ...limits, mic: true })).rejects.toThrow()
+    expect(s.video.readyState).toBe("ended")
+    expect(s.mic.readyState).toBe("ended")
   })
 
   test("it stops by itself when the chunks near maxBytes", async () => {

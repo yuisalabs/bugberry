@@ -69,7 +69,17 @@ export async function startRecording(
     }
   }
 
-  const recorder = deps.createRecorder(stream, { mimeType: WEBM, videoBitsPerSecond: REQUEST_VIDEO_BITS_PER_SECOND })
+  const stopAll = () => {
+    for (const track of [...stream.getTracks(), ...extra.flatMap((voice) => voice.getTracks())]) track.stop()
+  }
+  let recorder: MediaRecorder
+  try {
+    recorder = deps.createRecorder(stream, { mimeType: WEBM, videoBitsPerSecond: REQUEST_VIDEO_BITS_PER_SECOND })
+  } catch (error) {
+    // The person already picked what to share: never leave it shared behind an error.
+    stopAll()
+    throw error
+  }
   const chunks: Blob[] = []
   let bytes = 0
   let stoppedBy: Recording["stoppedBy"] | null = null
@@ -82,7 +92,7 @@ export async function startRecording(
     stoppedAt = deps.now()
     deps.clearTimeout(timer)
     if (recorder.state !== "inactive") recorder.stop()
-    for (const track of [...stream.getTracks(), ...extra.flatMap((voice) => voice.getTracks())]) track.stop()
+    stopAll()
   }
 
   const done = new Promise<Recording>((resolve) => {
@@ -93,7 +103,8 @@ export async function startRecording(
       if (bytes >= options.maxBytes * BYTES_MARGIN) stop("limit")
     }
     recorder.onstop = () => {
-      const durationMs = stoppedAt - startedAt
+      // A timer fires late, never early: a recording the limit stopped is the limit long.
+      const durationMs = Math.min(stoppedAt - startedAt, options.maxMs)
       const raw = new Blob(chunks, { type: WEBM })
       // Players need the length written in to show it and seek; a file the fix can't read is kept as it is.
       void withWebmDuration(raw, durationMs)
@@ -104,7 +115,13 @@ export async function startRecording(
 
   const timer = deps.setTimeout(() => stop("limit"), options.maxMs)
   for (const track of stream.getVideoTracks()) track.addEventListener("ended", () => stop("browser"))
-  recorder.start(1000)
+  try {
+    recorder.start(1000)
+  } catch (error) {
+    deps.clearTimeout(timer)
+    stopAll()
+    throw error
+  }
   return { stop: () => stop("button"), done, stream }
 }
 

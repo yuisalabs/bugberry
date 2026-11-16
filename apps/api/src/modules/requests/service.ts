@@ -1,6 +1,7 @@
 import { MAX_LIVE_REQUESTS_PER_WORKSPACE } from "@bugberry/shared"
 import type { Db } from "../../db/client"
 import { forbidden, notFound, unprocessable } from "../../lib/errors"
+import { AGENT_UPLOAD_TTL_MS } from "../reports/agent-uploads"
 import { newId } from "../../lib/ids"
 import { projectInWorkspace } from "../projects/repository"
 import { hashToken } from "../tokens/token"
@@ -10,6 +11,10 @@ import { countLiveRequests, findRequest, insertRequest, listRequests, reportsOfR
 export type RequestStatus = "live" | "expired" | "used_up" | "revoked"
 
 const DAY_MS = 86_400_000
+
+/** The oldest upload that still holds a use: its ticket, then the upload links signed just before it expired. */
+export const usesCountedSince = (uploadUrlTtlSeconds: number, now = new Date()) =>
+  new Date(now.getTime() - AGENT_UPLOAD_TTL_MS - uploadUrlTtlSeconds * 1000)
 
 export const requestUrl = (appUrl: string, token: string) => `${appUrl}/request/${token}`
 
@@ -40,7 +45,7 @@ export function pageAddress(input: string | undefined): string | null {
 }
 
 export async function createRequest(
-  { db, appUrl }: { db: Db; appUrl: string },
+  { db, appUrl, uploadUrlTtlSeconds }: { db: Db; appUrl: string; uploadUrlTtlSeconds: number },
   caller: { id: string },
   workspaceId: string,
   input: { projectId?: string | null; note?: string; pageUrl?: string; expiresInDays: number; maxUses: number },
@@ -51,7 +56,7 @@ export async function createRequest(
   if (input.projectId && !(await projectInWorkspace(db, input.projectId, workspaceId))) {
     throw unprocessable("project_not_found", "Project not found in this workspace")
   }
-  if ((await countLiveRequests(db, workspaceId, now)) >= MAX_LIVE_REQUESTS_PER_WORKSPACE) {
+  if ((await countLiveRequests(db, workspaceId, now, usesCountedSince(uploadUrlTtlSeconds, now))) >= MAX_LIVE_REQUESTS_PER_WORKSPACE) {
     throw unprocessable("request_limit", `A workspace can have at most ${MAX_LIVE_REQUESTS_PER_WORKSPACE} live request links`)
   }
   const token = Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url")
@@ -71,10 +76,15 @@ export async function createRequest(
 }
 
 /** A workspace's links for its members; never their token or address. */
-export async function listWorkspaceRequests(db: Db, caller: { id: string }, workspaceId: string, now = new Date()) {
+export async function listWorkspaceRequests(
+  { db, uploadUrlTtlSeconds }: { db: Db; uploadUrlTtlSeconds: number },
+  caller: { id: string },
+  workspaceId: string,
+  now = new Date(),
+) {
   await requireMember(db, caller.id, workspaceId)
   const rows = await listRequests(db, workspaceId)
-  const reports = await reportsOfRequests(db, rows.map((row) => row.request.id))
+  const reports = await reportsOfRequests(db, rows.map((row) => row.request.id), usesCountedSince(uploadUrlTtlSeconds, now))
   return rows.map(({ request, createdBy }) => {
     const own = reports.filter((item) => item.requestId === request.id)
     return {

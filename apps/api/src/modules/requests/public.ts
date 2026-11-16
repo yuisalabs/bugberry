@@ -1,4 +1,4 @@
-import { MAX_SENDER_NAME_LENGTH, REQUEST_MAX_MEDIA_BYTES, REQUEST_MAX_SECONDS } from "@bugberry/shared"
+import { MAX_SENDER_NAME_LENGTH, REQUEST_MAX_MEDIA_BYTES, REQUEST_MAX_SECONDS, tooLong } from "@bugberry/shared"
 import { Elysia, t } from "elysia"
 import type { AppDeps } from "../../deps"
 import { payloadTooLarge, tooManyRequests, unprocessable } from "../../lib/errors"
@@ -11,7 +11,7 @@ import { clientIp } from "../share/index"
 import { hashToken } from "../tokens/token"
 import { workspaceLimits } from "../workspaces/limits"
 import { countRequestUses, findRequestForSender } from "./repository"
-import { pageAddress, requestStatus } from "./service"
+import { pageAddress, requestStatus, usesCountedSince } from "./service"
 import { requestUnavailable } from "./unavailable"
 
 const LOOKUPS_PER_MINUTE = 30
@@ -52,10 +52,11 @@ export function publicRequestsModule(deps: AppDeps) {
   const liveLink = async (token: string) => {
     const found = await findRequestForSender(db, hashToken(token))
     if (!found || !found.makerActive || !found.makerIsMember) throw requestUnavailable()
-    if (requestStatus(found.request, await countRequestUses(db, found.request.id)) !== "live") throw requestUnavailable()
+    const since = usesCountedSince(config.uploadUrlTtlSeconds)
+    if (requestStatus(found.request, await countRequestUses(db, found.request.id, since)) !== "live") throw requestUnavailable()
     const maker = await findCurrentUser(db, found.request.createdById)
     if (!maker) throw requestUnavailable()
-    return { ...found, maker }
+    return { ...found, maker, since }
   }
 
   /** Five minutes, or less where the workspace's own recordings are shorter. */
@@ -90,7 +91,8 @@ export function publicRequestsModule(deps: AppDeps) {
         const pageUrl = pageAddress(body.pageUrl) ?? link.request.pageUrl ?? "about:blank"
         if (body.mediaSize > REQUEST_MAX_MEDIA_BYTES) throw payloadTooLarge(`A recording can be at most ${REQUEST_MAX_MEDIA_BYTES / 1024 / 1024} MB`)
         const maxSeconds = await maxSecondsIn(link.request.workspaceId)
-        if (body.captureType === "video" && (body.durationMs ?? 0) > maxSeconds * 1000) {
+        // The time limit stops a recording a moment late, never early: the same slack as every recording limit.
+        if (body.captureType === "video" && tooLong(body.durationMs ?? 0, maxSeconds * 1000)) {
           throw unprocessable("recording_too_long", `A recording can be at most ${maxSeconds / 60} minutes`)
         }
         const created = await createReportUpload(
@@ -110,7 +112,7 @@ export function publicRequestsModule(deps: AppDeps) {
             durationMs: body.durationMs,
             debuggerSummary: { logs: 0, errors: 0, requests: 0, failedRequests: 0, actions: 0, incomplete: [] },
           },
-          { sender: { requestId: link.request.id, name, email: body.email?.trim() || null, maxUses: link.request.maxUses } },
+          { sender: { requestId: link.request.id, name, email: body.email?.trim() || null, maxUses: link.request.maxUses, usesSince: link.since } },
         )
         const ticket = await issueAgentUpload(db, created.reportId, link.maker.id)
         return { uploadToken: ticket.token, mediaUpload: created.mediaUpload, thumbnailUpload: created.thumbnailUpload }
