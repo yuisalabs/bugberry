@@ -53,7 +53,19 @@ export interface UploadSessionState {
   thumbnailUploaded?: boolean
 }
 
-export type DraftStatus = "recording" | "editing" | "uploading" | "failed"
+export type DraftStatus = "recording" | "editing" | "uploading" | "queued" | "failed"
+
+/** What the last Send was about to upload, so the background can send it without the editor. */
+export interface DraftOutbox {
+  /** A screenshot's exported PNG; null for video and replay, whose media the draft already holds. */
+  screenshot: Blob | null
+  thumbnail: Blob | null
+  serverUrl: string
+  /** Sends the background has tried. */
+  tries: number
+  /** Epoch ms before which the background leaves the draft alone. */
+  nextTryAt: number
+}
 
 interface DraftBase {
   id: string
@@ -70,6 +82,8 @@ interface DraftBase {
   form: ReportForm | null
   /** The tab it was made on, so "Record again" or "Retake" can go back there. Older drafts have none. */
   tabId?: number
+  /** Set at Send; a queued draft is sent from it by the background. */
+  outbox?: DraftOutbox | null
 }
 
 export interface ScreenshotDraft extends DraftBase {
