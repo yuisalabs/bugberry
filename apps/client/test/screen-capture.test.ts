@@ -74,7 +74,7 @@ function setup(opts: { micRefused?: boolean; pickerCancelled?: boolean } = {}) {
       if (opts.micRefused) throw new DOMException("Permission denied", "NotAllowedError")
       return new FakeStream([mic]) as unknown as MediaStream
     }),
-    createRecorder: mock(() => recorder as unknown as MediaRecorder),
+    createRecorder: mock((_stream: MediaStream, _options: MediaRecorderOptions) => recorder as unknown as MediaRecorder),
     now: () => clock,
     setTimeout: (run: () => void, ms: number) => {
       const timer = { run, ms, cleared: false }
