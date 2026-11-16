@@ -202,6 +202,23 @@ export async function findReadyReportVisibility(db: Db, key: ReportKey) {
   return row ?? null
 }
 
+/** A public, finished report's link preview; null for anything else, so the caller can't tell which. */
+export async function findSharePreview(db: Db, shareSlug: string) {
+  const [row] = await executor(db)
+    .select({
+      number: report.number,
+      title: report.title,
+      captureType: report.captureType,
+      pageUrl: report.pageUrl,
+      debuggerSummary: report.debuggerSummary,
+      thumbnailKey: report.thumbnailKey,
+    })
+    .from(report)
+    .where(and(eq(report.shareSlug, shareSlug), eq(report.uploadStatus, "ready"), eq(report.visibility, "public")))
+    .limit(1)
+  return row ?? null
+}
+
 export async function findReport(db: Db, reportId: string): Promise<ReportRow | null> {
   const [row] = await executor(db).select().from(report).where(eq(report.id, reportId)).limit(1)
   return row ?? null
