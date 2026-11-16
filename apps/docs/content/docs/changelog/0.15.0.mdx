@@ -1,0 +1,12 @@
+---
+title: 0.15.0
+description: Released 16 November 2026.
+---
+
+- **Project guests.** Invite a client to one project: they read its reports, comment and mention, and see nothing
+  else in the workspace. Admins invite and remove guests from the project's **⋯** menu, up to 50 per project, and
+  guests don't count toward the member limit. See [Guests](/guide/workspaces-and-access#guests).
+- **The comment box says when a project has guests,** since they can read every comment on its reports.
+- **Self-hosting:** the server adds migration `0039` (the `project_guest` table) when it starts. With
+  `ALLOWED_EMAIL_DOMAINS` set, only addresses in those domains can be invited as guests, since nobody else can sign
+  in. The extension stays at 0.13.2.
