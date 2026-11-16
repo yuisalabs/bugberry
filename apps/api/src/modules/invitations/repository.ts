@@ -1,5 +1,5 @@
 import type { WorkspaceRole } from "@bugberry/shared"
-import { and, asc, eq, gt, isNull } from "drizzle-orm"
+import { and, asc, count, eq, gt, isNull } from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"
 import { type Db, executor } from "../../db/client"
 import { user, workspace, workspaceInvitation, workspaceMember } from "../../db/schema"
@@ -11,12 +11,20 @@ const live = () =>
   and(isNull(workspaceInvitation.acceptedAt), isNull(workspaceInvitation.revokedAt), gt(workspaceInvitation.expiresAt, new Date()))
 
 /** Marks a live invitation accepted; null when it was not live any more. */
-export async function markInvitationAccepted(db: Db, invitationId: string): Promise<{ id: string; role: WorkspaceRole } | null> {
+export async function markInvitationAccepted(
+  db: Db,
+  invitationId: string,
+): Promise<{ id: string; role: WorkspaceRole; guestProjectId: string | null; invitedById: string | null } | null> {
   const [invitation] = await executor(db)
     .update(workspaceInvitation)
     .set({ acceptedAt: new Date() })
     .where(and(eq(workspaceInvitation.id, invitationId), live()))
-    .returning({ id: workspaceInvitation.id, role: workspaceInvitation.role })
+    .returning({
+      id: workspaceInvitation.id,
+      role: workspaceInvitation.role,
+      guestProjectId: workspaceInvitation.guestProjectId,
+      invitedById: workspaceInvitation.invitedById,
+    })
   return invitation ?? null
 }
 
@@ -24,7 +32,9 @@ export async function findLiveInvitation(db: Db, workspaceId: string, invitation
   const [row] = await executor(db)
     .select()
     .from(workspaceInvitation)
-    .where(and(eq(workspaceInvitation.id, invitationId), eq(workspaceInvitation.workspaceId, workspaceId), live()))
+    .where(
+      and(eq(workspaceInvitation.id, invitationId), eq(workspaceInvitation.workspaceId, workspaceId), isNull(workspaceInvitation.guestProjectId), live()),
+    )
     .limit(1)
   return row ?? null
 }
@@ -72,23 +82,57 @@ export async function isMemberEmail(db: Db, workspaceId: string, email: string):
   return row !== undefined
 }
 
-export async function hasLiveInvitation(db: Db, workspaceId: string, email: string): Promise<boolean> {
+/** A live invitation for this address: to join the workspace, or, with `guestProjectId`, to be a guest of that project. */
+export async function hasLiveInvitation(db: Db, workspaceId: string, email: string, guestProjectId: string | null = null): Promise<boolean> {
   const [row] = await executor(db)
     .select({ id: workspaceInvitation.id })
     .from(workspaceInvitation)
-    .where(and(eq(workspaceInvitation.workspaceId, workspaceId), eq(workspaceInvitation.email, email), live()))
+    .where(
+      and(
+        eq(workspaceInvitation.workspaceId, workspaceId),
+        eq(workspaceInvitation.email, email),
+        guestProjectId ? eq(workspaceInvitation.guestProjectId, guestProjectId) : isNull(workspaceInvitation.guestProjectId),
+        live(),
+      ),
+    )
     .limit(1)
   return row !== undefined
 }
 
+export async function countLiveGuestInvitations(db: Db, projectId: string): Promise<number> {
+  const [row] = await executor(db)
+    .select({ n: count() })
+    .from(workspaceInvitation)
+    .where(and(eq(workspaceInvitation.guestProjectId, projectId), live()))
+  return row?.n ?? 0
+}
+
+/** The project's live guest invitations, oldest first. */
+export function listLiveGuestInvitations(db: Db, projectId: string) {
+  return executor(db)
+    .select({ invitationId: workspaceInvitation.id, email: workspaceInvitation.email, expiresAt: workspaceInvitation.expiresAt })
+    .from(workspaceInvitation)
+    .where(and(eq(workspaceInvitation.guestProjectId, projectId), live()))
+    .orderBy(asc(workspaceInvitation.createdAt))
+}
+
 export async function insertInvitation(
   db: Db,
-  input: { workspaceId: string; email: string; tokenHash: string; codeHash: string; invitedById: string; role: WorkspaceRole; expiresAt: Date },
+  input: {
+    workspaceId: string
+    email: string
+    tokenHash: string
+    codeHash: string
+    invitedById: string
+    role: WorkspaceRole
+    expiresAt: Date
+    guestProjectId?: string | null
+  },
 ): Promise<void> {
   await executor(db).insert(workspaceInvitation).values({ id: newId(), ...input })
 }
 
-/** The workspace's live invitations, oldest first. */
+/** The workspace's live invitations to join it, oldest first; guest invitations are listed per project. */
 export function listLiveInvitations(db: Db, workspaceId: string) {
   return executor(db)
     .select({
@@ -100,7 +144,7 @@ export function listLiveInvitations(db: Db, workspaceId: string) {
     })
     .from(workspaceInvitation)
     .leftJoin(inviter, eq(inviter.id, workspaceInvitation.invitedById))
-    .where(and(eq(workspaceInvitation.workspaceId, workspaceId), live()))
+    .where(and(eq(workspaceInvitation.workspaceId, workspaceId), isNull(workspaceInvitation.guestProjectId), live()))
     .orderBy(asc(workspaceInvitation.createdAt))
 }
 

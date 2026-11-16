@@ -14,6 +14,7 @@ import { localFilesModule } from "./modules/local-files"
 import { accountModule } from "./modules/account"
 import { projectsModule } from "./modules/projects"
 import { reportsModule } from "./modules/reports"
+import { guestsModule } from "./modules/guests"
 import { labelsModule } from "./modules/labels"
 import { agentUploadsModule } from "./modules/reports/agent-uploads"
 import { reportUploadsModule } from "./modules/reports/uploads"
@@ -50,6 +51,7 @@ export function createApp(deps: AppDeps) {
     .use(invitationsModule(deps))
     .use(joinModule(deps))
     .use(projectsModule(deps))
+    .use(guestsModule(deps))
     .use(localFilesModule(deps))
     .use(reportUploadsModule(deps))
     .use(agentUploadsModule(deps))

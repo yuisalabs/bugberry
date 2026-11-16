@@ -1,4 +1,5 @@
 import type { CaptureType, Visibility, WorkspaceRole } from "@bugberry/shared"
+import { deleteGuestsInWorkspace } from "../guests/repository"
 import { and, asc, count, eq, gt, inArray, isNotNull, isNull, like, ne, notInArray, or, sql } from "drizzle-orm"
 import { type Db, executor } from "../../db/client"
 import { pendingLogo, project, report, user, workspace, workspaceInvitation, workspaceMember } from "../../db/schema"
@@ -282,9 +283,10 @@ export async function deletePendingLogo(db: Db, workspaceId: string): Promise<vo
   await executor(db).delete(pendingLogo).where(eq(pendingLogo.workspaceId, workspaceId))
 }
 
-/** Adds the person with this role unless they are already a member. */
+/** Adds the person with this role unless they are already a member. A member is never also a guest there. */
 export async function addMemberIfAbsent(db: Db, workspaceId: string, userId: string, role: WorkspaceRole): Promise<void> {
   await executor(db).insert(workspaceMember).values({ workspaceId, userId, role }).onConflictDoNothing()
+  await deleteGuestsInWorkspace(db, userId, workspaceId)
 }
 
 /** A workspace by its id or its slug. */
