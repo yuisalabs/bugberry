@@ -26,7 +26,7 @@ export function requestStatus(
 }
 
 /** The sender is shown this address as a link, so only an http or https page is kept. */
-function pageAddress(input: string | undefined): string | null {
+export function pageAddress(input: string | undefined): string | null {
   const value = input?.trim()
   if (!value) return null
   let url: URL | null = null

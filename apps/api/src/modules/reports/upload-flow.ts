@@ -23,6 +23,8 @@ import { afterFinalize } from "./after-finalize"
 import type { CreateUploadBody } from "./model"
 import { reportObjectKeys, unpackReplayFrames } from "./replay-frames"
 import { projectInWorkspace } from "../projects/repository"
+import { countRequestUses } from "../requests/repository"
+import { requestUnavailable } from "../requests/unavailable"
 import {
   claimReportNumber,
   findReport,
@@ -38,6 +40,14 @@ import {
 type Deps = Pick<AppDeps, "config" | "db" | "storage">
 export type { ReportRow } from "./repository"
 
+/** Who sent a report through a request link, and how many recordings the link takes. */
+export interface RequestSender {
+  requestId: string
+  name: string
+  email: string | null
+  maxUses: number
+}
+
 /** Where the client sends a report's files; media goes in parts or in one PUT, never both. */
 export interface UploadTargets {
   mediaUpload: UploadTarget | null
@@ -52,15 +62,17 @@ export function reportLinks(appUrl: string, row: { id: string; shareSlug: string
 
 /**
  * Creates a report in `uploading` and signs the links its files go to: what `POST /reports/uploads` does after
- * its rate limit, shared with the MCP's createUpload. `viaAgent` names the AI app that recorded it.
+ * its rate limit, shared with the MCP's createUpload. `viaAgent` names the AI app that recorded it; `sender` is
+ * someone without an account recording through a request link, for `user`, the member who made the link.
  */
 export async function createReportUpload(
   deps: Deps,
   user: CurrentUser,
   body: CreateUploadBody,
-  opts: { viaAgent?: string } = {},
+  opts: { viaAgent?: string; sender?: RequestSender } = {},
 ): Promise<{ reportId: string; number: number; reportUrl: string; shareUrl: string } & UploadTargets> {
   const { config, db, storage } = deps
+  const sender = opts.sender
   const maxMb = Math.floor(config.maxUploadBytes / 1024 / 1024)
   if (body.mediaSize > config.maxUploadBytes || (body.debuggerSize ?? 0) > config.maxUploadBytes) {
     throw payloadTooLarge(`Files must be at most ${maxMb} MB`)
@@ -92,6 +104,8 @@ export async function createReportUpload(
     const number = await claimReportNumber(db, workspaceId)
     // Counted after the claim, which locks the workspace row: uploads at the same time take turns here.
     await assertCanCreateReport(db, config, workspaceId, body.captureType, body.durationMs ?? null)
+    // Under the same lock: two senders on a link's last use can't both get it.
+    if (sender && (await countRequestUses(db, sender.requestId)) >= sender.maxUses) throw requestUnavailable()
     return insertReport(db, {
       id,
       workspaceId,
@@ -99,7 +113,7 @@ export async function createReportUpload(
       projectId: body.projectId ?? null,
       reporterId: user.id,
       reporterDomain: emailDomain(user.email),
-      title: body.title?.trim() || defaultReportTitle(body.captureType, user.name),
+      title: body.title?.trim() || defaultReportTitle(body.captureType, sender?.name ?? user.name),
       description: body.description ?? "",
       priority: body.priority ?? "none",
       visibility: body.visibility ?? "workspace",
@@ -118,6 +132,9 @@ export async function createReportUpload(
       thumbnailSize: body.thumbnailSize ?? null,
       debuggerSummary: body.debuggerSummary,
       viaAgent: opts.viaAgent ?? null,
+      recordingRequestId: sender?.requestId ?? null,
+      senderName: sender?.name ?? null,
+      senderEmail: sender?.email ?? null,
     })
   })
   if (!created) throw new Error("Failed to create report")

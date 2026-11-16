@@ -1,6 +1,6 @@
-import { and, desc, eq, gt, inArray, isNull, sql } from "drizzle-orm"
+import { and, desc, eq, exists, gt, inArray, isNull, sql } from "drizzle-orm"
 import { type Db, executor } from "../../db/client"
-import { recordingRequest, report, user } from "../../db/schema"
+import { recordingRequest, report, user, workspace, workspaceMember } from "../../db/schema"
 
 export type RequestRow = typeof recordingRequest.$inferSelect
 
@@ -20,6 +20,29 @@ export async function findRequest(db: Db, id: string): Promise<RequestRow | null
 
 export async function findRequestByTokenHash(db: Db, tokenHash: string): Promise<RequestRow | null> {
   const [row] = await executor(db).select().from(recordingRequest).where(eq(recordingRequest.tokenHash, tokenHash)).limit(1)
+  return row ?? null
+}
+
+/** A link by its token's hash, with what its public page shows and whether its maker can still receive it. */
+export async function findRequestForSender(db: Db, tokenHash: string) {
+  const [row] = await executor(db)
+    .select({
+      request: recordingRequest,
+      workspaceName: workspace.name,
+      makerName: user.name,
+      makerActive: isNull(user.deactivatedAt),
+      makerIsMember: exists(
+        executor(db)
+          .select({ one: sql`1` })
+          .from(workspaceMember)
+          .where(and(eq(workspaceMember.userId, recordingRequest.createdById), eq(workspaceMember.workspaceId, recordingRequest.workspaceId))),
+      ),
+    })
+    .from(recordingRequest)
+    .innerJoin(workspace, eq(workspace.id, recordingRequest.workspaceId))
+    .innerJoin(user, eq(user.id, recordingRequest.createdById))
+    .where(eq(recordingRequest.tokenHash, tokenHash))
+    .limit(1)
   return row ?? null
 }
 

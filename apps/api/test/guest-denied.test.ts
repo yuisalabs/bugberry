@@ -185,6 +185,8 @@ const PUBLIC = new Set([
   "GET /api/files/:token",
   "GET /api/agent-uploads/:token",
   "POST /api/agent-uploads/:token/finalize",
+  "GET /api/recording-requests/by-token/:token",
+  "POST /api/recording-requests/by-token/:token/uploads",
   "GET /api/share/:slug/meta",
   "GET /api/share/:slug/preview.jpg",
   "GET /api/share/:slug",
