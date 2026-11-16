@@ -18,6 +18,7 @@ const WHAT_HAPPENED = {
   reply_to_you: { verb: "replied to your comment", on: "in" },
   reply_in_thread: { verb: "replied in a thread you're in", on: "on" },
   resolved: { verb: "resolved", on: "" },
+  recording_received: { verb: "sent the recording you asked for", on: "·" },
 } as const
 
 /** Where opening a row leads: its comment, or the report itself for a resolved report, which has none. */

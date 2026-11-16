@@ -72,6 +72,7 @@ const NOTIFICATION_VERBS = {
   reply_to_you: "replied to your comment",
   reply_in_thread: "replied in a thread you're in",
   resolved: "resolved",
+  recording_received: "sent the recording you asked for:",
 } as const
 
 export function registerBrowseTools(server: McpServer, ctx: McpContext): void {
@@ -245,7 +246,7 @@ export function registerBrowseTools(server: McpServer, ctx: McpContext): void {
         if (items.length === 0) return textResult(`No notifications. ${unreadCount} unread.`)
         const lines = items.map((item) => {
           const actor = `${item.actor?.name ?? "Someone"}${item.viaAgent ? ` (via ${item.viaAgent})` : ""}`
-          const where = item.kind === "resolved" ? "" : " in"
+          const where = item.kind === "resolved" || item.kind === "recording_received" ? "" : " in"
           const link = reportUrl(config.appUrl, item.report.id)
           return [
             `[${item.id}]${item.read ? "" : " (unread)"} ${actor} ${NOTIFICATION_VERBS[item.kind]}${where} BB-${item.report.number} · ${item.report.title}`,

@@ -19,8 +19,8 @@ export const workspaceRoleEnum = pgEnum("workspace_role", WORKSPACE_ROLES)
 /** "full" works on every route (CLI tokens); "mcp" only on /api/mcp (made in the dashboard for AI agents). */
 export const apiTokenKindEnum = pgEnum("api_token_kind", ["full", "mcp"])
 
-/** Why someone has a bell notification: mentioned, a reply in a thread they started or joined, or their report resolved. */
-export const notificationKindEnum = pgEnum("notification_kind", ["mention", "reply_to_you", "reply_in_thread", "resolved"])
+/** Why someone has a bell notification: mentioned, a reply in their threads, their report resolved, or a recording they asked for arrived. */
+export const notificationKindEnum = pgEnum("notification_kind", ["mention", "reply_to_you", "reply_in_thread", "resolved", "recording_received"])
 
 /** What a report activity line records; "created" comes from the report itself and has no row. */
 export const ACTIVITY_KINDS = ["status", "priority", "assignee", "title", "tracker", "agent_read", "fix", "labels"] as const
