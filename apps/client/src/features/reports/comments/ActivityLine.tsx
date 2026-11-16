@@ -3,6 +3,7 @@ import {
   RiCheckboxCircleLine,
   RiEditLine,
   RiFlag2Line,
+  RiPriceTag3Line,
   RiGitPullRequestLine,
   RiRobot2Line,
   RiShareForwardLine,
@@ -21,6 +22,7 @@ const ICONS = {
   tracker: RiShareForwardLine,
   agent_read: RiRobot2Line,
   fix: RiGitPullRequestLine,
+  labels: RiPriceTag3Line,
   created: RiAddLine,
 } as const
 

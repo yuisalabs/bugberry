@@ -70,6 +70,15 @@ function listOf(items: string[]): string {
   return `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`
 }
 
+/** "added the label A and removed the labels B and C", as one activity line. */
+export function labelsActivityText(detail: { added: string[]; removed: string[] }): string {
+  const part = (verb: string, names: string[]) => `${verb} the label${names.length === 1 ? "" : "s"} ${listOf(names)}`
+  return [
+    ...(detail.added.length ? [part("added", detail.added)] : []),
+    ...(detail.removed.length ? [part("removed", detail.removed)] : []),
+  ].join(" and ")
+}
+
 type Person = { name: string } | null
 
 /** What an activity line says after the person's name, such as "changed priority from None to High". */
@@ -98,6 +107,8 @@ export function activitySentence(item: Activity): string {
       const label = fixLinkLabel(String(detail.url ?? "")).label
       return detail.action === "removed" ? `removed a fix link: ${label}` : `added a fix link: ${label}`
     }
+    case "labels":
+      return labelsActivityText({ added: (detail.added as string[]) ?? [], removed: (detail.removed as string[]) ?? [] })
     case "agent_read":
       return `read ${listOf(((detail.parts as string[] | undefined) ?? []).map((part) => READ_PARTS[part] ?? part))}`
     case "created":

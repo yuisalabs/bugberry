@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { activitySentence, commentCount, mergeFeed, videoTimes } from "../src/features/reports/comments/comment-feed"
+import { activitySentence, commentCount, labelsActivityText, mergeFeed, videoTimes } from "../src/features/reports/comments/comment-feed"
 import { activityFixture, commentFixture, threadFixture } from "./fixtures"
 
 const at = (time: string) => new Date(`2026-10-16T${time}:00Z`)
@@ -115,5 +115,14 @@ describe("activitySentence", () => {
     expect(activitySentence(activityFixture({ kind: "created", detail: { browser: "Firefox 131" } }))).toBe(
       "reported this via Firefox extension",
     )
+  })
+})
+
+describe("label activity", () => {
+  test("names what was added and removed", () => {
+    expect(labelsActivityText({ added: ["Bug"], removed: [] })).toBe("added the label Bug")
+    expect(labelsActivityText({ added: ["A", "B"], removed: [] })).toBe("added the labels A and B")
+    expect(labelsActivityText({ added: [], removed: ["C"] })).toBe("removed the label C")
+    expect(labelsActivityText({ added: ["A"], removed: ["B", "C", "D"] })).toBe("added the label A and removed the labels B, C and D")
   })
 })

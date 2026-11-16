@@ -6,6 +6,7 @@ import { CopyLinkButton } from "../share/CopyLinkButton"
 import { MoreMenu } from "./MoreMenu"
 import { TrackerButton } from "./TrackerButton"
 import { ReportFields } from "./ReportFields"
+import { LabelPicker } from "../../labels/LabelPicker"
 import { ReportHeader } from "./ReportHeader"
 import { ReportTitle } from "./ReportTitle"
 import { ReportComments } from "../comments/ReportComments"
@@ -107,13 +108,19 @@ export function ReportPage() {
       footer={<CopyLinkButton report={report.data} bar />}
       project={projects.data?.find((project) => project.id === report.data.projectId)?.name ?? null}
       fields={
-        <ReportFields
-          report={report.data}
-          members={members.data}
-          onChange={(patch) => update.mutate(patch)}
-          onResolveWithLink={() => setResolving(true)}
-          rows
-        />
+        <div className="flex flex-col gap-2.5">
+          <ReportFields
+            report={report.data}
+            members={members.data}
+            onChange={(patch) => update.mutate(patch)}
+            onResolveWithLink={() => setResolving(true)}
+            rows
+          />
+          <div className="grid w-full grid-cols-[6rem_minmax(0,1fr)] items-start gap-3">
+            <span className="pt-1 text-sm text-muted-foreground">Labels</span>
+            <LabelPicker workspaceId={workspaceId} reportId={report.data.id} labels={report.data.labels ?? []} />
+          </div>
+        </div>
       }
       fixedIn={
         <FixedInRow
