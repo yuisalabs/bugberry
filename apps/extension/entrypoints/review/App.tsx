@@ -9,10 +9,12 @@ import { relayFetcher } from "../../lib/server/api-relay"
 import { BUILD_SERVER_ORIGIN, browserSettingsStorage, includeCityStorage, lastWorkspaceStorage } from "../../lib/server/browser-settings"
 import { createIndexedDbDraftStore, saveAnnotations } from "../../lib/drafts/draft-store"
 import { createDraftWriter } from "../../lib/drafts/draft-writer"
+import { draftLock } from "../../lib/drafts/draft-lock"
+import { nextTryAt } from "../../lib/drafts/outbox"
 import { type EditorDeps, loadDestination, loadEditor, loadProjects } from "../../lib/review/editor-load"
 import { limitsFor } from "../../lib/server/limits"
 import { currentCoordinates, locationForSend, toggleCity } from "../../lib/review/location"
-import type { ReviewAgainRequest, ReviewAnotherRequest } from "../../lib/shared/messages"
+import type { OutboxFlushRequest, ReviewAgainRequest, ReviewAnotherRequest } from "../../lib/shared/messages"
 import { isSignedOut } from "../../lib/drafts/popup"
 import { reviewMarkers, trimPayload } from "../../lib/review/review-data"
 import { draftKept, draftWithNotes, trimLocked } from "../../lib/review/review-draft"
@@ -25,7 +27,7 @@ import { type PreparedMedia, prepareVideo } from "../../lib/review/trim-send"
 import { whenBack } from "../../lib/shared/when-back"
 import type { trimVideo as TrimVideo } from "../../lib/review/trim-video"
 import type { ReportDraft } from "../../lib/shared/types"
-import { LOCKED, putFile, type ReportForm, submitDraft, type UploadProgress } from "../../lib/review/upload"
+import { putFile, type ReportForm, submitDraft, type UploadProgress } from "../../lib/review/upload"
 import type { AnnotationCanvasHandle } from "./AnnotationCanvas"
 import { ReviewMedia } from "./ReviewMedia"
 import { type Assignable, ReviewView, type ReviewStatus } from "./ReviewView"
@@ -39,13 +41,6 @@ const writeDraft = createDraftWriter(store)
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 /** The encoder (mediabunny) loads only when a trimmed recording is sent: most reviews never need it. */
 const trimVideo: typeof TrimVideo = async (...args) => (await import("../../lib/review/trim-video")).trimVideo(...args)
-/** Web Locks are shared by every extension page and released when a page closes. */
-function lock<T>(name: string, work: () => Promise<T>): Promise<T | typeof LOCKED> {
-  // request() resolves with the callback's settled value; the DOM types do not unwrap the promise.
-  return navigator.locks.request(name, { ifAvailable: true }, async (held) => (held ? await work() : LOCKED)) as unknown as Promise<
-    T | typeof LOCKED
-  >
-}
 /**
  * Over a page, Firefox sends this frame's requests without the sign-in cookie (they count as cross-site), so
  * they go through the background there. Chrome and Opera, and the review in a tab of its own, fetch directly.
@@ -144,6 +139,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
         void loadAi(state.workspaceId)
         // Signed out, an earlier failure isn't shown: sending waits for signing in.
         if (state.draft.status === "failed" && !state.signedOut) setStatus({ failed: state.draft.error ?? "Upload failed" })
+        if (state.draft.status === "queued") setStatus("queued")
       })
       .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : String(cause)))
     void includeCityStorage.get().then(setIncludeCity)
@@ -328,13 +324,24 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
         },
         browserThumbnailDeps,
       )
+      // Saved before the first byte goes out, so the background can finish the send if this tab can't.
+      await writeDraft(draftId, (stored) => ({
+        ...stored,
+        outbox: {
+          screenshot: current.captureType === "screenshot" ? media : null,
+          thumbnail,
+          serverUrl: settings.serverUrl,
+          tries: 0,
+          nextTryAt: nextTryAt(0, Date.now()),
+        },
+      }))
       // Over someone else's page the city can't be asked for, so only the tab version sends one.
       const asked = embedded ? { includeCity, location: null, note: null } : await locationForSend(includeCity, () => currentCoordinates(navigator.geolocation))
       const result = await submitDraft(
         draftId,
         form,
         media,
-        { api: apiOf(settings), store, putFile: (target, body, onSent) => putFile(target, body, onSent), sleep, lock, serverUrl: settings.serverUrl },
+        { api: apiOf(settings), store, putFile: (target, body, onSent) => putFile(target, body, onSent), sleep, lock: draftLock, serverUrl: settings.serverUrl },
         thumbnail,
         { location: asked.location, onProgress, ...(prepared ? { payload: prepared.payload, durationMs: prepared.durationMs } : {}) },
       )
@@ -344,6 +351,11 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
       setStatus({ sent: result })
       void loadSent(result.id)
     } catch (cause) {
+      if ((await store.get(draftId))?.status === "queued") {
+        setStatus("queued")
+        void browser.runtime.sendMessage({ type: "bugberry:outbox-flush" } satisfies OutboxFlushRequest).catch(() => undefined)
+        return
+      }
       if (isSignedOut(cause)) setStatus({ signedOut: signInUrl(settings.serverUrl) })
       else setStatus({ failed: cause instanceof Error ? cause.message : String(cause) })
       refreshLimits()

@@ -15,9 +15,16 @@ import {
   isReplayFrameRequest,
   isReplayPageMessage,
   isReplayRequest,
-  isReviewAnotherRequest } from "../../lib/shared/messages"
+  isReviewAnotherRequest,
+  isOutboxFlushRequest } from "../../lib/shared/messages"
 
 describe("messages", () => {
+  test("the outbox flush request", () => {
+    expect(isOutboxFlushRequest({ type: "bugberry:outbox-flush" })).toBe(true)
+    expect(isOutboxFlushRequest({ type: "bugberry:record-status" })).toBe(false)
+    expect(isOutboxFlushRequest(null)).toBe(false)
+  })
+
   test("background requests are recognised by type and shape", () => {
     expect(isScreenshotRequest({ type: "bugberry:screenshot", tabId: 7, mode: "area" })).toBe(true)
     expect(isScreenshotRequest({ type: "bugberry:screenshot", tabId: 7, mode: "full" })).toBe(false)

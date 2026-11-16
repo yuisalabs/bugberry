@@ -303,6 +303,13 @@ describe("after sending", () => {
     expect(onAnother).toHaveBeenCalledTimes(1)
   })
 
+  test("a queued report says it will be sent later and offers Try now", () => {
+    const { props } = view({ status: "queued" })
+    expect(screen.getByText("No connection. BugBerry sends this report when you're back online. You can close this tab.")).toBeTruthy()
+    fireEvent.click(button("Try now"))
+    expect(props.onSend).toHaveBeenCalledTimes(1)
+  })
+
   test("a failure says why and can be tried again with the same form", () => {
     const { props } = view({ status: { failed: "Network error" } })
     expect(screen.getByText("Network error")).toBeTruthy()
