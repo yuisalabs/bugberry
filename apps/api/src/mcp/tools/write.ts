@@ -1,4 +1,6 @@
 import { MAX_FIX_URL_LENGTH, MAX_FIXES_PER_REPORT, PRIORITIES, REPORT_STATUSES } from "@bugberry/shared"
+import { findLabelsByNames, labelsOfReports, listLabels } from "../../modules/labels/repository"
+import { setReportLabels } from "../../modules/labels/service"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { z } from "zod"
 import { findProjectByRef } from "../../modules/projects/repository"
@@ -12,6 +14,18 @@ import { requireMemberAccess, resolveReportRef } from "../refs"
 import { reportArgs } from "./args"
 
 const writeAnnotations = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
+
+/** Existing labels by name, without regard to case; agents can't create labels, so an unknown name is refused. */
+async function labelsNamed(ctx: McpContext, workspaceId: string, names: string[]) {
+  if (names.length === 0) return []
+  const found = await findLabelsByNames(ctx.deps.db, workspaceId, names)
+  const missing = names.find((name) => !found.some((label) => label.name.toLowerCase() === name.trim().toLowerCase()))
+  if (missing !== undefined) {
+    const all = await listLabels(ctx.deps.db, workspaceId)
+    throw new McpToolError("label_not_found", `No label named "${missing}". Labels here: ${all.map((label) => label.name).join(", ") || "none"}.`)
+  }
+  return found
+}
 
 export function registerWriteTools(server: McpServer, ctx: McpContext): void {
   const comments = createCommentsService(ctx.deps)
@@ -82,7 +96,7 @@ export function registerWriteTools(server: McpServer, ctx: McpContext): void {
     {
       title: "Update a report",
       description:
-        "Change a report's status, priority, assignee, title, description or project. Who can see the report cannot be changed here.",
+        "Change a report's status, priority, assignee, title, description, project or labels. Who can see the report cannot be changed here.",
       inputSchema: {
         ...reportArgs,
         status: z.enum(REPORT_STATUSES).optional(),
@@ -91,6 +105,8 @@ export function registerWriteTools(server: McpServer, ctx: McpContext): void {
         title: z.string().min(1).max(200).optional(),
         description: z.string().max(5000).optional(),
         project: z.string().max(200).optional().describe('Project id or slug in the report\'s workspace, or "none".'),
+        addLabels: z.array(z.string().max(40)).max(10).optional().describe("Names of existing labels (listLabels) to put on the report."),
+        removeLabels: z.array(z.string().max(40)).max(10).optional().describe("Names of labels to take off the report."),
       },
       annotations: { ...writeAnnotations, idempotentHint: true },
     },
@@ -115,7 +131,19 @@ export function registerWriteTools(server: McpServer, ctx: McpContext): void {
             input.projectId = projectId
           }
         }
-        const detail = await updateReport(ctx.deps, ctx.caller.user, resolved.id, input, { viaAgent: agentLabel(ctx.caller) })
+        const viaAgent = agentLabel(ctx.caller)
+        const changesLabels = Boolean(args.addLabels?.length || args.removeLabels?.length)
+        let detail = Object.keys(input).length || !changesLabels ? await updateReport(ctx.deps, ctx.caller.user, resolved.id, input, { viaAgent }) : null
+        if (changesLabels) {
+          const add = await labelsNamed(ctx, resolved.workspaceId, args.addLabels ?? [])
+          const remove = await labelsNamed(ctx, resolved.workspaceId, args.removeLabels ?? [])
+          const current = (await labelsOfReports(ctx.deps.db, [resolved.id])).get(resolved.id) ?? []
+          const ids = [...new Set([...current.map((label) => label.id), ...add.map((label) => label.id)])].filter(
+            (id) => !remove.some((label) => label.id === id),
+          )
+          detail = await setReportLabels(ctx.deps, ctx.caller.user, resolved.id, ids, { viaAgent })
+        }
+        if (!detail) throw new McpToolError("report_not_found", "Report not found")
         return textResult(
           `Updated BB-${detail.number}: ${detail.status}/${detail.priority}, assignee ${detail.assignee?.name ?? "nobody"}. ${reportUrl(appUrl, detail.id)}`,
         )
