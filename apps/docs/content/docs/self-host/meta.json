@@ -3,6 +3,7 @@
   "pages": [
     "index",
     "install",
+    "one-click",
     "sign-in",
     "sign-in-keycloak",
     "sign-in-entra-id",

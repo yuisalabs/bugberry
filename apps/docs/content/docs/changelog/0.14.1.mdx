@@ -1,0 +1,13 @@
+---
+title: 0.14.1
+description: Released 16 November 2026.
+---
+
+- **Published images.** The server and the dashboard are on GitHub's registry for every release, for amd64 and arm64:
+  `ghcr.io/yuisalabs/bugberry-api` and `ghcr.io/yuisalabs/bugberry-client`. `deploy/compose.images.yml` runs
+  BugBerry from them without the code or a build.
+- **Templates for Coolify, Dokploy and Railway.** Each asks for an address and one sign-in method and generates the
+  rest. See [One-Click Deploy](/self-host/one-click).
+- **Self-hosting:** an existing install needs nothing new; `docker compose up -d --build` works as before. The
+  dashboard image now takes its upstream addresses from `API_UPSTREAM`, `MCP_UPSTREAM` and `NGINX_RESOLVER`, whose
+  defaults are the Docker Compose network's. The extension stays at 0.13.2.

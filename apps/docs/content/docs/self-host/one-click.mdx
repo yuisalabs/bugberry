@@ -1,0 +1,62 @@
+---
+title: One-Click Deploy
+description: Run BugBerry on Coolify, Dokploy or Railway from its published images, without cloning or building.
+---
+
+BugBerry publishes its two images, the server and the dashboard, to GitHub's registry for every release, for `amd64` and `arm64`:
+
+- `ghcr.io/yuisalabs/bugberry-api`
+- `ghcr.io/yuisalabs/bugberry-client`
+
+Each is tagged with the release (`0.14.1`), its minor version (`0.14`) and `latest`. The templates below use them.
+
+## What Every Path Asks For
+
+- **An address.** The platform gives one, or you bring your own domain. It becomes `APP_URL`; the extension and the sign-in providers use it.
+- **One sign-in method.** The server doesn't start without one. Email codes over SMTP are the simplest: a sender address, a host, a user and a password. Google, GitHub, GitLab and company sign-in (OIDC) are optional; see [Sign-In](/self-host/sign-in).
+
+The templates generate the database password and the secrets. Don't change `ENCRYPTION_KEY` after the first deploy: integration tokens saved with it can't be read with another.
+
+## Coolify
+
+1. **New Resource** → **Docker Compose Empty**, and paste [`deploy/coolify/docker-compose.yml`](https://github.com/yuisalabs/bugberry/blob/main/deploy/coolify/docker-compose.yml).
+2. Give the `client` service a domain.
+3. Fill in the fields Coolify marks as required: `EMAIL_FROM`, `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`.
+4. **Deploy.**
+
+It runs the server, MCP for AI agents in its own container, the dashboard and Postgres, behind Coolify's proxy. See [the template's README](https://github.com/yuisalabs/bugberry/blob/main/deploy/coolify/README.md) for every field.
+
+## Dokploy
+
+1. In a project, **Create Service** → **Compose**, and paste [`deploy/dokploy/docker-compose.yml`](https://github.com/yuisalabs/bugberry/blob/main/deploy/dokploy/docker-compose.yml).
+2. Add the environment from [`template.toml`](https://github.com/yuisalabs/bugberry/blob/main/deploy/dokploy/template.toml): generate the two passwords and `ENCRYPTION_KEY` with `openssl rand -base64 32`, and fill in SMTP.
+3. Add a domain on service `client`, port 80, with HTTPS, and set `APP_URL` to it.
+4. **Deploy.**
+
+It runs the same four services as Coolify. See [the template's README](https://github.com/yuisalabs/bugberry/blob/main/deploy/dokploy/README.md).
+
+## Railway
+
+The Railway template runs three services: the server (which serves MCP too), the dashboard, and Railway's Postgres. Its button is added here once it is published. Until then, [`deploy/railway/README.md`](https://github.com/yuisalabs/bugberry/blob/main/deploy/railway/README.md) lists every setting to create the project by hand.
+
+## Your Own Server, From Images
+
+Without a platform, download [`deploy/compose.images.yml`](https://github.com/yuisalabs/bugberry/blob/main/deploy/compose.images.yml) and [`deploy/.env.images.example`](https://github.com/yuisalabs/bugberry/blob/main/deploy/.env.images.example) into one folder, rename the example to `.env`, fill it in as in [Install](/self-host/install), and run:
+
+```bash
+docker compose -f compose.images.yml up -d
+```
+
+## Upgrade and Pin a Version
+
+The templates are pinned to a release. To upgrade, change the image tags to the new one and redeploy; the server runs the database migrations when it starts. With `compose.images.yml`, `BUGBERRY_VERSION` in `.env` pins the release (empty follows `latest`), and an upgrade is:
+
+```bash
+docker compose -f compose.images.yml pull && docker compose -f compose.images.yml up -d
+```
+
+## What Isn't Set Up for You
+
+- **Backups.** The database and the uploads live in the platform's volumes; back them up as [Operations](/self-host/operations#backups) describes.
+- **S3 storage.** Uploads go to a volume. For S3, R2 or MinIO set the same variables as any install; see [Storage](/self-host/storage).
+- **The extension.** Point the [browser extension](/self-host/extension) at your new address.

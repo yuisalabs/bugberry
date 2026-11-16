@@ -10,6 +10,12 @@ git pull && docker compose up -d --build --remove-orphans
 docker image prune -f
 ```
 
+Installed from the published images (`deploy/compose.images.yml`), an upgrade is:
+
+```bash
+docker compose -f compose.images.yml pull && docker compose -f compose.images.yml up -d
+```
+
 New database migrations run when the `api` container starts. `docker stop` gives requests in progress 60 seconds to finish, so a large upload isn't cut off.
 
 If you build the extension yourself, update the server first, then share the new extension zip.

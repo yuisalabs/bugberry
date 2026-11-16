@@ -61,6 +61,12 @@ cp .env.docker.example .env
 docker compose --profile caddy up -d --build
 ```
 
+Or run the published images (`ghcr.io/yuisalabs/bugberry-api` and `-client`, amd64 and arm64) without cloning:
+download [`deploy/compose.images.yml`](./deploy/compose.images.yml) and [`deploy/.env.images.example`](./deploy/.env.images.example),
+rename the example to `.env`, fill it in, and run `docker compose -f compose.images.yml up -d`. Templates for
+[Coolify](./deploy/coolify), [Dokploy](./deploy/dokploy) and [Railway](./deploy/railway) are in `deploy/`.
+
+- [One-click deploy](https://bugberry.yuisalabs.com/docs/self-host/one-click)
 - [Quick start](https://bugberry.yuisalabs.com/docs/quick-start)
 - [Install, step by step](https://bugberry.yuisalabs.com/docs/self-host/install)
 - [Environment variables](https://bugberry.yuisalabs.com/docs/self-host/environment)
