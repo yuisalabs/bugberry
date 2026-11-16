@@ -10,7 +10,7 @@ import { BUILD_SERVER_ORIGIN, browserSettingsStorage, includeCityStorage, lastWo
 import { createIndexedDbDraftStore, saveAnnotations } from "../../lib/drafts/draft-store"
 import { createDraftWriter } from "../../lib/drafts/draft-writer"
 import { draftLock } from "../../lib/drafts/draft-lock"
-import { nextTryAt } from "../../lib/drafts/outbox"
+import { newOutbox } from "../../lib/drafts/outbox"
 import { type EditorDeps, loadDestination, loadEditor, loadProjects } from "../../lib/review/editor-load"
 import { limitsFor } from "../../lib/server/limits"
 import { currentCoordinates, locationForSend, toggleCity } from "../../lib/review/location"
@@ -325,16 +325,7 @@ export function App({ draftId, embedded }: { draftId: string; embedded: boolean 
         browserThumbnailDeps,
       )
       // Saved before the first byte goes out, so the background can finish the send if this tab can't.
-      await writeDraft(draftId, (stored) => ({
-        ...stored,
-        outbox: {
-          screenshot: current.captureType === "screenshot" ? media : null,
-          thumbnail,
-          serverUrl: settings.serverUrl,
-          tries: 0,
-          nextTryAt: nextTryAt(0, Date.now()),
-        },
-      }))
+      await writeDraft(draftId, (stored) => ({ ...stored, outbox: newOutbox(stored, media, thumbnail, settings.serverUrl, Date.now()) }))
       // Over someone else's page the city can't be asked for, so only the tab version sends one.
       const asked = embedded ? { includeCity, location: null, note: null } : await locationForSend(includeCity, () => currentCoordinates(navigator.geolocation))
       const result = await submitDraft(

@@ -22,14 +22,7 @@ import { isBugBerryServer } from "../../lib/server/session"
 import { cropBox, pickArea } from "../../lib/capture/select-area"
 import { loadSettings } from "../../lib/server/settings"
 import {
-  clientConfigInTime,
-  DEFAULT_MAX_UPLOAD_MB,
-  expectedRecordingSeconds,
-  recordingByteBudget,
-  recordingLengthMs,
-  signedOutForLength,
-  uploadLimitMb,
-  workspaceLimitsInTime,
+  clientConfigInTime, DEFAULT_MAX_UPLOAD_MB, expectedRecordingSeconds, recordingByteBudget, recordingLengthMs, signedOutForLength, uploadLimitMb, workspaceLimitsInTime,
 } from "../../lib/server/upload-limit"
 import { limitsFor } from "../../lib/server/limits"
 import { isSignedOut } from "../../lib/drafts/popup"
@@ -39,6 +32,7 @@ import { createBrowserReplayDeps } from "../../lib/replay/browser-replay-deps"
 import { startReplayReport } from "../../lib/replay/replay-capture"
 import { createReplayController } from "../../lib/replay/replay-controller"
 import { createMessageListener, RECORDER_BUILD } from "./on-message"
+import { startOutbox } from "./outbox"
 import { promptTickets } from "./prompt-tickets"
 import { readPageCapture, readPageEnvironment, reinjectCaptureScripts, toActiveTab } from "./tabs"
 
@@ -456,6 +450,7 @@ export default defineBackground(() => {
       stopRecording,
       replay,
       extensionOrigin,
+      flushOutbox: startOutbox(store),
     }),
   )
 

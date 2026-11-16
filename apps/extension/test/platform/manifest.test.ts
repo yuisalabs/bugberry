@@ -57,8 +57,8 @@ describe("MANIFEST_COMMANDS", () => {
 })
 
 describe("manifest pages and permissions", () => {
-  test("the page layer's frames are web accessible, and no permission was added", () => {
-    expect(MANIFEST_PERMISSIONS).toEqual(["activeTab", "scripting", "storage", "tabs", "tabCapture", "offscreen"])
+  test("the page layer's frames are web accessible, and only alarms was added", () => {
+    expect(MANIFEST_PERMISSIONS).toEqual(["activeTab", "scripting", "storage", "tabs", "tabCapture", "offscreen", "alarms"])
     expect(WEB_ACCESSIBLE_RESOURCES).toEqual([
       {
         resources: ["recorder-bar.html", "draw.html", "review.html", "microphone.html", "confirm-server.html", "options.html", "camera-bubble.html", "camera.html"],
@@ -102,7 +102,7 @@ describe("manifestFor", () => {
     const manifest = manifestFor("firefox", "KEY") as Record<string, unknown> & {
       browser_specific_settings: { gecko: unknown; gecko_android: unknown }
     }
-    expect(manifest.permissions).toEqual(["activeTab", "scripting", "storage", "tabs"])
+    expect(manifest.permissions).toEqual(["activeTab", "scripting", "storage", "tabs", "alarms"])
     expect("key" in manifest).toBe(false)
     expect(manifest.browser_specific_settings.gecko).toEqual({
       id: "yuisalabs@gmail.com",

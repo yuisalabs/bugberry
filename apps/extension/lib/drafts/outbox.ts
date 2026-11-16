@@ -1,7 +1,10 @@
 import { isTrimmed, trimPayload } from "../review/review-data"
 import { sameRange } from "../review/review-draft"
 import type { SendOptions } from "../review/upload"
-import type { ReportDraft } from "../shared/types"
+import type { DraftOutbox, ReportDraft } from "../shared/types"
+
+/** The background's alarm while drafts wait for a connection. */
+export const OUTBOX_ALARM = "bugberry-outbox"
 
 export const OUTBOX_DELAYS_MIN = [1, 2, 4, 8, 15]
 
@@ -9,6 +12,11 @@ export const OUTBOX_DELAYS_MIN = [1, 2, 4, 8, 15]
 export function nextTryAt(tries: number, now: number): number {
   const minutes = OUTBOX_DELAYS_MIN[Math.min(tries, OUTBOX_DELAYS_MIN.length - 1)]!
   return now + minutes * 60_000
+}
+
+/** The outbox Send saves: a screenshot keeps its exported picture, a recording's media is already on the draft. */
+export function newOutbox(draft: ReportDraft, media: Blob, thumbnail: Blob | null, serverUrl: string, now: number): DraftOutbox {
+  return { screenshot: draft.captureType === "screenshot" ? media : null, thumbnail, serverUrl, tries: 0, nextTryAt: nextTryAt(0, now) }
 }
 
 const waiting = (draft: ReportDraft) =>

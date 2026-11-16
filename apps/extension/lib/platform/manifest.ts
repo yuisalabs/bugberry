@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto"
 
 /** Only permissions without an install warning may ever be added: a new warning disables the extension on update. */
-export const MANIFEST_PERMISSIONS = ["activeTab", "scripting", "storage", "tabs", "tabCapture", "offscreen"]
+export const MANIFEST_PERMISSIONS = ["activeTab", "scripting", "storage", "tabs", "tabCapture", "offscreen", "alarms"]
 
 /** The extension pages the page layer shows in iframes (Recording Bar, drawing layer, review modal, camera bubble, prompts). */
 export const WEB_ACCESSIBLE_RESOURCES = [
@@ -36,7 +36,7 @@ export const MANIFEST_COMMANDS = {
 }
 
 /** Firefox has neither tabCapture nor offscreen documents: it records through a window of its own. */
-export const FIREFOX_PERMISSIONS = ["activeTab", "scripting", "storage", "tabs"]
+export const FIREFOX_PERMISSIONS = ["activeTab", "scripting", "storage", "tabs", "alarms"]
 
 /** Pinned for good: Firefox identifies the extension (and its signed updates) by this id. */
 export const FIREFOX_GECKO = {

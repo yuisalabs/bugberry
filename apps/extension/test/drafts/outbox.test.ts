@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { dueDrafts, nextTryAt, outboxSend, waitingCount } from "../../lib/drafts/outbox"
+import { dueDrafts, newOutbox, nextTryAt, outboxSend, waitingCount } from "../../lib/drafts/outbox"
 import type { DraftOutbox, ReportDraft, ReportForm } from "../../lib/shared/types"
 
 const RAW = new Blob(["raw"])
@@ -44,6 +44,19 @@ const replayDraft = (overrides: Partial<ReportDraft> = {}) =>
 describe("nextTryAt", () => {
   test("backs off 1, 2, 4, 8, then 15 minutes", () => {
     expect([0, 1, 2, 3, 4, 9].map((tries) => nextTryAt(tries, 0) / 60_000)).toEqual([1, 2, 4, 8, 15, 15])
+  })
+})
+
+describe("newOutbox", () => {
+  test("a screenshot keeps the exported picture; a recording keeps none", () => {
+    expect(newOutbox(screenshotDraft(), EXPORTED, null, "https://bb.test", 0)).toEqual({
+      screenshot: EXPORTED,
+      thumbnail: null,
+      serverUrl: "https://bb.test",
+      tries: 0,
+      nextTryAt: 60_000,
+    })
+    expect(newOutbox(videoDraft(), WHOLE, null, "https://bb.test", 0).screenshot).toBeNull()
   })
 })
 
