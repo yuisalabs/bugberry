@@ -3,7 +3,7 @@ import { type CaptureEvent, decodeDebuggerPayload } from "@bugberry/capture"
 import { ApiError, type CreateUploadBody, type UploadSession } from "../../lib/server/api"
 import type { DraftStore } from "../../lib/drafts/draft-store"
 import type { ReportDraft, UploadTarget } from "../../lib/shared/types"
-import { LOCKED, type PutRequest, putFile, type ReportForm, sha256, submitDraft, type UploadDeps, type UploadProgress } from "../../lib/review/upload"
+import { fetchPut, LOCKED, type PutRequest, putFile, type ReportForm, sha256, submitDraft, type UploadDeps, type UploadProgress } from "../../lib/review/upload"
 
 const form: ReportForm = { workspaceId: "w1", projectId: "p1", title: "Pay button fails", description: "", priority: "high", visibility: "internal" }
 
@@ -646,6 +646,60 @@ describe("sessions and servers", () => {
     calls = []
     await submitDraft("d1", form, media, deps)
     expect(calls).toEqual(["finalize:r1"])
+  })
+})
+
+describe("the queue", () => {
+  const withOutbox = async () => {
+    const stored = (await store.get("d1"))!
+    await store.put({ ...stored, outbox: { screenshot: media, thumbnail: null, serverUrl: "https://b.test", tries: 0, nextTryAt: 0 } })
+  }
+  const unreachable = () => {
+    deps.putFile = async () => {
+      throw new ApiError(0, "network", "Upload interrupted")
+    }
+  }
+
+  test("out of retries with the server unreachable: a draft with an outbox is queued", async () => {
+    await withOutbox()
+    unreachable()
+    await expect(submitDraft("d1", form, media, deps)).rejects.toMatchObject({ code: "network" })
+    expect((await store.get("d1"))?.status).toBe("queued")
+  })
+
+  test("the same failure without an outbox stays failed", async () => {
+    unreachable()
+    await expect(submitDraft("d1", form, media, deps)).rejects.toMatchObject({ code: "network" })
+    expect((await store.get("d1"))?.status).toBe("failed")
+  })
+
+  test("a refused send is failed even with an outbox", async () => {
+    await withOutbox()
+    deps.api.createUpload = async () => {
+      throw new ApiError(422, "limit_reached", "This workspace has reached its report limit")
+    }
+    await expect(submitDraft("d1", form, media, deps)).rejects.toMatchObject({ code: "limit_reached" })
+    expect((await store.get("d1"))?.status).toBe("failed")
+  })
+
+  test("fetchPut answers the status and rejects when the connection fails", async () => {
+    const realFetch = globalThis.fetch
+    const seen: Array<{ url: string; method?: string; headers?: unknown }> = []
+    try {
+      globalThis.fetch = (async (url: string, init?: RequestInit) => {
+        seen.push({ url, method: init?.method, headers: init?.headers })
+        return new Response(null, { status: 409 })
+      }) as unknown as typeof fetch
+      const put = { method: "PUT" as const, url: "https://up.test/a", headers: { "content-type": "image/png" } }
+      expect(await fetchPut(put, media, () => {})).toBe(409)
+      expect(seen).toEqual([{ url: "https://up.test/a", method: "PUT", headers: { "content-type": "image/png" } }])
+      globalThis.fetch = (async () => {
+        throw new TypeError("Failed to fetch")
+      }) as unknown as typeof fetch
+      await expect(fetchPut(put, media, () => {})).rejects.toThrow()
+    } finally {
+      globalThis.fetch = realFetch
+    }
   })
 })
 

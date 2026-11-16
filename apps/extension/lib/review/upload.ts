@@ -55,6 +55,12 @@ export const xhrPut: PutRequest = (target, body, onProgress) =>
     request.send(body)
   })
 
+/** A PUT for the background, which has no XMLHttpRequest; it reports no progress. */
+export const fetchPut: PutRequest = async (target, body) => {
+  const response = await fetch(target.url, { method: target.method, headers: target.headers, body })
+  return response.status
+}
+
 export async function putFile(
   target: UploadTarget,
   body: Blob,
@@ -80,7 +86,7 @@ export async function putFile(
 /** Finalize answers meaning the session's report is gone or unusable: start a new one. */
 const SESSION_LOST_CODES = new Set(["report_not_found", "forbidden", "upload_failed", "upload_size_mismatch"])
 
-function shouldRetry(error: unknown): boolean {
+export function shouldRetry(error: unknown): boolean {
   return (
     error instanceof ApiError &&
     (error.retryable || error.code === "upload_expired" || error.code === "session_lost")
@@ -313,7 +319,9 @@ async function submitUnlocked(
       if (error instanceof ApiError && error.code === "upload_expired") await save({ session: null })
       const delay = RETRY_DELAYS_MS[retry]
       if (!shouldRetry(error) || delay === undefined) {
-        await save({ status: "failed", error: messageOf(error) })
+        // A draft saved for the background waits there for the server instead of failing.
+        const queued = shouldRetry(error) && (await deps.store.get(draftId))?.outbox != null
+        await save({ status: queued ? "queued" : "failed", error: messageOf(error) })
         throw error
       }
       await deps.sleep(delay)
