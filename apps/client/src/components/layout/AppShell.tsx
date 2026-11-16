@@ -8,6 +8,8 @@ import {
   RiMenuLine,
   RiPlugFill,
   RiPlugLine,
+  RiPriceTag3Fill,
+  RiPriceTag3Line,
   RiRobot2Fill,
   RiRobot2Line,
   RiSettings3Fill,
@@ -192,6 +194,14 @@ export function AppShell() {
                     <>
                       <ActiveIcon active={isActive} line={RiPlugLine} fill={RiPlugFill} className={navIcon} />
                       Integrations
+                    </>
+                  )}
+                </Link>
+                <Link to="/app/settings/labels" {...drawerLink}>
+                  {({ isActive }) => (
+                    <>
+                      <ActiveIcon active={isActive} line={RiPriceTag3Line} fill={RiPriceTag3Fill} className={navIcon} />
+                      Labels
                     </>
                   )}
                 </Link>

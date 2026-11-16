@@ -140,6 +140,13 @@ const projectsSettingsRoute = createRoute({
   component: lazyRouteComponent(() => import("./features/projects/ProjectsSettingsPage"), "ProjectsSettingsPage"),
 })
 
+/** The workspace's labels: admins rename, recolor and delete them. */
+const labelsSettingsRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "/app/settings/labels",
+  component: lazyRouteComponent(() => import("./features/labels/LabelsSettingsPage"), "LabelsSettingsPage"),
+})
+
 /** The workspace's connections: admins connect accounts and channels once, for every project. */
 const connectionsRoute = createRoute({
   getParentRoute: () => adminRoute,
@@ -226,7 +233,7 @@ const routeTree = rootRoute.addChildren([
     membersRoute,
     accountRoute,
     aiAgentsRoute,
-    adminRoute.addChildren([projectsSettingsRoute, connectionsRoute, integrationsRoute, workspaceSettingsRoute]),
+    adminRoute.addChildren([projectsSettingsRoute, labelsSettingsRoute, connectionsRoute, integrationsRoute, workspaceSettingsRoute]),
   ]),
 ])
 
