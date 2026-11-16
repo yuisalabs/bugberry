@@ -32,8 +32,8 @@ Railway's own Postgres (Add → Database → PostgreSQL). Nothing to change.
 | `LOCAL_STORAGE_DIR` | `/data/uploads` |
 | `BETTER_AUTH_SECRET` | `${{secret(64)}}` |
 | `ENCRYPTION_KEY` | required template variable, description: "Base64 of 32 random bytes: run `openssl rand -base64 32`" |
-| `EMAIL_DRIVER` | `smtp` |
-| `EMAIL_FROM`, `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD` | required template variables |
+| `EMAIL_DRIVER` | `smtp` (template variable; empty to sign in only with Google, GitHub, GitLab or OIDC) |
+| `EMAIL_FROM`, `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD` | template variables, needed while `EMAIL_DRIVER` is `smtp` |
 | `SMTP_PORT` | `587` |
 | `SMTP_SECURE` | `false` |
 | `GOOGLE_CLIENT_ID`/`_SECRET`, `GITHUB_…`, `GITLAB_…`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `ALLOWED_EMAIL_DOMAINS`, `EXTENSION_ID` | optional template variables, empty |
@@ -54,6 +54,8 @@ bytes, and the server refuses any other shape.
 | `API_UPSTREAM` | `http://${{api.RAILWAY_PRIVATE_DOMAIN}}:3000` |
 | `MCP_UPSTREAM` | `http://${{api.RAILWAY_PRIVATE_DOMAIN}}:3000` |
 | `NGINX_RESOLVER` | `[fd12::10] valid=10s ipv6=on` |
+
+An empty value isn't the default: `API_UPSTREAM` left blank breaks nginx's config, so the client won't start.
 
 Railway's private network is IPv6, and its DNS server inside a service is `fd12::10` (community answers from Railway
 staff; the official docs don't name it). nginx resolves the api's name per request through it, so a redeployed api's

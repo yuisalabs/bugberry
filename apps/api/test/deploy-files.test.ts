@@ -209,10 +209,13 @@ describe("deploy files", () => {
     const config = loadConfig(env)
     expect([config.serverRole, config.mcp.sharedRateLimit]).toEqual(["mcp", true])
 
-    const nginx = await Bun.file(join(ROOT, "docker/nginx.conf")).text()
+    const nginx = await Bun.file(join(ROOT, "docker/nginx.conf.template")).text()
     const mcpBlock = nginx.slice(nginx.indexOf("location ^~ /api/mcp {"), nginx.indexOf("location ^~ /api {"))
-    expect(mcpBlock).toContain("set $mcp_upstream http://api-mcp:3000;")
+    expect(mcpBlock).toContain("set $mcp_upstream ${MCP_UPSTREAM};")
     expect(mcpBlock).toContain("proxy_pass $mcp_upstream;")
+    const dockerfile = await Bun.file(join(ROOT, "docker/client.Dockerfile")).text()
+    expect(dockerfile).toContain("MCP_UPSTREAM=http://api-mcp:3000")
+    expect(dockerfile).toContain("API_UPSTREAM=http://api:3000")
   })
 
   test("the MCP container has a ceiling on memory as well as CPU, so agents cannot take the host's from the dashboard", async () => {
@@ -254,7 +257,7 @@ describe("deploy files", () => {
 })
 
 describe("the share page's nginx block", () => {
-  const nginx = () => Bun.file(join(ROOT, "docker/nginx.conf")).text()
+  const nginx = () => Bun.file(join(ROOT, "docker/nginx.conf.template")).text()
   const block = (text: string, start: string) => text.slice(text.indexOf(start), text.indexOf("\n    }", text.indexOf(start)))
 
   test("a slow api costs the page at most about five seconds", async () => {
@@ -279,5 +282,27 @@ describe("the share page's nginx block", () => {
     const page = block(text, 'location ~ "^/s/')
     expect(page).toContain('add_header X-Robots-Tag "noindex" always;')
     expect(page).toContain('location ~ "^/s/([A-Za-z0-9_-]{1,64})/?$" {')
+  })
+})
+
+describe("the platform templates", () => {
+  const templates = ["deploy/coolify/docker-compose.yml", "deploy/dokploy/docker-compose.yml"]
+
+  test("S3 storage and the rarer sign-in settings reach the containers", async () => {
+    for (const path of templates) {
+      const text = await Bun.file(join(ROOT, path)).text()
+      for (const name of ["S3_ENDPOINT", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "GITLAB_URL", "OIDC_NAME", "EMAIL_SIGN_IN", "EXTENSION_INSTALL_URL"]) {
+        expect(text, `${path} ${name}`).toContain(`${name}: \${${name}`)
+      }
+      expect(text, path).toContain("STORAGE_DRIVER: ${STORAGE_DRIVER:-local}")
+    }
+  })
+
+  test("Dokploy's containers come back after a crash or a reboot", async () => {
+    const text = await Bun.file(join(ROOT, "deploy/dokploy/docker-compose.yml")).text()
+    const services = text.slice(text.indexOf("services:"), text.indexOf("\nvolumes:"))
+    const names = [...services.matchAll(/^  ([a-z-]+):$/gm)].map((match) => match[1])
+    expect(names).toEqual(["api", "api-mcp", "client", "postgres"])
+    expect(services.match(/^    restart: unless-stopped$/gm)).toHaveLength(names.length)
   })
 })

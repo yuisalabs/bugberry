@@ -3,6 +3,7 @@
 services:
   api:
     image: ghcr.io/yuisalabs/bugberry-api:0.14.1
+    restart: unless-stopped
     init: true
     stop_grace_period: 60s
     environment:
@@ -12,12 +13,12 @@ services:
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       LOCAL_STORAGE_DIR: /data/uploads
-      STORAGE_DRIVER: local
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
       PORT: "3000"
       PROXY_HOPS: "1"
       TRUST_PROXY: "true"
       SERVER_ROLE: app
-      EMAIL_DRIVER: smtp
+      EMAIL_DRIVER: ${EMAIL_DRIVER-smtp}
       EMAIL_FROM: ${EMAIL_FROM}
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT:-587}
@@ -36,6 +37,17 @@ services:
       ALLOWED_EMAIL_DOMAINS: ${ALLOWED_EMAIL_DOMAINS:-}
       EXTENSION_ID: ${EXTENSION_ID:-}
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-300}
+      GITLAB_URL: ${GITLAB_URL:-}
+      OIDC_NAME: ${OIDC_NAME:-}
+      EMAIL_SIGN_IN: ${EMAIL_SIGN_IN:-}
+      EXTENSION_INSTALL_URL: ${EXTENSION_INSTALL_URL:-}
+      # S3, R2 or MinIO instead of the uploads volume: STORAGE_DRIVER=s3 and these.
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_REGION: ${S3_REGION:-}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+      S3_VIRTUAL_HOSTED_STYLE: ${S3_VIRTUAL_HOSTED_STYLE:-}
     volumes:
       - bugberry-uploads:/data/uploads
     depends_on:
@@ -45,6 +57,7 @@ services:
   # MCP for AI agents in its own process; it waits for api to migrate the database.
   api-mcp:
     image: ghcr.io/yuisalabs/bugberry-api:0.14.1
+    restart: unless-stopped
     init: true
     stop_grace_period: 60s
     environment:
@@ -54,12 +67,12 @@ services:
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       LOCAL_STORAGE_DIR: /data/uploads
-      STORAGE_DRIVER: local
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
       PORT: "3000"
       PROXY_HOPS: "1"
       TRUST_PROXY: "true"
       SERVER_ROLE: mcp
-      EMAIL_DRIVER: smtp
+      EMAIL_DRIVER: ${EMAIL_DRIVER-smtp}
       EMAIL_FROM: ${EMAIL_FROM}
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT:-587}
@@ -78,6 +91,17 @@ services:
       ALLOWED_EMAIL_DOMAINS: ${ALLOWED_EMAIL_DOMAINS:-}
       EXTENSION_ID: ${EXTENSION_ID:-}
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-300}
+      GITLAB_URL: ${GITLAB_URL:-}
+      OIDC_NAME: ${OIDC_NAME:-}
+      EMAIL_SIGN_IN: ${EMAIL_SIGN_IN:-}
+      EXTENSION_INSTALL_URL: ${EXTENSION_INSTALL_URL:-}
+      # S3, R2 or MinIO instead of the uploads volume: STORAGE_DRIVER=s3 and these.
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_REGION: ${S3_REGION:-}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+      S3_VIRTUAL_HOSTED_STYLE: ${S3_VIRTUAL_HOSTED_STYLE:-}
     volumes:
       - bugberry-uploads:/data/uploads
     depends_on:
@@ -87,6 +111,7 @@ services:
   # The public address: the dashboard, with /api proxied to the api.
   client:
     image: ghcr.io/yuisalabs/bugberry-client:0.14.1
+    restart: unless-stopped
     stop_grace_period: 60s
     expose:
       - "80"
@@ -98,6 +123,7 @@ services:
 
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: bugberry
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}

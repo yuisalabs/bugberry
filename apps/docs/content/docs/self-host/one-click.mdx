@@ -14,6 +14,7 @@ Each is tagged with the release (`0.14.1`), its minor version (`0.14`) and `late
 
 - **An address.** The platform gives one, or you bring your own domain. It becomes `APP_URL`; the extension and the sign-in providers use it.
 - **One sign-in method.** The server doesn't start without one. Email codes over SMTP are the simplest: a sender address, a host, a user and a password. Google, GitHub, GitLab and company sign-in (OIDC) are optional; see [Sign-In](/self-host/sign-in).
+- **HTTPS.** Google sign-in and the extension need an `https://` address.
 
 The templates generate the database password and the secrets. Don't change `ENCRYPTION_KEY` after the first deploy: integration tokens saved with it can't be read with another.
 
@@ -41,11 +42,13 @@ The Railway template runs three services: the server (which serves MCP too), the
 
 ## Your Own Server, From Images
 
-Without a platform, download [`deploy/compose.images.yml`](https://github.com/yuisalabs/bugberry/blob/main/deploy/compose.images.yml) and [`deploy/.env.images.example`](https://github.com/yuisalabs/bugberry/blob/main/deploy/.env.images.example) into one folder, rename the example to `.env`, fill it in as in [Install](/self-host/install), and run:
+This is for a new install: it names its project, database and user `bugberry`, so an install made with `docker-compose.yml` (named `fdebag`) keeps its own and doesn't move over. Without a platform, download [`deploy/compose.images.yml`](https://github.com/yuisalabs/bugberry/blob/main/deploy/compose.images.yml) and [`deploy/.env.images.example`](https://github.com/yuisalabs/bugberry/blob/main/deploy/.env.images.example) into one folder, rename the example to `.env`, fill it in as in [Install](/self-host/install), and run:
 
 ```bash
 docker compose -f compose.images.yml up -d
 ```
+
+It needs Docker Compose 2.23.1 or newer. [Maintenance mode](/self-host/operations#maintenance-mode) reads its file from the `maintenance` volume here. Put it in with `docker run --rm -v bugberry_maintenance:/m -v "$PWD":/s alpine cp /s/maintenance.json /m/`, and end it with `docker run --rm -v bugberry_maintenance:/m alpine rm /m/maintenance.json`.
 
 ## Upgrade and Pin a Version
 
@@ -58,5 +61,5 @@ docker compose -f compose.images.yml pull && docker compose -f compose.images.ym
 ## What Isn't Set Up for You
 
 - **Backups.** The database and the uploads live in the platform's volumes; back them up as [Operations](/self-host/operations#backups) describes.
-- **S3 storage.** Uploads go to a volume. For S3, R2 or MinIO set the same variables as any install; see [Storage](/self-host/storage).
+- **S3 storage.** Uploads go to a volume. For S3, R2 or MinIO set `STORAGE_DRIVER=s3` and the `S3_*` variables, as in any install; see [Storage](/self-host/storage).
 - **The extension.** Point the [browser extension](/self-host/extension) at your new address.

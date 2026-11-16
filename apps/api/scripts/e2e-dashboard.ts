@@ -27,7 +27,7 @@ function fileInside(root: string, pathname: string): string | null {
 
 /**
  * Serves the dashboard build next to the API for the extension E2E run only; production serves it from
- * nginx (docker/nginx.conf). Real files when they exist, `index.html` for every other path so
+ * nginx (docker/nginx.conf.template). Real files when they exist, `index.html` for every other path so
  * client-side routes survive a reload. API paths never fall through to the app shell.
  */
 export function dashboardApp(distDir: string) {

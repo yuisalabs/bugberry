@@ -20,11 +20,20 @@ Until BugBerry is in Dokploy's template list, create the service by hand:
 Once the template is listed, **Templates** → BugBerry does steps 1 to 3 itself: it generates the domain, the
 passwords and `ENCRYPTION_KEY` (`${base64:32}` is base64 of 32 bytes), and leaves the sign-in fields to fill in.
 
-If the api keeps restarting, open its logs. "Enable at least one sign-in method" means none is set.
+If the api keeps restarting, open its logs: it names the missing setting, such as `EMAIL_FROM is required` when
+`EMAIL_DRIVER` is `smtp` and the SMTP fields are empty, or "Enable at least one sign-in method" when none is on.
+To sign in only with Google, GitHub, GitLab or OIDC, set `EMAIL_DRIVER` to empty.
+
+**HTTPS.** `APP_URL` must start with the scheme the domain is served on. Dokploy's generated `traefik.me` domains are
+plain http: for Google sign-in and the extension, use a domain of your own with HTTPS turned on, and keep `APP_URL`
+at `https://` and that domain.
+
+**Isolated deployments.** The services are called `api`, `client` and `postgres`. Turn on **Isolated Deployment**
+for this compose service, so the dashboard never reaches another stack's `api` on Dokploy's shared network.
 
 ## Data
 
-The database is in the volume `bugberry-pgdata`, uploads in `bugberry-uploads`. Redeploying keeps both. Don't change
+The database is in the volume `bugberry-pgdata`, uploads in `bugberry-uploads`. Redeploying keeps both. S3, R2 or MinIO instead of the volume: `STORAGE_DRIVER=s3` and the `S3_*` values. Don't change
 `ENCRYPTION_KEY` after the first deploy: integration tokens saved with it can't be read with another.
 
 ## Pin a Version, Upgrade

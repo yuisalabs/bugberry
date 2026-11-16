@@ -21,13 +21,20 @@ the dashboard and Postgres, behind Coolify's own proxy.
 Coolify generates the database password, `BETTER_AUTH_SECRET` and `ENCRYPTION_KEY` once and keeps them across
 deploys. Don't change `ENCRYPTION_KEY` afterwards: integration tokens saved with it can't be read with another.
 
-If the api keeps restarting, open its logs. "Enable at least one sign-in method" means no sign-in method is set.
+If the api keeps restarting, open its logs: it names the setting it is missing, such as `EMAIL_FROM is required`.
+
+The SMTP fields are required here, so every install can sign in by email. To offer only Google, GitHub, GitLab or
+OIDC, clear `EMAIL_DRIVER` and remove the four `${…:?}` SMTP lines from the compose file before deploying.
+
+Coolify without a wildcard domain gives an `http://…sslip.io` address. Google sign-in and the extension need
+https: give `client` a domain of your own with a certificate.
 
 ## Data
 
 The database is in the volume `bugberry-pgdata`, uploads in `bugberry-uploads`. **Redeploy** and upgrades keep both.
 Back them up as [Operations](https://bugberry.yuisalabs.com/docs/self-host/operations) describes; S3 storage instead of
-the volume is set with the same variables as a Docker Compose install.
+the volume is `STORAGE_DRIVER=s3` with the `S3_*` variables, as in a Docker Compose install
+(see [Storage](https://bugberry.yuisalabs.com/docs/self-host/storage)).
 
 ## Pin a Version, Upgrade
 
