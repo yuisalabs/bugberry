@@ -51,6 +51,12 @@ describe("what a guest reads", () => {
     expect((await counts(f.guest, { workspaceId: w, projectId: f.p2.id })).total).toBe(0)
   })
 
+  test("a guest's list names who a report is assigned to", async () => {
+    await ctx.db.update(report).set({ assigneeId: f.member.user.id }).where(eq(report.id, f.reportP1.id))
+    const [item] = (await list(f.guest, { workspaceId: ctx.workspace.id })).items
+    expect(item.assignee).toEqual({ id: f.member.user.id, name: f.member.user.name, image: null })
+  })
+
   test("a guest's search never reaches another project", async () => {
     await ctx.db.insert(comment).values({ id: newId(), reportId: f.reportNone.id, authorId: f.member.user.id, body: "zebrafinch again" })
     const w = ctx.workspace.id

@@ -174,6 +174,8 @@ export async function listPage(
       createdAt: report.createdAt,
       updatedAt: report.updatedAt,
       reporter: { id: reporterUser.id, name: reporterUser.name, image: reporterUser.image },
+      // Named here, not looked up in the member list: a guest is never sent that list.
+      assignee: { id: assigneeUser.id, name: assigneeUser.name, image: assigneeUser.image },
       mediaKey: report.mediaKey,
       mediaType: report.mediaType,
       thumbnailKey: report.thumbnailKey,
@@ -181,6 +183,7 @@ export async function listPage(
     })
     .from(report)
     .innerJoin(reporterUser, eq(report.reporterId, reporterUser.id))
+    .leftJoin(assigneeUser, eq(report.assigneeId, assigneeUser.id))
     .where(pattern ? inArray(report.id, topMatches(db, conditions, pattern, orderBy, perPage + 1)) : and(...conditions))
     .orderBy(...orderBy)
     .limit(perPage + 1)

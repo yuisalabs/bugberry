@@ -30,7 +30,7 @@ function props(overrides: Partial<ComponentProps<typeof ReportsView>> = {}): Com
     onLayout: mock(),
     renderCard: (item) => <ReportCardBody item={item} now={NOW} />,
     renderTable: (items, tableProjects) => (
-      <ReportTableBody items={items} members={members} projects={tableProjects} now={NOW} rowLink={(item) => item.title} />
+      <ReportTableBody items={items} projects={tableProjects} now={NOW} rowLink={(item) => item.title} />
     ),
     ...overrides,
   }

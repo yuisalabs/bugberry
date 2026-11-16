@@ -3,12 +3,11 @@ import { render, screen, within } from "@testing-library/react"
 import { ReportTableBody } from "../src/features/reports/list/ReportTable"
 import { listItemFixture, NOW } from "./fixtures"
 
-const members = [{ id: "u2", name: "Budi", email: "budi@kantor.test", image: null, role: "member" as const, owner: false, deactivated: false, joinedAt: new Date("2026-09-12T00:00:00Z") }]
 const projects = [{ id: "p1", name: "Checkout Web", slug: "checkout", workspaceId: "w1", urlPatterns: [] as string[], logoUrl: null, createdAt: new Date(), guestCount: 0 }]
 
 describe("ReportTableBody", () => {
   test("columns fold away before the title gets squeezed on laptop widths", () => {
-    render(<ReportTableBody items={[listItemFixture()]} members={members} projects={projects} now={NOW} rowLink={(item) => item.title} />)
+    render(<ReportTableBody items={[listItemFixture()]} projects={projects} now={NOW} rowLink={(item) => item.title} />)
     const header = (name: string) => screen.getByRole("columnheader", { name }).className.split(/\s+/)
     for (const name of ["Report", "Status", "Created"]) expect(header(name)).not.toContain("hidden")
     expect(header("Reporter")).toContain("lg:table-cell")
@@ -30,7 +29,6 @@ describe("ReportTableBody", () => {
     render(
       <ReportTableBody
         items={[listItemFixture({ id: "a", number: 12, captureType: "replay", durationMs: 61_000 })]}
-        members={members}
         projects={projects}
         now={NOW}
         rowLink={(item) => item.title}
@@ -42,14 +40,27 @@ describe("ReportTableBody", () => {
     expect(row.queryByText(/Screenshot/)).toBeNull()
   })
 
+  test("the assignee comes with the row, so a guest without the member list sees it too", () => {
+    render(
+      <ReportTableBody
+        items={[listItemFixture({ assigneeId: "u9", assignee: { id: "u9", name: "Dev Person", image: null } })]}
+        projects={projects}
+        now={NOW}
+        rowLink={(item) => <a href={`/app/r/${item.id}`}>{item.title}</a>}
+      />,
+    )
+    const row = within(screen.getAllByRole("row")[1] as HTMLElement)
+    expect(row.getByText("Dev Person")).toBeTruthy()
+    expect(row.queryByText("Unassigned")).toBeNull()
+  })
+
   test("a list row", () => {
     render(
       <ReportTableBody
         items={[
           listItemFixture({ id: "a", number: 12, captureType: "video", durationMs: 37_000, projectId: null }),
-          listItemFixture({ id: "b", number: 11, assigneeId: "u2", status: "resolved" }),
+          listItemFixture({ id: "b", number: 11, assigneeId: "u2", assignee: { id: "u2", name: "Budi", image: null }, status: "resolved" }),
         ]}
-        members={members}
         projects={projects}
         now={NOW}
         rowLink={(item) => <a href={`/app/r/${item.id}`}>{item.title}</a>}

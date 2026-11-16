@@ -118,7 +118,7 @@ export function ReportsView({
   ),
   tableProjects,
   renderTable = (items, names) => (
-    <ReportTable items={items} members={members} projects={names} now={now} />
+    <ReportTable items={items} projects={names} now={now} />
   ),
 }: {
   title: string
