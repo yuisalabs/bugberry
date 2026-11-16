@@ -1,4 +1,5 @@
 import { RiResetLeftLine, RiUserAddLine } from "@remixicon/react"
+import type { Label } from "../../labels/queries"
 import type { ReactNode } from "react"
 import { Button } from "@bugberry/ui/button"
 import type { ReportFeed } from "./report-feed"
@@ -92,6 +93,7 @@ export function ReportsView({
   members,
   projects,
   projectsLoading,
+  labels = [],
   search,
   list,
   now,
@@ -137,6 +139,8 @@ export function ReportsView({
   /** Given on the all-reports page, which can filter by project. */
   projects?: readonly Project[]
   projectsLoading?: boolean
+  /** The workspace's labels, for the label filter; it is hidden while there are none. */
+  labels?: readonly Label[]
   search: ReportSearch
   list: ReportListState
   now: number
@@ -190,7 +194,7 @@ export function ReportsView({
           <div className="order-3 flex w-full items-center gap-2 md:order-2 md:w-auto">
             <ReportSearchBox value={search.q} onSearch={(q) => onSearch({ q })} />
             <span className="md:hidden">
-              <MobileFilters search={search} members={members} projects={projects} onChange={onSearch} />
+              <MobileFilters search={search} members={members} projects={projects} labels={labels} onChange={onSearch} />
             </span>
             <span className="hidden items-center gap-2 md:flex">
               {actions}
@@ -225,6 +229,7 @@ export function ReportsView({
               members={members}
               projects={projects}
               projectsLoading={projectsLoading}
+              labels={labels}
               onChange={onSearch}
               trailing={
                 <>

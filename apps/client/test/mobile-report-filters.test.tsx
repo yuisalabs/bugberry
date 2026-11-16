@@ -57,6 +57,21 @@ describe("the phone's report filters", () => {
     expect(onDone).toHaveBeenCalledTimes(2)
   })
 
+  test("the sheet offers labels and toggles one", () => {
+    const onChange = mock()
+    const labels = [{ id: "l1", name: "Bug", color: "red" as const }, { id: "l2", name: "Checkout", color: "blue" as const }]
+    render(<FiltersSheetContent search={{ label: ["l1"] }} members={members} labels={labels} onChange={onChange} onDone={mock()} />)
+    expect(screen.getByRole("button", { name: "Bug" }).getAttribute("aria-pressed")).toBe("true")
+    fireEvent.click(screen.getByRole("button", { name: "Checkout" }))
+    expect(onChange).toHaveBeenLastCalledWith({ label: ["l1", "l2"] })
+    expect(activeFilterCount({ label: ["l1"] })).toBe(1)
+  })
+
+  test("a workspace without labels has no label section", () => {
+    render(<FiltersSheetContent search={{}} members={members} labels={[]} onChange={mock()} onDone={mock()} />)
+    expect(screen.queryByRole("heading", { name: "Labels" })).toBeNull()
+  })
+
   test("a project page's sheet has no project filter", () => {
     render(<FiltersSheetContent search={{}} members={members} onChange={mock()} onDone={mock()} />)
     expect(screen.queryByRole("heading", { name: "Project" })).toBeNull()

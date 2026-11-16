@@ -12,13 +12,15 @@ import { workspaceColor } from "../../workspaces/workspace"
 import type { Project } from "../../projects/queries"
 import type { Member } from "../../workspaces/queries"
 import type { ReportCounts } from "../queries"
+import type { Label } from "../../labels/queries"
+import { LABEL_SWATCHES } from "../../labels/label-colors"
 
 const ALL = "__all"
 const CAPTURE_ICONS: Record<CaptureType, typeof RiCameraLine> = { video: RiVideoOnLine, screenshot: RiCameraLine, replay: RiHistoryLine }
 
-/** How many kinds of filter are on (type, status, reporter, project, priority, assignee), for the Filters badge. */
+/** How many kinds of filter are on (type, status, reporter, project, priority, assignee, labels), for the Filters badge. */
 export function activeFilterCount(search: ReportSearch): number {
-  return [search.captureType, search.status, search.reporterId, search.projectId, search.priority, search.assigneeId].filter(
+  return [search.captureType, search.status, search.reporterId, search.projectId, search.priority, search.assigneeId, search.label].filter(
     (value) => value !== undefined,
   ).length
 }
@@ -93,6 +95,7 @@ export function FiltersSheetContent({
   search,
   members,
   projects,
+  labels = [],
   onChange,
   onDone,
 }: {
@@ -100,6 +103,8 @@ export function FiltersSheetContent({
   members: readonly Member[]
   /** Given on the all-reports page only. */
   projects?: readonly Project[]
+  /** The workspace's labels; the section is left out while there are none. */
+  labels?: readonly Label[]
   onChange(patch: Partial<ReportSearch>): void
   onDone(): void
 }) {
@@ -187,6 +192,17 @@ export function FiltersSheetContent({
           ))}
         </Section>
 
+        {labels.length > 0 && (
+          <Section title="Labels">
+            {labels.map((label) => (
+              <Chip key={label.id} pressed={Boolean(search.label?.includes(label.id))} onPress={() => onChange({ label: toggleValue(search.label, label.id) })}>
+                <span aria-hidden className={`size-2.5 rounded-full ${LABEL_SWATCHES[label.color]}`} />
+                {label.name}
+              </Chip>
+            ))}
+          </Section>
+        )}
+
         <section className="flex flex-col gap-2.5">
           <Select
             aria-label="Assignee"
@@ -216,11 +232,13 @@ export function MobileFilters({
   search,
   members,
   projects,
+  labels,
   onChange,
 }: {
   search: ReportSearch
   members: readonly Member[]
   projects?: readonly Project[]
+  labels?: readonly Label[]
   onChange(patch: Partial<ReportSearch>): void
 }) {
   const [open, setOpen] = useState(false)
@@ -235,7 +253,7 @@ export function MobileFilters({
         )}
       </Button>
       <Sheet isOpen={open} onOpenChange={setOpen} position="bottom" aria-label="Filters">
-        <FiltersSheetContent search={search} members={members} projects={projects} onChange={onChange} onDone={() => setOpen(false)} />
+        <FiltersSheetContent search={search} members={members} projects={projects} labels={labels} onChange={onChange} onDone={() => setOpen(false)} />
       </Sheet>
     </>
   )

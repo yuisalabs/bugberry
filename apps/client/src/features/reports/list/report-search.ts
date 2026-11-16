@@ -1,8 +1,10 @@
 import { CAPTURE_TYPES, type CaptureType, PRIORITIES, type Priority, REPORT_STATUSES, type ReportStatus } from "@bugberry/shared"
 import type { ReportFilterQuery } from "./report-feed"
+import type { Label } from "../../labels/queries"
 
 const MAX_QUERY_LENGTH = 200
 const MAX_ID_LENGTH = 100
+const MAX_LABEL_FILTERS = 20
 /** `projectId=none` on the all-reports page: only reports without a project. */
 export const NO_PROJECT = "none"
 
@@ -16,6 +18,8 @@ export interface ReportSearch {
   /** A project id or NO_PROJECT; read only on the all-reports page. */
   projectId?: string
   q?: string
+  /** Label ids; a report carrying any of them is listed. */
+  label?: string[]
   /** Newest first when missing. */
   sort?: "oldest" | "priority"
 }
@@ -37,6 +41,13 @@ function idParam(value: unknown): string | undefined {
   return typeof value === "string" && value ? value.slice(0, MAX_ID_LENGTH) : undefined
 }
 
+/** Label ids from an array or a comma list, once each. */
+function idList(value: unknown): string[] | undefined {
+  const items: unknown[] = Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : []
+  const ids = [...new Set(items.filter((item): item is string => typeof item === "string" && item !== "").map((id) => id.slice(0, MAX_ID_LENGTH)))]
+  return ids.length > 0 ? ids.slice(0, MAX_LABEL_FILTERS) : undefined
+}
+
 /**
  * Cleans hand-edited or stale URLs: unknown values are dropped instead of being sent to the API. The list loads
  * as it scrolls, so an old link's `page` and `perPage` are dropped too.
@@ -52,6 +63,7 @@ export function validateReportSearch(search: Record<string, unknown>): ReportSea
       : undefined,
     projectId: idParam(search.projectId),
     q: searchText(search.q),
+    label: idList(search.label),
     sort: search.sort === "priority" || search.sort === "oldest" ? search.sort : undefined,
   }
 }
@@ -77,6 +89,7 @@ export function toReportsQuery(scope: { projectId?: string }, search: ReportSear
   if (search.reporterId) query.reporterId = search.reporterId
   if (search.captureType) query.captureType = search.captureType
   if (search.q) query.q = search.q
+  if (search.label) query.labelId = search.label
   return query
 }
 
@@ -89,6 +102,7 @@ export const CLEARED_FILTERS: Partial<ReportSearch> = {
   captureType: undefined,
   projectId: undefined,
   q: undefined,
+  label: undefined,
 }
 
 export function hasFilters(search: ReportSearch): boolean {
@@ -99,8 +113,15 @@ export function hasFilters(search: ReportSearch): boolean {
       search.reporterId ||
       search.captureType ||
       search.projectId ||
-      search.q,
+      search.q ||
+      search.label,
   )
+}
+
+/** The URL's label ids that still name a label; undefined when none do. A deleted label's id is dropped. */
+export function knownLabels(search: ReportSearch, labels: readonly Label[]): string[] | undefined {
+  const known = search.label?.filter((id) => labels.some((label) => label.id === id))
+  return known?.length ? known : undefined
 }
 
 /** Adds or removes `value`; an empty list becomes undefined so it leaves the URL. */

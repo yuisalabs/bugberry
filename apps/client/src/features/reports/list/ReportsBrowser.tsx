@@ -1,10 +1,10 @@
 import { RiRecordCircleLine } from "@remixicon/react"
 import { useQuery } from "@tanstack/react-query"
-import { type ReactNode, useState } from "react"
+import { type ReactNode, useEffect, useState } from "react"
 import { useNow } from "../../../hooks/useNow"
 import { invitesAllowed, usageText } from "../../workspaces/usage"
 import { useListPeople } from "./list-people"
-import { hasFilters, type ReportSearch, toReportsQuery } from "./report-search"
+import { hasFilters, knownLabels, type ReportSearch, toReportsQuery } from "./report-search"
 import { readLayout, type ReportLayout, saveLayout } from "./report-layout"
 import { useCurrentWorkspace } from "../../workspaces/workspace"
 import { InviteDialog } from "../../workspaces/InviteDialog"
@@ -14,6 +14,7 @@ import { useReportFeed } from "./useReportFeed"
 import { installHref } from "../../landing/site-links"
 import { authQueries } from "../../auth/queries"
 import { projectQueries } from "../../projects/queries"
+import { labelQueries } from "../../labels/queries"
 import { workspaceQueries } from "../../workspaces/queries"
 import { reportQueries } from "../queries"
 
@@ -47,6 +48,14 @@ export function ReportsBrowser({
   const members = useListPeople(workspaceId, Boolean(workspace))
   // The project filter needs them on the all-reports page; the list view names projects on every page.
   const projects = useQuery({ ...projectQueries.projects(workspaceId), enabled: Boolean(workspace) })
+  const labels = useQuery({ ...labelQueries.labels(workspaceId), enabled: Boolean(workspace) })
+  // A label deleted since the link was made leaves the URL once the labels are known.
+  const labelIds = search.label?.join(",")
+  useEffect(() => {
+    if (!labels.data || !search.label) return
+    const known = knownLabels(search, labels.data)
+    if (known?.length !== search.label.length) setSearch((prev) => ({ ...prev, label: known }))
+  }, [labels.data, labelIds])
   const feed = useReportFeed(workspaceId, toReportsQuery(scope, search), Boolean(workspace))
   const config = useQuery(authQueries.clientConfig())
   // The server's own install link, else BugBerry's Chrome Web Store page.
@@ -68,6 +77,7 @@ export function ReportsBrowser({
       projects={showProjectFilter ? (projects.data ?? []) : undefined}
       tableProjects={projects.data}
       projectsLoading={projects.isPending}
+      labels={labels.data ?? []}
       search={search}
       list={feed.list}
       now={now}

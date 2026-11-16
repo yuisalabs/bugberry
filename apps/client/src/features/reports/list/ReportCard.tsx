@@ -1,4 +1,5 @@
 import { RiCameraLine, RiFlag2Line, RiHashtag, RiHistoryLine, RiImageLine, RiLink, RiPlayFill } from "@remixicon/react"
+import { LabelChips } from "../../labels/LabelChip"
 import { Link, useParams } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { Button } from "@bugberry/ui/button"
@@ -91,7 +92,7 @@ export function ReportCardBody({
           <p className="truncate text-sm font-medium text-foreground">{item.title}</p>
           <p className="shrink-0 text-xs text-muted-foreground">{formatRelative(item.createdAt, now)}</p>
         </div>
-        {(projectName || item.priority !== "none") && (
+        {(projectName || item.priority !== "none" || item.labels.length > 0) && (
           <p className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
             {projectName && (
               <span className="flex min-w-0 items-center gap-1">
@@ -104,6 +105,12 @@ export function ReportCardBody({
               <span className="flex shrink-0 items-center gap-1 text-foreground">
                 <RiFlag2Line aria-hidden className={`size-3.5 ${PRIORITY_ICON_STYLES[item.priority]}`} />
                 {PRIORITY_LABELS[item.priority]}
+              </span>
+            )}
+            {/* On the meta line, so labels never make a card taller. */}
+            {item.labels.length > 0 && (
+              <span className="ml-auto flex min-w-0 justify-end">
+                <LabelChips labels={item.labels} max={3} />
               </span>
             )}
           </p>

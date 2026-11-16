@@ -1,7 +1,7 @@
 import { LABEL_COLORS, MAX_LABELS_PER_REPORT } from "@bugberry/shared"
 import { t } from "elysia"
 
-const color = t.Union(LABEL_COLORS.map((name) => t.Literal(name)))
+const color = t.UnionEnum(LABEL_COLORS)
 // Generous here: trimming and the one-line rule are checked by the service, with their own error code.
 const name = t.String({ maxLength: 200 })
 
