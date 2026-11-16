@@ -1,0 +1,164 @@
+# BugBerry from published images: no clone, no build. Download this file and .env.images.example into one folder:
+#   mv .env.images.example .env   (fill it in)   then: docker compose -f compose.images.yml up -d
+# Optional: --profile s3 (S3-compatible storage on this server), --profile caddy (automatic HTTPS).
+# Upgrading: docker compose -f compose.images.yml pull && docker compose -f compose.images.yml up -d
+name: bugberry
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  # Reached only through the client's nginx; PROXY_HOPS counts that nginx.
+  api:
+    image: ghcr.io/yuisalabs/bugberry-api:${BUGBERRY_VERSION:-latest}
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 60s
+    logging: *logging
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://bugberry@postgres:5432/bugberry
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      LOCAL_STORAGE_DIR: /data/uploads
+      PORT: "3000"
+      PROXY_HOPS: "1"
+      # Everything but MCP, which api-mcp serves; this process also runs the migrations and the cleanup.
+      SERVER_ROLE: app
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # MCP for AI agents in its own process, so a busy agent never slows the dashboard down. It waits for api to migrate.
+  api-mcp:
+    image: ghcr.io/yuisalabs/bugberry-api:${BUGBERRY_VERSION:-latest}
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 60s
+    logging: *logging
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://bugberry@postgres:5432/bugberry
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      LOCAL_STORAGE_DIR: /data/uploads
+      PORT: "3000"
+      PROXY_HOPS: "1"
+      SERVER_ROLE: mcp
+    cpus: ${MCP_CPUS:-1}
+    mem_limit: ${MCP_MEMORY:-1g}
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # nginx: the dashboard build, and /api proxied to the api service.
+  client:
+    image: ghcr.io/yuisalabs/bugberry-client:${BUGBERRY_VERSION:-latest}
+    restart: unless-stopped
+    stop_grace_period: 60s
+    logging: *logging
+    ports:
+      # Localhost only: the reverse proxy is the way in. BUGBERRY_BIND=0.0.0.0 exposes it directly.
+      - "${BUGBERRY_BIND:-127.0.0.1}:${BUGBERRY_PORT:-3000}:80"
+    volumes:
+      # Maintenance mode: put maintenance.json into this volume (see docker/maintenance.example.json), delete it to end.
+      - maintenance:/etc/nginx/maintenance:ro
+    depends_on:
+      api:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      POSTGRES_USER: bugberry
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: bugberry
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bugberry -d bugberry"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # S3-compatible storage on this server. Browsers load media straight from it, so S3_ENDPOINT must be
+  # a public https address: with the caddy profile, set BUGBERRY_S3_DOMAIN and S3_ENDPOINT=https://<that domain>.
+  s3:
+    image: rustfs/rustfs@sha256:1803faef57627e2d9c2e7d89d655d712ddded5389040054987163043fecb6a3c
+    profiles: ["s3"]
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY_ID:-}
+      RUSTFS_SECRET_KEY: ${S3_SECRET_ACCESS_KEY:-}
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: ":9000"
+    ports:
+      - "${S3_BIND:-127.0.0.1}:${S3_PORT:-9000}:9000"
+    volumes:
+      - s3data:/data
+
+  s3-init:
+    image: amazon/aws-cli:2.38.1
+    profiles: ["s3"]
+    logging: *logging
+    depends_on:
+      - s3
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+      AWS_DEFAULT_REGION: us-east-1
+      BUCKET: ${S3_BUCKET:-bugberry}
+    entrypoint: >
+      /bin/sh -c "
+      until aws --endpoint-url http://s3:9000 s3 ls >/dev/null 2>&1; do sleep 1; done;
+      aws --endpoint-url http://s3:9000 s3 mb s3://$$BUCKET || true
+      "
+
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["caddy"]
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      BUGBERRY_DOMAIN: ${BUGBERRY_DOMAIN:-localhost}
+      BUGBERRY_S3_DOMAIN: ${BUGBERRY_S3_DOMAIN:-s3.localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - client
+
+# The same as deploy/Caddyfile, inline, so this file needs nothing beside it but .env.
+configs:
+  caddyfile:
+    content: |
+      {$$BUGBERRY_DOMAIN} {
+      	reverse_proxy client:80
+      }
+
+      {$$BUGBERRY_S3_DOMAIN} {
+      	reverse_proxy s3:9000
+      }
+
+volumes:
+  pgdata: {}
+  uploads: {}
+  maintenance: {}
+  s3data: {}
+  caddy_data: {}
+  caddy_config: {}
