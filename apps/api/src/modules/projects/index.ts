@@ -4,7 +4,7 @@ import { authPlugin } from "../../plugins/auth"
 import { badRequest, conflict, notFound } from "../../lib/errors"
 import { imageIdType, imageUploads } from "../../lib/image-upload"
 import { projectLogoKeyFor } from "../../storage/keys"
-import { requireMember, requireProjectRole, resolveWorkspace } from "../workspaces/access"
+import { requireMember, requireProjectRole, requireScope, resolveWorkspace, scopeReaches } from "../workspaces/access"
 import { projectFields } from "./model"
 import {
   deletePendingProjectLogo,
@@ -65,9 +65,9 @@ export function projectsModule(deps: AppDeps) {
     .get(
       "/projects",
       async ({ user: current, query }) => {
-        const workspaceId = await resolveWorkspace(db, current, query.workspaceId)
+        const { workspaceId, scope } = await requireScope(db, current, query.workspaceId)
         const rows = await listProjects(db, workspaceId)
-        return rows.map(projectView)
+        return rows.filter((row) => scopeReaches(scope, row.id)).map(projectView)
       },
       { auth: true, query: t.Object({ workspaceId: t.Optional(t.String({ minLength: 1 })) }) },
     )

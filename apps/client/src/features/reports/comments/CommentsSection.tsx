@@ -1,4 +1,4 @@
-import type { WorkspaceRole } from "@bugberry/shared"
+import type { AccessRole } from "@bugberry/shared"
 import { commentCount, mergeFeed } from "./comment-feed"
 import type { Mentionable } from "./mentions"
 import { ActivityLine } from "./ActivityLine"
@@ -28,7 +28,7 @@ export function CommentsSection({
   activity: Activity[] | null
   /** Who can be mentioned: the members of the report's workspace. */
   people: Mentionable[]
-  me: { id: string; role: WorkspaceRole; name?: string; image?: string | null }
+  me: { id: string; role: AccessRole; name?: string; image?: string | null }
   busy: boolean
   showActivity: boolean
   onShowActivity(on: boolean): void

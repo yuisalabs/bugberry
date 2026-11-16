@@ -1,4 +1,6 @@
 import { WORKSPACE_ROLES } from "@bugberry/shared"
+import type { AccessRole } from "@bugberry/shared"
+import { listGuestWorkspaces } from "../guests/repository"
 import { Elysia, t } from "elysia"
 import type { AppDeps } from "../../deps"
 import { authPlugin } from "../../plugins/auth"
@@ -65,11 +67,12 @@ export function workspacesModule(deps: AppDeps) {
     .use(authPlugin(deps))
     .get(
       "/workspaces",
-      async ({ user: current }) => {
-        const rows = await listMemberships(db, current.id)
-        return rows.map(({ ownerId, slug: short, ...row }) => ({ ...row, slug: short ?? "", owner: ownerId === current.id }))
+      async ({ user: current, query }) => {
+        // The extension never asks for guest workspaces: a guest can't send reports there.
+        const rows = [...(await listMemberships(db, current.id)), ...(query.include === "guest" ? await listGuestWorkspaces(db, current.id) : [])]
+        return rows.map(({ ownerId, slug: short, ...row }) => ({ ...row, role: row.role as AccessRole, slug: short ?? "", owner: ownerId === current.id }))
       },
-      { auth: true },
+      { auth: true, query: t.Object({ include: t.Optional(t.Literal("guest")) }) },
     )
     .post(
       "/workspaces",

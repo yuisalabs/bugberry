@@ -1,10 +1,10 @@
 import { FREE_EMAIL_DOMAINS, REPORT_STATUSES, type ReportStatus, THUMBNAIL_CONTENT_TYPE } from "@bugberry/shared"
-import { labelsOfReports } from "../labels/repository"
+import { type LabelView, labelsOfReports } from "../labels/repository"
 import type { AppDeps } from "../../deps"
 import type { CurrentUser } from "../../plugins/auth"
 import { AppError, badRequest, forbidden, notFound, unprocessable } from "../../lib/errors"
 import { newShareSlug } from "../../lib/ids"
-import { memberRole, requireMember, requireReportMember, resolveWorkspace } from "../workspaces/access"
+import { memberRole, requireMember, requireReportMember, requireReportReader, requireScope, resolveWorkspace } from "../workspaces/access"
 import { isDeactivated } from "../account/repository"
 import { decodeListCursor, encodeListCursor } from "./cursor"
 import { recordActivity } from "../activity/repository"
@@ -37,8 +37,8 @@ const reportNotFound = () => notFound("report_not_found", "Report not found")
 
 /** How many reports each status holds under the list's other filters, and all of them together. */
 export async function countReportsByStatus({ db }: Deps, caller: CurrentUser, input: ListReportsInput) {
-  const workspaceId = await resolveWorkspace(db, caller, input.workspaceId)
-  const rows = await countListByStatus(db, workspaceId, input)
+  const { workspaceId, scope } = await requireScope(db, caller, input.workspaceId)
+  const rows = await countListByStatus(db, workspaceId, input, scope.projects)
   const byStatus = Object.fromEntries(REPORT_STATUSES.map((status) => [status, 0])) as Record<ReportStatus, number>
   for (const row of rows) byStatus[row.status] = row.count
   return { total: rows.reduce((sum, row) => sum + row.count, 0), byStatus }
@@ -49,14 +49,15 @@ export async function countReportsByStatus({ db }: Deps, caller: CurrentUser, in
  * `nextCursor` asks for the page after this one, and is null on the last.
  */
 export async function listReports({ db, storage }: Deps, caller: CurrentUser, input: ListReportsInput) {
-  const workspaceId = await resolveWorkspace(db, caller, input.workspaceId)
+  const { workspaceId, scope } = await requireScope(db, caller, input.workspaceId)
   // A caller still counting pages would get the first one every time and never reach an end.
   if (input.page !== undefined) {
     throw badRequest("page_removed", "The report list no longer takes `page`. Pass the `nextCursor` of the page before as `cursor`.")
   }
   const after = input.cursor === undefined ? null : decodeListCursor(input.cursor, input.sort ?? "newest")
-  const { rows, next } = await listPage(db, workspaceId, input, input.perPage ?? DEFAULT_PER_PAGE, after)
-  const labels = await labelsOfReports(db, rows.map((row) => row.id))
+  const { rows, next } = await listPage(db, workspaceId, input, input.perPage ?? DEFAULT_PER_PAGE, after, scope.projects)
+  // Labels are the team's own notes: a guest's list has none.
+  const labels = scope.role === "guest" ? new Map<string, LabelView[]>() : await labelsOfReports(db, rows.map((row) => row.id))
   // Cards show the uploaded thumbnail; an older screenshot shows itself, an older video nothing.
   const items = await Promise.all(
     rows.map(async ({ mediaKey, mediaType, thumbnailKey, reporterDomain, ...item }) => ({
@@ -137,17 +138,20 @@ export async function updateReport(
   return detail
 }
 
-/** The report page for a member; someone outside the workspace who may still read it is sent to its share link. */
+/**
+ * The report page for a member, or for a guest of its project, who gets what a share viewer gets. Someone outside who
+ * may still read it is sent to its share link.
+ */
 export async function openReport(deps: Deps, caller: CurrentUser, reportId: string): Promise<ReportDetail> {
   const { db } = deps
-  await requireReportMember(db, caller.id, reportId).catch(async (error: unknown) => {
+  const reader = await requireReportReader(db, caller.id, reportId).catch(async (error: unknown) => {
     const row = await findReadyReportVisibility(db, { id: reportId })
     if (row && reportAccess(row, { email: caller.email, isMember: false })) {
       throw new AppError(403, "use_share_link", "Open this report through its share link", { shareSlug: row.shareSlug })
     }
     throw error
   })
-  const detail = await loadReportDetail(deps, { id: reportId }, { forMember: true })
+  const detail = await loadReportDetail(deps, { id: reportId }, { forMember: reader.role !== "guest" })
   if (!detail) throw reportNotFound()
   return detail
 }

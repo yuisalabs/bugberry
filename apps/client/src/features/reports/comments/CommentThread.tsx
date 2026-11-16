@@ -1,4 +1,4 @@
-import type { WorkspaceRole } from "@bugberry/shared"
+import type { AccessRole } from "@bugberry/shared"
 import { useState } from "react"
 import { type Mentionable, mentionLabel } from "./mentions"
 import { CommentComposer } from "./CommentComposer"
@@ -21,7 +21,7 @@ export function CommentThread({
 }: {
   thread: Thread
   people: Mentionable[]
-  me: { id: string; role: WorkspaceRole; name?: string; image?: string | null }
+  me: { id: string; role: AccessRole; name?: string; image?: string | null }
   busy: boolean
   onAdd(body: string, replyTo?: string): Promise<unknown>
   onEdit(id: string, body: string): Promise<unknown>

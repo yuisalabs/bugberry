@@ -8,6 +8,8 @@ import type { ListCursor, ListSort } from "./cursor"
 import { type listReportsQuery, NO_ASSIGNEE, NO_PROJECT } from "./model"
 
 export type ReportRow = typeof report.$inferSelect
+/** The projects a list may hold reports of: all of them, or a guest's. */
+export type ListProjects = "all" | readonly string[]
 export type ListReportsInput = typeof listReportsQuery.static
 /** A report by its id, or a finished one by its share link's slug. */
 export type ReportKey = { id: string } | { shareSlug: string }
@@ -21,8 +23,14 @@ const keyed = (key: ReportKey) =>
  * Which reports a list holds before its search: one workspace's finished uploads, narrowed by the list's filters. The
  * counts per status leave the status filter out (`withStatus: false`), so each status chip says what picking it would show.
  */
-function listFilters(workspaceId: string, input: ListReportsInput, { withStatus = true } = {}): SQL[] {
+function listFilters(
+  workspaceId: string,
+  input: ListReportsInput,
+  { withStatus = true, projects = "all" }: { withStatus?: boolean; projects?: ListProjects } = {},
+): SQL[] {
   const conditions: SQL[] = [eq(report.workspaceId, workspaceId), eq(report.uploadStatus, "ready")]
+  // A guest's projects; none left matches nothing, never everything.
+  if (projects !== "all") conditions.push(projects.length > 0 ? inArray(report.projectId, [...projects]) : sql`false`)
   if (input.projectId === NO_PROJECT) conditions.push(isNull(report.projectId))
   else if (input.projectId) conditions.push(eq(report.projectId, input.projectId))
   if (input.captureType) conditions.push(eq(report.captureType, input.captureType))
@@ -91,14 +99,14 @@ function topMatches(db: Db, filters: SQL[], pattern: string, orderBy: SQL[], lim
 }
 
 /** How many of the list's reports each status holds, its status filter left out. */
-export function countListByStatus(db: Db, workspaceId: string, input: ListReportsInput) {
+export function countListByStatus(db: Db, workspaceId: string, input: ListReportsInput, projects: ListProjects = "all") {
   const pattern = searchPattern(input)
   return executor(db)
     .select({ status: report.status, count: count() })
     .from(report)
     .where(
       and(
-        ...listFilters(workspaceId, input, { withStatus: false }),
+        ...listFilters(workspaceId, input, { withStatus: false, projects }),
         pattern ? inArray(report.id, allMatches(db, workspaceId, pattern)) : undefined,
       ),
     )
@@ -134,10 +142,17 @@ function listOrder(sort: ListSort, after: ListCursor | null): { orderBy: SQL[]; 
  * The `perPage` reports after `after` in the list's order (from its start when null), and where the page after
  * this one starts. It reads one report more than it returns to know whether there is such a page.
  */
-export async function listPage(db: Db, workspaceId: string, input: ListReportsInput, perPage: number, after: ListCursor | null) {
+export async function listPage(
+  db: Db,
+  workspaceId: string,
+  input: ListReportsInput,
+  perPage: number,
+  after: ListCursor | null,
+  projects: ListProjects = "all",
+) {
   const sort: ListSort = input.sort ?? "newest"
   const { orderBy, position } = listOrder(sort, after)
-  const conditions = listFilters(workspaceId, input)
+  const conditions = listFilters(workspaceId, input, { projects })
   if (position) conditions.push(position)
   const pattern = searchPattern(input)
   const found = await executor(db)
@@ -198,6 +213,7 @@ export async function findReadyReportVisibility(db: Db, key: ReportKey) {
   const [row] = await executor(db)
     .select({
       workspaceId: report.workspaceId,
+      projectId: report.projectId,
       visibility: report.visibility,
       reporterDomain: report.reporterDomain,
       shareSlug: report.shareSlug,

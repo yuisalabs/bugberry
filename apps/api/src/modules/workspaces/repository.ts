@@ -33,10 +33,11 @@ export async function findProjectWorkspace(db: Db, projectId: string): Promise<s
 export async function findReportAccess(
   db: Db,
   reportId: string,
-): Promise<{ workspaceId: string; reporterId: string; reporterDomain: string | null; visibility: Visibility } | null> {
+): Promise<{ workspaceId: string; projectId: string | null; reporterId: string; reporterDomain: string | null; visibility: Visibility } | null> {
   const [row] = await executor(db)
     .select({
       workspaceId: report.workspaceId,
+      projectId: report.projectId,
       reporterId: report.reporterId,
       reporterDomain: report.reporterDomain,
       visibility: report.visibility,

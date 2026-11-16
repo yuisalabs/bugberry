@@ -6,7 +6,7 @@ import { isEmailAllowed } from "../auth/policy"
 import { notFound, tooManyRequests, unauthorized } from "../../lib/errors"
 import { createRateLimiter } from "../../lib/rate-limit"
 import { loadReportDetail } from "../reports/detail"
-import { memberRole } from "../workspaces/access"
+import { scopeReaches, workspaceScope } from "../workspaces/access"
 import { reportAccess } from "../reports/access"
 import { findReadyReportVisibility, findSharePreview } from "../reports/repository"
 import { previewTags } from "./preview"
@@ -98,7 +98,9 @@ export function shareModule(deps: AppDeps) {
     // An MCP-only token reads reports through the MCP server, never here.
     const viewer = resolved?.tokenKind === "mcp" ? null : resolved
     const allowed = viewer && isEmailAllowed(viewer.email, deps.config.allowedEmailDomains) ? viewer : null
-    const isMember = Boolean(allowed && (await memberRole(deps.db, allowed.id, target.workspaceId)))
+    const scope = allowed ? await workspaceScope(deps.db, allowed.id, target.workspaceId) : null
+    // A guest of the report's project reads it as a member would here; a guest of another project doesn't.
+    const isMember = Boolean(scope && scopeReaches(scope, target.projectId))
     const access = reportAccess(target, allowed ? { email: allowed.email, isMember } : null)
     // Signed out: maybe signing in helps. Signed in without access: the report does not exist for them.
     if (!access && !allowed) throw unauthorized("Log in to view this report")

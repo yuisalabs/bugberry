@@ -28,7 +28,6 @@ const at = (route: string, path: (ids: Ids) => string, body?: (ids: Ids) => unkn
  * that opens a route to guests moves it to GUEST_ROUTES.
  */
 export const MEMBER_ONLY: Route[] = [
-  at("PUT /api/me/workspace", () => "/api/me/workspace", (ids) => ({ workspaceId: ids.workspace })),
   at("GET /api/workspaces/:id/limits", (ids) => `/api/workspaces/${ids.workspace}/limits`),
   at("PATCH /api/workspaces/:id", (ids) => `/api/workspaces/${ids.workspace}`, () => ({ name: "Taken over" })),
   at("GET /api/workspaces/:id/members", (ids) => `/api/workspaces/${ids.workspace}/members`),
@@ -46,7 +45,6 @@ export const MEMBER_ONLY: Route[] = [
   at("GET /api/workspaces/:id/join-requests", (ids) => `/api/workspaces/${ids.workspace}/join-requests`),
   at("POST /api/workspaces/:id/join-requests/:userId/approve", (ids) => `/api/workspaces/${ids.workspace}/join-requests/${ids.member}/approve`),
   at("DELETE /api/workspaces/:id/join-requests/:userId", (ids) => `/api/workspaces/${ids.workspace}/join-requests/${ids.member}`),
-  at("GET /api/projects", (ids) => `/api/projects?workspaceId=${ids.workspace}`),
   at("GET /api/projects/overview", (ids) => `/api/projects/overview?workspaceId=${ids.workspace}`),
   at("POST /api/projects", () => "/api/projects", (ids) => ({ workspaceId: ids.workspace, name: "Mine", slug: "mine", urlPatterns: [] })),
   at("PATCH /api/projects/:id", (ids) => `/api/projects/${ids.p1}`, () => ({ name: "Renamed", slug: "renamed", urlPatterns: [] })),
@@ -69,9 +67,6 @@ export const MEMBER_ONLY: Route[] = [
   })),
   at("POST /api/reports/:id/parts", (ids) => `/api/reports/${ids.reportP1}/parts`, () => ({ partSize: 5_242_880, parts: 1 })),
   at("POST /api/reports/:id/finalize", (ids) => `/api/reports/${ids.reportP1}/finalize`),
-  at("GET /api/reports", (ids) => `/api/reports?workspaceId=${ids.workspace}`),
-  at("GET /api/reports/counts", (ids) => `/api/reports/counts?workspaceId=${ids.workspace}`),
-  at("GET /api/reports/:id", (ids) => `/api/reports/${ids.reportP1}`),
   at("PATCH /api/reports/:id", (ids) => `/api/reports/${ids.reportP1}`, () => ({ status: "closed" })),
   at("POST /api/reports/:id/fixes", (ids) => `/api/reports/${ids.reportP1}/fixes`, () => ({ url: "https://github.com/a/b/pull/1" })),
   at("DELETE /api/reports/:id/fixes/:fixId", (ids) => `/api/reports/${ids.reportP1}/fixes/nope`),
@@ -127,7 +122,13 @@ export const MEMBER_ONLY: Route[] = [
 ]
 
 /** Routes a guest may use, each with its own tests; moved here from MEMBER_ONLY by the task that opens it. */
-export const GUEST_ROUTES: string[] = []
+export const GUEST_ROUTES: string[] = [
+  "PUT /api/me/workspace",
+  "GET /api/projects",
+  "GET /api/reports",
+  "GET /api/reports/counts",
+  "GET /api/reports/:id",
+]
 
 /** The caller's own things, answering a guest and an outsider alike with their own (empty) data. */
 const SELF = ["GET /api/workspaces", "GET /api/notifications", "POST /api/notifications/read-all"]
