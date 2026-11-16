@@ -55,6 +55,8 @@ export const qk = {
   },
   report: (id: string) => ["report", id],
   share: (slug: string) => ["share", slug],
+  requestLink: (token: string) => ["request-link", token],
+  recordingRequests: (workspaceId: string) => ["recording-requests", workspaceId],
   comments: (reportId: string) => ["comments", reportId],
   activity: (reportId: string) => ["activity", reportId],
   mentionable: (reportId: string) => ["mentionable", reportId],

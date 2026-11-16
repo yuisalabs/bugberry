@@ -1,0 +1,213 @@
+import { deviceInfoFrom } from "@bugberry/capture"
+import { ApiError } from "@bugberry/shared"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { getRouteApi } from "@tanstack/react-router"
+import { useEffect, useRef, useState } from "react"
+import { qk } from "../../lib/query/keys"
+import { frameToPng, putWithProgress, videoThumbnail } from "./frames"
+import { requestApi, requestLink, requestQueries } from "./queries"
+import { RequestClosed, sendRecording } from "./request-upload"
+import { type Capture, type RequestForm, type RequestState, RequestView } from "./RequestView"
+import { CaptureDenied, type CaptureDeps, captureSupport, type RecordingHandle, startRecording, takeScreenshot } from "./screen-capture"
+
+const routeApi = getRouteApi("/request/$token")
+
+/** The server's codes in words for someone who has never seen BugBerry; its own messages are written for agents. */
+const SEND_ERRORS: Record<string, string> = {
+  recording_too_long: "This recording is longer than the link takes. Record a shorter one.",
+  file_too_large: "This recording is too big to send. Record a shorter one.",
+  rate_limited: "Too many tries from your connection. Wait a few minutes, then press Send again.",
+  sender_name_invalid: "Type your name on one line, up to 80 characters.",
+  page_url_invalid: "The page address must start with http:// or https://.",
+  validation: "Check the email address, or leave it empty.",
+  network: "BugBerry can't be reached. Check your connection, then press Send again.",
+}
+
+function sendErrorText(error: unknown): string {
+  if (error instanceof ApiError) return SEND_ERRORS[error.code] ?? "Sending stopped. Press Send again."
+  return "Sending stopped. Press Send again."
+}
+
+function browserCapture(): CaptureDeps {
+  return {
+    getDisplayMedia: (constraints) => navigator.mediaDevices.getDisplayMedia(constraints),
+    getUserMedia: (constraints) => navigator.mediaDevices.getUserMedia(constraints),
+    createRecorder: (stream, options) => new MediaRecorder(stream, options),
+    now: () => Date.now(),
+    setTimeout: (run, ms) => window.setTimeout(run, ms),
+    clearTimeout: (id) => window.clearTimeout(id as number),
+  }
+}
+
+function browserSupport() {
+  if (typeof navigator === "undefined") return "none" as const
+  return captureSupport({
+    mediaDevices: navigator.mediaDevices,
+    isTypeSupported: typeof MediaRecorder === "undefined" ? undefined : (type) => MediaRecorder.isTypeSupported(type),
+  })
+}
+
+/** Search engines never list a request link's page. */
+function useNoIndex() {
+  useEffect(() => {
+    const meta = document.createElement("meta")
+    meta.name = "robots"
+    meta.content = "noindex"
+    document.head.append(meta)
+    return () => meta.remove()
+  }, [])
+}
+
+/** Leaving with a recording not yet sent asks first. */
+function useLeaveWarning(on: boolean) {
+  useEffect(() => {
+    if (!on) return
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault()
+    window.addEventListener("beforeunload", warn)
+    return () => window.removeEventListener("beforeunload", warn)
+  }, [on])
+}
+
+const EMPTY_FORM: RequestForm = { name: "", email: "", description: "", pageUrl: "" }
+
+/** `/request/<token>`: someone without an account records their screen for the member who sent the link. */
+export function RequestPage() {
+  const { token } = routeApi.useParams()
+  const queryClient = useQueryClient()
+  const link = useQuery(requestQueries.link(token))
+  const [support] = useState(browserSupport)
+  const [step, setStep] = useState<"intro" | "recording" | "review" | "sending" | "sent" | "closed">("intro")
+  const [mic, setMic] = useState(false)
+  const [capture, setCapture] = useState<Capture | null>(null)
+  const [form, setForm] = useState<RequestForm>(EMPTY_FORM)
+  const [elapsedMs, setElapsedMs] = useState(0)
+  const [progress, setProgress] = useState(0)
+  const [sendError, setSendError] = useState<string | null>(null)
+  const [canSendAnother, setCanSendAnother] = useState(false)
+  const recording = useRef<RecordingHandle | null>(null)
+
+  useNoIndex()
+  useLeaveWarning(step === "recording" || step === "review" || step === "sending")
+
+  useEffect(() => {
+    if (link.data && !form.pageUrl) setForm((current) => ({ ...current, pageUrl: link.data.pageUrl ?? "" }))
+  }, [link.data])
+
+  useEffect(() => {
+    if (step !== "recording") return
+    const started = Date.now()
+    const tick = window.setInterval(() => setElapsedMs(Date.now() - started), 500)
+    return () => window.clearInterval(tick)
+  }, [step])
+
+  // The object URL lives as long as the capture it shows.
+  useEffect(() => () => (capture ? URL.revokeObjectURL(capture.url) : undefined), [capture])
+
+  const keep = (kind: Capture["kind"], blob: Blob, durationMs: number | null) => {
+    setCapture({ kind, blob, url: URL.createObjectURL(blob), durationMs })
+    setStep("review")
+  }
+
+  const record = async () => {
+    if (!link.data) return
+    setSendError(null)
+    try {
+      const handle = await startRecording(browserCapture(), { mic, maxMs: link.data.maxSeconds * 1000, maxBytes: link.data.maxBytes })
+      recording.current = handle
+      setElapsedMs(0)
+      setStep("recording")
+      const done = await handle.done
+      recording.current = null
+      keep("video", done.video, done.durationMs)
+    } catch (error) {
+      setStep("intro")
+      if (!(error instanceof CaptureDenied)) setSendError("The recording couldn't start. Try again, or take a screenshot.")
+    }
+  }
+
+  const screenshot = async () => {
+    setSendError(null)
+    try {
+      keep("screenshot", await takeScreenshot(browserCapture(), frameToPng), null)
+    } catch (error) {
+      if (!(error instanceof CaptureDenied)) setSendError("The screenshot couldn't be taken. Try again.")
+    }
+  }
+
+  const send = async () => {
+    if (!capture) return
+    setSendError(null)
+    setProgress(0)
+    setStep("sending")
+    try {
+      await sendRecording(
+        { api: requestApi, put: putWithProgress, storage: window.sessionStorage, sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)) },
+        token,
+        {
+          media: capture.blob,
+          thumbnail: capture.kind === "video" ? await videoThumbnail(capture.blob) : null,
+          captureType: capture.kind,
+          durationMs: capture.durationMs,
+          ...form,
+          device: deviceInfoFrom(navigator.userAgent, { width: window.innerWidth, height: window.innerHeight }),
+        },
+        setProgress,
+      )
+      // Still answering means the link has a use left.
+      const again = await requestLink(token).then(() => true, () => false)
+      setCanSendAnother(again)
+      setStep("sent")
+    } catch (error) {
+      if (error instanceof RequestClosed) {
+        setStep("closed")
+        return
+      }
+      setSendError(sendErrorText(error))
+      setStep("review")
+    }
+  }
+
+  const discard = () => {
+    setCapture(null)
+    setSendError(null)
+    setStep("intro")
+  }
+
+  const another = () => {
+    setCapture(null)
+    setForm((current) => ({ ...current, description: "" }))
+    void queryClient.invalidateQueries({ queryKey: qk.requestLink(token) })
+    setStep("intro")
+  }
+
+  const state: RequestState = link.isPending
+    ? "loading"
+    : link.isError && step !== "closed"
+      ? "unavailable"
+      : support === "none"
+        ? "unsupported"
+        : step
+
+  return (
+    <RequestView
+      state={state}
+      link={link.data ?? null}
+      support={support}
+      mic={mic}
+      elapsedMs={elapsedMs}
+      capture={capture}
+      form={form}
+      progress={progress}
+      sendError={sendError}
+      canSendAnother={canSendAnother}
+      onMic={setMic}
+      onRecord={() => void record()}
+      onScreenshot={() => void screenshot()}
+      onStop={() => recording.current?.stop()}
+      onForm={(patch) => setForm((current) => ({ ...current, ...patch }))}
+      onSend={() => void send()}
+      onDiscard={discard}
+      onAnother={another}
+    />
+  )
+}
