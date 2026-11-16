@@ -17,6 +17,7 @@ import { reportsModule } from "./modules/reports"
 import { guestsModule } from "./modules/guests"
 import { labelsModule } from "./modules/labels"
 import { agentUploadsModule } from "./modules/reports/agent-uploads"
+import { recordingRequestsModule } from "./modules/requests"
 import { reportUploadsModule } from "./modules/reports/uploads"
 import { shareModule } from "./modules/share"
 import { oauthAppsModule } from "./modules/oauth-apps"
@@ -55,6 +56,7 @@ export function createApp(deps: AppDeps) {
     .use(localFilesModule(deps))
     .use(reportUploadsModule(deps))
     .use(agentUploadsModule(deps))
+    .use(recordingRequestsModule(deps))
     .use(reportsModule(deps))
     .use(labelsModule(deps))
     .use(shareModule(deps))
