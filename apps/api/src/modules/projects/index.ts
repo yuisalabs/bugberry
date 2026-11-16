@@ -1,4 +1,5 @@
 import { Elysia, t } from "elysia"
+import { guestCountsByProject } from "../guests/repository"
 import type { AppDeps } from "../../deps"
 import { authPlugin } from "../../plugins/auth"
 import { badRequest, conflict, notFound } from "../../lib/errors"
@@ -67,7 +68,9 @@ export function projectsModule(deps: AppDeps) {
       async ({ user: current, query }) => {
         const { workspaceId, scope } = await requireScope(db, current, query.workspaceId)
         const rows = await listProjects(db, workspaceId)
-        return rows.filter((row) => scopeReaches(scope, row.id)).map(projectView)
+        // Members see how many guests each project has, for the notice in the comment box; a guest sees none.
+        const guests = scope.role === "guest" ? new Map<string, number>() : await guestCountsByProject(db, workspaceId)
+        return rows.filter((row) => scopeReaches(scope, row.id)).map((row) => ({ ...projectView(row), guestCount: guests.get(row.id) ?? 0 }))
       },
       { auth: true, query: t.Object({ workspaceId: t.Optional(t.String({ minLength: 1 })) }) },
     )

@@ -109,3 +109,14 @@ export async function guestsAmong(db: Db, projectId: string, userIds: readonly s
     .where(and(eq(projectGuest.projectId, projectId), inArray(projectGuest.userId, [...userIds])))
   return rows.map((row) => row.id)
 }
+
+/** How many guests each project of the workspace has; projects without any are left out. */
+export async function guestCountsByProject(db: Db, workspaceId: string): Promise<Map<string, number>> {
+  const rows = await executor(db)
+    .select({ projectId: projectGuest.projectId, n: count() })
+    .from(projectGuest)
+    .innerJoin(project, eq(project.id, projectGuest.projectId))
+    .where(eq(project.workspaceId, workspaceId))
+    .groupBy(projectGuest.projectId)
+  return new Map(rows.map((row) => [row.projectId, row.n]))
+}

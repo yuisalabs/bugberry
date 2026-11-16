@@ -40,6 +40,7 @@ export const qk = {
     overview: (workspaceId: string) => ["projects", workspaceId, "overview"],
   },
   labels: (workspaceId: string) => ["labels", workspaceId],
+  projectGuests: (projectId: string) => ["project-guests", projectId],
   integrations: (projectId: string) => ["integrations", projectId],
   connections: (workspaceId: string) => ["connections", workspaceId],
   connectionOptions: (workspaceId: string, id: string, list: OptionList, q: string, parent: string) =>

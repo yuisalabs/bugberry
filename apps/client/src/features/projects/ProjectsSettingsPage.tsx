@@ -15,6 +15,7 @@ import { ProjectCard, type ProjectStats } from "./ProjectCard"
 import { ProjectDialog, UrlPatternsDialog } from "./ProjectDialogs"
 import { type Project, projectQueries, useDeleteProject } from "./queries"
 import { TestUrlCard } from "./TestUrlCard"
+import { ProjectGuestsDialog } from "./ProjectGuests"
 import { UnmatchedPagesCard } from "./UnmatchedPagesCard"
 
 export function ProjectsSettingsPage() {
@@ -29,6 +30,7 @@ export function ProjectsSettingsPage() {
   // The project whose patterns are open, and a pattern to add to them (from Pages without a project).
   const [patternsOf, setPatternsOf] = useState<{ project: Project; adding?: string } | null>(null)
   const remove = useDeleteProject()
+  const [guestsOf, setGuestsOf] = useState<Project | null>(null)
   const statsOf = (id: string): ProjectStats | null => {
     if (!overview.data) return null
     return overview.data.stats.find((row) => row.projectId === id) ?? { reports: 0, open: 0, lastReportAt: null }
@@ -68,6 +70,7 @@ export function ProjectsSettingsPage() {
                 now={now}
                 onEditPatterns={() => setPatternsOf({ project })}
                 onEdit={() => setEditing(project)}
+                onGuests={() => setGuestsOf(project)}
                 onDelete={async () => {
                   const yes = await confirm({
                     title: `Delete project “${project.name}”?`,
@@ -92,6 +95,7 @@ export function ProjectsSettingsPage() {
       <ProjectDialog project={editing === "new" ? undefined : (editing ?? undefined)} isOpen={editing !== null} onClose={() => setEditing(null)} />
       <UrlPatternsDialog project={patternsOf?.project ?? null} adding={patternsOf?.adding} onClose={() => setPatternsOf(null)} />
       {dialog}
+      <ProjectGuestsDialog project={guestsOf} onClose={() => setGuestsOf(null)} />
     </section>
   )
 }

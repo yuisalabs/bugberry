@@ -30,7 +30,7 @@ function saveShowActivity(on: boolean): void {
   }
 }
 
-export function ReportComments({ reportId, workspaceId }: { reportId: string; workspaceId: string }) {
+export function ReportComments({ reportId, workspaceId, guestNotice }: { reportId: string; workspaceId: string; guestNotice?: string }) {
   const [showActivity, setShowActivity] = useState(readShowActivity)
   const me = useQuery(accountQueries.me())
   const workspaces = useQuery(workspaceQueries.workspaces())
@@ -78,6 +78,7 @@ export function ReportComments({ reportId, workspaceId }: { reportId: string; wo
         busy={add.isPending || edit.isPending || remove.isPending}
         showActivity={showActivity}
         activityAvailable={can.seeTeamDetails}
+        guestNotice={guestNotice}
         onShowActivity={(on) => {
           setShowActivity(on)
           saveShowActivity(on)

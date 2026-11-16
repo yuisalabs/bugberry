@@ -14,6 +14,11 @@ export const projectLogoUploadTarget = (projectId: string, contentType: "image/p
 export const confirmProjectLogo = (projectId: string, logoId: string) =>
   unwrap(eden.api.projects({ id: projectId }).logo({ logoId }).post())
 export const removeProjectLogo = (projectId: string) => unwrap(eden.api.projects({ id: projectId }).logo.delete())
+export const projectGuests = (projectId: string) => unwrap(eden.api.projects({ id: projectId }).guests.get())
+export const inviteGuests = (projectId: string, emails: string[]) => unwrap(eden.api.projects({ id: projectId }).guests.post({ emails }))
+export const removeGuest = (projectId: string, userId: string) => unwrap(eden.api.projects({ id: projectId }).guests({ userId }).delete())
+export type ProjectGuestList = Awaited<ReturnType<typeof projectGuests>>
+export type GuestInviteResult = Awaited<ReturnType<typeof inviteGuests>>[number]
 export const projectsOverview = (workspaceId: string) => unwrap(eden.api.projects.overview.get({ query: { workspaceId } }))
 
 export type Project = Awaited<ReturnType<typeof projects>>[number]

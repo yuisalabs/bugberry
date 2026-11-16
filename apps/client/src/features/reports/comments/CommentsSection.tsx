@@ -19,6 +19,7 @@ export function CommentsSection({
   showActivity,
   onShowActivity,
   activityAvailable = true,
+  guestNotice,
   onAdd,
   onEdit,
   onDelete,
@@ -35,6 +36,8 @@ export function CommentsSection({
   onShowActivity(on: boolean): void
   /** False for a project's guest: activity lines are the team's. */
   activityAvailable?: boolean
+  /** The project's name when it has guests: members are told those guests read these comments. */
+  guestNotice?: string
   /** Resolves when saved; the typed text is kept until then, so a failed save loses nothing. */
   onAdd(body: string, replyTo?: string): Promise<unknown>
   onEdit(id: string, body: string): Promise<unknown>
@@ -69,6 +72,9 @@ export function CommentsSection({
           </div>
         )}
       </div>
+      {guestNotice && me.role !== "guest" && (
+        <p className="rounded-lg bg-warning-subtle px-3 py-2 text-sm text-warning-subtle-foreground">Guests of {guestNotice} can read comments here.</p>
+      )}
       <CommentComposer
         me={me}
         people={people}

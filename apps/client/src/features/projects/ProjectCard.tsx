@@ -1,4 +1,4 @@
-import { RiAddLine, RiApps2Line, RiDeleteBinLine, RiGlobalLine, RiMoreLine, RiPencilLine, RiPlugLine } from "@remixicon/react"
+import { RiAddLine, RiApps2Line, RiDeleteBinLine, RiGlobalLine, RiMoreLine, RiPencilLine, RiPlugLine, RiUserSharedLine } from "@remixicon/react"
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import type { ReactNode } from "react"
@@ -43,6 +43,7 @@ export function ProjectCardView({
   onEditPatterns,
   onEdit,
   onDelete,
+  onGuests,
 }: {
   project: Project
   /** Reports, open ones and the newest; null while they load. */
@@ -53,6 +54,8 @@ export function ProjectCardView({
   onEditPatterns(): void
   onEdit(): void
   onDelete(): void
+  /** Opens the project's guests; left out where guests can't be managed. */
+  onGuests?(): void
 }) {
   const patterns = project.urlPatterns
   return (
@@ -73,6 +76,12 @@ export function ProjectCardView({
                 <RiGlobalLine aria-hidden />
                 <MenuLabel>URL patterns</MenuLabel>
               </MenuItem>
+              {onGuests && (
+                <MenuItem onAction={onGuests} textValue="Guests">
+                  <RiUserSharedLine aria-hidden />
+                  <MenuLabel>Guests{project.guestCount > 0 ? ` (${project.guestCount})` : ""}</MenuLabel>
+                </MenuItem>
+              )}
               <MenuItem intent="danger" onAction={onDelete} textValue="Delete project">
                 <RiDeleteBinLine aria-hidden />
                 <MenuLabel>Delete project</MenuLabel>

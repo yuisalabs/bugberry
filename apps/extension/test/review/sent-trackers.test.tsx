@@ -56,7 +56,7 @@ function view(overrides: Partial<ReviewViewProps> = {}) {
   return props
 }
 
-const project = (id: string, name: string) => ({ id, name, slug: id, workspaceId: "w1", urlPatterns: [], logoUrl: null, createdAt: new Date(0) })
+const project = (id: string, name: string) => ({ id, name, slug: id, workspaceId: "w1", urlPatterns: [], logoUrl: null, createdAt: new Date(0), guestCount: 0 })
 
 describe("the trackers after sending", () => {
   test("each tracker shows its integration's mark and lines up on the left", () => {

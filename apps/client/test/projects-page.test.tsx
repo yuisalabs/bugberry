@@ -7,7 +7,7 @@ import { integrationsText, ProjectCardView } from "../src/features/projects/Proj
 import { TestUrlCard } from "../src/features/projects/TestUrlCard"
 import { pageMeta, UnmatchedPagesCard } from "../src/features/projects/UnmatchedPagesCard"
 
-const project = { id: "p1", workspaceId: "w1", name: "Quinella AI", slug: "quinella-ai", urlPatterns: [] as string[], logoUrl: null, createdAt: new Date("2026-10-01T00:00:00Z") }
+const project = { id: "p1", workspaceId: "w1", name: "Quinella AI", slug: "quinella-ai", urlPatterns: [] as string[], logoUrl: null, createdAt: new Date("2026-10-01T00:00:00Z"), guestCount: 0 }
 
 describe("URL pattern helpers", () => {
   test("only real, distinct patterns are saved", () => {

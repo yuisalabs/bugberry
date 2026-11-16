@@ -143,3 +143,12 @@ describe("inviting a guest", () => {
     expect(row?.n).toBe(0)
   })
 })
+
+test("members see how many guests each project has; a guest sees none", async () => {
+  const client = await createUserWithToken(ctx.db, { workspaceId: null, email: "client@acme.test" })
+  await addGuest(ctx.db, p1.id, client.user.id)
+  const asMember = await json(await call("GET", `/api/projects?workspaceId=${ctx.workspace.id}`, member))
+  expect(asMember.find((row: { id: string }) => row.id === p1.id).guestCount).toBe(1)
+  const asGuest = await json(await call("GET", `/api/projects?workspaceId=${ctx.workspace.id}`, client))
+  expect(asGuest).toMatchObject([{ id: p1.id, guestCount: 0 }])
+})

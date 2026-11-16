@@ -33,6 +33,12 @@ export function ReportUnavailable({ error, onRetry }: { error: unknown; onRetry(
   return <ErrorPage error={error} onRetry={onRetry} description="This report was deleted, or it isn't in a workspace you're in." />
 }
 
+/** The project's name when it has guests, for the notice where members write. */
+function guestNoticeFor(projects: readonly { id: string; name: string; guestCount: number }[] | undefined, projectId: string | null) {
+  const project = projects?.find((item) => item.id === projectId)
+  return project && project.guestCount > 0 ? project.name : undefined
+}
+
 export function ReportPage() {
   const { reportId } = routeApi.useParams()
   const { t } = routeApi.useSearch()
@@ -149,7 +155,7 @@ export function ReportPage() {
       refreshReport={async () => (await report.refetch()).data}
       startAtSeconds={t}
     >
-      <ReportComments reportId={report.data.id} workspaceId={report.data.workspaceId} />
+      <ReportComments reportId={report.data.id} workspaceId={report.data.workspaceId} guestNotice={guestNoticeFor(projects.data, report.data.projectId)} />
       <ResolveWithLinkDialog reportId={report.data.id} open={resolving} onClose={() => setResolving(false)} />
     </ReportView>
   )
