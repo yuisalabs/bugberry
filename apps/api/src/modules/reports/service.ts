@@ -1,4 +1,5 @@
 import { FREE_EMAIL_DOMAINS, REPORT_STATUSES, type ReportStatus, THUMBNAIL_CONTENT_TYPE } from "@bugberry/shared"
+import { labelsOfReports } from "../labels/repository"
 import type { AppDeps } from "../../deps"
 import type { CurrentUser } from "../../plugins/auth"
 import { AppError, badRequest, forbidden, notFound, unprocessable } from "../../lib/errors"
@@ -55,10 +56,12 @@ export async function listReports({ db, storage }: Deps, caller: CurrentUser, in
   }
   const after = input.cursor === undefined ? null : decodeListCursor(input.cursor, input.sort ?? "newest")
   const { rows, next } = await listPage(db, workspaceId, input, input.perPage ?? DEFAULT_PER_PAGE, after)
+  const labels = await labelsOfReports(db, rows.map((row) => row.id))
   // Cards show the uploaded thumbnail; an older screenshot shows itself, an older video nothing.
   const items = await Promise.all(
     rows.map(async ({ mediaKey, mediaType, thumbnailKey, reporterDomain, ...item }) => ({
       ...item,
+      labels: labels.get(item.id) ?? [],
       // The card's Copy link says who can open it, like the report page.
       internalDomain: reporterDomain && !FREE_EMAIL_DOMAINS.has(reporterDomain) ? reporterDomain : null,
       thumbnailUrl: thumbnailKey

@@ -1,10 +1,23 @@
-import { type LabelColor, MAX_LABEL_NAME_LENGTH, MAX_LABELS_PER_WORKSPACE } from "@bugberry/shared"
-import type { Db } from "../../db/client"
+import { type LabelColor, MAX_LABEL_NAME_LENGTH, MAX_LABELS_PER_REPORT, MAX_LABELS_PER_WORKSPACE } from "@bugberry/shared"
+import type { AppDeps } from "../../deps"
+import { type Db, withTransaction } from "../../db/client"
 import { conflict, notFound, unprocessable } from "../../lib/errors"
 import { newId } from "../../lib/ids"
-import { memberRole, requireMember } from "../workspaces/access"
+import { recordActivity } from "../activity/repository"
+import { loadReportDetail, type ReportDetail } from "../reports/detail"
+import { memberRole, requireMember, requireReportMember } from "../workspaces/access"
 import { isUniqueViolation } from "../workspaces/slug"
-import { countLabels, deleteLabel, findLabel, insertLabel, type LabelView, updateLabel } from "./repository"
+import {
+  countLabels,
+  deleteLabel,
+  findLabel,
+  findLabelsByIds,
+  insertLabel,
+  type LabelView,
+  labelsOfReports,
+  replaceReportLabels,
+  updateLabel,
+} from "./repository"
 
 const labelNotFound = () => notFound("label_not_found", "Label not found")
 const labelExists = () => conflict("label_exists", "A label with this name already exists")
@@ -67,4 +80,45 @@ export async function changeLabel(
 export async function removeLabel(db: Db, caller: { id: string }, id: string): Promise<void> {
   await labelForAdmin(db, caller.id, id)
   await deleteLabel(db, id)
+}
+
+const names = (labels: readonly LabelView[]) => labels.map((label) => label.name)
+
+/**
+ * Makes the report carry exactly these labels, as a member. One activity line records what was added and removed,
+ * by name; setting what is already there records nothing. `viaAgent` names the AI app when it came through MCP.
+ */
+export async function setReportLabels(
+  deps: Pick<AppDeps, "db" | "storage">,
+  caller: { id: string },
+  reportId: string,
+  labelIds: readonly string[],
+  opts: { viaAgent?: string } = {},
+): Promise<ReportDetail> {
+  const { db } = deps
+  const target = await requireReportMember(db, caller.id, reportId)
+  const wanted = [...new Set(labelIds)]
+  if (wanted.length > MAX_LABELS_PER_REPORT) {
+    throw unprocessable("label_limit", `A report takes at most ${MAX_LABELS_PER_REPORT} labels`)
+  }
+  // A label of another workspace answers like one that doesn't exist.
+  const found = await findLabelsByIds(db, target.workspaceId, wanted)
+  if (found.length !== wanted.length) throw unprocessable("label_not_found", "Label not found in this workspace")
+  await withTransaction(db, async () => {
+    const before = (await labelsOfReports(db, [reportId])).get(reportId) ?? []
+    const added = found.filter((label) => !before.some((had) => had.id === label.id))
+    const removed = before.filter((had) => !wanted.includes(had.id))
+    if (added.length === 0 && removed.length === 0) return
+    await replaceReportLabels(db, reportId, wanted)
+    await recordActivity(db, {
+      reportId,
+      kind: "labels",
+      detail: { added: names(added), removed: names(removed) },
+      actorId: caller.id,
+      viaAgent: opts.viaAgent ?? null,
+    })
+  })
+  const detail = await loadReportDetail(deps, { id: reportId }, { forMember: true })
+  if (!detail) throw notFound("report_not_found", "Report not found")
+  return detail
 }

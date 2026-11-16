@@ -1,5 +1,5 @@
 import type { LabelColor } from "@bugberry/shared"
-import { and, asc, count, eq, inArray, sql } from "drizzle-orm"
+import { and, asc, count, eq, inArray, notInArray, sql } from "drizzle-orm"
 import { type Db, executor } from "../../db/client"
 import { label, reportLabel } from "../../db/schema"
 
@@ -75,4 +75,32 @@ export async function findLabelsByNames(db: Db, workspaceId: string, names: read
     .from(label)
     .where(and(eq(label.workspaceId, workspaceId), inArray(sql`lower(${label.name})`, lowered)))
     .orderBy(...byName)
+}
+
+/** Each report's labels by name; a report without any is left out of the map. */
+export async function labelsOfReports(db: Db, reportIds: readonly string[]): Promise<Map<string, LabelView[]>> {
+  const found = new Map<string, LabelView[]>()
+  if (reportIds.length === 0) return found
+  const rows = await executor(db)
+    .select({ reportId: reportLabel.reportId, ...view })
+    .from(reportLabel)
+    .innerJoin(label, eq(label.id, reportLabel.labelId))
+    .where(inArray(reportLabel.reportId, [...reportIds]))
+    .orderBy(...byName)
+  for (const { reportId, ...labelView } of rows) found.set(reportId, [...(found.get(reportId) ?? []), labelView])
+  return found
+}
+
+/** Makes the report carry exactly `labelIds`. */
+export async function replaceReportLabels(db: Db, reportId: string, labelIds: readonly string[]): Promise<void> {
+  const x = executor(db)
+  await x
+    .delete(reportLabel)
+    .where(and(eq(reportLabel.reportId, reportId), labelIds.length ? notInArray(reportLabel.labelId, [...labelIds]) : undefined))
+  if (labelIds.length) {
+    await x
+      .insert(reportLabel)
+      .values(labelIds.map((labelId) => ({ reportId, labelId })))
+      .onConflictDoNothing()
+  }
 }

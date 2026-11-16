@@ -2,9 +2,9 @@ import { Elysia, t } from "elysia"
 import type { AppDeps } from "../../deps"
 import { authPlugin } from "../../plugins/auth"
 import { resolveWorkspace } from "../workspaces/access"
-import { createLabelBody, listLabelsQuery, updateLabelBody } from "./model"
+import { createLabelBody, listLabelsQuery, setReportLabelsBody, updateLabelBody } from "./model"
 import { listLabels } from "./repository"
-import { changeLabel, createLabel, removeLabel } from "./service"
+import { changeLabel, createLabel, removeLabel, setReportLabels } from "./service"
 
 export function labelsModule(deps: AppDeps) {
   const { db } = deps
@@ -25,6 +25,11 @@ export function labelsModule(deps: AppDeps) {
       auth: true,
       params: t.Object({ id: t.String() }),
       body: updateLabelBody,
+    })
+    .put("/reports/:id/labels", ({ user: current, params, body }) => setReportLabels(deps, current, params.id, body.labelIds), {
+      auth: true,
+      params: t.Object({ id: t.String() }),
+      body: setReportLabelsBody,
     })
     .delete(
       "/labels/:id",

@@ -1,7 +1,7 @@
 import { and, asc, count, desc, eq, exists, gte, ilike, inArray, isNull, lt, ne, or, type SQL, sql } from "drizzle-orm"
 import { alias, union, unionAll } from "drizzle-orm/pg-core"
 import { type Db, executor } from "../../db/client"
-import { agentUpload, comment, notification, project, report, reportFix, type ReportFixRow, user, workspace } from "../../db/schema"
+import { agentUpload, comment, notification, project, report, reportFix, type ReportFixRow, reportLabel, user, workspace } from "../../db/schema"
 import { newId } from "../../lib/ids"
 import { escapeLike } from "../../lib/sql"
 import type { ListCursor, ListSort } from "./cursor"
@@ -34,6 +34,12 @@ function listFilters(workspaceId: string, input: ListReportsInput, { withStatus 
   if (input.createdAfter) conditions.push(gte(report.createdAt, new Date(input.createdAfter)))
   if (input.createdBefore) conditions.push(lt(report.createdAt, new Date(input.createdBefore)))
   if (input.hasErrors) conditions.push(eq(report.hasErrors, true))
+  if (input.labelId?.length) {
+    // Walks report_label_label_idx from each label to its reports.
+    conditions.push(
+      sql`EXISTS (SELECT 1 FROM ${reportLabel} WHERE ${reportLabel.reportId} = ${report.id} AND ${inArray(reportLabel.labelId, input.labelId)})`,
+    )
+  }
   return conditions
 }
 

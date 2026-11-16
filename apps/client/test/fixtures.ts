@@ -29,6 +29,7 @@ export function reportFixture(overrides: Partial<ReportDetail> = {}): ReportDeta
     location: null,
     assignee: null,
     fixes: [],
+    labels: [],
     mediaUrl: "https://files.test/media-1.png",
     debuggerUrl: "https://files.test/debugger-1.gz",
     ...overrides,
@@ -58,6 +59,7 @@ export function listItemFixture(overrides: Partial<ReportListItem> = {}): Report
     createdAt: new Date(NOW - 17 * 3_600_000),
     updatedAt: new Date(NOW - 17 * 3_600_000),
     reporter: { id: "u1", name: "Ervalsa Dwi Nanda", image: null },
+    labels: [],
     ...overrides,
   }
 }
