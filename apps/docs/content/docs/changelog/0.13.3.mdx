@@ -1,0 +1,13 @@
+---
+title: 0.13.3
+description: Released 16 November 2026.
+---
+
+- **Link previews for public reports.** A **Public** report's link, pasted into Slack, Discord, WhatsApp or another
+  chat app, shows its number, title, page, error counts and thumbnail. Links to **Workspace** and **Internal**
+  reports show a plain BugBerry card that names nothing. See [Link Previews](/privacy-security#link-previews).
+- **Share pages ask search engines not to index them.**
+- **Self-hosting:** update the server and the dashboard with `docker compose up -d --build`. There is no migration.
+  The preview is put into the page by the dashboard container's nginx; a setup that serves the dashboard's files
+  itself gets no previews (see [Reverse Proxy](/self-host/reverse-proxy#paths-to-pass-through)). The extension stays
+  at 0.13.2.
