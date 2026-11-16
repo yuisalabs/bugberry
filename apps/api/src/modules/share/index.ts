@@ -45,7 +45,8 @@ export function shareModule(deps: AppDeps) {
   const resolveUser = createUserResolver(deps)
   const limiter = createRateLimiter({ limit: SHARE_VIEWS_PER_MINUTE, windowMs: 60_000 })
   const previewLimiter = createRateLimiter({ limit: SHARE_PREVIEWS_PER_MINUTE, windowMs: 60_000 })
-  const imageNotFound = () => Response.json({ error: { code: "report_not_found", message: "Report not found" } }, { status: 404 })
+  const imageNotFound = () =>
+    Response.json({ error: { code: "report_not_found", message: "Report not found" } }, { status: 404, headers: { "cache-control": "no-store" } })
 
   return new Elysia()
     // Pasted by nginx into the share page's head, so it always answers 200: the generic card stands in for
@@ -72,7 +73,8 @@ export function shareModule(deps: AppDeps) {
       const row = await findSharePreview(deps.db, params.slug)
       const image = row?.thumbnailKey ? await deps.storage.read(row.thumbnailKey) : null
       if (!image) return imageNotFound()
-      return new Response(image, { headers: { "content-type": "image/jpeg", "cache-control": "public, max-age=300" } })
+      // Private: a CDN copy would outlive the report leaving public; chat apps keep their own anyway.
+      return new Response(image, { headers: { "content-type": "image/jpeg", "cache-control": "private, max-age=300" } })
     })
     .get("/share/:slug", async ({ params, request, server }) => {
     if (!limiter.consume(clientIp(request, server, deps.config.proxyHops))) throw tooManyRequests()

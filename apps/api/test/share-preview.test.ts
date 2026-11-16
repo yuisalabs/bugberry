@@ -72,7 +72,7 @@ describe("GET /api/share/:slug/preview.jpg", () => {
     const response = await get(`/api/share/${shareSlug}/preview.jpg`)
     expect(response.status).toBe(200)
     expect(response.headers.get("content-type")).toBe("image/jpeg")
-    expect(response.headers.get("cache-control")).toBe("public, max-age=300")
+    expect(response.headers.get("cache-control")).toBe("private, max-age=300")
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(THUMBNAIL)
   })
 
@@ -81,7 +81,9 @@ describe("GET /api/share/:slug/preview.jpg", () => {
     const bare = await publicReport({ thumbnailKey: null, number: undefined })
     const missing = await createReadyReport(ctx.db, { projectId, reporterId: member.user.id, visibility: "public", thumbnailKey: "reports/gone/thumbnail.jpg" })
     for (const slug of [hidden.shareSlug, bare.shareSlug, missing.shareSlug, "nosuchslug00"]) {
-      expect((await get(`/api/share/${slug}/preview.jpg`)).status).toBe(404)
+      const response = await get(`/api/share/${slug}/preview.jpg`)
+      expect(response.status).toBe(404)
+      expect(response.headers.get("cache-control")).toBe("no-store")
     }
     expect(await text(bare.shareSlug)).toContain("http://localhost:3000/assets/og-image.png")
   })
