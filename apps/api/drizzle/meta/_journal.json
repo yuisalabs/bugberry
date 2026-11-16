@@ -267,6 +267,13 @@
       "when": 1794718823901,
       "tag": "0037_report_list_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1794822664441,
+      "tag": "0038_labels",
+      "breakpoints": true
     }
   ]
 }

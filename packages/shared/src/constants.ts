@@ -97,3 +97,10 @@ export const RESERVED_WORKSPACE_SLUGS = [
   "help",
   "www",
 ] as const
+
+/** The colors a label can have; the dashboard maps each to its own tokens. */
+export const LABEL_COLORS = ["gray", "red", "orange", "yellow", "green", "teal", "blue", "purple", "pink"] as const
+export type LabelColor = (typeof LABEL_COLORS)[number]
+export const MAX_LABEL_NAME_LENGTH = 40
+export const MAX_LABELS_PER_WORKSPACE = 100
+export const MAX_LABELS_PER_REPORT = 10

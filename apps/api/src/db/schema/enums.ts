@@ -23,7 +23,7 @@ export const apiTokenKindEnum = pgEnum("api_token_kind", ["full", "mcp"])
 export const notificationKindEnum = pgEnum("notification_kind", ["mention", "reply_to_you", "reply_in_thread", "resolved"])
 
 /** What a report activity line records; "created" comes from the report itself and has no row. */
-export const ACTIVITY_KINDS = ["status", "priority", "assignee", "title", "tracker", "agent_read", "fix"] as const
+export const ACTIVITY_KINDS = ["status", "priority", "assignee", "title", "tracker", "agent_read", "fix", "labels"] as const
 
 export type ActivityKind = (typeof ACTIVITY_KINDS)[number]
 
