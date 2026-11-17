@@ -48,6 +48,9 @@ for path in /r/abc /s/AbCdEf123456 "/extension/connect?extId=abc"; do
   check "deep link $path gets the shell" shell_ok "$path"
 done
 
+share_preview_ok() { local b; b="$(body /s/smoketestslug)"; [[ "$b" == *'A report on BugBerry'* ]] && [[ "$b" != *'<!--# include'* ]]; }
+check "a share link's page carries the generic preview card" share_preview_ok
+
 asset_cached() {
   local asset
   asset="$(body / | grep -o '/assets/[^"]*\.js' | head -1 || true)"

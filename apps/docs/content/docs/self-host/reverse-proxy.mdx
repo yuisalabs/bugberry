@@ -32,6 +32,8 @@ Forward everything to BugBerry. If your proxy only forwards some paths, make sur
 - `/api/`: the API, uploads, and the MCP server at `/api/mcp`;
 - `/.well-known/oauth-*` and `/.well-known/openid-configuration`: MCP clients discover the sign-in server there.
 
+Link previews of public reports are made by the dashboard container's nginx: it puts the report's tags into the share page before sending it. A proxy in front of that container needs nothing new. A setup that serves the dashboard's files itself, instead of passing `/` to the dashboard container, gets no previews.
+
 Uploads stream through to the API, and the API enforces `MAX_UPLOAD_MB` itself. Don't let your proxy cut bodies shorter than that or buffer them in memory; allow at least five minutes for a request.
 
 ## Example: nginx

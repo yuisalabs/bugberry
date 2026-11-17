@@ -252,3 +252,32 @@ describe("deploy files", () => {
     expect(cors.CORSRules[0]?.AllowedMethods).toEqual(["GET", "HEAD", "PUT"])
   })
 })
+
+describe("the share page's nginx block", () => {
+  const nginx = () => Bun.file(join(ROOT, "docker/nginx.conf")).text()
+  const block = (text: string, start: string) => text.slice(text.indexOf(start), text.indexOf("\n    }", text.indexOf(start)))
+
+  test("a slow api costs the page at most about five seconds", async () => {
+    const text = await nginx()
+    expect(text).toContain("resolver_timeout 2s;")
+    const meta = block(text, "location ^~ /__share_meta/ {")
+    expect(meta).toContain("proxy_connect_timeout 1s;")
+    expect(meta).toContain("proxy_read_timeout 2s;")
+    expect(meta).toContain("proxy_send_timeout 2s;")
+  })
+
+  test("any answer but a 200 is left out of the page", async () => {
+    const meta = block(await nginx(), "location ^~ /__share_meta/ {")
+    const codes = meta.match(/error_page ([0-9 ]+) = @share_meta_empty;/)?.[1]?.split(" ").map(Number) ?? []
+    for (const code of [301, 302, 307, 308, 400, 401, 403, 404, 405, 408, 409, 410, 413, 422, 429, 500, 501, 502, 503, 504]) {
+      expect(codes).toContain(code)
+    }
+  })
+
+  test("the page is never indexed, its tags or not, and its slug has a length", async () => {
+    const text = await nginx()
+    const page = block(text, 'location ~ "^/s/')
+    expect(page).toContain('add_header X-Robots-Tag "noindex" always;')
+    expect(page).toContain('location ~ "^/s/([A-Za-z0-9_-]{1,64})/?$" {')
+  })
+})

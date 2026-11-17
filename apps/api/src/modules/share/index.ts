@@ -8,9 +8,21 @@ import { createRateLimiter } from "../../lib/rate-limit"
 import { loadReportDetail } from "../reports/detail"
 import { memberRole } from "../workspaces/access"
 import { reportAccess } from "../reports/access"
-import { findReadyReportVisibility } from "../reports/repository"
+import { findReadyReportVisibility, findSharePreview } from "../reports/repository"
+import { previewTags } from "./preview"
 
 const SHARE_VIEWS_PER_MINUTE = 60
+/**
+ * Chat apps fetch a link's tags and image once per paste, often from a few shared crawler addresses; this limit is
+ * separate from the page's.
+ */
+export const SHARE_PREVIEWS_PER_MINUTE = 600
+
+/** A JPEG starts with FF D8 FF; anything else in the thumbnail's place is not served as the card's image. */
+async function isJpeg(file: Blob): Promise<boolean> {
+  const head = new Uint8Array(await file.slice(0, 3).arrayBuffer())
+  return head.length === 3 && head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff
+}
 /**
  * Presigned URLs cannot be revoked, so links handed to anonymous viewers stay short: once a report
  * is made internal again, they stop working within minutes. The viewer fetches fresh ones on expiry.
@@ -41,8 +53,42 @@ export function clientIp(request: Request, server: Server<unknown> | null, proxy
 export function shareModule(deps: AppDeps) {
   const resolveUser = createUserResolver(deps)
   const limiter = createRateLimiter({ limit: SHARE_VIEWS_PER_MINUTE, windowMs: 60_000 })
+  const previewLimiter = createRateLimiter({ limit: SHARE_PREVIEWS_PER_MINUTE, windowMs: 60_000 })
+  const imageNotFound = () =>
+    Response.json({ error: { code: "report_not_found", message: "Report not found" } }, { status: 404, headers: { "cache-control": "no-store" } })
 
-  return new Elysia().get("/share/:slug", async ({ params, request, server }) => {
+  return new Elysia()
+    // Pasted by nginx into the share page's head, so it always answers 200: the generic card stands in for
+    // anything that isn't a public report, and for a caller over the limit. Never depends on who asks.
+    .get("/share/:slug/meta", async ({ params, request, server }) => {
+      const allowed = previewLimiter.consume(clientIp(request, server, deps.config.proxyHops))
+      const row = allowed ? await findSharePreview(deps.db, params.slug) : null
+      const preview = row && {
+        number: row.number,
+        title: row.title,
+        captureType: row.captureType,
+        pageUrl: row.pageUrl,
+        errors: row.debuggerSummary.errors,
+        failedRequests: row.debuggerSummary.failedRequests,
+        hasThumbnail: row.thumbnailKey !== null,
+      }
+      return new Response(previewTags(deps.config.appUrl, params.slug, preview), {
+        headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
+      })
+    })
+    // A stable address for the card's image: signed storage links expire before chat apps fetch it.
+    .get("/share/:slug/preview.jpg", async ({ params, request, server }) => {
+      if (!previewLimiter.consume(clientIp(request, server, deps.config.proxyHops))) throw tooManyRequests()
+      const row = await findSharePreview(deps.db, params.slug)
+      // A storage that can't be read answers like a missing file: the card falls back to no image.
+      const image = row?.thumbnailKey ? await deps.storage.read(row.thumbnailKey).catch(() => null) : null
+      if (!image || !(await isJpeg(image))) return imageNotFound()
+      // Private: a CDN copy would outlive the report leaving public; chat apps keep their own anyway.
+      return new Response(image, {
+        headers: { "content-type": "image/jpeg", "cache-control": "private, max-age=300", "x-content-type-options": "nosniff" },
+      })
+    })
+    .get("/share/:slug", async ({ params, request, server }) => {
     if (!limiter.consume(clientIp(request, server, deps.config.proxyHops))) throw tooManyRequests()
 
     const target = await findReadyReportVisibility(deps.db, { shareSlug: params.slug })
