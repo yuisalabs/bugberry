@@ -7,6 +7,7 @@ const REQUEST_OVERHEAD_BYTES = 1024 * 1024
 export function serveOptions(config: Config) {
   return {
     port: config.port,
+    ...(config.host ? { hostname: config.host } : {}),
     maxRequestBodySize: config.maxUploadBytes + REQUEST_OVERHEAD_BYTES,
   }
 }

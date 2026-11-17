@@ -127,5 +127,6 @@ agents get half of those calls, so they cannot shut out everyone else's.
 | `DATABASE_URL` | `postgres://fdebag@postgres:5432/fdebag` | Database address, without the password. See [External Postgres](/self-host/external-postgres). |
 | `DATABASE_PASSWORD` | `POSTGRES_PASSWORD` | Added to `DATABASE_URL` by the server. |
 | `PORT` | `3000` | Port the api listens on inside the network. |
+| `HOST` | Bun's default | Address the api listens on. `::` answers IPv6 and IPv4, for a platform whose private network is IPv6 (Railway). |
 | `PROXY_HOPS` | `1` | Proxies in front of the api; the bundled nginx counts as one, and `TRUST_PROXY=true` adds one. |
 | `SERVER_ROLE` | `app`, `mcp` | `app` serves everything but MCP and runs the migrations; `mcp` serves only `/api/mcp`. Without it, one process serves everything (`all`). |

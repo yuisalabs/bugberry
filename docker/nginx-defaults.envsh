@@ -1,0 +1,6 @@
+#!/bin/sh
+# Sourced by the nginx entrypoint before the template is rendered: a variable set but empty gets its default too.
+: "${API_UPSTREAM:=http://api:3000}"
+: "${MCP_UPSTREAM:=http://api-mcp:3000}"
+: "${NGINX_RESOLVER:=127.0.0.11 valid=10s ipv6=off}"
+export API_UPSTREAM MCP_UPSTREAM NGINX_RESOLVER

@@ -34,7 +34,7 @@ export interface Maintenance {
 }
 
 /**
- * The maintenance notice nginx answers with while maintenance.json is in place (docker/nginx.conf): its optional
+ * The maintenance notice nginx answers with while maintenance.json is in place (docker/nginx.conf.template): its optional
  * `message` and `until` (an ISO time). A time that doesn't parse is left out rather than guessed.
  */
 export function maintenanceOf(error: unknown): Maintenance | null {

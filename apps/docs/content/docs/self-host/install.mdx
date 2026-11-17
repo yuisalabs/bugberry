@@ -18,6 +18,8 @@ cp .env.docker.example .env
 
 All settings live in `.env`. The [environment reference](/self-host/environment) lists every one.
 
+For a new install you can run the published images instead, without the code and without building: download `deploy/compose.images.yml` and `deploy/.env.images.example`, rename the example to `.env`, and use `docker compose -f compose.images.yml` wherever this page says `docker compose ... --build`. See [One-Click Deploy](/self-host/one-click#your-own-server-from-images); Coolify, Dokploy and Railway have templates there too.
+
 </Step>
 <Step>
 

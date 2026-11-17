@@ -1,0 +1,13 @@
+{
+  "id": "bugberry",
+  "name": "BugBerry",
+  "version": "0.14.1",
+  "description": "Bug reports with video, console and network from the browser, for teams and the AI agents that fix them.",
+  "logo": "bugberry.svg",
+  "links": {
+    "github": "https://github.com/yuisalabs/bugberry",
+    "website": "https://bugberry.yuisalabs.com",
+    "docs": "https://bugberry.yuisalabs.com/docs/self-host/one-click"
+  },
+  "tags": ["bug-report", "screen-recording", "qa", "mcp"]
+}

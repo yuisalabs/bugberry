@@ -30,7 +30,16 @@ COPY apps/client apps/client
 RUN bun run --cwd apps/client build
 
 FROM nginx:1.30-alpine
-COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+# The image's entrypoint renders the template into conf.d at start. The defaults are the Docker Compose network's;
+# platforms with their own private network (Railway) set the three variables.
+COPY docker/nginx.conf.template /etc/nginx/templates/default.conf.template
+# Without the stock site, a conf.d nginx can't write (a read-only container) fails the check below instead of serving it.
+RUN rm /etc/nginx/conf.d/default.conf
+COPY docker/nginx-defaults.envsh /docker-entrypoint.d/15-bugberry-defaults.envsh
+COPY --chmod=755 docker/nginx-check.sh /docker-entrypoint.d/90-bugberry-check.sh
+ENV API_UPSTREAM=http://api:3000 MCP_UPSTREAM=http://api-mcp:3000 NGINX_RESOLVER="127.0.0.11 valid=10s ipv6=off"
+# Only these three are substituted, so nginx's own $variables in the file stay as written.
+ENV NGINX_ENVSUBST_FILTER="^(API_UPSTREAM|MCP_UPSTREAM|NGINX_RESOLVER)$"
 COPY docker/security-headers.conf /etc/nginx/snippets/security-headers.conf
 COPY --from=build /app/apps/client/dist /usr/share/nginx/html
 EXPOSE 80

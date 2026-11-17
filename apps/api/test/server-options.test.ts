@@ -9,4 +9,9 @@ describe("serveOptions", () => {
     expect(options.port).toBe(4321)
     expect(options.maxRequestBodySize).toBeGreaterThan(config.maxUploadBytes)
   })
+
+  test("listens on HOST when it is set, and leaves Bun's default otherwise", () => {
+    expect(serveOptions(testConfig({ host: "::" })).hostname).toBe("::")
+    expect("hostname" in serveOptions(testConfig({}))).toBe(false)
+  })
 })
