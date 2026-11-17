@@ -1,4 +1,5 @@
 import { DEBUGGER_CONTENT_TYPE, FREE_EMAIL_DOMAINS } from "@bugberry/shared"
+import { labelsOfReports } from "../labels/repository"
 import type { AppDeps } from "../../deps"
 import { findDetailRow, listReportFixes, type ReportKey } from "./repository"
 import { toFixViews } from "./fix-view"
@@ -56,6 +57,8 @@ export async function loadReportDetail(
     assignee,
     /** Where it was fixed; members only, since repository links may be private. */
     fixes: opts.forMember ? toFixViews(await listReportFixes(db, r.id)) : undefined,
+    /** The team's triage labels; members only. */
+    labels: opts.forMember ? ((await labelsOfReports(db, [r.id])).get(r.id) ?? []) : undefined,
     mediaUrl: ready
       ? await storage.getReadUrl(r.mediaKey, { contentType: r.mediaType, expiresInSeconds: opts.readTtlSeconds })
       : null,

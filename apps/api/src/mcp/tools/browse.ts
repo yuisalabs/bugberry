@@ -2,6 +2,7 @@ import { CAPTURE_TYPES, listedCount, MAX_PER_PAGE, PRIORITIES, REPORT_STATUSES }
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { z } from "zod"
 import { listNotifications } from "../../modules/notifications/service"
+import { listLabels } from "../../modules/labels/repository"
 import { NO_ASSIGNEE, NO_PROJECT } from "../../modules/reports/model"
 import { countReportsByStatus, type ListReportsInput, listReports, type ReportListItem } from "../../modules/reports/service"
 import { findProjectByRef, listProjectSummaries } from "../../modules/projects/repository"
@@ -11,6 +12,7 @@ import { type McpContext, McpToolError, runTool } from "../context"
 import { reportUrl, textResult } from "../format"
 import { resolveReportRef, workspaceFor } from "../refs"
 import { reportSummary } from "./report-read"
+import { labelsNamed } from "./write"
 
 const SEARCH_DEFAULT = 20
 
@@ -50,7 +52,14 @@ function reportLine(appUrl: string, item: ReportListItem, assignees: Map<string,
     `${summary.errors} errors, ${summary.failedRequests} failed requests`,
     item.createdAt.toISOString().slice(0, 10),
     reportUrl(appUrl, item.id),
-  ].join(" · ")
+  ].join(" · ") + (item.labels.length ? ` [${item.labels.map((label) => label.name).join(", ")}]` : "")
+}
+
+/** Label names as ids for the list's filter; names matching no label find nothing rather than everything. */
+/** The ids for a search by label names; a name no label has is refused, so the agent never reads a quietly wider search. */
+async function labelFilter(ctx: McpContext, workspaceId: string, names: string[] | undefined): Promise<string[] | undefined> {
+  if (!names?.length) return undefined
+  return (await labelsNamed(ctx, workspaceId, names)).map((label) => label.id)
 }
 
 async function memberNames(ctx: McpContext, workspaceId: string): Promise<Map<string, string>> {
@@ -87,6 +96,7 @@ export function registerBrowseTools(server: McpServer, ctx: McpContext): void {
         createdAfter: z.string().datetime({ offset: true }).optional().describe("ISO date-time."),
         createdBefore: z.string().datetime({ offset: true }).optional().describe("ISO date-time."),
         hasErrors: z.boolean().optional().describe("Only reports that caught errors or failed requests."),
+        labels: z.array(z.string().max(40)).max(20).optional().describe("Label names from listLabels; finds reports carrying any of them. A name no label has is refused."),
         sort: z.enum(["newest", "oldest", "priority"]).optional(),
         limit: z.number().int().min(1).max(MAX_PER_PAGE).optional().describe(`How many reports (default ${SEARCH_DEFAULT}, max ${MAX_PER_PAGE}).`),
         cursor: z.string().max(400).optional().describe("From the last line of the page before, to get the next one."),
@@ -108,6 +118,7 @@ export function registerBrowseTools(server: McpServer, ctx: McpContext): void {
           createdAfter: args.createdAfter,
           createdBefore: args.createdBefore,
           hasErrors: args.hasErrors,
+          labelId: await labelFilter(ctx, workspaceId, args.labels),
           sort: args.sort,
         }
         const result = await listReports(ctx.deps, ctx.caller.user, { ...filters, perPage: args.limit ?? SEARCH_DEFAULT, cursor: args.cursor })
@@ -188,6 +199,26 @@ export function registerBrowseTools(server: McpServer, ctx: McpContext): void {
         return textResult(
           [...rows.map((row) => `${row.id} · ${row.name} <${row.email}> · ${row.role}`), "", "Mention someone in a comment with @[user:<id>]."].join("\n"),
           { members: rows },
+        )
+      }),
+  )
+
+  server.registerTool(
+    "listLabels",
+    {
+      title: "List labels",
+      description: "The workspace's labels with name, color and how many reports carry each. Filter searchReports by them, or set them with updateReport.",
+      inputSchema: { workspace: workspaceArg },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    (args) =>
+      runTool(async () => {
+        const workspaceId = await workspaceFor(ctx, args.workspace)
+        const rows = await listLabels(ctx.deps.db, workspaceId)
+        if (rows.length === 0) return textResult("This workspace has no labels.", { labels: [] })
+        return textResult(
+          rows.map((row) => `${row.name} · ${row.color} · ${row.reportCount} report${row.reportCount === 1 ? "" : "s"}`).join("\n"),
+          { labels: rows },
         )
       }),
   )

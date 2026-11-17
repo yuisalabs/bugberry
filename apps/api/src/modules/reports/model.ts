@@ -85,6 +85,8 @@ export const listReportsQuery = t.Object({
   createdBefore: t.Optional(t.String({ format: "date-time" })),
   /** Only reports whose debugger caught errors or failed requests. */
   hasErrors: t.Optional(t.BooleanString()),
+  /** Reports carrying any of these labels. */
+  labelId: t.Optional(t.Array(t.String({ maxLength: 100 }), { maxItems: 20 })),
   sort: t.Optional(t.UnionEnum(["newest", "oldest", "priority"])),
   /** The `nextCursor` of the page before; omitted for the first page. */
   cursor: t.Optional(t.String({ maxLength: 400 })),

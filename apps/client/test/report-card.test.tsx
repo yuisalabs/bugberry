@@ -5,6 +5,21 @@ import { PRIORITY_LABELS, STATUS_LABELS } from "../src/features/reports/list/lab
 import { listItemFixture, NOW } from "./fixtures"
 
 describe("ReportCardBody", () => {
+  test("every card has its meta line at one height, so a label never makes a card taller", () => {
+    const heights = [
+      listItemFixture({ priority: "none", labels: [] }),
+      listItemFixture({ priority: "none", labels: [{ id: "l1", name: "Bug", color: "red" }] }),
+      listItemFixture({ priority: "high", labels: [{ id: "l1", name: "Bug", color: "red" }] }),
+    ].map((item) => {
+      const { container, unmount } = render(<ReportCardBody item={item} now={NOW} />)
+      const meta = container.querySelector('[data-slot="card-meta"]')
+      const height = meta?.className.match(/\bh-\d+\b/)?.[0] ?? null
+      unmount()
+      return height
+    })
+    expect(heights).toEqual(["h-5", "h-5", "h-5"])
+  })
+
   test("shows the thumbnail, reporter, title and relative time", () => {
     render(<ReportCardBody item={listItemFixture()} now={NOW} />)
     const image = screen.getByRole("img", { name: /Pay button/ })

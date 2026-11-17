@@ -1,4 +1,5 @@
 import { RiCameraLine, RiHistoryLine, RiPlayFill } from "@remixicon/react"
+import { LabelChips } from "../../labels/LabelChip"
 import { Link, useNavigate } from "@tanstack/react-router"
 import type { ReactNode } from "react"
 import { Avatar } from "@bugberry/ui/avatar"
@@ -78,7 +79,13 @@ export function ReportTableBody({
                   )}
                 </TableCell>
                 <TableCell className={cell}>
-                  <span className="block truncate font-medium text-foreground">{rowLink(item)}</span>
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="min-w-0 truncate font-medium text-foreground">{rowLink(item)}</span>
+                    {/* Two at most, so the title keeps the room to be read. */}
+                    <span className="flex max-w-1/2 shrink-0">
+                      <LabelChips labels={item.labels} max={2} />
+                    </span>
+                  </span>
                   <span className="flex items-center gap-1 whitespace-nowrap text-xs text-muted-foreground">
                     {item.captureType === "video" ? (
                       <>

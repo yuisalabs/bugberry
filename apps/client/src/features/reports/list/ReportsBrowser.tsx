@@ -1,10 +1,10 @@
 import { RiRecordCircleLine } from "@remixicon/react"
 import { useQuery } from "@tanstack/react-query"
-import { type ReactNode, useState } from "react"
+import { type ReactNode, useEffect, useState } from "react"
 import { useNow } from "../../../hooks/useNow"
 import { invitesAllowed, usageText } from "../../workspaces/usage"
 import { useListPeople } from "./list-people"
-import { hasFilters, type ReportSearch, toReportsQuery } from "./report-search"
+import { hasFilters, knownLabels, type ReportSearch, toReportsQuery } from "./report-search"
 import { readLayout, type ReportLayout, saveLayout } from "./report-layout"
 import { useCurrentWorkspace } from "../../workspaces/workspace"
 import { InviteDialog } from "../../workspaces/InviteDialog"
@@ -14,10 +14,23 @@ import { useReportFeed } from "./useReportFeed"
 import { installHref } from "../../landing/site-links"
 import { authQueries } from "../../auth/queries"
 import { projectQueries } from "../../projects/queries"
+import { type Label, labelQueries } from "../../labels/queries"
 import { workspaceQueries } from "../../workspaces/queries"
 import { reportQueries } from "../queries"
 
-export type SearchUpdater = (update: (prev: ReportSearch) => ReportSearch) => void
+/** `replace` corrects the URL in place, without a history entry Back would return to. */
+export type SearchUpdater = (update: (prev: ReportSearch) => ReportSearch, options?: { replace?: boolean }) => void
+
+/** A label deleted since the link was made leaves the URL once the labels are known. */
+export function useDropUnknownLabels(search: ReportSearch, labels: readonly Label[] | undefined, setSearch: SearchUpdater, fetching = false) {
+  const labelIds = search.label?.join(",")
+  useEffect(() => {
+    // A cached list may predate a label made since; only a fresh one can say an id is gone.
+    if (!labels || !search.label || fetching) return
+    const known = knownLabels(search, labels)
+    if (known?.length !== search.label.length) setSearch((prev) => ({ ...prev, label: known }), { replace: true })
+  }, [labels, labelIds, fetching])
+}
 
 /**
  * ReportsView wired to the API and the URL. `scope` fixes the project on a project page; the
@@ -47,6 +60,8 @@ export function ReportsBrowser({
   const members = useListPeople(workspaceId, Boolean(workspace))
   // The project filter needs them on the all-reports page; the list view names projects on every page.
   const projects = useQuery({ ...projectQueries.projects(workspaceId), enabled: Boolean(workspace) })
+  const labels = useQuery({ ...labelQueries.labels(workspaceId), enabled: Boolean(workspace) })
+  useDropUnknownLabels(search, labels.data, setSearch, labels.isFetching)
   const feed = useReportFeed(workspaceId, toReportsQuery(scope, search), Boolean(workspace))
   const config = useQuery(authQueries.clientConfig())
   // The server's own install link, else BugBerry's Chrome Web Store page.
@@ -68,6 +83,7 @@ export function ReportsBrowser({
       projects={showProjectFilter ? (projects.data ?? []) : undefined}
       tableProjects={projects.data}
       projectsLoading={projects.isPending}
+      labels={labels.data ?? []}
       search={search}
       list={feed.list}
       now={now}

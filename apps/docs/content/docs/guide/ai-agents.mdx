@@ -30,6 +30,7 @@ Paste a report link, or a number like `BB-123`, into the agent. It can:
 - search reports;
 - comment (shown with a **via AI** badge);
 - change status, priority, or assignee;
+- list the workspace's labels (`listLabels`), find reports by them (`searchReports` with `labels`), and add or remove them on a report (`updateReport` with `addLabels` and `removeLabels`). An agent uses existing labels only; it can't create one;
 - resolve a report with a link to the pull request or commit that fixed it, which tells the person who reported it;
 - send the report to a tracker.
 
@@ -66,7 +67,7 @@ a page by itself and file each bug it finds. See [Agent Recordings](/guide/agent
 
 ## What an Agent Can't Do
 
-An agent can see and change exactly what you can in the dashboard, except that it can't delete reports, change who can see a report, or manage workspaces.
+An agent can see and change exactly what you can in the dashboard, except that it can't delete reports, change who can see a report, create labels, or manage workspaces.
 
 ## Stop an App
 

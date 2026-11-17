@@ -20,6 +20,7 @@ const READ = [
   "listWorkspaces",
   "listProjects",
   "listMembers",
+  "listLabels",
   "getNotifications",
   "search",
   "fetch",

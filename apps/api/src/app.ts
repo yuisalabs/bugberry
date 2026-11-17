@@ -14,6 +14,7 @@ import { localFilesModule } from "./modules/local-files"
 import { accountModule } from "./modules/account"
 import { projectsModule } from "./modules/projects"
 import { reportsModule } from "./modules/reports"
+import { labelsModule } from "./modules/labels"
 import { agentUploadsModule } from "./modules/reports/agent-uploads"
 import { reportUploadsModule } from "./modules/reports/uploads"
 import { shareModule } from "./modules/share"
@@ -53,6 +54,7 @@ export function createApp(deps: AppDeps) {
     .use(reportUploadsModule(deps))
     .use(agentUploadsModule(deps))
     .use(reportsModule(deps))
+    .use(labelsModule(deps))
     .use(shareModule(deps))
     .use(commentsModule(deps))
     .use(activityModule(deps))

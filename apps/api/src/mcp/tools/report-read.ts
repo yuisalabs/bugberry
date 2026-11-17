@@ -96,6 +96,7 @@ export async function reportSummary(ctx: McpContext, resolved: ResolvedReport) {
     `BB-${detail.number} · ${detail.title}`,
     `Status: ${detail.status} · Priority: ${detail.priority} · Project: ${projectRow?.name ?? "none"}`,
     `Reporter: ${detail.reporter.name}${detail.reporterEmail ? ` <${detail.reporterEmail}>` : ""} · Assignee: ${detail.assignee?.name ?? "nobody"}`,
+    ...(detail.labels?.length ? [`Labels: ${detail.labels.map((label) => label.name).join(", ")}`] : []),
     `Created: ${detail.createdAt.toISOString()} · Link: ${url}`,
     ...(member ? [`Project slug: ${projectSlug ?? "none"} · Workspace: ${workspaceSlug ?? "none"}`] : []),
     ...(member ? [] : ["Access: read-only through the report's share link (comments and changes need workspace membership)."]),

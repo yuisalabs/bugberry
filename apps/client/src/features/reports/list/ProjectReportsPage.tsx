@@ -31,7 +31,7 @@ export function ProjectReportsPage() {
       showCount
       scope={{ projectId: project.id }}
       search={search}
-      setSearch={(update) => void navigate({ search: update })}
+      setSearch={(update, options) => void navigate({ search: update, replace: options?.replace })}
       actions={
         <>
           <Link

@@ -14,6 +14,8 @@ import { CLEARED_FILTERS, hasFilters, NO_PROJECT, type ReportSearch, toggleValue
 import { ActiveIcon } from "../../../components/layout/ActiveIcon"
 import type { Project } from "../../projects/queries"
 import type { Member } from "../../workspaces/queries"
+import type { Label as WorkspaceLabel } from "../../labels/queries"
+import { LABEL_SWATCHES } from "../../labels/label-colors"
 
 const ALL = "__all"
 
@@ -77,6 +79,7 @@ export function ReportFilters({
   members,
   projects,
   projectsLoading = false,
+  labels = [],
   onChange,
   trailing,
 }: {
@@ -86,12 +89,18 @@ export function ReportFilters({
   projects?: readonly Project[]
   /** True while `projects` is still being fetched, so a chosen project shows as loading, not unknown. */
   projectsLoading?: boolean
+  /** The workspace's labels; the Labels menu is hidden while there are none. */
+  labels?: readonly WorkspaceLabel[]
   onChange: (patch: Partial<ReportSearch>) => void
   trailing?: ReactNode
 }) {
   const priorityLabel = useId()
   const statusValue = search.status?.map((status) => STATUS_LABELS[status]).join(", ")
   const reporter = members.find((member) => member.id === search.reporterId)
+  const labelValue = search.label
+    ?.map((id) => labels.find((label) => label.id === id)?.name)
+    .filter(Boolean)
+    .join(", ")
   const projectValue =
     search.projectId === undefined
       ? undefined
@@ -163,6 +172,28 @@ export function ReportFilters({
             {projects.map((project) => (
               <MenuItem key={project.id} id={project.id}>
                 {project.name}
+              </MenuItem>
+            ))}
+          </FilterMenu>
+        )}
+
+        {labels.length > 0 && (
+          <FilterMenu
+            label="Labels"
+            value={labelValue || undefined}
+            selectionMode="multiple"
+            selectedKeys={search.label ?? []}
+            onSelectionChange={(keys) => {
+              const chosen = keys === "all" ? labels.map((label) => label.id) : labels.filter((label) => keys.has(label.id)).map((label) => label.id)
+              onChange({ label: chosen.length > 0 ? chosen : undefined })
+            }}
+          >
+            {labels.map((label) => (
+              <MenuItem key={label.id} id={label.id} textValue={label.name}>
+                <span className="flex min-w-0 items-center gap-2">
+                  <span aria-hidden className={`size-2.5 shrink-0 rounded-full ${LABEL_SWATCHES[label.color]}`} />
+                  <span className="truncate">{label.name}</span>
+                </span>
               </MenuItem>
             ))}
           </FilterMenu>

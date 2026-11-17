@@ -17,6 +17,15 @@ describe("ReportTableBody", () => {
     expect(screen.getByRole("grid").closest(".overflow-x-auto")).toBeTruthy()
   })
 
+  test("a row shows two labels at most beside its title, then how many more", () => {
+    const labels = ["Bug", "Checkout", "Mobile"].map((name) => ({ id: name, name, color: "gray" as const }))
+    render(<ReportTableBody items={[listItemFixture({ labels })]} members={members} projects={projects} now={NOW} rowLink={(item) => item.title} />)
+    const row = within(screen.getAllByRole("row")[1] as HTMLElement)
+    expect(row.getByText("Checkout")).toBeTruthy()
+    expect(row.queryByText("Mobile") !== null).toBe(false)
+    expect(row.getByText("+1")).toBeTruthy()
+  })
+
   test("a replay row names its type and shows its length", () => {
     render(
       <ReportTableBody

@@ -39,6 +39,7 @@ describe("qk keeps today's key values", () => {
     expect(qk.projects.all).toEqual(["projects"])
     expect(qk.projects.of("w")).toEqual(["projects", "w"])
     expect(qk.projects.overview("w")).toEqual(["projects", "w", "overview"])
+    expect(qk.labels("w")).toEqual(["labels", "w"])
     expect(qk.integrations("p")).toEqual(["integrations", "p"])
     expect(qk.connections("w")).toEqual(["connections", "w"])
     expect(qk.connectionOptions("w", "c", "labels", "bug", "")).toEqual(["connection-options", "w", "c", "labels", "bug", ""])

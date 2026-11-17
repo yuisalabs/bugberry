@@ -1,11 +1,33 @@
 import { describe, expect, test } from "bun:test"
 import {
+  CLEARED_FILTERS,
   hasFilters,
+  knownLabels,
   toggleValue,
   toReportsQuery,
   validateProjectReportSearch,
   validateReportSearch,
 } from "../src/features/reports/list/report-search"
+
+describe("the label filter", () => {
+  test("the URL's label list is read from a comma list and from repeats", () => {
+    expect(validateReportSearch({ label: "a,b" }).label).toEqual(["a", "b"])
+    expect(validateReportSearch({ label: ["a", "b"] }).label).toEqual(["a", "b"])
+    expect(validateReportSearch({ label: "" }).label).toBeUndefined()
+    expect(validateReportSearch({ label: Array.from({ length: 25 }, (_, i) => `l${i}`) }).label).toHaveLength(20)
+  })
+
+  test("the label filter reaches the query as labelId and counts as a filter", () => {
+    expect(toReportsQuery({}, { label: ["a"] }).labelId).toEqual(["a"])
+    expect(hasFilters({ label: ["a"] })).toBe(true)
+    expect(CLEARED_FILTERS).toHaveProperty("label", undefined)
+  })
+
+  test("ids of labels that no longer exist are dropped", () => {
+    expect(knownLabels({ label: ["a", "gone"] }, [{ id: "a", name: "Bug", color: "red" }])).toEqual(["a"])
+    expect(knownLabels({ label: ["gone"] }, [])).toBeUndefined()
+  })
+})
 
 describe("validateReportSearch", () => {
   test("keeps capture type, reporter and project filters", () => {
