@@ -27,7 +27,7 @@ describe("JoinWorkspaceBody", () => {
     const props = body({
       preview: {
         status: "found",
-        data: { workspace: ws("w1", "Yuisa Labs", 12), via: "invitation", inviterName: "Priya Raman", alreadyMember: false },
+        data: { workspace: ws("w1", "Yuisa Labs", 12), via: "invitation", inviterName: "Priya Raman", guestProjectName: null, alreadyMember: false },
       },
     })
     fireEvent.change(screen.getByRole("textbox", { name: "Invite link or code" }), { target: { value: "7KX-29QF" } })
@@ -39,8 +39,30 @@ describe("JoinWorkspaceBody", () => {
     expect(props.onJoinCode).toHaveBeenCalled()
   })
 
+  test("a pasted guest code shows the project, marked Guest, and opens it", () => {
+    const props = body({
+      preview: {
+        status: "found",
+        data: { workspace: ws("w1", "Yuisa Labs", 12), via: "invitation", inviterName: "Priya Raman", guestProjectName: "Storefront", alreadyMember: false },
+      },
+    })
+    const card = screen.getByRole("region", { name: "Yuisa Labs" })
+    expect(card.textContent).toContain("Guest of Storefront · Invited by Priya Raman")
+    expect(card.textContent).not.toContain("Member")
+    fireEvent.click(screen.getByRole("button", { name: "Open Storefront" }))
+    expect(props.onJoinCode).toHaveBeenCalled()
+  })
+
+  test("a guest invitation for my email says guest of the project", () => {
+    const props = body({ invitations: [{ id: "i1", workspaceName: "Yuisa Labs", inviterName: "Priya", guestProjectName: "Storefront" }] })
+    const row = screen.getByText("Yuisa Labs").closest("li") as HTMLElement
+    expect(row.textContent).toContain("Guest of Storefront · Invited by Priya")
+    fireEvent.click(within(row).getByRole("button", { name: "Open Storefront" }))
+    expect(props.onJoinInvitation).toHaveBeenCalledWith("i1")
+  })
+
   test("a shared link says so", () => {
-    body({ preview: { status: "found", data: { workspace: ws("w1", "Javan QA", 4), via: "shared", inviterName: null, alreadyMember: false } } })
+    body({ preview: { status: "found", data: { workspace: ws("w1", "Javan QA", 4), via: "shared", inviterName: null, guestProjectName: null, alreadyMember: false } } })
     expect(screen.getByText("Shared invite · 4 members")).toBeTruthy()
   })
 
@@ -91,7 +113,7 @@ describe("JoinView", () => {
       <JoinView
         code="7KX-29QF"
         signedIn
-        preview={{ workspace: ws("w1", "Javan QA", 4), via: "shared", inviterName: null, alreadyMember: false }}
+        preview={{ workspace: ws("w1", "Javan QA", 4), via: "shared", inviterName: null, guestProjectName: null, alreadyMember: false }}
         onJoin={onJoin}
       />,
     )

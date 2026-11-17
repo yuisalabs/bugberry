@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import { inviteView } from "../src/features/workspaces/invite"
 import { InviteView } from "../src/features/workspaces/InvitePage"
 
-const info = { workspaceName: "PT Maju", email: "sari@ptmaju.com", inviterName: "Budi", status: "pending" as const }
+const info = { workspaceName: "PT Maju", email: "sari@ptmaju.com", inviterName: "Budi", guestProjectName: null, status: "pending" as const }
 
 describe("inviteView", () => {
   test("each state", () => {
@@ -39,6 +39,15 @@ describe("InviteView", () => {
     expect(screen.getByText("This invite is for sari@ptmaju.com; you're signed in as sari@gmail.com.")).toBeTruthy()
     fireEvent.click(screen.getByRole("button", { name: "Sign out" }))
     expect(onSignOut).toHaveBeenCalled()
+  })
+
+  test("a guest invitation names the project and opens it", () => {
+    const onJoin = mock()
+    render(<InviteView {...props} info={{ ...info, guestProjectName: "Storefront" }} meEmail="sari@ptmaju.com" onJoin={onJoin} />)
+    expect(screen.getByRole("heading", { name: "Budi invited you to Storefront" })).toBeTruthy()
+    expect(screen.getByText("You'll be a guest of the Storefront project in PT Maju: you can read its bug reports and comment on them.")).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: "Open Storefront" }))
+    expect(onJoin).toHaveBeenCalled()
   })
 
   test("expired or withdrawn", () => {

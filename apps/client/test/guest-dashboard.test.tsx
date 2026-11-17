@@ -4,6 +4,7 @@ import { ReportFieldsText } from "../src/features/reports/detail/ReportFields"
 import { CommentsSection } from "../src/features/reports/comments/CommentsSection"
 import { commentFixture } from "./fixtures"
 import { ReportFilters } from "../src/features/reports/list/ReportFilters"
+import { FiltersSheetContent } from "../src/features/reports/list/MobileReportFilters"
 
 describe("a guest's report page", () => {
   test("status, priority and assignee are text, with no menus", () => {
@@ -71,6 +72,21 @@ test("the composer offers guests of the project, marked Guest", () => {
   const list = screen.getByRole("listbox", { name: "Mention someone" })
   expect(list.textContent).toContain("Gita")
   expect(list.textContent).toContain("Guest")
+})
+
+const guestProjects = [{ id: "p1", name: "Storefront", slug: "storefront", workspaceId: "w1", urlPatterns: [] as string[], logoUrl: null, createdAt: new Date(), guestCount: 0 }]
+
+test("a guest's project filter has no No project, which they never see a report of", () => {
+  render(<ReportFilters search={{}} members={[]} showPeople={false} projects={guestProjects} onChange={mock()} />)
+  fireEvent.click(screen.getByRole("button", { name: /Project/ }))
+  expect(screen.getByRole("menuitemradio", { name: "Storefront" })).toBeTruthy()
+  expect(screen.queryByRole("menuitemradio", { name: "No project" }) !== null).toBe(false)
+})
+
+test("on a phone, a guest's project filter has no No project either", () => {
+  render(<FiltersSheetContent search={{}} members={[]} showPeople={false} projects={guestProjects} onChange={mock()} onDone={mock()} />)
+  expect(screen.getByText("Storefront")).toBeTruthy()
+  expect(screen.queryByText("No project") !== null).toBe(false)
 })
 
 test("a guest's list has no assignee or reporter filter", () => {

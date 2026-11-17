@@ -102,7 +102,7 @@ export function FiltersSheetContent({
 }: {
   search: ReportSearch
   members: readonly Member[]
-  /** False for a project's guest: no reporter or assignee filter. */
+  /** False for a project's guest: no reporter or assignee filter, and no No project. */
   showPeople?: boolean
   /** Given on the all-reports page only. */
   projects?: readonly Project[]
@@ -169,7 +169,7 @@ export function FiltersSheetContent({
 
         {projects && (
           <Section title="Project">
-            {[...projects.map((project) => ({ id: project.id, name: project.name })), { id: NO_PROJECT, name: "No project" }].map((project) => (
+            {[...projects.map((project) => ({ id: project.id, name: project.name })), ...(showPeople ? [{ id: NO_PROJECT, name: "No project" }] : [])].map((project) => (
               <Chip
                 key={project.id}
                 pressed={search.projectId === project.id}

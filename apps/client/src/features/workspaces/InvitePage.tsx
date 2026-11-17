@@ -29,6 +29,7 @@ export function InviteView({
   busy?: boolean
 }) {
   const state = inviteView(info, meEmail === null ? null : { email: meEmail })
+  const project = info === "not_found" ? null : info.guestProjectName
   if (state === "unavailable" || info === "not_found") {
     return (
       <div className="flex flex-col gap-4">
@@ -42,8 +43,13 @@ export function InviteView({
   return (
     <div className="flex flex-col gap-4">
       <h1 className="font-heading text-2xl font-bold text-foreground">
-        {info.inviterName} invited you to {info.workspaceName}
+        {info.inviterName} invited you to {project ?? info.workspaceName}
       </h1>
+      {project && (
+        <p className="text-muted-foreground">
+          You'll be a guest of the {project} project in {info.workspaceName}: you can read its bug reports and comment on them.
+        </p>
+      )}
       {state === "sign-in" && (
         <>
           <p className="text-muted-foreground">Sign in as {info.email} to join.</p>
@@ -54,7 +60,7 @@ export function InviteView({
       )}
       {state === "join" && (
         <Button size="sm" className="self-start" isDisabled={busy} onPress={onJoin}>
-          Join {info.workspaceName}
+          {project ? `Open ${project}` : `Join ${info.workspaceName}`}
         </Button>
       )}
       {state === "wrong-account" && (

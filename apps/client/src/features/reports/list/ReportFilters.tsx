@@ -86,7 +86,7 @@ export function ReportFilters({
 }: {
   search: ReportSearch
   members: readonly Member[]
-  /** False for a project's guest: no Reporter menu and no Assignee filter. */
+  /** False for a project's guest: no Reporter menu, no Assignee filter, and no No project (a guest never sees such a report). */
   showPeople?: boolean
   /** Given only on the all-reports page, where reports can be narrowed to a project or to none. */
   projects?: readonly Project[]
@@ -173,7 +173,7 @@ export function ReportFilters({
             onSelectionChange={(keys) => onChange({ projectId: picked(keys) })}
           >
             <MenuItem id={ALL}>All projects</MenuItem>
-            <MenuItem id={NO_PROJECT}>No project</MenuItem>
+            {showPeople && <MenuItem id={NO_PROJECT}>No project</MenuItem>}
             {projects.map((project) => (
               <MenuItem key={project.id} id={project.id}>
                 {project.name}

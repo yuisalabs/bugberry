@@ -44,13 +44,13 @@ A guest can:
 
 A guest can't see the workspace's other projects, its members page, labels, activity, integrations or AI agents. On a report they don't see the reporter's email, city, or the fix links, and its fields are read-only.
 
-**Inviting.** An admin opens **Projects**, the project's **⋯** menu, then **Guests**, and types email addresses. The invitation is valid for 7 days and only for the address it was sent to. The same card lists the guests and removes one; a removed guest loses access at once. On a server with `ALLOWED_EMAIL_DOMAINS`, only addresses in those domains can be invited, since nobody else can sign in.
+**Inviting.** An admin opens **Projects**, the project's **⋯** menu, then **Guests**, and types email addresses. The invitation is valid for 7 days and only for the address it was sent to; its page, its code and the guest's **Join a workspace** list name the project and say they'll be a guest. Pending invitations count toward the 50, addresses that get none (a member, a guest already, a typo) don't. The same card lists the guests and removes one; a removed guest loses access at once. On a server with `ALLOWED_EMAIL_DOMAINS`, only addresses in those domains can be invited, since nobody else can sign in.
 
 **Comments are visible to guests.** Every comment on a project with guests can be read by them, including comments written before they joined. The comment box says so when a project has guests.
 
 **Guests can't send reports yet.** Until they can, a guest describes the bug in a comment, or a member records it for them.
 
-A guest who is later invited as a member becomes a member and stops being a guest. Inviting someone who is already a member as a guest changes nothing.
+A guest who is later invited as a member, or made an admin with `workspace:promote-admin`, becomes a member and stops being a guest. Inviting someone who is already a member as a guest changes nothing.
 
 ## Who Can See a Report
 
