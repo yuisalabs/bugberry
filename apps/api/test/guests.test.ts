@@ -144,6 +144,55 @@ describe("inviting a guest", () => {
   })
 })
 
+describe("a guest invitation says it is one", () => {
+  const codeIn = (message: EmailMessage | undefined) => message?.text.match(/code in BugBerry: (\S+)/)?.[1] ?? ""
+
+  test("the link's preview names the project; a workspace invitation names none", async () => {
+    await invite(admin, p1.id, ["client@acme.test"])
+    expect(await json(await call("GET", `/api/invitations/${tokenIn(outbox[0])}`, admin))).toMatchObject({ guestProjectName: "Storefront" })
+    await call("POST", `/api/workspaces/${ctx.workspace.id}/invitations`, admin, { emails: ["new@team.test"] })
+    expect(await json(await call("GET", `/api/invitations/${tokenIn(outbox[1])}`, admin))).toMatchObject({ guestProjectName: null })
+  })
+
+  test("the code's preview names the project", async () => {
+    await invite(admin, p1.id, ["client@acme.test"])
+    const client = await createUserWithToken(ctx.db, { workspaceId: null, email: "client@acme.test" })
+    const preview = await json(await call("POST", "/api/join/preview", client, { value: codeIn(outbox[0]) }))
+    expect(preview).toMatchObject({ via: "invitation", guestProjectName: "Storefront" })
+  })
+
+  test("my invitations name the project, and list it in a workspace that takes no new members", async () => {
+    await setup({ accountLimits: { screenshots: 5, recordings: 5, ownedWorkspaces: 1, recordingMs: 120_000 } })
+    await ctx.db.update(workspace).set({ ownerId: admin.user.id }).where(eq(workspace.id, ctx.workspace.id))
+    await invite(admin, p1.id, ["client@acme.test"])
+    const client = await createUserWithToken(ctx.db, { workspaceId: null, email: "client@acme.test" })
+    expect(await json(await call("GET", "/api/me/invitations", client))).toMatchObject([{ workspaceName: "Test", guestProjectName: "Storefront" }])
+  })
+})
+
+describe("the guest limit", () => {
+  async function fill(n: number) {
+    for (let i = 0; i < n; i++) {
+      const user = await createUserWithToken(ctx.db, { workspaceId: null, email: `g${i}@acme.test` })
+      await addGuest(ctx.db, p1.id, user.user.id)
+    }
+  }
+
+  test("only the addresses that get an invitation count", async () => {
+    await fill(49)
+    const answer = await invite(admin, p1.id, ["not an email", "g0@acme.test", "ana@team.test", "new@acme.test"])
+    expect(answer.status).toBe(200)
+    expect((await json(answer)).map((row: { status: string }) => row.status)).toEqual(["invalid", "guest", "member", "sent"])
+  })
+
+  test("invitations at once for the last place: one is sent", async () => {
+    await fill(49)
+    const answers = await Promise.all(["a", "b", "c", "d"].map((name) => invite(admin, p1.id, [`${name}@acme.test`])))
+    expect(answers.map((answer) => answer.status).sort()).toEqual([200, 422, 422, 422])
+    expect(outbox).toHaveLength(1)
+  })
+})
+
 test("members see how many guests each project has; a guest sees none", async () => {
   const client = await createUserWithToken(ctx.db, { workspaceId: null, email: "client@acme.test" })
   await addGuest(ctx.db, p1.id, client.user.id)

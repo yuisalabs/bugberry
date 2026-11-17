@@ -1,7 +1,7 @@
 import { and, count, desc, eq, exists, inArray, isNull, or, sql } from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"
 import { type Db, executor } from "../../db/client"
-import { comment, notification, projectGuest, report, user, workspaceMember } from "../../db/schema"
+import { comment, notification, project, projectGuest, report, user, workspaceMember } from "../../db/schema"
 
 const actor = alias(user, "actor")
 const note = alias(comment, "note")
@@ -57,13 +57,20 @@ export async function countVisibleUnread(db: Db, userId: string): Promise<number
   return unread?.value ?? 0
 }
 
-/** Names of these people in each of these workspaces they belong to. */
-export function memberNames(db: Db, workspaceIds: string[], userIds: string[]) {
-  return executor(db)
+/** Names of these people in each of these workspaces they belong to, as a member or a guest of one of its projects. */
+export async function memberNames(db: Db, workspaceIds: string[], userIds: string[]) {
+  const members = await executor(db)
     .select({ workspaceId: workspaceMember.workspaceId, id: user.id, name: user.name })
     .from(workspaceMember)
     .innerJoin(user, eq(user.id, workspaceMember.userId))
     .where(and(inArray(workspaceMember.workspaceId, workspaceIds), inArray(workspaceMember.userId, userIds)))
+  const guests = await executor(db)
+    .selectDistinct({ workspaceId: project.workspaceId, id: user.id, name: user.name })
+    .from(projectGuest)
+    .innerJoin(project, eq(project.id, projectGuest.projectId))
+    .innerJoin(user, eq(user.id, projectGuest.userId))
+    .where(and(inArray(project.workspaceId, workspaceIds), inArray(projectGuest.userId, userIds)))
+  return [...members, ...guests]
 }
 
 export async function markAllRead(db: Db, userId: string): Promise<void> {

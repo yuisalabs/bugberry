@@ -95,7 +95,7 @@ describe("accepting invitations", () => {
     await invite(["sari@kantor.test"])
     const token = tokenIn(outbox[0])
     const { data: info } = await ctx.api.api.invitations({ token }).get()
-    expect(info).toEqual({ workspaceName: "Test", email: "sari@kantor.test", inviterName: "Budi", status: "pending" })
+    expect(info).toEqual({ workspaceName: "Test", email: "sari@kantor.test", inviterName: "Budi", guestProjectName: null, status: "pending" })
     const sari = await createUserWithToken(ctx.db, { email: "sari@kantor.test", workspaceId: null })
     const { data } = await ctx.api.api.invitations({ token }).accept.post(undefined, { headers: sari.headers })
     expect(data).toEqual({ workspaceId: ctx.workspace.id })

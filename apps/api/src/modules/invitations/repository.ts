@@ -2,7 +2,7 @@ import type { WorkspaceRole } from "@bugberry/shared"
 import { and, asc, count, eq, gt, isNull } from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"
 import { type Db, executor } from "../../db/client"
-import { user, workspace, workspaceInvitation, workspaceMember } from "../../db/schema"
+import { project, user, workspace, workspaceInvitation, workspaceMember } from "../../db/schema"
 import { newId } from "../../lib/ids"
 
 const inviter = alias(user, "inviter")
@@ -43,9 +43,16 @@ export async function findLiveInvitation(db: Db, workspaceId: string, invitation
 export async function findLiveInvitationByHash(db: Db, by: { tokenHash: string } | { codeHash: string }) {
   const match = "tokenHash" in by ? eq(workspaceInvitation.tokenHash, by.tokenHash) : eq(workspaceInvitation.codeHash, by.codeHash)
   const [row] = await executor(db)
-    .select({ id: workspaceInvitation.id, workspaceId: workspaceInvitation.workspaceId, email: workspaceInvitation.email, inviterName: inviter.name })
+    .select({
+      id: workspaceInvitation.id,
+      workspaceId: workspaceInvitation.workspaceId,
+      email: workspaceInvitation.email,
+      inviterName: inviter.name,
+      guestProjectName: project.name,
+    })
     .from(workspaceInvitation)
     .leftJoin(inviter, eq(inviter.id, workspaceInvitation.invitedById))
+    .leftJoin(project, eq(project.id, workspaceInvitation.guestProjectId))
     .where(and(match, live()))
     .limit(1)
   return row ?? null
@@ -54,10 +61,11 @@ export async function findLiveInvitationByHash(db: Db, by: { tokenHash: string }
 /** Any invitation by its link token's hash, live or not, with its workspace's name and who sent it. */
 export async function findInvitationByTokenHash(db: Db, tokenHash: string) {
   const [row] = await executor(db)
-    .select({ invitation: workspaceInvitation, workspaceName: workspace.name, inviterName: inviter.name })
+    .select({ invitation: workspaceInvitation, workspaceName: workspace.name, inviterName: inviter.name, guestProjectName: project.name })
     .from(workspaceInvitation)
     .innerJoin(workspace, eq(workspace.id, workspaceInvitation.workspaceId))
     .leftJoin(inviter, eq(inviter.id, workspaceInvitation.invitedById))
+    .leftJoin(project, eq(project.id, workspaceInvitation.guestProjectId))
     .where(eq(workspaceInvitation.tokenHash, tokenHash))
     .limit(1)
   return row ?? null
@@ -148,13 +156,20 @@ export function listLiveInvitations(db: Db, workspaceId: string) {
     .orderBy(asc(workspaceInvitation.createdAt))
 }
 
-/** Live invitations for this address, oldest first, with each workspace's name and who sent it. */
+/** Live invitations for this address, oldest first, with each workspace's name, who sent it, and a guest invitation's project. */
 export function listLiveInvitationsForEmail(db: Db, email: string) {
   return executor(db)
-    .select({ id: workspaceInvitation.id, workspaceId: workspaceInvitation.workspaceId, workspaceName: workspace.name, inviterName: inviter.name })
+    .select({
+      id: workspaceInvitation.id,
+      workspaceId: workspaceInvitation.workspaceId,
+      workspaceName: workspace.name,
+      inviterName: inviter.name,
+      guestProjectName: project.name,
+    })
     .from(workspaceInvitation)
     .innerJoin(workspace, eq(workspace.id, workspaceInvitation.workspaceId))
     .leftJoin(inviter, eq(inviter.id, workspaceInvitation.invitedById))
+    .leftJoin(project, eq(project.id, workspaceInvitation.guestProjectId))
     .where(and(eq(workspaceInvitation.email, email), live()))
     .orderBy(asc(workspaceInvitation.createdAt))
 }

@@ -80,6 +80,13 @@ describe("guests in the comments", () => {
     expect(threads[0].mentions).toEqual([{ id: f.guest.user.id, name: "Guest" }])
   })
 
+  test("the bell names a mentioned guest", async () => {
+    await comment(f.member, f.reportP1.id, `@[user:${f.guest.user.id}] can you try again?`)
+    await settle()
+    const [item] = (await json(await call("GET", "/api/notifications", f.guest))).items
+    expect(item.snippet).toBe("@Guest can you try again?")
+  })
+
   test("a guest's mention reaches the member", async () => {
     await comment(f.guest, f.reportP1.id, `@[user:${f.member.user.id}] here is a video`)
     await settle()

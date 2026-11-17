@@ -86,6 +86,11 @@ export async function deleteGuestsInWorkspace(db: Db, userId: string, workspaceI
     )
 }
 
+/** Holds the project's row until the transaction ends, so guest invitations to it are counted one at a time. */
+export async function lockProject(db: Db, projectId: string): Promise<void> {
+  await executor(db).select({ id: project.id }).from(project).where(eq(project.id, projectId)).for("update")
+}
+
 export async function countGuests(db: Db, projectId: string): Promise<number> {
   const [row] = await executor(db).select({ n: count() }).from(projectGuest).where(eq(projectGuest.projectId, projectId))
   return row?.n ?? 0

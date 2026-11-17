@@ -10,7 +10,7 @@ import { isEmailAllowed } from "../auth/policy"
 import { hashCode, newJoinCode } from "../join/join-codes"
 import { deleteJoinRequest } from "../join/repository"
 import { assertCanAddMembers, isWorkspaceLimited } from "../workspaces/limits"
-import { countGuests, insertGuest, isProjectGuestEmail } from "../guests/repository"
+import { countGuests, insertGuest, isProjectGuestEmail, lockProject } from "../guests/repository"
 import { addMemberIfAbsent, findMemberRole, findWorkspaceName } from "../workspaces/repository"
 import { inviteEmail } from "./invite-email"
 import {
@@ -30,6 +30,7 @@ import {
 
 /** A project takes at most MAX_GUESTS_PER_PROJECT guests, its pending guest invitations counted. */
 async function assertGuestRoom(db: Db, projectId: string, adding: number): Promise<void> {
+  if (adding === 0) return
   const taken = (await countGuests(db, projectId)) + (await countLiveGuestInvitations(db, projectId))
   if (taken + adding > MAX_GUESTS_PER_PROJECT) {
     throw unprocessable("guest_limit", `A project can have at most ${MAX_GUESTS_PER_PROJECT} guests, invitations included`)
@@ -143,9 +144,8 @@ export function createInvitationsService(deps: Pick<AppDeps, "config" | "db" | "
       role: WorkspaceRole,
       guestOf?: { projectId: string; projectName: string },
     ) {
-      if (guestOf) await assertGuestRoom(db, guestOf.projectId, emails.length)
-      else await assertCanAddMembers(db, config.accountLimits, workspaceId)
-      const outcomes: Array<{ email: string; status: InviteOutcome }> = []
+      if (!guestOf) await assertCanAddMembers(db, config.accountLimits, workspaceId)
+      const outcomes: Array<{ email: string; status: InviteOutcome | "send" }> = []
       for (const raw of emails) {
         const email = raw.trim().toLowerCase()
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -168,6 +168,11 @@ export function createInvitationsService(deps: Pick<AppDeps, "config" | "db" | "
           outcomes.push({ email, status: "pending" })
           continue
         }
+        outcomes.push({ email, status: "send" })
+      }
+      // Only the addresses that get an invitation take a guest's place.
+      if (guestOf) await assertGuestRoom(db, guestOf.projectId, outcomes.filter((row) => row.status === "send").length)
+      const sendOne = async (email: string) => {
         const { token, hash } = newInviteToken()
         const code = newJoinCode()
         await sendInvite(email, workspaceId, from, token, code, guestOf?.projectName)
@@ -181,9 +186,22 @@ export function createInvitationsService(deps: Pick<AppDeps, "config" | "db" | "
           role,
           expiresAt: new Date(Date.now() + INVITE_TTL_MS),
         })
-        outcomes.push({ email, status: "sent" })
       }
-      return outcomes
+      for (const row of outcomes) {
+        if (row.status !== "send") continue
+        if (guestOf) {
+          // Counted again under the project's lock, so invitations sent at once can't pass the limit together.
+          await withTransaction(db, async () => {
+            await lockProject(db, guestOf.projectId)
+            await assertGuestRoom(db, guestOf.projectId, 1)
+            await sendOne(row.email)
+          })
+        } else {
+          await sendOne(row.email)
+        }
+        row.status = "sent"
+      }
+      return outcomes as Array<{ email: string; status: InviteOutcome }>
     },
 
     async listLive(workspaceId: string) {
@@ -220,6 +238,7 @@ export function createInvitationsService(deps: Pick<AppDeps, "config" | "db" | "
         workspaceName: row.workspaceName,
         email: row.invitation.email,
         inviterName: row.inviterName ?? "Someone",
+        guestProjectName: row.guestProjectName,
         status: invitationStatus(row.invitation),
       }
     },
@@ -233,12 +252,15 @@ export function createInvitationsService(deps: Pick<AppDeps, "config" | "db" | "
       return accept(db, config.accountLimits, row.invitation.id, row.invitation.workspaceId, person.id)
     },
 
-    /** A workspace under ACCOUNT_LIMITS takes nobody new, so its invitations, which would only fail, aren't listed. */
+    /**
+     * A workspace under ACCOUNT_LIMITS takes no new members, so its invitations to join, which would only fail, aren't
+     * listed; a guest isn't a member, so a guest invitation is.
+     */
     async listMine(email: string) {
       const rows = await listLiveInvitationsForEmail(db, email.trim().toLowerCase())
       const open = []
       for (const { workspaceId, ...row } of rows) {
-        if (!(await isWorkspaceLimited(db, config.accountLimits, workspaceId))) open.push(row)
+        if (row.guestProjectName !== null || !(await isWorkspaceLimited(db, config.accountLimits, workspaceId))) open.push(row)
       }
       return open
     },

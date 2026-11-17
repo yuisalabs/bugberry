@@ -3,7 +3,8 @@ import { and, eq } from "drizzle-orm"
 import { deactivateUser } from "../src/admin/deactivate-user"
 import { promoteAdmin } from "../src/admin/promote-admin"
 import { workspace, workspaceMember } from "../src/db/schema"
-import { createUser, setupTestApp } from "./helpers"
+import { isProjectGuest } from "../src/modules/guests/repository"
+import { addGuest, createProject, createUser, setupTestApp } from "./helpers"
 
 let ctx: Awaited<ReturnType<typeof setupTestApp>>
 let slug: string
@@ -43,6 +44,15 @@ describe("promoteAdmin", () => {
     expect(stranded).toEqual([{ name: "Test", ref: ctx.workspace.id }])
     await createUser(ctx.db, { email: "cici@kantor.test" })
     expect(await promoteAdmin(ctx.db, stranded[0]?.ref ?? "", "cici@kantor.test")).toMatchObject({ workspace: "Test" })
+  })
+
+  test("a guest promoted to admin is a guest no more", async () => {
+    const p1 = await createProject(ctx.db, { name: "Storefront" })
+    const client = await createUser(ctx.db, { email: "client@acme.test", workspaceId: null })
+    await addGuest(ctx.db, p1.id, client.id)
+    await promoteAdmin(ctx.db, slug, "client@acme.test")
+    expect(await roleOf(client.id)).toBe("admin")
+    expect(await isProjectGuest(ctx.db, client.id, p1.id)).toBe(false)
   })
 
   test("the owner does not change", async () => {
