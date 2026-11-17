@@ -59,4 +59,20 @@ describe("the label picker", () => {
     render(<LabelPickerView labels={[]} options={[]} onSet={mock()} onCreate={mock()} error="Label not found in this workspace" />)
     expect(screen.getByRole("alert").textContent).toBe("Label not found in this workspace")
   })
+
+  test("a create that fails keeps the typed name and leaves no error unhandled", async () => {
+    const unhandled = mock()
+    process.on("unhandledRejection", unhandled)
+    try {
+      open({ onCreate: mock(async () => Promise.reject(new Error("taken"))) })
+      const search = await screen.findByRole("searchbox", { name: "Find or create a label" })
+      fireEvent.change(search, { target: { value: "Payments" } })
+      fireEvent.click(screen.getByRole("button", { name: 'Create "Payments"' }))
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      expect((search as HTMLInputElement).value).toBe("Payments")
+      expect(unhandled).not.toHaveBeenCalled()
+    } finally {
+      process.off("unhandledRejection", unhandled)
+    }
+  })
 })

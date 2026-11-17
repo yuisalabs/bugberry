@@ -19,7 +19,7 @@ describe("label chips", () => {
     render(<LabelChips labels={fiveLabels} max={3} />)
     expect(screen.getByText("Alpha")).toBeTruthy()
     expect(screen.queryByText("Delta")).toBeNull()
-    expect(screen.getByText("+2").getAttribute("title")).toBe("Delta, Echo")
+    expect(screen.getByText("+2").parentElement?.getAttribute("title")).toBe("Delta, Echo")
   })
 
   test("no labels: nothing at all", () => {
@@ -30,5 +30,10 @@ describe("label chips", () => {
   test("every color has its own classes", () => {
     const classes = LABEL_COLORS.map(labelColorClass)
     expect(new Set(classes).size).toBe(LABEL_COLORS.length)
+  })
+
+  test("a screen reader hears the names behind +N too", () => {
+    render(<LabelChips labels={fiveLabels} max={3} />)
+    expect(screen.getByText("and 2 more: Delta, Echo")).toBeTruthy()
   })
 })

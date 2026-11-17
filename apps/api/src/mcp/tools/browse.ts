@@ -2,7 +2,7 @@ import { CAPTURE_TYPES, listedCount, MAX_PER_PAGE, PRIORITIES, REPORT_STATUSES }
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { z } from "zod"
 import { listNotifications } from "../../modules/notifications/service"
-import { findLabelsByNames, listLabels } from "../../modules/labels/repository"
+import { listLabels } from "../../modules/labels/repository"
 import { NO_ASSIGNEE, NO_PROJECT } from "../../modules/reports/model"
 import { countReportsByStatus, type ListReportsInput, listReports, type ReportListItem } from "../../modules/reports/service"
 import { findProjectByRef, listProjectSummaries } from "../../modules/projects/repository"
@@ -12,6 +12,7 @@ import { type McpContext, McpToolError, runTool } from "../context"
 import { reportUrl, textResult } from "../format"
 import { resolveReportRef, workspaceFor } from "../refs"
 import { reportSummary } from "./report-read"
+import { labelsNamed } from "./write"
 
 const SEARCH_DEFAULT = 20
 
@@ -55,14 +56,11 @@ function reportLine(appUrl: string, item: ReportListItem, assignees: Map<string,
 }
 
 /** Label names as ids for the list's filter; names matching no label find nothing rather than everything. */
+/** The ids for a search by label names; a name no label has is refused, so the agent never reads a quietly wider search. */
 async function labelFilter(ctx: McpContext, workspaceId: string, names: string[] | undefined): Promise<string[] | undefined> {
   if (!names?.length) return undefined
-  const found = await findLabelsByNames(ctx.deps.db, workspaceId, names)
-  return found.length ? found.map((label) => label.id) : [NO_LABEL]
+  return (await labelsNamed(ctx, workspaceId, names)).map((label) => label.id)
 }
-
-// No label has this id, so the filter matches nothing.
-const NO_LABEL = "none"
 
 async function memberNames(ctx: McpContext, workspaceId: string): Promise<Map<string, string>> {
   const rows = await listMemberNames(ctx.deps.db, workspaceId)
@@ -98,7 +96,7 @@ export function registerBrowseTools(server: McpServer, ctx: McpContext): void {
         createdAfter: z.string().datetime({ offset: true }).optional().describe("ISO date-time."),
         createdBefore: z.string().datetime({ offset: true }).optional().describe("ISO date-time."),
         hasErrors: z.boolean().optional().describe("Only reports that caught errors or failed requests."),
-        labels: z.array(z.string().max(40)).max(20).optional().describe("Label names from listLabels; finds reports carrying any of them."),
+        labels: z.array(z.string().max(40)).max(20).optional().describe("Label names from listLabels; finds reports carrying any of them. A name no label has is refused."),
         sort: z.enum(["newest", "oldest", "priority"]).optional(),
         limit: z.number().int().min(1).max(MAX_PER_PAGE).optional().describe(`How many reports (default ${SEARCH_DEFAULT}, max ${MAX_PER_PAGE}).`),
         cursor: z.string().max(400).optional().describe("From the last line of the page before, to get the next one."),

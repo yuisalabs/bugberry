@@ -1,7 +1,7 @@
 import type { LabelColor } from "@bugberry/shared"
 import { and, asc, count, eq, inArray, notInArray, sql } from "drizzle-orm"
 import { type Db, executor } from "../../db/client"
-import { label, report, reportLabel } from "../../db/schema"
+import { label, report, reportLabel, workspace } from "../../db/schema"
 
 export interface LabelView {
   id: string
@@ -49,6 +49,11 @@ export async function updateLabel(db: Db, id: string, changes: { name?: string; 
 
 export async function deleteLabel(db: Db, id: string): Promise<void> {
   await executor(db).delete(label).where(eq(label.id, id))
+}
+
+/** Holds the workspace's row until the transaction ends, so creates are counted against the cap one at a time. */
+export async function lockWorkspaceLabels(db: Db, workspaceId: string): Promise<void> {
+  await executor(db).select({ id: workspace.id }).from(workspace).where(eq(workspace.id, workspaceId)).for("update")
 }
 
 export async function countLabels(db: Db, workspaceId: string): Promise<number> {

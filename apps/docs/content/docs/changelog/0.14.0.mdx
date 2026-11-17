@@ -7,6 +7,6 @@ description: Released 16 November 2026.
   filter the report list by them; a filter of several labels shows reports carrying any of them. Admins rename,
   recolor and delete labels under **Labels**. Share links never show them. See [Labels](/guide/dashboard#labels).
 - **AI agents:** `listLabels` names the workspace's labels, `searchReports` takes `labels`, and `updateReport` takes
-  `addLabels` and `removeLabels`. Agents use existing labels only.
+  `addLabels` and `removeLabels`. Agents use existing labels only; a name no label has is refused, in a search too.
 - **Self-hosting:** update the server and the dashboard with `docker compose up -d --build`. Migration `0038` runs
   when the server starts and adds two tables; it takes no noticeable time. The extension stays at 0.13.2.

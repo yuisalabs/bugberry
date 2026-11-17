@@ -13,7 +13,7 @@ export function LabelChip({ label, className = "" }: { label: { name: string; co
   )
 }
 
-/** Up to `max` chips on one line, then "+N" naming the rest in its title. Nothing when there are none. */
+/** Up to `max` chips on one line, then "+N" naming the rest in its title and to screen readers. Nothing when there are none. */
 export function LabelChips({ labels, max = 3 }: { labels: ReadonlyArray<{ id: string; name: string; color: LabelColor }>; max?: number }) {
   if (labels.length === 0) return null
   const shown = labels.slice(0, max)
@@ -25,7 +25,8 @@ export function LabelChips({ labels, max = 3 }: { labels: ReadonlyArray<{ id: st
       ))}
       {hidden.length > 0 && (
         <span title={hidden.map((label) => label.name).join(", ")} className="shrink-0 text-xs/4 font-medium text-muted-foreground">
-          +{hidden.length}
+          <span aria-hidden>+{hidden.length}</span>
+          <span className="sr-only">{`and ${hidden.length} more: ${hidden.map((label) => label.name).join(", ")}`}</span>
         </span>
       )}
     </span>

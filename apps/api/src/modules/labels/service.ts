@@ -16,6 +16,7 @@ import {
   type LabelView,
   labelsOfReports,
   lockReportLabels,
+  lockWorkspaceLabels,
   replaceReportLabels,
   updateLabel,
 } from "./repository"
@@ -50,10 +51,15 @@ export async function createLabel(
 ): Promise<LabelView> {
   await requireMember(db, caller.id, workspaceId)
   const name = labelName(input.name)
-  if ((await countLabels(db, workspaceId)) >= MAX_LABELS_PER_WORKSPACE) {
-    throw unprocessable("label_limit", `A workspace can have at most ${MAX_LABELS_PER_WORKSPACE} labels`)
-  }
-  return unlessTaken(() => insertLabel(db, { id: newId(), workspaceId, name, color: input.color ?? "gray", createdById: caller.id }))
+  return unlessTaken(() =>
+    withTransaction(db, async () => {
+      await lockWorkspaceLabels(db, workspaceId)
+      if ((await countLabels(db, workspaceId)) >= MAX_LABELS_PER_WORKSPACE) {
+        throw unprocessable("label_limit", `A workspace can have at most ${MAX_LABELS_PER_WORKSPACE} labels`)
+      }
+      return insertLabel(db, { id: newId(), workspaceId, name, color: input.color ?? "gray", createdById: caller.id })
+    }),
+  )
 }
 
 /** A label the caller may change: an outsider gets the same 404 as a label that doesn't exist. */

@@ -59,6 +59,12 @@ describe("labels through MCP", () => {
     expect(result.text).toContain("[Bug, Checkout]")
   })
 
+  test("searchReports with a name no label has says so, even when another name matches", async () => {
+    await setReportLabels(ctx, ana.user, reportId, [bug.id])
+    const result = await callTool(client, "searchReports", { labels: ["bug", "urgent"] })
+    expect(result).toMatchObject({ isError: true, text: 'No label named "urgent". Labels here: Bug, Checkout.' })
+  })
+
   test("getReport names the report's labels", async () => {
     await setReportLabels(ctx, ana.user, reportId, [bug.id])
     expect((await callTool(client, "getReport", { report: `BB-${number}` })).text).toContain("Labels: Bug")

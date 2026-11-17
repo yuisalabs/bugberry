@@ -79,6 +79,16 @@ describe("labels of a workspace", () => {
     expect((await json(over)).code).toBe("label_limit")
   })
 
+  test("creates at once for the last places never pass 100", async () => {
+    await ctx.db.execute(
+      sql`INSERT INTO label (id, workspace_id, name) SELECT 'seed-' || n, ${workspaceId}, 'Label ' || n FROM generate_series(1, 99) AS n`,
+    )
+    const answers = await Promise.all(["A", "B", "C", "D"].map((name) => create(name)))
+    expect(answers.map((answer) => answer.status).sort()).toEqual([200, 422, 422, 422])
+    const [row] = (await ctx.db.execute(sql`SELECT count(*)::int AS n FROM label WHERE workspace_id = ${workspaceId}`)) as unknown as Array<{ n: number }>
+    expect(row?.n).toBe(100)
+  })
+
   test("a member can't rename or delete; an admin can", async () => {
     const label = await json(await create("Bug"))
     expect((await call("PATCH", `/api/labels/${label.id}`, member, { name: "Defect" })).status).toBe(403)

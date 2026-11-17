@@ -19,3 +19,9 @@ test("nothing to drop: the URL stays as it is", () => {
   renderHook(() => useDropUnknownLabels({ label: ["a"] }, undefined, setSearch))
   expect(setSearch).not.toHaveBeenCalled()
 })
+
+test("while the labels are being fetched again, nothing is dropped", () => {
+  const setSearch = mock()
+  renderHook(() => useDropUnknownLabels({ label: ["a", "new"] }, [bug], setSearch, true))
+  expect(setSearch).not.toHaveBeenCalled()
+})

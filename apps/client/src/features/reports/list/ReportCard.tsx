@@ -92,29 +92,27 @@ export function ReportCardBody({
           <p className="truncate text-sm font-medium text-foreground">{item.title}</p>
           <p className="shrink-0 text-xs text-muted-foreground">{formatRelative(item.createdAt, now)}</p>
         </div>
-        {(projectName || item.priority !== "none" || item.labels.length > 0) && (
-          <p className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
-            {projectName && (
-              <span className="flex min-w-0 items-center gap-1">
-                <RiHashtag aria-hidden className="size-3.5 shrink-0" />
-                <span className="truncate">{projectName}</span>
-              </span>
-            )}
-            {projectName && item.priority !== "none" && <span aria-hidden>·</span>}
-            {item.priority !== "none" && (
-              <span className="flex shrink-0 items-center gap-1 text-foreground">
-                <RiFlag2Line aria-hidden className={`size-3.5 ${PRIORITY_ICON_STYLES[item.priority]}`} />
-                {PRIORITY_LABELS[item.priority]}
-              </span>
-            )}
-            {/* On the meta line, so labels never make a card taller. */}
-            {item.labels.length > 0 && (
-              <span className="ml-auto flex min-w-0 justify-end">
-                <LabelChips labels={item.labels} max={3} />
-              </span>
-            )}
-          </p>
-        )}
+        {/* Always there and one chip tall, so a card's height never depends on its project, priority or labels. */}
+        <p data-slot="card-meta" className="flex h-5 min-w-0 items-center gap-2 text-xs text-muted-foreground">
+          {projectName && (
+            <span className="flex min-w-0 items-center gap-1">
+              <RiHashtag aria-hidden className="size-3.5 shrink-0" />
+              <span className="truncate">{projectName}</span>
+            </span>
+          )}
+          {projectName && item.priority !== "none" && <span aria-hidden>·</span>}
+          {item.priority !== "none" && (
+            <span className="flex shrink-0 items-center gap-1 text-foreground">
+              <RiFlag2Line aria-hidden className={`size-3.5 ${PRIORITY_ICON_STYLES[item.priority]}`} />
+              {PRIORITY_LABELS[item.priority]}
+            </span>
+          )}
+          {item.labels.length > 0 && (
+            <span className="ml-auto flex min-w-0 justify-end">
+              <LabelChips labels={item.labels} max={3} />
+            </span>
+          )}
+        </p>
       </div>
     </div>
   )

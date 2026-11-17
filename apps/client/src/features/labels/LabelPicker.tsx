@@ -1,7 +1,7 @@
 import { MAX_LABELS_PER_REPORT } from "@bugberry/shared"
 import { RiAddLine } from "@remixicon/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { Button } from "@bugberry/ui/button"
 import { Checkbox, CheckboxField } from "@bugberry/ui/checkbox"
 import { Popover, PopoverTrigger } from "@bugberry/ui/popover"
@@ -78,7 +78,12 @@ export function LabelPickerView({
                 })}
               </div>
               {typed && !exact && !full && options !== undefined && (
-                <Button intent="outline" size="sm" onPress={() => void onCreate(typed).then(() => setQuery(""))}>
+                <Button
+                  intent="outline"
+                  size="sm"
+                  // A failed create shows its error below and keeps the name, so it can be changed and tried again.
+                  onPress={() => void onCreate(typed).then(() => setQuery(""), () => undefined)}
+                >
                   {`Create "${typed}"`}
                 </Button>
               )}
@@ -112,17 +117,25 @@ export function LabelPicker({ workspaceId, reportId, labels }: { workspaceId: st
     void queryClient.invalidateQueries({ queryKey: qk.reports.all })
     void queryClient.invalidateQueries({ queryKey: qk.labels(workspaceId) })
   }
+  // One scope per report: quick toggles are saved one after another, in the order they were made.
+  const latest = useRef(0)
   const save = useMutation({
-    mutationFn: (labelIds: string[]) => setReportLabels(reportId, labelIds),
-    onSettled: () => setPending(null),
+    scope: { id: `report-labels-${reportId}` },
+    mutationFn: ({ labelIds }: { labelIds: string[]; turn: number }) => setReportLabels(reportId, labelIds),
+    // Only the last toggle's save hands the chips back to the server's answer, so earlier ones never flicker them.
+    onSettled: (_answer, _error, { turn }) => turn === latest.current && setPending(null),
     onSuccess: refresh,
   })
-  const create = useMutation({ mutationFn: (name: string) => createLabel(workspaceId, name) })
+  const create = useMutation({
+    mutationFn: (name: string) => createLabel(workspaceId, name),
+    // Listed at once, even when putting it on the report then fails.
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: qk.labels(workspaceId) }),
+  })
   const shown = pending ?? labels
   const known = [...(options.data ?? []), ...labels]
   const set = (labelIds: string[]) => {
     setPending(labelIds.flatMap((id) => known.find((label) => label.id === id) ?? []))
-    save.mutate(labelIds)
+    save.mutate({ labelIds, turn: ++latest.current })
   }
   return (
     <LabelPickerView
@@ -132,7 +145,7 @@ export function LabelPicker({ workspaceId, reportId, labels }: { workspaceId: st
       onCreate={async (name) => {
         const created = await create.mutateAsync(name)
         setPending([...shown, created])
-        save.mutate([...shown.map((label) => label.id), created.id])
+        save.mutate({ labelIds: [...shown.map((label) => label.id), created.id], turn: ++latest.current })
       }}
       error={save.error ? errorMessage(save.error) : create.error ? errorMessage(create.error) : null}
     />

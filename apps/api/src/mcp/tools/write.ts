@@ -16,7 +16,7 @@ import { reportArgs } from "./args"
 const writeAnnotations = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
 
 /** Existing labels by name, without regard to case; agents can't create labels, so an unknown name is refused. */
-async function labelsNamed(ctx: McpContext, workspaceId: string, names: string[]) {
+export async function labelsNamed(ctx: McpContext, workspaceId: string, names: string[]) {
   if (names.length === 0) return []
   const found = await findLabelsByNames(ctx.deps.db, workspaceId, names)
   const missing = names.find((name) => !found.some((label) => label.name.toLowerCase() === name.trim().toLowerCase()))

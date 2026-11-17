@@ -22,13 +22,14 @@ import { reportQueries } from "../queries"
 export type SearchUpdater = (update: (prev: ReportSearch) => ReportSearch, options?: { replace?: boolean }) => void
 
 /** A label deleted since the link was made leaves the URL once the labels are known. */
-export function useDropUnknownLabels(search: ReportSearch, labels: readonly Label[] | undefined, setSearch: SearchUpdater) {
+export function useDropUnknownLabels(search: ReportSearch, labels: readonly Label[] | undefined, setSearch: SearchUpdater, fetching = false) {
   const labelIds = search.label?.join(",")
   useEffect(() => {
-    if (!labels || !search.label) return
+    // A cached list may predate a label made since; only a fresh one can say an id is gone.
+    if (!labels || !search.label || fetching) return
     const known = knownLabels(search, labels)
     if (known?.length !== search.label.length) setSearch((prev) => ({ ...prev, label: known }), { replace: true })
-  }, [labels, labelIds])
+  }, [labels, labelIds, fetching])
 }
 
 /**
@@ -60,7 +61,7 @@ export function ReportsBrowser({
   // The project filter needs them on the all-reports page; the list view names projects on every page.
   const projects = useQuery({ ...projectQueries.projects(workspaceId), enabled: Boolean(workspace) })
   const labels = useQuery({ ...labelQueries.labels(workspaceId), enabled: Boolean(workspace) })
-  useDropUnknownLabels(search, labels.data, setSearch)
+  useDropUnknownLabels(search, labels.data, setSearch, labels.isFetching)
   const feed = useReportFeed(workspaceId, toReportsQuery(scope, search), Boolean(workspace))
   const config = useQuery(authQueries.clientConfig())
   // The server's own install link, else BugBerry's Chrome Web Store page.
