@@ -8,6 +8,7 @@ import type { ReportDraft } from "../../lib/shared/types"
 export function DraftList(props: {
   drafts: ReportDraft[]
   recording: RecordingStatus | undefined
+  sending: string[]
   onOpenDraft(id: string): void
   onDeleteDraft(id: string): void
   onBack(): void
@@ -22,7 +23,8 @@ export function DraftList(props: {
       </header>
       <ul className="flex flex-col gap-2">
         {props.drafts.map((draft) => {
-          const note = draftNote(draft, props.recording)
+          const sending = props.sending.includes(draft.id)
+          const note = draftNote(draft, props.recording, sending)
           return (
             <li key={draft.id} className="flex items-center justify-between gap-2 rounded-xl border border-border px-3 py-2 text-sm">
               <span className="min-w-0 truncate" title={draft.error ?? undefined}>
@@ -35,7 +37,7 @@ export function DraftList(props: {
                     Open
                   </Button>
                 )}
-                {canDelete(draft, props.recording) && (
+                {canDelete(draft, props.recording, sending) && (
                   <Button intent="plain" size="xs" className="text-danger-subtle-foreground" onPress={() => props.onDeleteDraft(draft.id)}>
                     Delete
                   </Button>

@@ -1,0 +1,53 @@
+import { browser } from "wxt/browser"
+import type { DraftStore } from "../../lib/drafts/draft-store"
+import { draftLock } from "../../lib/drafts/draft-lock"
+import { keepOutboxAlarm, OUTBOX_ALARM } from "../../lib/drafts/outbox"
+import { createOutboxRunner } from "../../lib/drafts/outbox-runner"
+import { fetchPut, putFile } from "../../lib/review/upload"
+import { createBugberryApi } from "../../lib/server/api"
+import { BUILD_SERVER_ORIGIN, browserSettingsStorage, lastWorkspaceStorage, sentAwayStorage } from "../../lib/server/browser-settings"
+import { loadSettings } from "../../lib/server/settings"
+
+/**
+ * Registers what wakes the queue (its alarm, reconnecting, browser start, install) and answers the flush.
+ * Called synchronously at the top of the background, so a woken service worker gets its event.
+ */
+export function startOutbox(store: DraftStore): () => Promise<void> {
+  const outbox = createOutboxRunner({
+    store,
+    settings: () => loadSettings(browserSettingsStorage, BUILD_SERVER_ORIGIN),
+    apiFor: (settings) => createBugberryApi(settings),
+    uploadDeps: (settings) => ({
+      api: createBugberryApi(settings),
+      store,
+      putFile: (target, body) => putFile(target, body, undefined, fetchPut),
+      sleep: (ms) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
+      lock: draftLock,
+      serverUrl: settings.serverUrl,
+    }),
+    online: () => navigator.onLine,
+    now: () => Date.now(),
+    sentAway: sentAwayStorage,
+    setLastWorkspace: (id) => lastWorkspaceStorage.set(id),
+  })
+  // The alarm exists only while a draft waits, so an idle extension is never woken.
+  const run = async () => {
+    // Chrome stops an idle service worker after 30 s; an extension call keeps it up through a long upload.
+    const keepAlive = setInterval(() => void browser.runtime.getPlatformInfo().catch(() => undefined), 20_000)
+    try {
+      const { waiting } = await outbox()
+      await keepOutboxAlarm(browser.alarms, waiting)
+    } catch (error) {
+      console.warn("outbox flush failed", error)
+    } finally {
+      clearInterval(keepAlive)
+    }
+  }
+  browser.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === OUTBOX_ALARM) void run()
+  })
+  self.addEventListener("online", () => void run())
+  browser.runtime.onStartup.addListener(() => void run())
+  browser.runtime.onInstalled.addListener(() => void run())
+  return run
+}

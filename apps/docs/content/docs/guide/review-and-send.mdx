@@ -48,6 +48,17 @@ Under a recording, a strip shows its frames. Drag the strip's left and right edg
 - **Record again** or **Retake** starts over. The current recording or screenshot isn't kept.
 - Closing the review keeps the report as a draft. Find it under **Unsent drafts** in the popup's **⋯** menu.
 
+## When You're Offline
+
+If the BugBerry server can't be reached when you press **Create report**, the review tries again for a few seconds, then says **No connection** and keeps the report. You can close the tab, or the browser.
+
+- The extension sends the report by itself once the server answers again: it tries every few minutes, when your connection comes back and when the browser starts. **Try now** in the review sends it at once.
+- While it waits, the report is under **Unsent drafts** marked **(waiting for connection)**, or **(waiting for the server)** when the server answered with an error. Without a connection it waits until it is sent or you delete its draft. A server that keeps answering with errors for about two hours ends the waiting: the draft is marked **(failed)**, and opening it sends it again.
+- A report sent this way shows in the popup as **Sent:** with its title. **Open** opens it in the dashboard; **Dismiss** removes the line.
+- Opening a waiting report in the review takes it out of the queue, so nothing you change there goes out half-done. **Create report** sends it; if you close the review instead, it stays an unsent draft.
+- A report sent this way has no city, even with **Include my city** on: the location is never stored with a draft.
+- If your dashboard session ended in the meantime, or you switched the extension to another server, the draft is marked **(failed)** instead. Open it to sign in or send it again.
+
 <Screenshot src="/screenshots/review-and-send/sent.png" alt="The review after Create report: Report created, the report BB-1 with its project and priority, the share link marked Copied, Workspace members, Open report, Record another and Done" />
 
 <Screenshot src="/screenshots/review-and-send/popup-menu.png" alt="The popup's menu open: Signed in as Alex Morgan, Unsent drafts (1), and Settings" width={380} />

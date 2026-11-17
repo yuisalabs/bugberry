@@ -23,6 +23,8 @@ import type { ReplayPosition } from "./use-replay-position"
 export type ReviewStatus =
   | "ready"
   | "sending"
+  /** The server couldn't be reached; the background sends the report later. */
+  | "queued"
   | { failed: string }
   /** The dashboard session ended while sending. */
   | { signedOut: string }

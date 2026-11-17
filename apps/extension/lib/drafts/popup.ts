@@ -4,20 +4,36 @@ import { type CapturePrefs, effectiveSource, type RecordSource, type ScreenshotM
 import type { RecordingStatus } from "../recording/recording-state"
 import type { ReportDraft } from "../shared/types"
 
-/** `recording` is undefined until the background has answered the status request. */
-export function draftNote(draft: ReportDraft, recording: RecordingStatus | undefined): string | null {
+/**
+ * `recording` is undefined until the background has answered the status request. `sending`: a page or the
+ * background holds the draft's lock.
+ */
+export function draftNote(draft: ReportDraft, recording: RecordingStatus | undefined, sending = false): string | null {
+  if (sending) return "(sending…)"
   if (draft.status === "failed") return "(failed)"
+  if (draft.status === "queued") return draft.outbox?.lastError === "server" ? "(waiting for the server)" : "(waiting for connection)"
   if (draft.status === "uploading") return "(upload interrupted)"
   if (draft.status !== "recording") return null
   if (recording === undefined) return "(checking…)"
   return recording.recording && recording.draftId === draft.id ? "(recording)" : "(recording interrupted)"
 }
 
-/** A draft still being recorded, or one whose state is not known yet, is not offered for deletion. */
-export function canDelete(draft: ReportDraft, recording: RecordingStatus | undefined): boolean {
+/**
+ * A draft still being recorded or being sent, or one whose state is not known yet, is not offered for deletion:
+ * a send that ends after the delete would write the draft back.
+ */
+export function canDelete(draft: ReportDraft, recording: RecordingStatus | undefined, sending = false): boolean {
+  if (sending) return false
   if (draft.status !== "recording") return true
   if (recording === undefined) return false
   return !(recording.recording && recording.draftId === draft.id)
+}
+
+const DRAFT_LOCK_PREFIX = "bugberry-draft-"
+
+/** The drafts whose send lock is held, from `navigator.locks.query()`. */
+export function sendingDraftIds(held: ReadonlyArray<{ name?: string }>): string[] {
+  return held.flatMap(({ name }) => (name?.startsWith(DRAFT_LOCK_PREFIX) ? [name.slice(DRAFT_LOCK_PREFIX.length)] : []))
 }
 
 /** The background's answer, or an error when it gave none (the service worker went away mid-call). */

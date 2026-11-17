@@ -41,6 +41,7 @@ import {
   isReviewAnotherRequest,
   isScreenshotRequest,
   isUiStateRequest,
+  isOutboxFlushRequest,
   type PopupRecordingAction,
   type RecordOptions,
 } from "../../lib/shared/messages"
@@ -75,11 +76,13 @@ export interface MessageListenerDeps {
   /** Null where replay isn't offered (Firefox). */
   replay: ReplayController | null
   extensionOrigin: string
+  /** Tries the drafts waiting for a connection; the caller doesn't wait for it. */
+  flushOutbox(): void
 }
 
 /** Every message the extension's pages, the page layer and the bridge send to the background, checked in this order. */
 export function createMessageListener(deps: MessageListenerDeps): MessageListener {
-  const { bridge, recordings, windowHost, cameraGrants, promptTickets, openPrompt, openReview, reviewUrl, screenshot, record, takeAgain, takeAnother, author, barAction, popupAction, stopRecording, replay, extensionOrigin } = deps
+  const { bridge, recordings, windowHost, cameraGrants, promptTickets, openPrompt, openReview, reviewUrl, screenshot, record, takeAgain, takeAnother, author, barAction, popupAction, stopRecording, replay, extensionOrigin, flushOutbox } = deps
   return (message, sender, sendResponse) => {
     const reply = (work: Promise<unknown>) => {
       work.then(sendResponse, (error: unknown) => sendResponse({ ok: false, error: String(error) }))
@@ -96,6 +99,13 @@ export function createMessageListener(deps: MessageListenerDeps): MessageListene
     if (isAiWriteRequest(message) || isAiTestRequest(message)) {
       if (!fromExtensionPage(sender, browser.runtime.id, extensionOrigin)) return undefined
       return reply(isAiWriteRequest(message) ? handleAiWrite(message, browserAiKeyStorage, fetch) : handleAiTest(message, fetch))
+    }
+    if (isOutboxFlushRequest(message)) {
+      if (!fromExtensionPage(sender, browser.runtime.id, extensionOrigin)) return undefined
+      // Answered at once: an upload can outlast the message channel.
+      flushOutbox()
+      sendResponse({ ok: true })
+      return undefined
     }
     if (isRecorderReadyNotice(message)) {
       if (fromExtensionPage(sender, browser.runtime.id, extensionOrigin)) windowHost?.ready()

@@ -22,14 +22,7 @@ import { isBugBerryServer } from "../../lib/server/session"
 import { cropBox, pickArea } from "../../lib/capture/select-area"
 import { loadSettings } from "../../lib/server/settings"
 import {
-  clientConfigInTime,
-  DEFAULT_MAX_UPLOAD_MB,
-  expectedRecordingSeconds,
-  recordingByteBudget,
-  recordingLengthMs,
-  signedOutForLength,
-  uploadLimitMb,
-  workspaceLimitsInTime,
+  clientConfigInTime, DEFAULT_MAX_UPLOAD_MB, expectedRecordingSeconds, recordingByteBudget, recordingLengthMs, signedOutForLength, uploadLimitMb, workspaceLimitsInTime,
 } from "../../lib/server/upload-limit"
 import { limitsFor } from "../../lib/server/limits"
 import { isSignedOut } from "../../lib/drafts/popup"
@@ -39,6 +32,8 @@ import { createBrowserReplayDeps } from "../../lib/replay/browser-replay-deps"
 import { startReplayReport } from "../../lib/replay/replay-capture"
 import { createReplayController } from "../../lib/replay/replay-controller"
 import { createMessageListener, RECORDER_BUILD } from "./on-message"
+import { startOutbox } from "./outbox"
+import { deleteUnlessSending } from "../../lib/drafts/draft-lock"
 import { promptTickets } from "./prompt-tickets"
 import { readPageCapture, readPageEnvironment, reinjectCaptureScripts, toActiveTab } from "./tabs"
 
@@ -334,7 +329,7 @@ export default defineBackground(() => {
   const takeAgainDeps: Parameters<typeof createTakeAgain>[0] = {
     getDraft: (id) => store.get(id),
     getTab: async (tabId) => toActiveTab(await browser.tabs.get(tabId).catch(() => undefined)),
-    deleteDraft: (id) => store.delete(id),
+    deleteDraft: async (id) => void (await deleteUnlessSending(store, id)),
     hideReview: async (tabId) => {
       await browser.tabs.update(tabId, { active: true }).catch(() => {})
       // The review must be off the page before the next capture sees it.
@@ -456,6 +451,7 @@ export default defineBackground(() => {
       stopRecording,
       replay,
       extensionOrigin,
+      flushOutbox: startOutbox(store),
     }),
   )
 

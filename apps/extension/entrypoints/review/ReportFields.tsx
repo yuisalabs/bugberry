@@ -300,6 +300,14 @@ export function ReportFields(fields: ReportFieldsProps) {
           )}
         </p>
       )}
+      {props.status === "queued" && (
+        <p role="status" className="flex flex-wrap items-center gap-2 rounded-xl bg-warning-subtle px-3.5 py-2.5 text-sm text-warning-subtle-foreground">
+          No connection. BugBerry sends this report when you're back online. You can close this tab.
+          <AriaButton className="rounded-sm font-semibold underline outline-hidden focus-visible:ring-2 focus-visible:ring-ring" onPress={() => send()}>
+            Try now
+          </AriaButton>
+        </p>
+      )}
       {typeof props.status === "object" && "failed" in props.status && (
         <p role="alert" className="flex flex-wrap items-center gap-2 rounded-xl bg-danger-subtle px-3.5 py-2.5 text-sm text-danger-subtle-foreground">
           {props.status.failed}

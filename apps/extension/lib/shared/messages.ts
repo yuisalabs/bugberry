@@ -277,6 +277,15 @@ export function isPageUiMessage(message: unknown): message is PageUiMessage {
   return type === "bugberry:ui-recording" && typeof field(message, "on") === "boolean" && typeof field(message, "session") === "string"
 }
 
+/** Review page or popup → background: try the drafts waiting for a connection now. */
+export interface OutboxFlushRequest {
+  type: "bugberry:outbox-flush"
+}
+
+export function isOutboxFlushRequest(message: unknown): message is OutboxFlushRequest {
+  return typeOf(message) === "bugberry:outbox-flush"
+}
+
 /** Page layer → background, when a page loads: is this tab being recorded? */
 export interface UiStateRequest {
   type: "bugberry:ui-state"

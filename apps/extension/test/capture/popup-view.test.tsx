@@ -17,6 +17,10 @@ function view(overrides: Partial<PopupViewProps> = {}) {
     live: { recording: false },
     activeTabId: 1,
     drafts: [],
+    sending: [],
+    sentAway: [],
+    onOpenSent: mock(),
+    onDismissSent: mock(),
     logsAvailable: true,
     tabRecorder: true,
     hostAccess: true,
@@ -61,6 +65,34 @@ const still = (value: number) => ({ get: () => value, subscribe: () => () => {} 
 const button = (name: string | RegExp) => screen.getByRole("button", { name })
 const radio = (name: string | RegExp) => screen.getByRole("radio", { name }) as HTMLInputElement
 const record = (source: "tab" | "screen" | "window") => ({ ...DEFAULT_CAPTURE_PREFS, captureKind: "record" as const, recordSource: source })
+
+describe("reports sent while the popup was closed", () => {
+  const sent = { draftId: "d1", title: "Pay fails", reportUrl: "https://bb.test/app/r/r1", sentAt: 1 }
+
+  test("each is a row with Open and Dismiss", () => {
+    const props = view({ sentAway: [sent] })
+    expect(screen.getByText("Sent: Pay fails")).toBeTruthy()
+    fireEvent.click(button("Open"))
+    expect(props.onOpenSent).toHaveBeenCalledWith(sent)
+    fireEvent.click(button("Dismiss"))
+    expect(props.onDismissSent).toHaveBeenCalledWith("d1")
+  })
+
+  test("none: no rows", () => {
+    view()
+    expect(screen.queryByText(/^Sent:/)).toBeNull()
+  })
+})
+
+describe("the drafts list", () => {
+  test("a draft being sent says so and offers no Delete", async () => {
+    view({ drafts: [{ ...draft("d1", "Checkout"), status: "queued" } as ReportDraft], sending: ["d1"] })
+    fireEvent.click(screen.getByRole("button", { name: "More" }))
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Unsent drafts (1)" }))
+    expect(screen.getByText("(sending…)")).toBeTruthy()
+    expect(screen.queryByRole("button", { name: "Delete" })).toBeNull()
+  })
+})
 
 describe("tiles and dial", () => {
   test("Visible area is chosen by default and the dial captures", () => {

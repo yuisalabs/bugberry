@@ -1,0 +1,14 @@
+---
+title: 0.13.2
+description: Released 16 November 2026.
+---
+
+- **Reports wait for the connection.** When the server can't be reached at **Create report**, the report is kept
+  and the extension sends it by itself once the server answers again, even after the review tab or the browser was
+  closed. The popup lists it under **Unsent drafts** as **(waiting for connection)**, or **(waiting for the server)**
+  when the server answered with an error, and, once sent, shows it as **Sent:** with an **Open** link. A server that
+  keeps answering with errors for about two hours marks the draft **(failed)**; opening it sends it again. A report sent this way has no city. See
+  [When You're Offline](/guide/review-and-send#when-youre-offline).
+- **New permission: alarms.** It lets the extension try again every few minutes while a report waits. Chrome and
+  Firefox show no warning for it.
+- **Self-hosting:** update the extension to 0.13.2. The server and the dashboard stay as they are.
