@@ -51,7 +51,7 @@ export async function joinAsMember(db: Db, limits: AccountLimits | null, workspa
     await addMemberIfAbsent(db, workspaceId, userId, "member")
     // A request still waiting would keep counting in the admins' sidebar.
     await deleteJoinRequest(db, workspaceId, userId)
-    await updateUser(db, userId, { lastWorkspaceId: workspaceId })
+    await updateUser(db, userId, { lastWorkspaceId: workspaceId, lastMemberWorkspaceId: workspaceId })
   })
   return { workspaceId }
 }

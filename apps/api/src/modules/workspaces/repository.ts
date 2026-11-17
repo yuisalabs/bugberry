@@ -13,6 +13,17 @@ export async function findMemberRole(db: Db, userId: string, workspaceId: string
   return row?.role ?? null
 }
 
+/** The last workspace the person opened as a member, while they still are one; null otherwise. */
+export async function findLastMemberWorkspace(db: Db, userId: string): Promise<string | null> {
+  const [row] = await executor(db)
+    .select({ workspaceId: workspaceMember.workspaceId })
+    .from(user)
+    .innerJoin(workspaceMember, and(eq(workspaceMember.userId, user.id), eq(workspaceMember.workspaceId, user.lastMemberWorkspaceId)))
+    .where(eq(user.id, userId))
+    .limit(1)
+  return row?.workspaceId ?? null
+}
+
 /** The workspace the person joined first, or null for none. */
 export async function findOldestMembership(db: Db, userId: string): Promise<string | null> {
   const [oldest] = await executor(db)
@@ -147,6 +158,7 @@ export async function deleteMember(db: Db, workspaceId: string, userId: string):
   await x.delete(workspaceMember).where(member(workspaceId, userId))
   await x.update(report).set({ assigneeId: null }).where(and(eq(report.workspaceId, workspaceId), eq(report.assigneeId, userId)))
   await x.update(user).set({ lastWorkspaceId: null }).where(and(eq(user.id, userId), eq(user.lastWorkspaceId, workspaceId)))
+  await x.update(user).set({ lastMemberWorkspaceId: null }).where(and(eq(user.id, userId), eq(user.lastMemberWorkspaceId, workspaceId)))
 }
 
 /** The workspace with its owner and first admin, made the owner's current workspace. */
@@ -158,7 +170,7 @@ export async function insertWorkspace(db: Db, input: { name: string; slug: strin
     .returning({ id: workspace.id, name: workspace.name, slug: workspace.slug })
   if (!created) throw new Error("Failed to create workspace")
   await x.insert(workspaceMember).values({ workspaceId: created.id, userId: input.ownerId, role: "admin" })
-  await x.update(user).set({ lastWorkspaceId: created.id }).where(eq(user.id, input.ownerId))
+  await x.update(user).set({ lastWorkspaceId: created.id, lastMemberWorkspaceId: created.id }).where(eq(user.id, input.ownerId))
   return created
 }
 

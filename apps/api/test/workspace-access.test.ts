@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { AppError } from "../src/lib/errors"
-import { memberRole, requireMember, resolveWorkspace } from "../src/modules/workspaces/access"
-import { addMember, createUser, createWorkspaceRow, setupTestApp } from "./helpers"
+import { and, eq } from "drizzle-orm"
+import { user, workspaceMember } from "../src/db/schema"
+import { memberRole, requireMember, requireScope, resolveWorkspace } from "../src/modules/workspaces/access"
+import { addGuest, addMember, createProject, createUser, createUserWithToken, createWorkspaceRow, setupTestApp } from "./helpers"
 
 let ctx: Awaited<ReturnType<typeof setupTestApp>>
 
@@ -46,5 +48,36 @@ describe("resolveWorkspace", () => {
       status: 409,
       code: "no_workspace",
     })
+  })
+
+  test("with a guest workspace open, the last workspace used as a member, not the oldest", async () => {
+    const newer = await createWorkspaceRow(ctx.db, "Newer")
+    const hosted = await createWorkspaceRow(ctx.db, "Hosted")
+    const storefront = await createProject(ctx.db, { name: "Storefront", workspaceId: hosted.id })
+    const person = await createUserWithToken(ctx.db)
+    await addMember(ctx.db, newer.id, person.user.id)
+    await addGuest(ctx.db, storefront.id, person.user.id)
+    const open = (workspaceId: string) =>
+      ctx.app.handle(
+        new Request("http://localhost/api/me/workspace", {
+          method: "PUT",
+          headers: { ...person.headers, "content-type": "application/json" },
+          body: JSON.stringify({ workspaceId }),
+        }),
+      )
+    expect((await open(newer.id)).status).toBe(200)
+    expect((await open(hosted.id)).status).toBe(200)
+    const me = { id: person.user.id, lastWorkspaceId: hosted.id }
+    expect(await resolveWorkspace(ctx.db, me)).toBe(newer.id)
+    expect((await requireScope(ctx.db, me)).workspaceId).toBe(hosted.id)
+  })
+
+  test("a last member workspace since left falls back to the oldest membership", async () => {
+    const newer = await createWorkspaceRow(ctx.db, "Newer")
+    const person = await createUser(ctx.db)
+    await addMember(ctx.db, newer.id, person.id)
+    await ctx.db.update(user).set({ lastMemberWorkspaceId: newer.id }).where(eq(user.id, person.id))
+    await ctx.db.delete(workspaceMember).where(and(eq(workspaceMember.workspaceId, newer.id), eq(workspaceMember.userId, person.id)))
+    expect(await resolveWorkspace(ctx.db, { id: person.id, lastWorkspaceId: null })).toBe(ctx.workspace.id)
   })
 })

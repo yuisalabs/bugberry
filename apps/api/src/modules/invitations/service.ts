@@ -89,7 +89,7 @@ export async function accept(
     await addMemberIfAbsent(db, workspaceId, userId, invitation.role)
     // A request to join that was still waiting is answered now.
     await deleteJoinRequest(db, workspaceId, userId)
-    await updateUser(db, userId, { lastWorkspaceId: workspaceId })
+    await updateUser(db, userId, { lastWorkspaceId: workspaceId, lastMemberWorkspaceId: workspaceId })
   })
   return { workspaceId }
 }
