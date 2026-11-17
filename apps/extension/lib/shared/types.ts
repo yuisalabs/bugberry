@@ -65,6 +65,8 @@ export interface DraftOutbox {
   tries: number
   /** Epoch ms before which the background leaves the draft alone. */
   nextTryAt: number
+  /** Why the last try didn't send: no connection, or the server answered with an error. */
+  lastError?: "network" | "server"
 }
 
 interface DraftBase {

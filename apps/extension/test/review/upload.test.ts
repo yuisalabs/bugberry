@@ -3,7 +3,7 @@ import { type CaptureEvent, decodeDebuggerPayload } from "@bugberry/capture"
 import { ApiError, type CreateUploadBody, type UploadSession } from "../../lib/server/api"
 import type { DraftStore } from "../../lib/drafts/draft-store"
 import type { ReportDraft, UploadTarget } from "../../lib/shared/types"
-import { fetchPut, LOCKED, type PutRequest, putFile, type ReportForm, sha256, submitDraft, type UploadDeps, type UploadProgress } from "../../lib/review/upload"
+import { fetchPut, LOCKED, type PutRequest, putFile, putTimeoutMs, type ReportForm, sha256, submitDraft, type UploadDeps, type UploadProgress } from "../../lib/review/upload"
 
 const form: ReportForm = { workspaceId: "w1", projectId: "p1", title: "Pay button fails", description: "", priority: "high", visibility: "internal" }
 
@@ -697,6 +697,29 @@ describe("the queue", () => {
         throw new TypeError("Failed to fetch")
       }) as unknown as typeof fetch
       await expect(fetchPut(put, media, () => {})).rejects.toThrow()
+    } finally {
+      globalThis.fetch = realFetch
+    }
+  })
+})
+
+describe("the background's PUT gives up on a stalled upload", () => {
+  test("a minute at least, longer for a big file at 25 KB/s", () => {
+    expect(putTimeoutMs(0)).toBe(60_000)
+    expect(putTimeoutMs(1_000_000)).toBe(60_000)
+    expect(putTimeoutMs(100_000_000)).toBe(4_000_000)
+  })
+
+  test("fetchPut sends a signal that ends the request", async () => {
+    const realFetch = globalThis.fetch
+    let signal: AbortSignal | null | undefined
+    try {
+      globalThis.fetch = (async (_url: string, init?: RequestInit) => {
+        signal = init?.signal
+        return new Response(null, { status: 200 })
+      }) as unknown as typeof fetch
+      await fetchPut({ method: "PUT", url: "https://up.test/a", headers: {} }, media, () => {})
+      expect(signal instanceof AbortSignal).toBe(true)
     } finally {
       globalThis.fetch = realFetch
     }

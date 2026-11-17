@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { dueDrafts, newOutbox, nextTryAt, outboxSend, waitingCount } from "../../lib/drafts/outbox"
+import { dueDrafts, keepOutboxAlarm, newOutbox, nextTryAt, OUTBOX_ALARM, outboxSend, waitingCount } from "../../lib/drafts/outbox"
 import type { DraftOutbox, ReportDraft, ReportForm } from "../../lib/shared/types"
 
 const RAW = new Blob(["raw"])
@@ -118,5 +118,37 @@ describe("dueDrafts and waitingCount", () => {
     ]
     expect(dueDrafts(drafts, 1000).map((draft) => draft.id)).toEqual(["early", "uploading", "late"])
     expect(waitingCount(drafts)).toBe(4)
+  })
+})
+
+describe("keepOutboxAlarm", () => {
+  const alarms = (existing: boolean) => {
+    const calls: string[] = []
+    return {
+      calls,
+      api: {
+        get: async (name: string) => (calls.push(`get ${name}`), existing ? { name } : undefined),
+        create: async (name: string) => void calls.push(`create ${name}`),
+        clear: async (name: string) => (calls.push(`clear ${name}`), true),
+      },
+    }
+  }
+
+  test("drafts waiting and no alarm yet: one is made", async () => {
+    const { calls, api } = alarms(false)
+    await keepOutboxAlarm(api, 2)
+    expect(calls).toEqual([`get ${OUTBOX_ALARM}`, `create ${OUTBOX_ALARM}`])
+  })
+
+  test("an alarm already set is kept, so its minute isn't started over", async () => {
+    const { calls, api } = alarms(true)
+    await keepOutboxAlarm(api, 1)
+    expect(calls).toEqual([`get ${OUTBOX_ALARM}`])
+  })
+
+  test("nothing waiting: the alarm goes", async () => {
+    const { calls, api } = alarms(true)
+    await keepOutboxAlarm(api, 0)
+    expect(calls).toEqual([`clear ${OUTBOX_ALARM}`])
   })
 })

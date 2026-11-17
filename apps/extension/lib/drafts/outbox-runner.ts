@@ -4,7 +4,8 @@ import type { Settings } from "../server/settings"
 import { submitDraft, type UploadDeps } from "../review/upload"
 import type { DraftStore } from "./draft-store"
 import { createDraftWriter } from "./draft-writer"
-import { dueDrafts, nextTryAt, outboxSend, waiting, waitingCount } from "./outbox"
+import { ApiError } from "../server/api"
+import { dueDrafts, nextTryAt, OUTBOX_MAX_SERVER_TRIES, outboxSend, waiting, waitingCount } from "./outbox"
 import type { SentAwayStorage } from "./sent-away"
 
 export interface OutboxDeps {
@@ -20,6 +21,7 @@ export interface OutboxDeps {
 
 export const OTHER_SERVER_ERROR = "This draft was made for another server. Open it to send it again."
 export const NEEDS_EDITOR_ERROR = "Open this draft to send it."
+export const SERVER_KEPT_FAILING_ERROR = "BugBerry's server kept refusing this report. Open it to send it again."
 
 /** Sends every due draft, one after another. Calls made while one runs get the same promise. */
 export function createOutboxRunner(deps: OutboxDeps): () => Promise<{ sent: number; waiting: number }> {
@@ -58,9 +60,22 @@ export function createOutboxRunner(deps: OutboxDeps): () => Promise<{ sent: numb
         sentAt: deps.now(),
       })
       return true
-    } catch {
+    } catch (error) {
+      await noteFailure(id, error)
       return false
     }
+  }
+
+  /** A draft still queued after a failed try says why; a server failing for too long ends its turn in the queue. */
+  const noteFailure = async (id: string, error: unknown) => {
+    const lastError = error instanceof ApiError && error.status === 0 ? "network" : "server"
+    await write(id, (current) => {
+      if (!waiting(current) || !current.outbox) return current
+      if (lastError === "server" && current.outbox.tries >= OUTBOX_MAX_SERVER_TRIES) {
+        return { ...current, status: "failed", error: SERVER_KEPT_FAILING_ERROR }
+      }
+      return { ...current, outbox: { ...current.outbox, lastError } }
+    })
   }
 
   const sendOne = async (id: string, settings: Settings): Promise<boolean> => {

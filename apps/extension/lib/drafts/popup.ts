@@ -11,7 +11,7 @@ import type { ReportDraft } from "../shared/types"
 export function draftNote(draft: ReportDraft, recording: RecordingStatus | undefined, sending = false): string | null {
   if (sending) return "(sending…)"
   if (draft.status === "failed") return "(failed)"
-  if (draft.status === "queued") return "(waiting for connection)"
+  if (draft.status === "queued") return draft.outbox?.lastError === "server" ? "(waiting for the server)" : "(waiting for connection)"
   if (draft.status === "uploading") return "(upload interrupted)"
   if (draft.status !== "recording") return null
   if (recording === undefined) return "(checking…)"

@@ -6,7 +6,25 @@ import type { DraftOutbox, ReportDraft } from "../shared/types"
 /** The background's alarm while drafts wait for a connection. */
 export const OUTBOX_ALARM = "bugberry-outbox"
 
+export interface OutboxAlarms {
+  get(name: string): Promise<unknown>
+  create(name: string, info: { periodInMinutes: number }): Promise<void>
+  clear(name: string): Promise<boolean>
+}
+
+/** A minute's alarm while drafts wait, none otherwise. One already set stays: made again, its minute would start over. */
+export async function keepOutboxAlarm(alarms: OutboxAlarms, waiting: number): Promise<void> {
+  if (waiting === 0) {
+    await alarms.clear(OUTBOX_ALARM)
+    return
+  }
+  if (!(await alarms.get(OUTBOX_ALARM))) await alarms.create(OUTBOX_ALARM, { periodInMinutes: 1 })
+}
+
 export const OUTBOX_DELAYS_MIN = [1, 2, 4, 8, 15]
+
+/** Tries a server that answers with errors gets, about two hours; a lost connection is tried for as long as it takes. */
+export const OUTBOX_MAX_SERVER_TRIES = 12
 
 /** When try number `tries + 1` may run; the last delay repeats. */
 export function nextTryAt(tries: number, now: number): number {

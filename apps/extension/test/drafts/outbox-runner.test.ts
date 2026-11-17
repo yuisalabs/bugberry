@@ -1,6 +1,7 @@
 import { beforeEach, expect, mock, test } from "bun:test"
 import { createSentAwayStorage, type SentAway, type SentAwayStorage } from "../../lib/drafts/sent-away"
-import { createOutboxRunner, type OutboxDeps } from "../../lib/drafts/outbox-runner"
+import { createOutboxRunner, type OutboxDeps, SERVER_KEPT_FAILING_ERROR } from "../../lib/drafts/outbox-runner"
+import { OUTBOX_MAX_SERVER_TRIES } from "../../lib/drafts/outbox"
 import type { DraftStore } from "../../lib/drafts/draft-store"
 import { ApiError, type BugberryApi } from "../../lib/server/api"
 import { LOCKED, type UploadDeps } from "../../lib/review/upload"
@@ -213,4 +214,36 @@ test("a draft for another server that is being sent elsewhere is left as it was"
 test("two calls at once run one flush", async () => {
   await Promise.all([run(), run()])
   expect(api.createUpload).toHaveBeenCalledTimes(1)
+})
+
+const serverDown = () => {
+  api.finalize.mockImplementation(async () => {
+    throw new ApiError(503, "unavailable", "Service unavailable")
+  })
+}
+
+test("a server that answers with an error leaves the draft waiting for the server, not the connection", async () => {
+  serverDown()
+  await run()
+  expect((await store.get(DRAFT_ID))?.outbox).toMatchObject({ tries: 1, lastError: "server" })
+})
+
+test("a lost connection leaves the draft waiting for the connection", async () => {
+  unreachable()
+  await run()
+  expect((await store.get(DRAFT_ID))?.outbox).toMatchObject({ lastError: "network" })
+})
+
+test("a server that keeps failing: the last try fails the draft with a message", async () => {
+  serverDown()
+  await store.put(queued({ outbox: outbox({ tries: OUTBOX_MAX_SERVER_TRIES - 1 }) }))
+  await run()
+  expect(await store.get(DRAFT_ID)).toMatchObject({ status: "failed", error: SERVER_KEPT_FAILING_ERROR })
+})
+
+test("a lost connection is tried for as long as it takes", async () => {
+  unreachable()
+  await store.put(queued({ outbox: outbox({ tries: OUTBOX_MAX_SERVER_TRIES + 5 }) }))
+  await run()
+  expect((await store.get(DRAFT_ID))?.status).toBe("queued")
 })

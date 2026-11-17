@@ -55,9 +55,13 @@ export const xhrPut: PutRequest = (target, body, onProgress) =>
     request.send(body)
   })
 
-/** A PUT for the background, which has no XMLHttpRequest; it reports no progress. */
+/** How long the background waits for one PUT: a minute, or the file at 25 KB/s when that is longer. */
+export const putTimeoutMs = (size: number) => Math.max(60_000, Math.ceil(size / 25_000) * 1000)
+
+/** A PUT for the background, which has no XMLHttpRequest; it reports no progress. A stalled one ends as a lost connection. */
 export const fetchPut: PutRequest = async (target, body) => {
-  const response = await fetch(target.url, { method: target.method, headers: target.headers, body })
+  const signal = AbortSignal.timeout(putTimeoutMs(body.size))
+  const response = await fetch(target.url, { method: target.method, headers: target.headers, body, signal })
   return response.status
 }
 

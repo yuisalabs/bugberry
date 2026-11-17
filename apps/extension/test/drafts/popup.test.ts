@@ -43,6 +43,11 @@ describe("queued drafts", () => {
     expect(draftNote(draft("queued"), IDLE, false)).toBe("(waiting for connection)")
   })
 
+  test("a queued draft the server refused waits for the server", () => {
+    const refused = { ...draft("queued"), outbox: { lastError: "server" } } as ReportDraft
+    expect(draftNote(refused, IDLE, false)).toBe("(waiting for the server)")
+  })
+
   test("a draft being sent says so and can't be deleted", () => {
     expect(draftNote(draft("queued"), IDLE, true)).toBe("(sending…)")
     expect(draftNote(draft("uploading"), IDLE, true)).toBe("(sending…)")

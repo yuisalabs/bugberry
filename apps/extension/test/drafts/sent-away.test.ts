@@ -33,3 +33,30 @@ test("a corrupt stored value reads as an empty list", async () => {
   expect(await createSentAwayStorage(memoryArea([{ draftId: 3 }])).list()).toEqual([])
   expect(await createSentAwayStorage(memoryArea(null)).list()).toEqual([])
 })
+
+test("an add and a remove at once both land", async () => {
+  // A slow storage: each read waits, so unserialized writes would overwrite each other.
+  let value: SentAway[] | null = [sent(1)]
+  const slow = {
+    get: async () => {
+      const read = value
+      await new Promise((resolve) => setTimeout(resolve, 5))
+      return read
+    },
+    set: async (next: SentAway[]) => void (value = next),
+  }
+  const storage = createSentAwayStorage(slow)
+  await Promise.all([storage.add(sent(2)), storage.remove("d1")])
+  expect((await storage.list()).map((row) => row.draftId)).toEqual(["d2"])
+})
+
+test("with a lock, writes run inside it under one name", async () => {
+  const names: string[] = []
+  const storage = createSentAwayStorage(memoryArea(), async (name, work) => {
+    names.push(name)
+    return work()
+  })
+  await storage.add(sent(1))
+  await storage.remove("d1")
+  expect(names).toEqual(["bugberry-sent-away", "bugberry-sent-away"])
+})

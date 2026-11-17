@@ -1,7 +1,7 @@
 import { browser } from "wxt/browser"
 import type { DraftStore } from "../../lib/drafts/draft-store"
 import { draftLock } from "../../lib/drafts/draft-lock"
-import { OUTBOX_ALARM } from "../../lib/drafts/outbox"
+import { keepOutboxAlarm, OUTBOX_ALARM } from "../../lib/drafts/outbox"
 import { createOutboxRunner } from "../../lib/drafts/outbox-runner"
 import { fetchPut, putFile } from "../../lib/review/upload"
 import { createBugberryApi } from "../../lib/server/api"
@@ -36,8 +36,7 @@ export function startOutbox(store: DraftStore): () => Promise<void> {
     const keepAlive = setInterval(() => void browser.runtime.getPlatformInfo().catch(() => undefined), 20_000)
     try {
       const { waiting } = await outbox()
-      if (waiting > 0) await browser.alarms.create(OUTBOX_ALARM, { periodInMinutes: 1 })
-      else await browser.alarms.clear(OUTBOX_ALARM)
+      await keepOutboxAlarm(browser.alarms, waiting)
     } catch (error) {
       console.warn("outbox flush failed", error)
     } finally {

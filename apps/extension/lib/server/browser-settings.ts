@@ -59,10 +59,14 @@ export function sessionFrom(value: unknown): SessionState | null {
 }
 
 /** Reports the background sent from the queue, for the popup. */
-export const sentAwayStorage = createSentAwayStorage({
-  get: async () => ((await browser.storage.local.get("sentAway")) as { sentAway?: SentAway[] }).sentAway ?? null,
-  set: (value) => browser.storage.local.set({ sentAway: value }),
-})
+export const sentAwayStorage = createSentAwayStorage(
+  {
+    get: async () => ((await browser.storage.local.get("sentAway")) as { sentAway?: SentAway[] }).sentAway ?? null,
+    set: (value) => browser.storage.local.set({ sentAway: value }),
+  },
+  // Web Locks are shared by the popup and the background, which both change the list.
+  (name, work) => navigator.locks.request(name, work) as unknown as Promise<void>,
+)
 
 /** The workspace the last report was sent to, so the next one starts there. */
 export const lastWorkspaceStorage = {
