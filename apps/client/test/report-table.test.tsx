@@ -18,7 +18,7 @@ describe("ReportTableBody", () => {
 
   test("a row shows two labels at most beside its title, then how many more", () => {
     const labels = ["Bug", "Checkout", "Mobile"].map((name) => ({ id: name, name, color: "gray" as const }))
-    render(<ReportTableBody items={[listItemFixture({ labels })]} members={members} projects={projects} now={NOW} rowLink={(item) => item.title} />)
+    render(<ReportTableBody items={[listItemFixture({ labels })]} projects={projects} now={NOW} rowLink={(item) => item.title} />)
     const row = within(screen.getAllByRole("row")[1] as HTMLElement)
     expect(row.getByText("Checkout")).toBeTruthy()
     expect(row.queryByText("Mobile") !== null).toBe(false)
