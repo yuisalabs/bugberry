@@ -74,6 +74,14 @@ describe("PricingView", () => {
     expect(cells[2]?.textContent).toContain("Coming soon")
   })
 
+  test("the comparison says SAML and the audit log are coming to Business, not that it has them", () => {
+    render(<PricingView installUrl={null} />)
+    for (const feature of ["SSO & SAML", "Roles & audit log"]) {
+      const cells = within(row(feature)).getAllByRole("cell")
+      expect(cells.map((cell) => cell.textContent)).toEqual(["Not included", "Not included", "Coming soon"])
+    }
+  })
+
   test("the comparison never calls Free's reports unlimited", () => {
     render(<PricingView installUrl={null} />)
     expect([...document.querySelectorAll("th[scope=row]")].map((cell) => cell.textContent)).not.toContain("History")

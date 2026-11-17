@@ -13,7 +13,7 @@ There are two ways to give your team the extension. Most servers use the store e
 
 <StoreLinks />
 
-1. In `.env`, set `EXTENSION_ID` to the store extension's ID (the long string of letters in its Chrome Web Store address).
+1. In `.env`, set `EXTENSION_ID` to the store extension's ID, `cccfgmgmmejlciecjipkcbabhdljhihi` (the long string of letters in its Chrome Web Store address).
 2. Optionally set `EXTENSION_INSTALL_URL` to your store page. The dashboard's **New report**, **Add to Chrome** and **Install** then send people there when the extension isn't installed; without it, they go to BugBerry's own page on the Chrome Web Store.
 3. Restart: `docker compose up -d`.
 
@@ -98,6 +98,6 @@ When you update the server and the extension together, update the server first, 
 
 ## Firefox
 
-Firefox only installs extensions that Mozilla has signed, and the BugBerry extension's Firefox ID belongs to the BugBerry project. A build of your own can't be signed under it, so Firefox users install BugBerry from Firefox Add-ons and connect it to your server as above. Until that listing is live, Firefox can't be used with a self-hosted server.
+Firefox only installs extensions that Mozilla has signed, and the BugBerry extension's Firefox ID belongs to the BugBerry project. A build of your own can't be signed under it, so Firefox users install BugBerry from [Firefox Add-ons](https://addons.mozilla.org/firefox/addon/bugberry/) and connect it to your server as above.
 
 Firefox 140 or newer is needed (142 on Android). See [BugBerry on Firefox](/guide/firefox) for what works differently there.
