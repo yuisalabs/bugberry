@@ -68,6 +68,8 @@ export function oidcNotice(oidc: OidcConfig | null): string | null {
 
 export interface Config {
   port: number
+  /** The address to listen on; unset, Bun's default. "::" for a platform that reaches the api over IPv6 (Railway). */
+  host?: string
   appUrl: string
   databaseUrl: string
   authSecret: string
@@ -308,6 +310,7 @@ export function loadConfig(env: Env): Config {
 
   return {
     port: integer("PORT", 3000, 1, 65_535),
+    host: optional("HOST"),
     appUrl: required("APP_URL").replace(/\/+$/, ""),
     databaseUrl: withDatabasePassword(required("DATABASE_URL"), optional("DATABASE_PASSWORD")),
     authSecret,

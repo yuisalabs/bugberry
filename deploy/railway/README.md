@@ -24,6 +24,7 @@ Railway's own Postgres (Add → Database → PostgreSQL). Nothing to change.
 | --- | --- |
 | `SERVER_ROLE` | `all` |
 | `PORT` | `3000` |
+| `HOST` | `::` (the private network is IPv6; this answers IPv4 too, so the health check still works) |
 | `PROXY_HOPS` | `1` |
 | `TRUST_PROXY` | `true` |
 | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
@@ -68,10 +69,8 @@ new address is followed.
 3. Sign in with an emailed code; send a screenshot and a video with the extension pointed at that address; both open.
 4. Redeploy the api: the reports and their files are still there.
 
-**Known risk:** the api doesn't set a listen address, and Bun's default may answer on IPv4 only. If step 2 shows 502s
-from `/api`, the client can't reach the api over IPv6: the api has to listen on `::`. That is a change to
-`apps/api/src/server-options.ts` (`hostname: "::"` or a `HOSTNAME` variable) with its own test, to be decided before
-the template ships.
+If step 2 shows 502s from `/api`, check that the api has `HOST=::`: without it the client can't reach it over
+Railway's IPv6 network.
 
 ## Publish
 

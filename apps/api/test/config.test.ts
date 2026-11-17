@@ -322,3 +322,11 @@ describe("loadConfig", () => {
     expect(loadConfig(env(withOidc)).oidc).not.toBeNull()
   })
 })
+
+describe("HOST", () => {
+  test("unset, the server listens where Bun does by default; set, on that address", () => {
+    expect(loadConfig(baseEnv).host).toBeUndefined()
+    expect(loadConfig({ ...baseEnv, HOST: "::" }).host).toBe("::")
+    expect(loadConfig({ ...baseEnv, HOST: "  " }).host).toBeUndefined()
+  })
+})
