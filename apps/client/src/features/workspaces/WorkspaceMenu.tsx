@@ -1,5 +1,5 @@
 import { RiAddLine, RiArrowDownSLine, RiLoginBoxLine, RiSearchLine, RiSettings3Line, RiUserAddLine } from "@remixicon/react"
-import type { WorkspaceRole } from "@bugberry/shared"
+import type { AccessRole } from "@bugberry/shared"
 import { useState } from "react"
 import { Dialog, DialogTrigger, useFilter } from "react-aria-components"
 import { Autocomplete } from "react-aria-components/Autocomplete"
@@ -14,7 +14,7 @@ import { roleLabel, workspaceColor } from "./workspace"
 export interface MenuWorkspace {
   id: string
   name: string
-  role: WorkspaceRole
+  role: AccessRole
   owner: boolean
   logoUrl?: string | null
 }

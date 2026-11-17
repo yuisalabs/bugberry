@@ -1,7 +1,7 @@
 import { and, asc, count, eq, inArray, isNull, ne, or } from "drizzle-orm"
-import { alias } from "drizzle-orm/pg-core"
+import { alias, union } from "drizzle-orm/pg-core"
 import { type Db, executor, withTransaction } from "../../db/client"
-import { comment, commentReaction, notification, report, user, workspaceMember } from "../../db/schema"
+import { comment, commentReaction, notification, projectGuest, report, user, workspaceMember } from "../../db/schema"
 import { newId } from "../../lib/ids"
 
 const author = alias(user, "author")
@@ -38,6 +38,7 @@ export async function findCommentPlace(db: Db, id: string) {
       authorId: comment.authorId,
       reportId: comment.reportId,
       workspaceId: report.workspaceId,
+      projectId: report.projectId,
       viaAgent: comment.viaAgent,
       parentId: comment.parentId,
       deletedAt: comment.deletedAt,
@@ -143,13 +144,48 @@ export function listReactions(db: Db, commentIds: string[]) {
     .orderBy(asc(commentReaction.createdAt), asc(commentReaction.userId))
 }
 
-/** These people's names, for those who are members of the workspace. */
-export function membersAmong(db: Db, workspaceId: string, userIds: string[]) {
-  return executor(db)
-    .select({ id: user.id, name: user.name })
+/** Where a comment sits: its report's workspace and project, which decide who may read it. */
+export interface CommentPlace {
+  workspaceId: string
+  projectId: string | null
+}
+
+/** Those of `userIds` who can read a report here: members of the workspace and guests of the project. */
+export async function readersAmong(db: Db, place: CommentPlace, userIds: string[]): Promise<Array<{ id: string; name: string; email: string }>> {
+  if (userIds.length === 0) return []
+  const x = executor(db)
+  const members = x
+    .select({ id: user.id, name: user.name, email: user.email })
     .from(workspaceMember)
     .innerJoin(user, eq(user.id, workspaceMember.userId))
-    .where(and(eq(workspaceMember.workspaceId, workspaceId), inArray(workspaceMember.userId, userIds)))
+    .where(and(eq(workspaceMember.workspaceId, place.workspaceId), inArray(workspaceMember.userId, userIds)))
+  if (!place.projectId) return members
+  const guests = x
+    .select({ id: user.id, name: user.name, email: user.email })
+    .from(projectGuest)
+    .innerJoin(user, eq(user.id, projectGuest.userId))
+    .where(and(eq(projectGuest.projectId, place.projectId), inArray(projectGuest.userId, userIds)))
+  return union(members, guests)
+}
+
+/** Everyone who can be mentioned on a report here, by name: the workspace's active members and the project's guests. */
+export async function listMentionable(db: Db, place: CommentPlace) {
+  const x = executor(db)
+  const members = await x
+    .select({ id: user.id, name: user.name, image: user.image })
+    .from(workspaceMember)
+    .innerJoin(user, eq(user.id, workspaceMember.userId))
+    .where(and(eq(workspaceMember.workspaceId, place.workspaceId), isNull(user.deactivatedAt)))
+  const guests = place.projectId
+    ? await x
+        .select({ id: user.id, name: user.name, image: user.image })
+        .from(projectGuest)
+        .innerJoin(user, eq(user.id, projectGuest.userId))
+        .where(and(eq(projectGuest.projectId, place.projectId), isNull(user.deactivatedAt)))
+    : []
+  return [...members.map((row) => ({ ...row, guest: false })), ...guests.map((row) => ({ ...row, guest: true }))].sort(
+    (a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id),
+  )
 }
 
 /** Everyone else's comments in the thread: its first comment and its replies. */
@@ -195,12 +231,6 @@ export async function insertReplyNotifications(
     .onConflictDoNothing({ target: [notification.userId, notification.commentId] })
 }
 
-export function workspaceMembersAmong(db: Db, workspaceId: string, userIds: string[]) {
-  return executor(db)
-    .select({ userId: workspaceMember.userId })
-    .from(workspaceMember)
-    .where(and(eq(workspaceMember.workspaceId, workspaceId), inArray(workspaceMember.userId, userIds)))
-}
 
 export async function countReportComments(db: Db, reportId: string): Promise<number> {
   const [row] = await executor(db).select({ value: count() }).from(comment).where(eq(comment.reportId, reportId))

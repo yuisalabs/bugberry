@@ -12,7 +12,7 @@ import {
 import { AppShell } from "./components/layout/AppShell"
 import { ErrorPage } from "./components/layout/ErrorPage"
 import { StatusPage } from "./components/layout/StatusPage"
-import { requireWorkspaceAdmin } from "./features/auth/admin-guard"
+import { requireWorkspaceAdmin, requireWorkspaceMember } from "./features/auth/admin-guard"
 import { legacyAppPath } from "./lib/legacy-paths"
 import { publicSiteGate } from "./features/landing/public-site"
 import { startSecondsFrom } from "./lib/urls"
@@ -127,9 +127,16 @@ const reportRoute = createRoute({
   component: lazyRouteComponent(() => import("./features/reports/detail/ReportPage"), "ReportPage"),
 })
 
+/** Pages for workspace members; a project's guest is sent to the reports. */
+const memberRoute = createRoute({
+  getParentRoute: () => authedRoute,
+  id: "_member",
+  beforeLoad: ({ context }) => requireWorkspaceMember(context.queryClient),
+})
+
 /** Admin-only pages; the role is checked with the server on every visit. */
 const adminRoute = createRoute({
-  getParentRoute: () => authedRoute,
+  getParentRoute: () => memberRoute,
   id: "_admin",
   beforeLoad: ({ context }) => requireWorkspaceAdmin(context.queryClient),
 })
@@ -163,17 +170,17 @@ const integrationsRoute = createRoute({
 
 /** A project's integrations: everyone in the workspace uses the workspace's connections here. */
 const projectIntegrationsRoute = createRoute({
-  getParentRoute: () => authedRoute,
+  getParentRoute: () => memberRoute,
   path: "/app/p/$projectSlug/integrations",
   component: lazyRouteComponent(() => import("./features/integrations/ProjectIntegrationsPage"), "ProjectIntegrationsPage"),
 })
 
 /** Everyone in the workspace sees its members; admins also invite and manage them. */
-const membersRoute = createRoute({ getParentRoute: () => authedRoute, path: "/app/settings/members", component: lazyRouteComponent(() => import("./features/workspaces/MembersPage"), "MembersPage") })
+const membersRoute = createRoute({ getParentRoute: () => memberRoute, path: "/app/settings/members", component: lazyRouteComponent(() => import("./features/workspaces/MembersPage"), "MembersPage") })
 
 /** Anyone signed in: connect AI apps to the MCP server and manage their personal tokens. */
 const aiAgentsRoute = createRoute({
-  getParentRoute: () => authedRoute,
+  getParentRoute: () => memberRoute,
   path: "/app/settings/ai",
   component: lazyRouteComponent(() => import("./features/ai/AiAgentsPage"), "AiAgentsPage"),
 })
@@ -228,12 +235,14 @@ const routeTree = rootRoute.addChildren([
   authedRoute.addChildren([
     homeRoute,
     projectRoute,
-    projectIntegrationsRoute,
     reportRoute,
-    membersRoute,
     accountRoute,
-    aiAgentsRoute,
-    adminRoute.addChildren([projectsSettingsRoute, labelsSettingsRoute, connectionsRoute, integrationsRoute, workspaceSettingsRoute]),
+    memberRoute.addChildren([
+      projectIntegrationsRoute,
+      membersRoute,
+      aiAgentsRoute,
+      adminRoute.addChildren([projectsSettingsRoute, labelsSettingsRoute, connectionsRoute, integrationsRoute, workspaceSettingsRoute]),
+    ]),
   ]),
 ])
 

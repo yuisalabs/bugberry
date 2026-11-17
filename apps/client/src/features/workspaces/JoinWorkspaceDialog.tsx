@@ -88,16 +88,19 @@ export function JoinWorkspaceBody({
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="truncate text-sm font-semibold text-foreground">{found.workspace.name}</span>
             <span className="text-xs text-muted-foreground">
-              {found.via === "invitation" ? `Invited by ${found.inviterName ?? "someone"} · ` : "Shared invite · "}
-              {members(found.workspace.memberCount)}
+              {found.guestProjectName
+                ? `Guest of ${found.guestProjectName} · Invited by ${found.inviterName ?? "someone"}`
+                : `${found.via === "invitation" ? `Invited by ${found.inviterName ?? "someone"} · ` : "Shared invite · "}${members(found.workspace.memberCount)}`}
             </span>
           </span>
-          <span className="rounded-full border border-border bg-background px-2 py-0.5 text-xs text-muted-foreground">Member</span>
+          <span className="rounded-full border border-border bg-background px-2 py-0.5 text-xs text-muted-foreground">
+            {found.guestProjectName ? "Guest" : "Member"}
+          </span>
         </section>
       )}
       {found && !found.alreadyMember && (
         <Button size="sm" className="self-end" isDisabled={busy} onPress={onJoinCode}>
-          {`Join ${found.workspace.name}`}
+          {found.guestProjectName ? `Open ${found.guestProjectName}` : `Join ${found.workspace.name}`}
         </Button>
       )}
       {found?.alreadyMember && <p className="text-sm text-muted-foreground">You're already in {found.workspace.name}.</p>}
@@ -108,10 +111,17 @@ export function JoinWorkspaceBody({
             <li key={invitation.id} className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
               <span className="min-w-0 text-sm">
                 <span className="block truncate font-medium text-foreground">{invitation.workspaceName}</span>
-                <span className="text-xs text-muted-foreground">Invited by {invitation.inviterName ?? "someone"}</span>
+                <span className="text-xs text-muted-foreground">
+                  {invitation.guestProjectName && `Guest of ${invitation.guestProjectName} · `}Invited by {invitation.inviterName ?? "someone"}
+                </span>
               </span>
-              <Button size="sm" isDisabled={busy} aria-label={`Join ${invitation.workspaceName}`} onPress={() => onJoinInvitation(invitation.id)}>
-                Join
+              <Button
+                size="sm"
+                isDisabled={busy}
+                aria-label={invitation.guestProjectName ? `Open ${invitation.guestProjectName}` : `Join ${invitation.workspaceName}`}
+                onPress={() => onJoinInvitation(invitation.id)}
+              >
+                {invitation.guestProjectName ? "Open" : "Join"}
               </Button>
             </li>
           ))}

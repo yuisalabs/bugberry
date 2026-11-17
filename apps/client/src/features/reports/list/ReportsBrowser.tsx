@@ -1,4 +1,5 @@
 import { RiRecordCircleLine } from "@remixicon/react"
+import { permissionsOf } from "../../workspaces/permissions"
 import { useQuery } from "@tanstack/react-query"
 import { type ReactNode, useEffect, useState } from "react"
 import { useNow } from "../../../hooks/useNow"
@@ -57,10 +58,11 @@ export function ReportsBrowser({
   const now = useNow()
   const { workspace } = useCurrentWorkspace()
   const workspaceId = workspace?.id ?? ""
-  const members = useListPeople(workspaceId, Boolean(workspace))
+  const can = permissionsOf(workspace?.role ?? null)
+  const members = useListPeople(workspaceId, Boolean(workspace) && can.seePeople)
   // The project filter needs them on the all-reports page; the list view names projects on every page.
   const projects = useQuery({ ...projectQueries.projects(workspaceId), enabled: Boolean(workspace) })
-  const labels = useQuery({ ...labelQueries.labels(workspaceId), enabled: Boolean(workspace) })
+  const labels = useQuery({ ...labelQueries.labels(workspaceId), enabled: Boolean(workspace) && can.seePeople })
   useDropUnknownLabels(search, labels.data, setSearch, labels.isFetching)
   const feed = useReportFeed(workspaceId, toReportsQuery(scope, search), Boolean(workspace))
   const config = useQuery(authQueries.clientConfig())
@@ -68,7 +70,7 @@ export function ReportsBrowser({
   const installUrl = installHref(config.data?.extensionInstallUrl ?? null)
   const [layout, setLayout] = useState<ReportLayout>(readLayout)
   const [inviting, setInviting] = useState(false)
-  const limits = useQuery({ ...workspaceQueries.workspaceLimits(workspaceId), enabled: Boolean(workspace) })
+  const limits = useQuery({ ...workspaceQueries.workspaceLimits(workspaceId), enabled: Boolean(workspace) && can.useWorkspaceTools })
 
   const update = (patch: Partial<ReportSearch>) => setSearch((prev) => ({ ...prev, ...patch }))
   // Filters left nothing: count the whole list, so the page can say how much was searched.
@@ -80,6 +82,7 @@ export function ReportsBrowser({
     <ReportsView
       title={title}
       members={members.data ?? []}
+      showPeople={can.seePeople}
       projects={showProjectFilter ? (projects.data ?? []) : undefined}
       tableProjects={projects.data}
       projectsLoading={projects.isPending}
@@ -95,7 +98,7 @@ export function ReportsBrowser({
       subtitle={showCount ? undefined : workspace?.name}
       statusCounts={feed.statusCounts}
       fab={
-        <NewReportButton
+        can.useWorkspaceTools && <NewReportButton
           installUrl={installUrl}
           prominent
           className="rounded-full px-5 shadow-lg shadow-primary/30"
@@ -103,14 +106,14 @@ export function ReportsBrowser({
       }
       checkedTotal={everything.data ?? null}
       recordButton={
-        <NewReportButton
+        can.useWorkspaceTools && <NewReportButton
           installUrl={installUrl}
           label="Record your first bug"
           icon={<RiRecordCircleLine aria-hidden />}
           prominent
         />
       }
-      installButton={<InstallExtensionButton installUrl={installUrl} />}
+      installButton={can.useWorkspaceTools && <InstallExtensionButton installUrl={installUrl} />}
       layout={layout}
       onLayout={(next) => {
         setLayout(next)

@@ -1,6 +1,7 @@
-import type { Visibility, WorkspaceRole } from "@bugberry/shared"
+import type { AccessRole, Visibility, WorkspaceRole } from "@bugberry/shared"
 import type { Db } from "../../db/client"
 import { conflict, forbidden, notFound } from "../../lib/errors"
+import { findOldestGuestWorkspace, listGuestProjectIds } from "../guests/repository"
 import { findMemberRole, findOldestMembership, findProjectWorkspace, findReportAccess } from "./repository"
 
 /** The person's role in the workspace, or null when they are not a member. */
@@ -69,4 +70,59 @@ export async function requireReportMember(
   const role = row ? await memberRole(db, userId, row.workspaceId) : null
   if (!row || !role) throw notFound("report_not_found", "Report not found")
   return { ...row, role }
+}
+
+/** What someone sees of a workspace: all of it as a member, or the projects they are a guest of. */
+export type Scope = { role: WorkspaceRole; projects: "all" } | { role: "guest"; projects: string[] }
+
+/** What the person sees of the workspace, or null when nothing. A guest with no project left sees nothing. */
+export async function workspaceScope(db: Db, userId: string, workspaceId: string): Promise<Scope | null> {
+  const role = await memberRole(db, userId, workspaceId)
+  if (role) return { role, projects: "all" }
+  const projects = await listGuestProjectIds(db, userId, workspaceId)
+  return projects.length > 0 ? { role: "guest", projects } : null
+}
+
+/**
+ * resolveWorkspace for the routes guests may use: the workspace asked for, else the current one, else the oldest
+ * membership, else the oldest guest workspace. Nothing seen answers like a workspace that doesn't exist.
+ */
+export async function requireScope(
+  db: Db,
+  person: { id: string; lastWorkspaceId?: string | null },
+  requested?: string,
+): Promise<{ workspaceId: string; scope: Scope }> {
+  if (requested) {
+    const scope = await workspaceScope(db, person.id, requested)
+    if (!scope) throw notFound("workspace_not_found", "Workspace not found")
+    return { workspaceId: requested, scope }
+  }
+  if (person.lastWorkspaceId) {
+    const scope = await workspaceScope(db, person.id, person.lastWorkspaceId)
+    if (scope) return { workspaceId: person.lastWorkspaceId, scope }
+  }
+  const oldest = (await findOldestMembership(db, person.id)) ?? (await findOldestGuestWorkspace(db, person.id))
+  const scope = oldest ? await workspaceScope(db, person.id, oldest) : null
+  if (!oldest || !scope) throw conflict("no_workspace", "Join or create a workspace first")
+  return { workspaceId: oldest, scope }
+}
+
+/** Whether the scope reaches a report of this project; a report without a project is for members only. */
+export function scopeReaches(scope: Scope, projectId: string | null): boolean {
+  return scope.projects === "all" || (projectId !== null && scope.projects.includes(projectId))
+}
+
+/**
+ * requireReportMember for the routes guests may use: a member of the report's workspace, or a guest of its project.
+ * Anything else answers "report not found".
+ */
+export async function requireReportReader(
+  db: Db,
+  userId: string,
+  reportId: string,
+): Promise<{ workspaceId: string; projectId: string | null; reporterId: string; reporterDomain: string | null; visibility: Visibility; role: AccessRole }> {
+  const row = await findReportAccess(db, reportId)
+  const scope = row ? await workspaceScope(db, userId, row.workspaceId) : null
+  if (!row || !scope || !scopeReaches(scope, row.projectId)) throw notFound("report_not_found", "Report not found")
+  return { ...row, role: scope.role }
 }

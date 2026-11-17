@@ -1,4 +1,4 @@
-import type { WorkspaceRole } from "@bugberry/shared"
+import type { AccessRole } from "@bugberry/shared"
 import { RiMoreLine, RiPlayFill } from "@remixicon/react"
 import { useContext, useState } from "react"
 import { Avatar } from "@bugberry/ui/avatar"
@@ -86,7 +86,7 @@ export function CommentItem({
 }: {
   comment: Comment
   people: Mentionable[]
-  me: { id: string; role: WorkspaceRole }
+  me: { id: string; role: AccessRole }
   busy: boolean
   /** A reply: a smaller avatar, under its thread. */
   reply?: boolean

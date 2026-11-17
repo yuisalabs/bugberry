@@ -6,7 +6,7 @@ import { notFound, unprocessable } from "../../lib/errors"
 import { imageUploads } from "../../lib/image-upload"
 import { avatarKeyFor as avatarKey } from "../../storage/keys"
 import { onboardingProgress, recordOnboarding } from "../onboarding/progress"
-import { requireMember } from "../workspaces/access"
+import { requireMember, requireScope } from "../workspaces/access"
 import { canCreateWorkspace, isAccountLimited } from "../workspaces/limits"
 import {
   deletePendingAvatar,
@@ -92,7 +92,7 @@ export function accountModule(deps: AppDeps) {
     .put(
       "/me/workspace",
       async ({ user: current, body }) => {
-        await requireMember(db, current.id, body.workspaceId)
+        await requireScope(db, current, body.workspaceId)
         await updateUser(db, current.id, { lastWorkspaceId: body.workspaceId })
         return { ok: true }
       },

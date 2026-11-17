@@ -32,7 +32,14 @@ const LOOKUP_WINDOW_MS = 10 * 60 * 1000
 const invalid = () => notFound("join_code_invalid", "This link or code doesn't work")
 
 type Caller = { id: string; email: string }
-type Resolved = { workspaceId: string; via: "invitation" | "shared"; inviterName: string | null; invitationId: string | null }
+type Resolved = {
+  workspaceId: string
+  via: "invitation" | "shared"
+  inviterName: string | null
+  invitationId: string | null
+  /** The project a guest invitation is for; null for joining the workspace. */
+  guestProjectName: string | null
+}
 
 /** "7KX29QF" → "7KX-29QF", the way share codes are stored. */
 const formatted = (code: string) => `${code.slice(0, 3)}-${code.slice(3)}`
@@ -89,19 +96,26 @@ export function createJoinService(deps: Pick<AppDeps, "config" | "db">) {
       const by = parsed.kind === "token" ? { tokenHash: hashInviteToken(parsed.token) } : { codeHash: hashCode(parsed.code) }
       const invitation = await invitationFor(caller, by)
       if (invitation) {
-        return { workspaceId: invitation.workspaceId, via: "invitation", inviterName: invitation.inviterName ?? "Someone", invitationId: invitation.id }
+        return {
+          workspaceId: invitation.workspaceId,
+          via: "invitation",
+          inviterName: invitation.inviterName ?? "Someone",
+          invitationId: invitation.id,
+          guestProjectName: invitation.guestProjectName,
+        }
       }
       if (parsed.kind === "token") throw invalid()
     }
     const shared = await findWorkspaceByShareCode(db, formatted(parsed.code))
     if (!shared) throw invalid()
-    return { workspaceId: shared, via: "shared", inviterName: null, invitationId: null }
+    return { workspaceId: shared, via: "shared", inviterName: null, invitationId: null, guestProjectName: null }
   }
 
   const previewOf = async (caller: Caller, resolved: Resolved) => ({
     workspace: await card(resolved.workspaceId),
     via: resolved.via,
     inviterName: resolved.inviterName,
+    guestProjectName: resolved.guestProjectName,
     alreadyMember: await isMember(resolved.workspaceId, caller.id),
   })
 

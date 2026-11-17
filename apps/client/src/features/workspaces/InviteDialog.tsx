@@ -15,6 +15,7 @@ import { qk } from "../../lib/query/keys"
 export const RESULT_LABELS: Record<InviteResult["status"], string> = {
   sent: "Invited",
   member: "Already a member",
+  guest: "Already a guest",
   pending: "Already invited",
   not_allowed: "Not allowed on this server",
   invalid: "Not an email address",

@@ -1,21 +1,23 @@
-import type { WorkspaceRole } from "@bugberry/shared"
+import { MAX_GUESTS_PER_PROJECT, type WorkspaceRole } from "@bugberry/shared"
 import type { AccountLimits } from "../../config"
 import { type Db, withTransaction } from "../../db/client"
 import type { AppDeps } from "../../deps"
 import { createEmailSender, type EmailSender } from "../../lib/email/sender"
-import { AppError, conflict, notFound, tooManyRequests } from "../../lib/errors"
+import { AppError, conflict, notFound, tooManyRequests, unprocessable } from "../../lib/errors"
 import { createRateLimiter } from "../../lib/rate-limit"
 import { updateUser } from "../account/repository"
 import { isEmailAllowed } from "../auth/policy"
 import { hashCode, newJoinCode } from "../join/join-codes"
 import { deleteJoinRequest } from "../join/repository"
 import { assertCanAddMembers, isWorkspaceLimited } from "../workspaces/limits"
-import { addMemberIfAbsent, findWorkspaceName } from "../workspaces/repository"
+import { countGuests, insertGuest, isProjectGuestEmail, lockProject } from "../guests/repository"
+import { addMemberIfAbsent, findMemberRole, findWorkspaceName } from "../workspaces/repository"
 import { inviteEmail } from "./invite-email"
 import {
   findInvitationByTokenHash,
   findInvitationForEmail,
   findLiveInvitation,
+  countLiveGuestInvitations,
   hasLiveInvitation,
   insertInvitation,
   isMemberEmail,
@@ -25,6 +27,15 @@ import {
   renewInvitation,
   revokeInvitation,
 } from "./repository"
+
+/** A project takes at most MAX_GUESTS_PER_PROJECT guests, its pending guest invitations counted. */
+async function assertGuestRoom(db: Db, projectId: string, adding: number): Promise<void> {
+  if (adding === 0) return
+  const taken = (await countGuests(db, projectId)) + (await countLiveGuestInvitations(db, projectId))
+  if (taken + adding > MAX_GUESTS_PER_PROJECT) {
+    throw unprocessable("guest_limit", `A project can have at most ${MAX_GUESTS_PER_PROJECT} guests, invitations included`)
+  }
+}
 
 export const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000
 
@@ -64,9 +75,17 @@ export async function accept(
   userId: string,
 ): Promise<{ workspaceId: string }> {
   await withTransaction(db, async () => {
-    await assertCanAddMembers(db, limits, workspaceId, "joiner")
     const invitation = await markInvitationAccepted(db, invitationId)
     if (!invitation) throw gone()
+    if (invitation.guestProjectId) {
+      // A guest is not a member, so the member limit doesn't apply; someone already a member keeps that instead.
+      if (!(await findMemberRole(db, userId, workspaceId))) {
+        await insertGuest(db, { projectId: invitation.guestProjectId, userId, invitedById: invitation.invitedById })
+      }
+      await updateUser(db, userId, { lastWorkspaceId: workspaceId })
+      return
+    }
+    await assertCanAddMembers(db, limits, workspaceId, "joiner")
     await addMemberIfAbsent(db, workspaceId, userId, invitation.role)
     // A request to join that was still waiting is answered now.
     await deleteJoinRequest(db, workspaceId, userId)
@@ -79,7 +98,7 @@ const INVITES_PER_WORKSPACE_PER_HOUR = 50
 /** Sign-up is open, so one person with many workspaces must not be able to send more than this. */
 const INVITES_PER_PERSON_PER_HOUR = 50
 
-export type InviteOutcome = "sent" | "member" | "pending" | "not_allowed" | "invalid"
+export type InviteOutcome = "sent" | "member" | "guest" | "pending" | "not_allowed" | "invalid"
 
 /** Sending, resending, withdrawing and accepting invitations. */
 export function createInvitationsService(deps: Pick<AppDeps, "config" | "db" | "email">) {
@@ -88,11 +107,18 @@ export function createInvitationsService(deps: Pick<AppDeps, "config" | "db" | "
   const limiter = createRateLimiter({ limit: INVITES_PER_WORKSPACE_PER_HOUR, windowMs: 60 * 60 * 1000 })
   const perPerson = createRateLimiter({ limit: INVITES_PER_PERSON_PER_HOUR, windowMs: 60 * 60 * 1000 })
 
-  const sendInvite = async (to: string, workspaceId: string, from: { id: string; name: string }, token: string, code: string) => {
+  const sendInvite = async (
+    to: string,
+    workspaceId: string,
+    from: { id: string; name: string },
+    token: string,
+    code: string,
+    projectName?: string,
+  ) => {
     if (!sender) throw conflict("email_unavailable", "Set up email (EMAIL_DRIVER) to send invitations")
     if (!limiter.consume(workspaceId) || !perPerson.consume(from.id)) throw tooManyRequests()
     const workspaceName = (await findWorkspaceName(db, workspaceId)) ?? ""
-    const mail = inviteEmail({ workspaceName, inviterName: from.name, url: inviteUrl(config.appUrl, token), code })
+    const mail = inviteEmail({ workspaceName, inviterName: from.name, url: inviteUrl(config.appUrl, token), code, projectName })
     await sender.send({ to, ...mail })
   }
   const findLive = async (workspaceId: string, invitationId: string) => {
@@ -107,10 +133,19 @@ export function createInvitationsService(deps: Pick<AppDeps, "config" | "db" | "
   }
 
   return {
-    /** One outcome per address, in order; each is checked on its own, so one typo never rejects the whole list. */
-    async invite(workspaceId: string, from: { id: string; name: string }, emails: string[], role: WorkspaceRole) {
-      await assertCanAddMembers(db, config.accountLimits, workspaceId)
-      const outcomes: Array<{ email: string; status: InviteOutcome }> = []
+    /**
+     * One outcome per address, in order; each is checked on its own, so one typo never rejects the whole list. With
+     * `guestOf`, each address is invited as a guest of that project: no member limit, and "guest" for one already.
+     */
+    async invite(
+      workspaceId: string,
+      from: { id: string; name: string },
+      emails: string[],
+      role: WorkspaceRole,
+      guestOf?: { projectId: string; projectName: string },
+    ) {
+      if (!guestOf) await assertCanAddMembers(db, config.accountLimits, workspaceId)
+      const outcomes: Array<{ email: string; status: InviteOutcome | "send" }> = []
       for (const raw of emails) {
         const email = raw.trim().toLowerCase()
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -125,14 +160,24 @@ export function createInvitationsService(deps: Pick<AppDeps, "config" | "db" | "
           outcomes.push({ email, status: "member" })
           continue
         }
-        if (await hasLiveInvitation(db, workspaceId, email)) {
+        if (guestOf && (await isProjectGuestEmail(db, guestOf.projectId, email))) {
+          outcomes.push({ email, status: "guest" })
+          continue
+        }
+        if (await hasLiveInvitation(db, workspaceId, email, guestOf?.projectId ?? null)) {
           outcomes.push({ email, status: "pending" })
           continue
         }
+        outcomes.push({ email, status: "send" })
+      }
+      // Only the addresses that get an invitation take a guest's place.
+      if (guestOf) await assertGuestRoom(db, guestOf.projectId, outcomes.filter((row) => row.status === "send").length)
+      const sendOne = async (email: string) => {
         const { token, hash } = newInviteToken()
         const code = newJoinCode()
-        await sendInvite(email, workspaceId, from, token, code)
+        await sendInvite(email, workspaceId, from, token, code, guestOf?.projectName)
         await insertInvitation(db, {
+          guestProjectId: guestOf?.projectId ?? null,
           workspaceId,
           email,
           tokenHash: hash,
@@ -141,9 +186,22 @@ export function createInvitationsService(deps: Pick<AppDeps, "config" | "db" | "
           role,
           expiresAt: new Date(Date.now() + INVITE_TTL_MS),
         })
-        outcomes.push({ email, status: "sent" })
       }
-      return outcomes
+      for (const row of outcomes) {
+        if (row.status !== "send") continue
+        if (guestOf) {
+          // Counted again under the project's lock, so invitations sent at once can't pass the limit together.
+          await withTransaction(db, async () => {
+            await lockProject(db, guestOf.projectId)
+            await assertGuestRoom(db, guestOf.projectId, 1)
+            await sendOne(row.email)
+          })
+        } else {
+          await sendOne(row.email)
+        }
+        row.status = "sent"
+      }
+      return outcomes as Array<{ email: string; status: InviteOutcome }>
     },
 
     async listLive(workspaceId: string) {
@@ -180,6 +238,7 @@ export function createInvitationsService(deps: Pick<AppDeps, "config" | "db" | "
         workspaceName: row.workspaceName,
         email: row.invitation.email,
         inviterName: row.inviterName ?? "Someone",
+        guestProjectName: row.guestProjectName,
         status: invitationStatus(row.invitation),
       }
     },
@@ -193,12 +252,15 @@ export function createInvitationsService(deps: Pick<AppDeps, "config" | "db" | "
       return accept(db, config.accountLimits, row.invitation.id, row.invitation.workspaceId, person.id)
     },
 
-    /** A workspace under ACCOUNT_LIMITS takes nobody new, so its invitations, which would only fail, aren't listed. */
+    /**
+     * A workspace under ACCOUNT_LIMITS takes no new members, so its invitations to join, which would only fail, aren't
+     * listed; a guest isn't a member, so a guest invitation is.
+     */
     async listMine(email: string) {
       const rows = await listLiveInvitationsForEmail(db, email.trim().toLowerCase())
       const open = []
       for (const { workspaceId, ...row } of rows) {
-        if (!(await isWorkspaceLimited(db, config.accountLimits, workspaceId))) open.push(row)
+        if (row.guestProjectName !== null || !(await isWorkspaceLimited(db, config.accountLimits, workspaceId))) open.push(row)
       }
       return open
     },

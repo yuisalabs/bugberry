@@ -3,6 +3,7 @@ import { createdAt, updatedAt } from "./columns"
 import { workspaceRoleEnum } from "./enums"
 import { user } from "./auth"
 import { reportTemplate } from "./ai"
+import { project } from "./projects"
 
 /** A team: its members see its reports, projects and integrations; nobody else does. */
 export const workspace = pgTable(
@@ -65,6 +66,8 @@ export const workspaceInvitation = pgTable(
     invitedById: text("invited_by_id").references(() => user.id, { onDelete: "set null" }),
     /** The role the person joins with when they accept. */
     role: workspaceRoleEnum("role").notNull().default("member"),
+    /** Set for a guest invitation: accepting makes the person a guest of this project, not a member. */
+    guestProjectId: text("guest_project_id").references((): AnyPgColumn => project.id, { onDelete: "cascade" }),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     acceptedAt: timestamp("accepted_at", { withTimezone: true }),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),

@@ -40,6 +40,7 @@ export const qk = {
     overview: (workspaceId: string) => ["projects", workspaceId, "overview"],
   },
   labels: (workspaceId: string) => ["labels", workspaceId],
+  projectGuests: (projectId: string) => ["project-guests", projectId],
   integrations: (projectId: string) => ["integrations", projectId],
   connections: (workspaceId: string) => ["connections", workspaceId],
   connectionOptions: (workspaceId: string, id: string, list: OptionList, q: string, parent: string) =>
@@ -56,6 +57,7 @@ export const qk = {
   share: (slug: string) => ["share", slug],
   comments: (reportId: string) => ["comments", reportId],
   activity: (reportId: string) => ["activity", reportId],
+  mentionable: (reportId: string) => ["mentionable", reportId],
   reportTrackers: (reportId: string) => ["report-trackers", reportId],
   debugger: (reportId: string) => ["debugger", reportId],
   // Kept apart from report(id): a report edit refetches the report, never its replay of up to 25 MB.

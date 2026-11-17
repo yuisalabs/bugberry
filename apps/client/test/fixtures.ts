@@ -53,6 +53,7 @@ export function listItemFixture(overrides: Partial<ReportListItem> = {}): Report
     captureType: "screenshot",
     pageUrl: "https://app.kantor.test/checkout",
     assigneeId: null,
+    assignee: null,
     debuggerSummary: { logs: 2, errors: 1, requests: 3, failedRequests: 1, actions: 4, incomplete: [] },
     durationMs: null,
     thumbnailUrl: "https://files.test/t.jpg",

@@ -1,4 +1,4 @@
-import type { WorkspaceRole } from "@bugberry/shared"
+import type { AccessRole } from "@bugberry/shared"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { accountQueries } from "../account/queries"
 import { refreshForNewWorkspace, switchWorkspace, type Workspace, workspaceQueries } from "./queries"
@@ -10,7 +10,7 @@ export function pickWorkspace<T extends { id: string; name: string }>(workspaces
   return [...workspaces].sort((a, b) => a.name.localeCompare(b.name))[0] ?? null
 }
 
-export function roleIn(workspaces: readonly { id: string; role: WorkspaceRole }[], workspaceId: string): WorkspaceRole | null {
+export function roleIn(workspaces: readonly { id: string; role: AccessRole }[], workspaceId: string): AccessRole | null {
   return workspaces.find((workspace) => workspace.id === workspaceId)?.role ?? null
 }
 
@@ -24,7 +24,8 @@ export function workspaceColor(id: string): string {
 }
 
 /** How a person's place in a workspace reads on screen; the owner is an admin who can't be removed. */
-export function roleLabel(workspace: { role: WorkspaceRole; owner: boolean }): "Owner" | "Admin" | "Member" {
+export function roleLabel(workspace: { role: AccessRole; owner: boolean }): "Owner" | "Admin" | "Member" | "Guest" {
+  if (workspace.role === "guest") return "Guest"
   if (workspace.owner) return "Owner"
   return workspace.role === "admin" ? "Admin" : "Member"
 }

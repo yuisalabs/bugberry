@@ -1,15 +1,22 @@
-import { and, count, desc, eq, inArray, isNull } from "drizzle-orm"
+import { and, count, desc, eq, exists, inArray, isNull, or, sql } from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"
 import { type Db, executor } from "../../db/client"
-import { comment, notification, report, user, workspaceMember } from "../../db/schema"
+import { comment, notification, project, projectGuest, report, user, workspaceMember } from "../../db/schema"
 
 const actor = alias(user, "actor")
-const callerMember = alias(workspaceMember, "caller")
 const note = alias(comment, "note")
 
-/** Rows of the caller's that sit in a workspace the caller is still a member of. */
+/** Rows of the caller's on a report they can still read: as a member of its workspace, or a guest of its project. */
 const visible = (userId: string) =>
-  and(eq(notification.userId, userId), eq(callerMember.userId, userId), eq(callerMember.workspaceId, report.workspaceId))
+  and(
+    eq(notification.userId, userId),
+    or(
+      exists(
+        sql`(SELECT 1 FROM ${workspaceMember} WHERE ${workspaceMember.userId} = ${userId} AND ${workspaceMember.workspaceId} = ${report.workspaceId})`,
+      ),
+      exists(sql`(SELECT 1 FROM ${projectGuest} WHERE ${projectGuest.userId} = ${userId} AND ${projectGuest.projectId} = ${report.projectId})`),
+    ),
+  )
 
 export function listVisibleNotifications(db: Db, userId: string, opts: { unreadOnly: boolean; limit: number }) {
   return executor(db)
@@ -32,7 +39,6 @@ export function listVisibleNotifications(db: Db, userId: string, opts: { unreadO
     })
     .from(notification)
     .innerJoin(report, eq(report.id, notification.reportId))
-    .innerJoin(callerMember, eq(callerMember.workspaceId, report.workspaceId))
     // A resolved notification has no comment.
     .leftJoin(comment, eq(comment.id, notification.commentId))
     .leftJoin(note, eq(note.id, notification.noteCommentId))
@@ -47,18 +53,24 @@ export async function countVisibleUnread(db: Db, userId: string): Promise<number
     .select({ value: count() })
     .from(notification)
     .innerJoin(report, eq(report.id, notification.reportId))
-    .innerJoin(callerMember, eq(callerMember.workspaceId, report.workspaceId))
     .where(and(visible(userId), isNull(notification.readAt)))
   return unread?.value ?? 0
 }
 
-/** Names of these people in each of these workspaces they belong to. */
-export function memberNames(db: Db, workspaceIds: string[], userIds: string[]) {
-  return executor(db)
+/** Names of these people in each of these workspaces they belong to, as a member or a guest of one of its projects. */
+export async function memberNames(db: Db, workspaceIds: string[], userIds: string[]) {
+  const members = await executor(db)
     .select({ workspaceId: workspaceMember.workspaceId, id: user.id, name: user.name })
     .from(workspaceMember)
     .innerJoin(user, eq(user.id, workspaceMember.userId))
     .where(and(inArray(workspaceMember.workspaceId, workspaceIds), inArray(workspaceMember.userId, userIds)))
+  const guests = await executor(db)
+    .selectDistinct({ workspaceId: project.workspaceId, id: user.id, name: user.name })
+    .from(projectGuest)
+    .innerJoin(project, eq(project.id, projectGuest.projectId))
+    .innerJoin(user, eq(user.id, projectGuest.userId))
+    .where(and(inArray(project.workspaceId, workspaceIds), inArray(projectGuest.userId, userIds)))
+  return [...members, ...guests]
 }
 
 export async function markAllRead(db: Db, userId: string): Promise<void> {

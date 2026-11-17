@@ -18,7 +18,7 @@ import type { EmailSender } from "../src/lib/email/sender"
 import type { Config } from "../src/config"
 import { createDb, type Db } from "../src/db/client"
 import { runMigrations } from "../src/db/migrate"
-import { apiToken, connection, integration, project, report, user, workspace, workspaceMember } from "../src/db/schema"
+import { apiToken, connection, integration, project, projectGuest, report, user, workspace, workspaceMember } from "../src/db/schema"
 import { createSecretBox } from "../src/lib/secret-box"
 import { generateApiToken, hashToken } from "../src/modules/tokens/token"
 import { newId, newShareSlug } from "../src/lib/ids"
@@ -193,6 +193,29 @@ export async function createWorkspaceRow(db: Db, name: string) {
   const [row] = await db.insert(workspace).values({ id: newId(), name, slug: await freeSlug(db, name) }).returning()
   if (!row) throw new Error("failed to insert workspace")
   return row
+}
+
+/**
+ * A workspace with an admin, a member, projects P1 and P2, a ready report in each and one without a project; G is a
+ * guest of P1 only and X is in no workspace. Each person has a token.
+ */
+export async function guestFixture(db: Db) {
+  const admin = await createUserWithToken(db, { role: "admin", name: "Admin", email: "admin@kantor.test" })
+  const member = await createUserWithToken(db, { role: "member", name: "Member", email: "member@kantor.test" })
+  const guest = await createUserWithToken(db, { workspaceId: null, name: "Guest", email: "guest@kantor.test" })
+  const outsider = await createUserWithToken(db, { workspaceId: null, name: "Outsider", email: "outsider@kantor.test" })
+  const p1 = await createProject(db, { name: "Storefront" })
+  const p2 = await createProject(db, { name: "Back office" })
+  await addGuest(db, p1.id, guest.user.id)
+  const reportP1 = await createReadyReport(db, { projectId: p1.id, reporterId: member.user.id, title: "P1 report" })
+  const reportP2 = await createReadyReport(db, { projectId: p2.id, reporterId: member.user.id, title: "P2 report zebrafinch" })
+  const reportNone = await createReadyReport(db, { reporterId: member.user.id, title: "Loose report" })
+  return { admin, member, guest, outsider, p1, p2, reportP1, reportP2, reportNone }
+}
+
+/** A guest of one project: never a workspace member. */
+export async function addGuest(db: Db, projectId: string, userId: string) {
+  await db.insert(projectGuest).values({ projectId, userId })
 }
 
 export async function addMember(db: Db, workspaceId: string, userId: string, role: WorkspaceRole = "member") {

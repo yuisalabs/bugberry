@@ -5,7 +5,7 @@ import { EmptyState } from "../../components/ui/empty-state"
 import { useCurrentWorkspace } from "../workspaces/workspace"
 import { projectQueries } from "../projects/queries"
 
-const legacyRouteApi = getRouteApi("/_authed/_admin/app/settings/projects/$projectId/integrations")
+const legacyRouteApi = getRouteApi("/_authed/_member/_admin/app/settings/projects/$projectId/integrations")
 
 /** The old address of a project's integrations page now leads to the project's own one. */
 export function LegacyProjectIntegrations() {

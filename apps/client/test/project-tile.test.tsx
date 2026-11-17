@@ -10,6 +10,7 @@ const project = {
   name: "quinella AI",
   slug: "quinella-ai",
   urlPatterns: [] as string[],
+  guestCount: 0,
   logoUrl: null as string | null,
   createdAt: new Date("2026-10-01T00:00:00Z"),
 }

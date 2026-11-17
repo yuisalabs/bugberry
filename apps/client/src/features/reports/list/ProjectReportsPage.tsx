@@ -1,4 +1,5 @@
 import { RiApps2Line, RiSettings3Line } from "@remixicon/react"
+import { permissionsOf } from "../../workspaces/permissions"
 import { useQuery } from "@tanstack/react-query"
 import { getRouteApi, Link, useNavigate } from "@tanstack/react-router"
 import { buttonStyles } from "@bugberry/ui/button"
@@ -19,6 +20,7 @@ export function ProjectReportsPage() {
   const projects = useQuery({ ...projectQueries.projects(workspace?.id ?? ""), enabled: Boolean(workspace) })
   const project = projects.data?.find((item) => item.slug === projectSlug)
   const isAdmin = workspace?.role === "admin"
+  const can = permissionsOf(workspace?.role ?? null)
 
   if (projects.isPending) return <ReportsPageSkeleton />
   if (projects.isError) return <ErrorState error={projects.error} onRetry={() => void projects.refetch()} />
@@ -33,6 +35,7 @@ export function ProjectReportsPage() {
       search={search}
       setSearch={(update, options) => void navigate({ search: update, replace: options?.replace })}
       actions={
+        can.useWorkspaceTools && (
         <>
           <Link
             to="/app/p/$projectSlug/integrations"
@@ -49,6 +52,7 @@ export function ProjectReportsPage() {
             </Link>
           )}
         </>
+        )
       }
     />
   )

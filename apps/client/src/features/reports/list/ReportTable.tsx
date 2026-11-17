@@ -10,7 +10,6 @@ import { initialsOf } from "../../../lib/people"
 import { StatusBadge } from "./StatusBadge"
 import { useReportsFrom } from "./ReportCard"
 import type { Project } from "../../projects/queries"
-import type { Member } from "../../workspaces/queries"
 import type { ReportListItem } from "../queries"
 
 const head = "px-3 py-2 text-left text-xs font-semibold text-muted-foreground first:ps-3 last:pe-3 sm:first:ps-3 sm:last:pe-3"
@@ -34,14 +33,12 @@ function Person({ person }: { person: { name: string; image: string | null } }) 
 /** Reports as Intent Table rows. `rowLink` renders the title as a link, so the table renders without a router in tests. */
 export function ReportTableBody({
   items,
-  members,
   projects,
   now,
   rowLink,
   onRow,
 }: {
   items: readonly ReportListItem[]
-  members: readonly Member[]
   projects?: readonly Project[]
   now: number
   rowLink(item: ReportListItem): ReactNode
@@ -67,7 +64,7 @@ export function ReportTableBody({
         </TableHeader>
         <TableBody>
           {items.map((item) => {
-            const assignee = members.find((member) => member.id === item.assigneeId)
+            const assignee = item.assignee
             const project = projects?.find((candidate) => candidate.id === item.projectId)
             return (
               <TableRow key={item.id} id={item.id} textValue={item.title} className="cursor-pointer hover:bg-muted/40">

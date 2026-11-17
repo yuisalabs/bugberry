@@ -41,8 +41,8 @@ function view(overrides: Partial<ReviewViewProps> = {}) {
     workspaces: [{ id: "w1", name: "Cuy" } as ReviewViewProps["workspaces"][number]],
     workspaceId: "w1",
     projects: [
-      { id: "p1", name: "Web", slug: "web", workspaceId: "w1", urlPatterns: [], logoUrl: null, createdAt: new Date(0) },
-      { id: "p2", name: "Admin", slug: "admin", workspaceId: "w1", urlPatterns: [], logoUrl: null, createdAt: new Date(0) },
+      { id: "p1", name: "Web", slug: "web", workspaceId: "w1", urlPatterns: [], logoUrl: null, createdAt: new Date(0), guestCount: 0 },
+      { id: "p2", name: "Admin", slug: "admin", workspaceId: "w1", urlPatterns: [], logoUrl: null, createdAt: new Date(0), guestCount: 0 },
     ],
     email: "dana@acme.io",
     name: "Dana",

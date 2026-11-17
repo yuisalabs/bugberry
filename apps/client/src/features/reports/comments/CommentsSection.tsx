@@ -1,4 +1,4 @@
-import type { WorkspaceRole } from "@bugberry/shared"
+import type { AccessRole } from "@bugberry/shared"
 import { commentCount, mergeFeed } from "./comment-feed"
 import type { Mentionable } from "./mentions"
 import { ActivityLine } from "./ActivityLine"
@@ -18,6 +18,8 @@ export function CommentsSection({
   busy,
   showActivity,
   onShowActivity,
+  activityAvailable = true,
+  guestNotice,
   onAdd,
   onEdit,
   onDelete,
@@ -28,17 +30,21 @@ export function CommentsSection({
   activity: Activity[] | null
   /** Who can be mentioned: the members of the report's workspace. */
   people: Mentionable[]
-  me: { id: string; role: WorkspaceRole; name?: string; image?: string | null }
+  me: { id: string; role: AccessRole; name?: string; image?: string | null }
   busy: boolean
   showActivity: boolean
   onShowActivity(on: boolean): void
+  /** False for a project's guest: activity lines are the team's. */
+  activityAvailable?: boolean
+  /** The project's name when it has guests: members are told those guests read these comments. */
+  guestNotice?: string
   /** Resolves when saved; the typed text is kept until then, so a failed save loses nothing. */
   onAdd(body: string, replyTo?: string): Promise<unknown>
   onEdit(id: string, body: string): Promise<unknown>
   onDelete(id: string): void
   onReact(commentId: string, emoji: string): void
 }) {
-  const feed = mergeFeed(threads, showActivity ? activity : null)
+  const feed = mergeFeed(threads, showActivity && activityAvailable ? activity : null)
   const tab = (on: boolean, label: string) => (
     <button
       type="button"
@@ -59,11 +65,16 @@ export function CommentsSection({
           Comments
           <span className="rounded-full bg-muted px-2 text-xs font-medium text-muted-foreground">{commentCount(threads)}</span>
         </h2>
-        <div role="group" aria-label="Show" className="flex rounded-xl bg-muted p-1">
-          {tab(false, "Comments only")}
-          {tab(true, "All activity")}
-        </div>
+        {activityAvailable && (
+          <div role="group" aria-label="Show" className="flex rounded-xl bg-muted p-1">
+            {tab(false, "Comments only")}
+            {tab(true, "All activity")}
+          </div>
+        )}
       </div>
+      {guestNotice && me.role !== "guest" && (
+        <p className="rounded-lg bg-warning-subtle px-3 py-2 text-sm text-warning-subtle-foreground">Guests of {guestNotice} can read comments here.</p>
+      )}
       <CommentComposer
         me={me}
         people={people}

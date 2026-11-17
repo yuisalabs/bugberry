@@ -1,6 +1,6 @@
 import type { Db } from "../../db/client"
 import { activeAmong } from "../account/repository"
-import { insertReplyNotifications, listThreadAuthors, workspaceMembersAmong } from "./repository"
+import { type CommentPlace, insertReplyNotifications, listThreadAuthors, readersAmong } from "./repository"
 
 /**
  * Tells a thread about a reply: the thread's first author ("replied to your comment") and everyone who replied
@@ -9,14 +9,14 @@ import { insertReplyNotifications, listThreadAuthors, workspaceMembersAmong } fr
  */
 export async function notifyReplies(
   db: Db,
-  input: { commentId: string; reportId: string; workspaceId: string; actorId: string; rootId: string },
+  input: { commentId: string; reportId: string; place: CommentPlace; actorId: string; rootId: string },
 ): Promise<void> {
   const thread = await listThreadAuthors(db, input.rootId, input.commentId)
   const rootAuthor = thread.find((row) => row.parentId === null)?.authorId
   const people = [...new Set(thread.map((row) => row.authorId))].filter((id) => id !== input.actorId)
   if (people.length === 0) return
   const active = new Set(await activeAmong(db, people))
-  const members = (await workspaceMembersAmong(db, input.workspaceId, people)).filter(({ userId }) => active.has(userId))
+  const members = (await readersAmong(db, input.place, people)).map(({ id }) => ({ userId: id })).filter(({ userId }) => active.has(userId))
   if (members.length === 0) return
   await insertReplyNotifications(
     db,

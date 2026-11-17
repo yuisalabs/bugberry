@@ -79,7 +79,7 @@ describe("JoinWorkspaceBody", () => {
     const onJoinInvitation = mock()
     render(
       <JoinWorkspaceBody
-        invitations={[{ id: "i1", workspaceName: "Javan Studio", inviterName: "Priya" }]}
+        invitations={[{ id: "i1", workspaceName: "Javan Studio", inviterName: "Priya", guestProjectName: null }]}
         domainWorkspaces={[]}
         preview={{ status: "idle" }}
         busy={false}

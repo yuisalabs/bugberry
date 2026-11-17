@@ -8,7 +8,8 @@ import { REPORT_LIST_REFRESH_MS } from "../reports/queries"
 export type WorkspaceAccessPatch = NonNullable<Parameters<ReturnType<typeof eden.api.workspaces>["access"]["patch"]>[0]>
 
 export const switchWorkspace = (workspaceId: string) => unwrap(eden.api.me.workspace.put({ workspaceId }))
-export const workspaces = () => unwrap(eden.api.workspaces.get())
+/** The person's workspaces, those they are only a guest in included. */
+export const workspaces = () => unwrap(eden.api.workspaces.get({ query: { include: "guest" } }))
 export const createWorkspace = (name: string, slug?: string) =>
   unwrap(eden.api.workspaces.post(slug === undefined ? { name } : { name, slug }))
 export const updateWorkspace = (id: string, patch: { name?: string; slug?: string }) => unwrap(eden.api.workspaces({ id }).patch(patch))

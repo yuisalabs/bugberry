@@ -30,7 +30,7 @@ function props(overrides: Partial<ComponentProps<typeof ReportsView>> = {}): Com
     onLayout: mock(),
     renderCard: (item) => <ReportCardBody item={item} now={NOW} />,
     renderTable: (items, tableProjects) => (
-      <ReportTableBody items={items} members={members} projects={tableProjects} now={NOW} rowLink={(item) => item.title} />
+      <ReportTableBody items={items} projects={tableProjects} now={NOW} rowLink={(item) => item.title} />
     ),
     ...overrides,
   }
@@ -82,7 +82,7 @@ describe("ReportsView", () => {
   })
 
   test("the list names each report's project on a project page too", () => {
-    const projects = [{ id: "p1", name: "Checkout Web", slug: "checkout", workspaceId: "w1", urlPatterns: [] as string[], logoUrl: null, createdAt: new Date() }]
+    const projects = [{ id: "p1", name: "Checkout Web", slug: "checkout", workspaceId: "w1", urlPatterns: [] as string[], logoUrl: null, createdAt: new Date(), guestCount: 0 }]
     render(<ReportsView {...props({ list: listOf([listItemFixture({ projectId: "p1" })]), layout: "list", tableProjects: projects })} />)
     expect(screen.queryByRole("button", { name: /Project/ })).toBeNull()
     expect(screen.getByText("Checkout Web")).toBeTruthy()

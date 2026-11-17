@@ -77,6 +77,7 @@ function FilterMenu({
 export function ReportFilters({
   search,
   members,
+  showPeople = true,
   projects,
   projectsLoading = false,
   labels = [],
@@ -85,6 +86,8 @@ export function ReportFilters({
 }: {
   search: ReportSearch
   members: readonly Member[]
+  /** False for a project's guest: no Reporter menu, no Assignee filter, and no No project (a guest never sees such a report). */
+  showPeople?: boolean
   /** Given only on the all-reports page, where reports can be narrowed to a project or to none. */
   projects?: readonly Project[]
   /** True while `projects` is still being fetched, so a chosen project shows as loading, not unknown. */
@@ -144,6 +147,7 @@ export function ReportFilters({
           ))}
         </FilterMenu>
 
+        {showPeople && (
         <FilterMenu
           label="Reporter"
           value={reporter?.name}
@@ -158,6 +162,7 @@ export function ReportFilters({
             </MenuItem>
           ))}
         </FilterMenu>
+        )}
 
         {projects && (
           <FilterMenu
@@ -168,7 +173,7 @@ export function ReportFilters({
             onSelectionChange={(keys) => onChange({ projectId: picked(keys) })}
           >
             <MenuItem id={ALL}>All projects</MenuItem>
-            <MenuItem id={NO_PROJECT}>No project</MenuItem>
+            {showPeople && <MenuItem id={NO_PROJECT}>No project</MenuItem>}
             {projects.map((project) => (
               <MenuItem key={project.id} id={project.id}>
                 {project.name}
@@ -231,6 +236,7 @@ export function ReportFilters({
                 </ToggleGroup>
               </div>
               {/* Not the reporter (who sent the report, filtered in the row above): who is to fix it. */}
+              {showPeople && (
               <Select
                 selectedKey={search.assigneeId ?? ALL}
                 onSelectionChange={(key) => onChange({ assigneeId: key === null || key === ALL ? undefined : String(key) })}
@@ -242,6 +248,7 @@ export function ReportFilters({
                   {(member) => <SelectItem id={member.id}>{member.name}</SelectItem>}
                 </SelectContent>
               </Select>
+              )}
             </div>
           </Popover>
         </PopoverTrigger>
