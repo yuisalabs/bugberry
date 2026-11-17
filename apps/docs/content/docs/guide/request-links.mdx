@@ -1,0 +1,47 @@
+---
+title: Request Links
+description: Ask someone outside the team for a recording, without an account or the extension.
+---
+
+A request link is for someone who won't install the extension: a customer, a client, a colleague in another team. They open it in their browser, record their screen or take a screenshot, and it arrives in your workspace as a report.
+
+## Make a Link
+
+On the reports page, press **Request a recording**. Choose:
+
+- **Project:** where the report is filed. The project's page picks itself.
+- **Note for them:** what you want them to show. They read it when they open the link.
+- **Page address:** optional, the page you want them to record. It's shown to them as a link and kept on the report.
+- **Works for:** 1, 7 or 30 days.
+- **Takes:** 1, 5 or 20 recordings.
+
+Press **Create link**, then **Copy**. The link is shown once: BugBerry keeps only a hash of it, so it can't show the link again. Lost it? Make a new one.
+
+A workspace can have up to 50 links that still take recordings.
+
+## What the Other Person Sees
+
+The page names you, your workspace and your note. Their browser asks what to share (a tab, a window or the whole screen), and only that is recorded. Nothing is sent until they press **Send**, after typing their name. Their email and a description are optional.
+
+- They need a computer: phones can't record the screen from a browser. Chrome, Edge and Firefox record video; a browser that can't record WebM, such as an older Safari, sends a screenshot instead.
+- A recording can be up to 5 minutes (less if your workspace's own recording limit is shorter) and 95 MB (less if the server's `MAX_UPLOAD_MB` is lower).
+- If sending stops halfway, say the connection drops, pressing **Send** again goes on with the same upload. Reloading the page loses the recording: they record again, and the unfinished upload gives its use back to the link after about an hour and a quarter.
+- If the link stops working before they press Send, the page lets them save the recording as a file.
+
+## What Arrives
+
+The report is filed in your name, as its reporter, and says **Sent by** with the name they typed. Members also see the email they gave.
+
+- A video or a screenshot, and nothing else: no console, network or actions, since the page can't see what happens in their other tabs.
+- You get a notification in the bell and an email. The workspace's Slack, Discord, Telegram and webhook channels hear about it like any new report.
+- It's **not** sent to the project's trackers by itself, even with auto-send on. Look at it first, then send it from the report's page.
+- Only workspace members can see it. The sender never gets a link to the report, or its number.
+- An AI agent reading it over MCP is told the description is the sender's words, written from outside the workspace.
+
+## Links in This Workspace
+
+The same dialog lists the workspace's links: how many recordings each took, when it expires, and the reports that came through it. Whoever made a link, or an admin, can **Revoke** it. A revoked link stops taking recordings at once; reports already sent stay. Expired, used-up and revoked links are folded under **Show ended links**.
+
+A link also stops working when the member who made it leaves the workspace or is deactivated.
+
+On a self-hosted server with S3 storage, the bucket's CORS rule must allow `PUT` from the dashboard's address. See [Storage](/self-host/storage#the-cors-rule).

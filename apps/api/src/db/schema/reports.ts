@@ -7,6 +7,7 @@ import { user } from "./auth"
 import { workspace } from "./workspaces"
 import { project } from "./projects"
 import { integration } from "./connections"
+import { recordingRequest } from "./requests"
 
 export const report = pgTable(
   "report",
@@ -64,6 +65,11 @@ export const report = pgTable(
     location: text("location"),
     /** The AI app that recorded it through the agent recorder ("Claude Code", "AI agent"); null for the extension. */
     viaAgent: text("via_agent"),
+    /** The request link it came through; the report keeps its sender when the link is deleted. */
+    recordingRequestId: text("recording_request_id").references(() => recordingRequest.id, { onDelete: "set null" }),
+    /** Who sent it through a request link: not a user, only the name and email they typed. */
+    senderName: text("sender_name"),
+    senderEmail: text("sender_email"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -82,6 +88,7 @@ export const report = pgTable(
     uniqueIndex("report_workspace_number_idx").on(table.workspaceId, table.number),
     // The Getting started checklist asks what this person has captured.
     index("report_reporter_idx").on(table.reporterId, table.captureType, table.uploadStatus),
+    index("report_recording_request_idx").on(table.recordingRequestId),
   ],
 )
 

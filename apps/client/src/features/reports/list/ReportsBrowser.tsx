@@ -1,5 +1,6 @@
 import { RiRecordCircleLine } from "@remixicon/react"
 import { permissionsOf } from "../../workspaces/permissions"
+import { RequestRecordingButton } from "../../requests/RequestRecordingDialog"
 import { useQuery } from "@tanstack/react-query"
 import { type ReactNode, useEffect, useState } from "react"
 import { useNow } from "../../../hooks/useNow"
@@ -90,7 +91,14 @@ export function ReportsBrowser({
       search={search}
       list={feed.list}
       now={now}
-      actions={actions}
+      actions={
+        <>
+          {actions}
+          {workspace && can.useWorkspaceTools && (
+            <RequestRecordingButton workspaceId={workspace.id} projectId={scope.projectId ?? null} isAdmin={workspace.role === "admin"} />
+          )}
+        </>
+      }
       canInvite={workspace?.role === "admin" && invitesAllowed(limits.data)}
       onInvite={() => setInviting(true)}
       usage={limits.data ? usageText(limits.data) : null}

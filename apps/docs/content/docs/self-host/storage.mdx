@@ -66,6 +66,8 @@ docker run --rm -v "$PWD/deploy:/deploy:ro" \
 
 On Cloudflare R2 you can instead open the bucket's **Settings → CORS policy** and paste the `CORSRules` array from that file.
 
+[Request links](/guide/request-links) upload from the dashboard's address too. A bucket set up before 0.16.0 with a rule that allows only `GET` needs `PUT` added, or recordings from request links fail while uploading.
+
 The extension doesn't need CORS: extension pages have their own host permissions.
 
 ## A Bucket Behind Cloudflare

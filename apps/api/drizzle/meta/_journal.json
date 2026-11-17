@@ -281,6 +281,20 @@
       "when": 1794827685053,
       "tag": "0039_project_guests",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1794841136603,
+      "tag": "0040_recording_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1794887128205,
+      "tag": "0041_last_member_workspace",
+      "breakpoints": true
     }
   ]
 }

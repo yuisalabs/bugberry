@@ -53,6 +53,8 @@ export async function listNotifications(
             : fixedIn(row.report.id)
           : snippetOf(row.body ?? "", namesIn(row.workspaceId)),
       viaAgent: row.notificationViaAgent ?? row.commentViaAgent,
+      /** Who sent a recording through a request link: not a member, so not an actor. */
+      senderName: row.kind === "recording_received" ? row.senderName : null,
     })),
     unreadCount,
   }

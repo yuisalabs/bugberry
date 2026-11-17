@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { withWebmDuration } from "../../lib/recording/webm-duration"
+import { withWebmDuration } from "../src/webm-duration"
 
 const UNKNOWN_SIZE = [0x01, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
 

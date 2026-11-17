@@ -12,6 +12,7 @@ const item = (index: number, overrides: Partial<Notifications["items"][number]> 
   createdAt: new Date(NOW - 5 * 60_000),
   actor: { id: "u1", name: "Ana", image: null },
   report: { id: `r${index}`, number: index, title: "Pay button fails" },
+  senderName: null,
   commentId: `c${index}`,
   snippet: "@Budi tolong cek",
   viaAgent: null,
@@ -32,6 +33,11 @@ describe("NotificationBell", () => {
     expect(container.textContent).toBe("3")
     rerender(<NotificationBadge count={12} />)
     expect(container.textContent).toBe("9+")
+  })
+
+  test("the bell reads a recording that arrived", () => {
+    view({ items: [item(3, { kind: "recording_received", actor: null, senderName: "Budi", commentId: null, snippet: "" })], unreadCount: 1 })
+    expect(screen.getByText("Budi sent the recording you asked for")).toBeTruthy()
   })
 
   test("lists mentions and opens one", () => {

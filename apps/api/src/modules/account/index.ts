@@ -92,8 +92,12 @@ export function accountModule(deps: AppDeps) {
     .put(
       "/me/workspace",
       async ({ user: current, body }) => {
-        await requireScope(db, current, body.workspaceId)
-        await updateUser(db, current.id, { lastWorkspaceId: body.workspaceId })
+        const { scope } = await requireScope(db, current, body.workspaceId)
+        await updateUser(
+          db,
+          current.id,
+          scope.role === "guest" ? { lastWorkspaceId: body.workspaceId } : { lastWorkspaceId: body.workspaceId, lastMemberWorkspaceId: body.workspaceId },
+        )
         return { ok: true }
       },
       { auth: true, body: t.Object({ workspaceId: t.String({ minLength: 1 }) }) },

@@ -7,6 +7,17 @@ export type WorkspaceRole = (typeof WORKSPACE_ROLES)[number]
 export type AccessRole = WorkspaceRole | "guest"
 export const MAX_GUESTS_PER_PROJECT = 50
 
+/** How long a recording request link lives, in days; 7 unless the member picks another. */
+export const REQUEST_EXPIRY_DAYS = [1, 7, 30] as const
+/** How many recordings one request link takes; 5 unless the member picks another. */
+export const REQUEST_USES = [1, 5, 20] as const
+export const REQUEST_MAX_SECONDS = 300
+/** One upload of 5 minutes at REQUEST_VIDEO_BITS_PER_SECOND fits, with room for the container. */
+export const REQUEST_MAX_MEDIA_BYTES = 95 * 1024 * 1024
+export const MAX_LIVE_REQUESTS_PER_WORKSPACE = 50
+export const REQUEST_VIDEO_BITS_PER_SECOND = 2_000_000
+export const MAX_SENDER_NAME_LENGTH = 80
+
 export const REPORT_STATUSES = ["open", "in_progress", "resolved", "closed"] as const
 export type ReportStatus = (typeof REPORT_STATUSES)[number]
 
@@ -89,6 +100,7 @@ export const RESERVED_WORKSPACE_SLUGS = [
   "app",
   "api",
   "s",
+  "request",
   "login",
   "invite",
   "share",

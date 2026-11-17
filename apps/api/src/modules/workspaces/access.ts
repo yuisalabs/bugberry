@@ -2,7 +2,7 @@ import type { AccessRole, Visibility, WorkspaceRole } from "@bugberry/shared"
 import type { Db } from "../../db/client"
 import { conflict, forbidden, notFound } from "../../lib/errors"
 import { findOldestGuestWorkspace, listGuestProjectIds } from "../guests/repository"
-import { findMemberRole, findOldestMembership, findProjectWorkspace, findReportAccess } from "./repository"
+import { findLastMemberWorkspace, findMemberRole, findOldestMembership, findProjectWorkspace, findReportAccess } from "./repository"
 
 /** The person's role in the workspace, or null when they are not a member. */
 export function memberRole(db: Db, userId: string, workspaceId: string): Promise<WorkspaceRole | null> {
@@ -25,7 +25,10 @@ export async function requireMember(
   return role
 }
 
-/** The workspace a request means: the one asked for, else the person's current one, else their oldest. */
+/**
+ * The workspace a request means: the one asked for, else the person's current one, else the last one they opened as a
+ * member (the current one may be a guest workspace), else their oldest.
+ */
 export async function resolveWorkspace(
   db: Db,
   person: { id: string; lastWorkspaceId?: string | null },
@@ -36,9 +39,9 @@ export async function resolveWorkspace(
     return requested
   }
   if (person.lastWorkspaceId && (await memberRole(db, person.id, person.lastWorkspaceId))) return person.lastWorkspaceId
-  const oldest = await findOldestMembership(db, person.id)
-  if (!oldest) throw conflict("no_workspace", "Join or create a workspace first")
-  return oldest
+  const fallback = (await findLastMemberWorkspace(db, person.id)) ?? (await findOldestMembership(db, person.id))
+  if (!fallback) throw conflict("no_workspace", "Join or create a workspace first")
+  return fallback
 }
 
 /**
@@ -84,8 +87,8 @@ export async function workspaceScope(db: Db, userId: string, workspaceId: string
 }
 
 /**
- * resolveWorkspace for the routes guests may use: the workspace asked for, else the current one, else the oldest
- * membership, else the oldest guest workspace. Nothing seen answers like a workspace that doesn't exist.
+ * resolveWorkspace for the routes guests may use: the workspace asked for, else the current one, else the last member
+ * workspace, else the oldest membership, else the oldest guest workspace. Nothing seen answers like a workspace that doesn't exist.
  */
 export async function requireScope(
   db: Db,
@@ -101,10 +104,11 @@ export async function requireScope(
     const scope = await workspaceScope(db, person.id, person.lastWorkspaceId)
     if (scope) return { workspaceId: person.lastWorkspaceId, scope }
   }
-  const oldest = (await findOldestMembership(db, person.id)) ?? (await findOldestGuestWorkspace(db, person.id))
-  const scope = oldest ? await workspaceScope(db, person.id, oldest) : null
-  if (!oldest || !scope) throw conflict("no_workspace", "Join or create a workspace first")
-  return { workspaceId: oldest, scope }
+  const fallback =
+    (await findLastMemberWorkspace(db, person.id)) ?? (await findOldestMembership(db, person.id)) ?? (await findOldestGuestWorkspace(db, person.id))
+  const scope = fallback ? await workspaceScope(db, person.id, fallback) : null
+  if (!fallback || !scope) throw conflict("no_workspace", "Join or create a workspace first")
+  return { workspaceId: fallback, scope }
 }
 
 /** Whether the scope reaches a report of this project; a report without a project is for members only. */

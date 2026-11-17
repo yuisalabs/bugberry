@@ -119,6 +119,13 @@ const shareRoute = createRoute({
   component: lazyRouteComponent(() => import("./features/reports/share/SharePage"), "SharePage"),
 })
 
+/** Public: someone without an account records their screen for the member who sent them the link. */
+const requestRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/request/$token",
+  component: lazyRouteComponent(() => import("./features/requests/RequestPage"), "RequestPage"),
+})
+
 /** Takes `?t=` too, so a member sent on from a share link keeps the start time. */
 const reportRoute = createRoute({
   getParentRoute: () => authedRoute,
@@ -228,6 +235,7 @@ const routeTree = rootRoute.addChildren([
   loginRoute,
   sessionEndedRoute,
   shareRoute,
+  requestRoute,
   inviteRoute,
   joinRoute,
   privacyRoute,

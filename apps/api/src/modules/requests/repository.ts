@@ -1,0 +1,131 @@
+import { and, desc, eq, exists, gt, inArray, isNull, or, sql } from "drizzle-orm"
+import { type Db, executor } from "../../db/client"
+import { notification, recordingRequest, report, user, workspace, workspaceMember } from "../../db/schema"
+import { newId } from "../../lib/ids"
+
+export type RequestRow = typeof recordingRequest.$inferSelect
+
+/**
+ * A report takes one of its link's uses once it arrived, and while its upload can still be finished: an upload
+ * started before `since` can no longer be finalized, so a stalled or abandoned one gives its use back.
+ */
+const takesAUse = (since: Date) =>
+  or(eq(report.uploadStatus, "ready"), and(eq(report.uploadStatus, "uploading"), gt(report.createdAt, since)))
+
+export async function insertRequest(db: Db, row: typeof recordingRequest.$inferInsert): Promise<RequestRow> {
+  const [created] = await executor(db).insert(recordingRequest).values(row).returning()
+  if (!created) throw new Error("Failed to create the request link")
+  return created
+}
+
+export async function findRequest(db: Db, id: string): Promise<RequestRow | null> {
+  const [row] = await executor(db).select().from(recordingRequest).where(eq(recordingRequest.id, id)).limit(1)
+  return row ?? null
+}
+
+export async function findRequestByTokenHash(db: Db, tokenHash: string): Promise<RequestRow | null> {
+  const [row] = await executor(db).select().from(recordingRequest).where(eq(recordingRequest.tokenHash, tokenHash)).limit(1)
+  return row ?? null
+}
+
+/** A link by its token's hash, with what its public page shows and whether its maker can still receive it. */
+export async function findRequestForSender(db: Db, tokenHash: string) {
+  const [row] = await executor(db)
+    .select({
+      request: recordingRequest,
+      workspaceName: workspace.name,
+      makerName: user.name,
+      makerActive: isNull(user.deactivatedAt),
+      makerIsMember: exists(
+        executor(db)
+          .select({ one: sql`1` })
+          .from(workspaceMember)
+          .where(and(eq(workspaceMember.userId, recordingRequest.createdById), eq(workspaceMember.workspaceId, recordingRequest.workspaceId))),
+      ),
+    })
+    .from(recordingRequest)
+    .innerJoin(workspace, eq(workspace.id, recordingRequest.workspaceId))
+    .innerJoin(user, eq(user.id, recordingRequest.createdById))
+    .where(eq(recordingRequest.tokenHash, tokenHash))
+    .limit(1)
+  return row ?? null
+}
+
+/** A workspace's links, newest first, with their maker's name. */
+export function listRequests(db: Db, workspaceId: string) {
+  return executor(db)
+    .select({ request: recordingRequest, createdBy: { id: user.id, name: user.name } })
+    .from(recordingRequest)
+    .innerJoin(user, eq(user.id, recordingRequest.createdById))
+    .where(eq(recordingRequest.workspaceId, workspaceId))
+    .orderBy(desc(recordingRequest.createdAt), desc(recordingRequest.id))
+}
+
+/** The reports of these links that take a use, oldest first. */
+export async function reportsOfRequests(db: Db, requestIds: string[], since: Date) {
+  if (requestIds.length === 0) return []
+  return executor(db)
+    .select({ requestId: report.recordingRequestId, id: report.id, number: report.number, uploadStatus: report.uploadStatus })
+    .from(report)
+    .where(and(inArray(report.recordingRequestId, requestIds), takesAUse(since)))
+    .orderBy(report.createdAt)
+}
+
+export async function revokeRequest(db: Db, id: string): Promise<void> {
+  await executor(db)
+    .update(recordingRequest)
+    .set({ revokedAt: new Date() })
+    .where(and(eq(recordingRequest.id, id), isNull(recordingRequest.revokedAt)))
+}
+
+/** Holds the workspace row so links made at the same moment take turns at the live-link count. */
+export async function lockWorkspaceRequests(db: Db, workspaceId: string): Promise<void> {
+  await executor(db).select({ id: workspace.id }).from(workspace).where(eq(workspace.id, workspaceId)).for("update")
+}
+
+/** Links still taking recordings: not revoked, not expired, not used up. */
+export async function countLiveRequests(db: Db, workspaceId: string, now: Date, since: Date): Promise<number> {
+  const [row] = await executor(db)
+    .select({ value: sql<number>`count(*)::int` })
+    .from(recordingRequest)
+    .where(
+      and(
+        eq(recordingRequest.workspaceId, workspaceId),
+        isNull(recordingRequest.revokedAt),
+        gt(recordingRequest.expiresAt, now),
+        sql`(SELECT count(*) FROM ${report} WHERE ${report.recordingRequestId} = ${recordingRequest.id} AND ${takesAUse(since)}) < ${recordingRequest.maxUses}`,
+      ),
+    )
+  return row?.value ?? 0
+}
+
+/** What the requester's notice says about a report that came through a link, and where to send it. */
+export async function findArrival(db: Db, reportId: string) {
+  const [row] = await executor(db)
+    .select({
+      makerId: report.reporterId,
+      makerEmail: user.email,
+      senderName: report.senderName,
+      number: report.number,
+      title: report.title,
+      workspaceName: workspace.name,
+    })
+    .from(report)
+    .innerJoin(user, eq(user.id, report.reporterId))
+    .innerJoin(workspace, eq(workspace.id, report.workspaceId))
+    .where(eq(report.id, reportId))
+    .limit(1)
+  return row ?? null
+}
+
+export async function insertReceivedNotification(db: Db, values: { userId: string; reportId: string }): Promise<void> {
+  await executor(db).insert(notification).values({ id: newId(), kind: "recording_received", commentId: null, actorId: null, ...values })
+}
+
+export async function countRequestUses(db: Db, requestId: string, since: Date): Promise<number> {
+  const [row] = await executor(db)
+    .select({ value: sql<number>`count(*)::int` })
+    .from(report)
+    .where(and(eq(report.recordingRequestId, requestId), takesAUse(since)))
+  return row?.value ?? 0
+}

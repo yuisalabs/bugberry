@@ -43,7 +43,7 @@ export async function isDeactivated(db: Db, userId: string): Promise<boolean> {
 export async function updateUser(
   db: Db,
   userId: string,
-  changes: Partial<Pick<typeof user.$inferInsert, "name" | "image" | "lastWorkspaceId">>,
+  changes: Partial<Pick<typeof user.$inferInsert, "name" | "image" | "lastWorkspaceId" | "lastMemberWorkspaceId">>,
 ): Promise<void> {
   await executor(db).update(user).set(changes).where(eq(user.id, userId))
 }

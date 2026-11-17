@@ -80,6 +80,7 @@ describe("local file route", () => {
     const response = await ctx.app.handle(new Request(await local.getReadUrl(key, { contentType: "image/png" })))
     expect(response.status).toBe(200)
     expect(response.headers.get("content-type")).toBe("image/png")
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff")
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(new Uint8Array([9, 8]))
   })
 

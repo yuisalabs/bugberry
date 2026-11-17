@@ -1,7 +1,7 @@
 import { redactUrl } from "@bugberry/capture"
 import { encodeReplayMedia, type ReplayEvent, replayDurationMs, replayFrames, replayStartedAt, tooLong } from "@bugberry/shared"
 import { type ActiveTab, type CaptureFlowDeps, type CaptureResult, capturable, pagePayloadFor, UNCAPTURABLE } from "../capture/capture-flow"
-import { deviceInfoFrom } from "../capture/device"
+import { deviceInfoFrom } from "@bugberry/capture"
 import type { ReplaySnapshot } from "../shared/messages"
 import type { ReplayDraft } from "../shared/types"
 

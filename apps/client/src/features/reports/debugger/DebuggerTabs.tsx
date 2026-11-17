@@ -155,6 +155,7 @@ export function DebuggerTabs({
                 onRetry={onRetry}
                 playback={playback}
                 durationMs={report.durationMs}
+                fromRequestLink={report.sender !== null}
                 page={page}
                 onShowAll={() => setPage(null)}
                 openRequest={
@@ -191,6 +192,7 @@ function EventsPanel({
   onRetry,
   playback,
   durationMs,
+  fromRequestLink,
   page,
   onShowAll,
   openRequest,
@@ -201,6 +203,8 @@ function EventsPanel({
   onRetry: () => void
   playback: Playback | null
   durationMs: number | null
+  /** Sent through a request link: recorded in a plain page, so nothing but the video came with it. */
+  fromRequestLink: boolean
   page: VisitedUrl | null
   onShowAll(): void
   openRequest: { key: string; nonce: number } | null
@@ -210,7 +214,13 @@ function EventsPanel({
   // Filtered once per page or payload, not on every video frame.
   const events = useMemo(() => (all && page ? all.filter((event) => onPage(page, event.t)) : all), [all, page])
   if (state.status === "none") {
-    return <p className="p-4 text-sm text-muted-foreground">This report has no console, network or action data.</p>
+    return (
+      <p className="p-4 text-sm text-muted-foreground">
+        {fromRequestLink
+          ? "No console or network data: this was recorded from a request link, without the extension."
+          : "This report has no console, network or action data."}
+      </p>
+    )
   }
   if (state.status === "loading") return <EventRowsSkeleton />
   if (state.status === "error") {

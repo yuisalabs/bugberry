@@ -2,7 +2,7 @@ import type { DraftStore } from "../drafts/draft-store"
 import type { OffscreenMessage } from "../shared/messages"
 import { type Recording, type RecordingDeps, type RecordingEndReason, startRecording } from "./recorder"
 import { type OpenedStream, openRecordingStream, type StreamDeps } from "./recording-stream"
-import { withWebmDuration } from "./webm-duration"
+import { withWebmDuration } from "@bugberry/capture"
 
 /**
  * The recorder behind the `bugberry:offscreen-*` messages, wherever it runs: Chrome's offscreen document,

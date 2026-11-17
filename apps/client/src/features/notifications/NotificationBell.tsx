@@ -76,12 +76,19 @@ export function NotificationBellView({
                   className={`mt-1.5 size-2 shrink-0 rounded-full ${item.read ? "bg-transparent" : "bg-primary"}`}
                 />
                 <span className="flex min-w-0 flex-col gap-0.5">
-                  <span className="text-sm text-foreground">
-                    <span className="font-semibold">{item.actor?.name ?? "Someone"}</span> {WHAT_HAPPENED[item.kind].verb}
-                    {item.viaAgent ? ` (via ${item.viaAgent})` : ""}
-                    {WHAT_HAPPENED[item.kind].on ? ` ${WHAT_HAPPENED[item.kind].on}` : ""}{" "}
-                    <span className="font-semibold">BB-{item.report.number}</span> · {item.report.title}
-                  </span>
+                  {item.kind === "recording_received" ? (
+                    <span className="text-sm text-foreground">
+                      <span className="font-semibold">{item.senderName ?? "Someone"} sent the recording you asked for</span>{" "}
+                      · BB-{item.report.number} · {item.report.title}
+                    </span>
+                  ) : (
+                    <span className="text-sm text-foreground">
+                      <span className="font-semibold">{item.actor?.name ?? "Someone"}</span> {WHAT_HAPPENED[item.kind].verb}
+                      {item.viaAgent ? ` (via ${item.viaAgent})` : ""}
+                      {WHAT_HAPPENED[item.kind].on ? ` ${WHAT_HAPPENED[item.kind].on}` : ""}{" "}
+                      <span className="font-semibold">BB-{item.report.number}</span> · {item.report.title}
+                    </span>
+                  )}
                   <span className="line-clamp-2 text-xs text-muted-foreground">{item.snippet}</span>
                   <span className="text-[11px] text-muted-foreground">
                     {formatRelative(item.createdAt, now)}
