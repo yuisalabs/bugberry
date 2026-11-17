@@ -92,7 +92,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full workflow, the extension, a
 
 ## Browser extension
 
-BugBerry is coming to the Chrome Web Store and Firefox Add-ons; the same extension connects to any BugBerry server. Until then, or when your company needs its own build, see [The extension for your team](https://bugberry.yuisalabs.com/docs/self-host/extension).
+Install BugBerry from the [Chrome Web Store](https://chromewebstore.google.com/detail/bugberry/cccfgmgmmejlciecjipkcbabhdljhihi) (Chrome, Edge, Brave and Opera) or [Firefox Add-ons](https://addons.mozilla.org/firefox/addon/bugberry/); the same extension connects to any BugBerry server. When your company needs its own build, see [The extension for your team](https://bugberry.yuisalabs.com/docs/self-host/extension).
 
 ## AI agents (MCP)
 
