@@ -51,7 +51,7 @@
 
 ### Self-hosted
 
-You need a server with Docker Compose v2, a domain, and a sign-in method (Google, GitHub, GitLab, or email codes).
+You need a server with Docker Compose v2 (2.23.1 or newer for the published images), a domain, and a sign-in method (Google, GitHub, GitLab, or email codes).
 
 ```bash
 git clone https://github.com/yuisalabs/bugberry.git

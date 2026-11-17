@@ -17,9 +17,9 @@ permissions:
   contents: read
   packages: write
 
-# A second run for the same ref waits; a publish half done is never cancelled.
+# Runs that publish the same image tag wait for each other; a publish half done is never cancelled.
 concurrency:
-  group: images-${{ github.ref }}-${{ inputs.ref }}
+  group: images-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -54,8 +54,8 @@ jobs:
         with:
           images: ghcr.io/yuisalabs/bugberry-${{ matrix.image }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{version}},enable=${{ github.event_name == 'push' }}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ github.event_name == 'push' }}
             type=raw,value=latest,enable=${{ github.event_name == 'push' }}
             type=raw,value=${{ inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
 

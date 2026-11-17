@@ -3,6 +3,11 @@
 services:
   api:
     image: ghcr.io/yuisalabs/bugberry-api:0.14.1
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped
     init: true
     stop_grace_period: 60s
@@ -57,6 +62,14 @@ services:
   # MCP for AI agents in its own process; it waits for api to migrate the database.
   api-mcp:
     image: ghcr.io/yuisalabs/bugberry-api:0.14.1
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # A ceiling, so a busy agent can't take the server from the dashboard.
+    cpus: ${MCP_CPUS:-1}
+    mem_limit: ${MCP_MEMORY:-1g}
     restart: unless-stopped
     init: true
     stop_grace_period: 60s
@@ -111,6 +124,11 @@ services:
   # The public address: the dashboard, with /api proxied to the api.
   client:
     image: ghcr.io/yuisalabs/bugberry-client:0.14.1
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped
     stop_grace_period: 60s
     expose:
@@ -123,6 +141,11 @@ services:
 
   postgres:
     image: postgres:16-alpine
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped
     environment:
       POSTGRES_USER: bugberry

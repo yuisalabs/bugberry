@@ -38,6 +38,14 @@ mkdir -p maintenance && cp docker/maintenance.example.json maintenance/maintenan
 
 From that moment every request to the api answers `503` with this notice, and the dashboard shows its maintenance page with your `message` and, when `until` is set, the time it should be back (in each person's own time zone). `code` must stay `"maintenance"`; `message` and `until` are optional. The extension tells anyone sending a report that BugBerry is down for maintenance.
 
+Installed from the published images ([`compose.images.yml`](/self-host/one-click)), there is no folder: the file goes into the `maintenance` volume.
+
+```bash
+docker run --rm -v bugberry_maintenance:/m -v "$PWD":/s alpine cp /s/maintenance.json /m/
+# and to end it:
+docker run --rm -v bugberry_maintenance:/m alpine rm /m/maintenance.json
+```
+
 Delete the file to end it. Neither step needs a restart. The public pages and the docs stay up throughout.
 
 If BugBerry is down without maintenance mode on, the dashboard says it can't be reached and offers to try again.

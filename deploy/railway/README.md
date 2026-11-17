@@ -55,7 +55,7 @@ bytes, and the server refuses any other shape.
 | `MCP_UPSTREAM` | `http://${{api.RAILWAY_PRIVATE_DOMAIN}}:3000` |
 | `NGINX_RESOLVER` | `[fd12::10] valid=10s ipv6=on` |
 
-An empty value isn't the default: `API_UPSTREAM` left blank breaks nginx's config, so the client won't start.
+A variable left empty gets the Docker Compose default (`http://api:3000`), which Railway can't reach, so set all three.
 
 Railway's private network is IPv6, and its DNS server inside a service is `fd12::10` (community answers from Railway
 staff; the official docs don't name it). nginx resolves the api's name per request through it, so a redeployed api's

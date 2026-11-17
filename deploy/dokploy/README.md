@@ -42,8 +42,8 @@ The images are pinned to a release (`0.14.1`). To upgrade, change the three `ima
 
 ## For the Owner: the Pull Request to Dokploy
 
-- Copy this folder to `blueprints/bugberry/` in `Dokploy/templates`, with an SVG logo saved as
-  `blueprints/bugberry/bugberry.svg` (BugBerry has only WebP logos today).
+- Copy this folder to `blueprints/bugberry/` in `Dokploy/templates`; `bugberry.svg` is its logo (it wraps the
+  192 px WebP icon; swap in a drawn vector if one is made).
 - Run `node build-scripts/generate-meta.js --check` there.
 - Title: `feat: add BugBerry template`
 - Description:

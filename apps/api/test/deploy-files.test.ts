@@ -285,6 +285,32 @@ describe("the share page's nginx block", () => {
   })
 })
 
+describe("the published images", () => {
+  test("a manual run publishes only the tag it is given, never a release's semver tags", async () => {
+    const workflow = await Bun.file(join(ROOT, ".github/workflows/images.yml")).text()
+    const semver = workflow.split("\n").filter((line) => line.includes("type=semver"))
+    expect(semver).toHaveLength(2)
+    for (const line of semver) expect(line).toContain("enable=${{ github.event_name == 'push' }}")
+  })
+
+  test("runs wait for each other per image tag, so a queued run for another tag is never dropped", async () => {
+    const workflow = Bun.YAML.parse(await Bun.file(join(ROOT, ".github/workflows/images.yml")).text()) as {
+      concurrency: { group: string; "cancel-in-progress": boolean }
+    }
+    expect(workflow.concurrency.group).toBe("images-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}")
+    expect(workflow.concurrency["cancel-in-progress"]).toBe(false)
+  })
+
+  test("an empty upstream falls back to the default, and a conf.d nginx can't write stops the container", async () => {
+    const dockerfile = await Bun.file(join(ROOT, "docker/client.Dockerfile")).text()
+    expect(dockerfile).toContain("COPY docker/nginx-defaults.envsh /docker-entrypoint.d/15-bugberry-defaults.envsh")
+    expect(dockerfile).toContain("COPY --chmod=755 docker/nginx-check.sh /docker-entrypoint.d/90-bugberry-check.sh")
+    expect(dockerfile).toContain("rm /etc/nginx/conf.d/default.conf")
+    const defaults = await Bun.file(join(ROOT, "docker/nginx-defaults.envsh")).text()
+    for (const line of [': "${API_UPSTREAM:=http://api:3000}"', ': "${MCP_UPSTREAM:=http://api-mcp:3000}"']) expect(defaults).toContain(line)
+  })
+})
+
 describe("the platform templates", () => {
   const templates = ["deploy/coolify/docker-compose.yml", "deploy/dokploy/docker-compose.yml"]
 
@@ -295,6 +321,26 @@ describe("the platform templates", () => {
         expect(text, `${path} ${name}`).toContain(`${name}: \${${name}`)
       }
       expect(text, path).toContain("STORAGE_DRIVER: ${STORAGE_DRIVER:-local}")
+    }
+  })
+
+  test("MCP keeps its CPU and memory ceiling, and every container rotates its logs", async () => {
+    for (const path of templates) {
+      const compose = Bun.YAML.parse(await Bun.file(join(ROOT, path)).text()) as {
+        services: Record<string, { cpus?: string | number; mem_limit?: string; logging?: { driver?: string; options?: Record<string, string> } }>
+      }
+      const mcp = compose.services["api-mcp"]
+      expect([path, interpolate(String(mcp?.cpus), {}), interpolate(String(mcp?.mem_limit), {})]).toEqual([path, "1", "1g"])
+      for (const [name, service] of Object.entries(compose.services)) {
+        expect([path, name, service.logging?.driver, service.logging?.options?.["max-size"]]).toEqual([path, name, "json-file", "10m"])
+      }
+    }
+  })
+
+  test("each template has the SVG logo its platform asks for", async () => {
+    for (const path of ["deploy/coolify/bugberry.svg", "deploy/dokploy/bugberry.svg"]) {
+      const text = await Bun.file(join(ROOT, path)).text()
+      expect(text.trimStart().startsWith("<svg"), path).toBe(true)
     }
   })
 

@@ -2,6 +2,7 @@
 #   mv .env.images.example .env   (fill it in)   then: docker compose -f compose.images.yml up -d
 # Optional: --profile s3 (S3-compatible storage on this server), --profile caddy (automatic HTTPS).
 # Upgrading: docker compose -f compose.images.yml pull && docker compose -f compose.images.yml up -d
+# Needs Docker Compose 2.23.1 or newer (the inline Caddyfile under configs:).
 name: bugberry
 
 x-logging: &logging

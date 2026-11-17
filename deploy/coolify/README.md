@@ -46,8 +46,8 @@ redeploy. `latest` follows every release.
 Coolify lists services from its own repository. As of November 2026 Coolify has paused outside template contributions,
 and it lists only services with at least 1,000 GitHub stars. When both allow it:
 
-- Copy `docker-compose.yml` to `templates/compose/bugberry.yaml` in `coollabsio/coolify`, and an SVG logo to
-  `svgs/bugberry.svg` (BugBerry's logo is only in WebP today; an SVG is needed).
+- Copy `docker-compose.yml` to `templates/compose/bugberry.yaml` in `coollabsio/coolify`, and `bugberry.svg` to
+  `svgs/bugberry.svg`. It wraps the 192 px WebP icon; swap in a drawn vector if one is made.
 - Add the docs page Coolify asks for, `content/docs/services/bugberry.mdx`, in its documentation repository.
 - Title: `feat(service): add BugBerry`
 - Description:

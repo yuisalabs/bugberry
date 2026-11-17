@@ -10,4 +10,7 @@ description: Released 16 November 2026.
   rest. See [One-Click Deploy](/self-host/one-click).
 - **Self-hosting:** an existing install needs nothing new; `docker compose up -d --build` works as before. The
   dashboard image now takes its upstream addresses from `API_UPSTREAM`, `MCP_UPSTREAM` and `NGINX_RESOLVER`, whose
-  defaults are the Docker Compose network's. The extension stays at 0.13.2.
+  defaults are the Docker Compose network's; one set but empty gets the default too. A container whose nginx can't
+  write its config (a read-only one without a tmpfs on `/etc/nginx/conf.d`) stops with a message instead of serving
+  nginx's welcome page. The templates rotate container logs and keep MCP's CPU and memory ceiling, as the Compose
+  install does. The extension stays at 0.13.2.
