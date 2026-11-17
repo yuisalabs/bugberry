@@ -12,8 +12,17 @@ import { findReadyReportVisibility, findSharePreview } from "../reports/reposito
 import { previewTags } from "./preview"
 
 const SHARE_VIEWS_PER_MINUTE = 60
-/** Chat apps fetch a link's tags and image once per paste; this limit is separate from the page's. */
-export const SHARE_PREVIEWS_PER_MINUTE = 120
+/**
+ * Chat apps fetch a link's tags and image once per paste, often from a few shared crawler addresses; this limit is
+ * separate from the page's.
+ */
+export const SHARE_PREVIEWS_PER_MINUTE = 600
+
+/** A JPEG starts with FF D8 FF; anything else in the thumbnail's place is not served as the card's image. */
+async function isJpeg(file: Blob): Promise<boolean> {
+  const head = new Uint8Array(await file.slice(0, 3).arrayBuffer())
+  return head.length === 3 && head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff
+}
 /**
  * Presigned URLs cannot be revoked, so links handed to anonymous viewers stay short: once a report
  * is made internal again, they stop working within minutes. The viewer fetches fresh ones on expiry.
@@ -71,10 +80,13 @@ export function shareModule(deps: AppDeps) {
     .get("/share/:slug/preview.jpg", async ({ params, request, server }) => {
       if (!previewLimiter.consume(clientIp(request, server, deps.config.proxyHops))) throw tooManyRequests()
       const row = await findSharePreview(deps.db, params.slug)
-      const image = row?.thumbnailKey ? await deps.storage.read(row.thumbnailKey) : null
-      if (!image) return imageNotFound()
+      // A storage that can't be read answers like a missing file: the card falls back to no image.
+      const image = row?.thumbnailKey ? await deps.storage.read(row.thumbnailKey).catch(() => null) : null
+      if (!image || !(await isJpeg(image))) return imageNotFound()
       // Private: a CDN copy would outlive the report leaving public; chat apps keep their own anyway.
-      return new Response(image, { headers: { "content-type": "image/jpeg", "cache-control": "private, max-age=300" } })
+      return new Response(image, {
+        headers: { "content-type": "image/jpeg", "cache-control": "private, max-age=300", "x-content-type-options": "nosniff" },
+      })
     })
     .get("/share/:slug", async ({ params, request, server }) => {
     if (!limiter.consume(clientIp(request, server, deps.config.proxyHops))) throw tooManyRequests()

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test"
+import { SHARE_PREVIEWS_PER_MINUTE } from "../src/modules/share"
 import { LocalStorageDriver } from "../src/storage/local"
 import { createProject, createReadyReport, createUserWithToken, setupTestApp } from "./helpers"
 
@@ -87,12 +88,38 @@ describe("GET /api/share/:slug/preview.jpg", () => {
     }
     expect(await text(bare.shareSlug)).toContain("http://localhost:3000/assets/og-image.png")
   })
+  test("the image is never sniffed as anything but a JPEG", async () => {
+    const { shareSlug } = await publicReport()
+    expect((await get(`/api/share/${shareSlug}/preview.jpg`)).headers.get("x-content-type-options")).toBe("nosniff")
+  })
+
+  test("a stored file that isn't a JPEG is not served", async () => {
+    const created = await publicReport()
+    if (!(ctx.storage instanceof LocalStorageDriver)) throw new Error("expected local storage")
+    await ctx.storage.writeObject(created.thumbnailKey!, new TextEncoder().encode("<svg onload=alert(1)>"))
+    const response = await get(`/api/share/${created.shareSlug}/preview.jpg`)
+    expect(response.status).toBe(404)
+  })
+
+  test("storage that fails to read answers like a missing image", async () => {
+    const { shareSlug } = await publicReport()
+    ctx.storage.read = async () => {
+      throw new Error("bucket unreachable")
+    }
+    const response = await get(`/api/share/${shareSlug}/preview.jpg`)
+    expect(response.status).toBe(404)
+    expect(response.headers.get("cache-control")).toBe("no-store")
+  })
 })
 
 describe("the preview's own limit", () => {
+  test("room for the crawlers of busy chat apps behind one address", () => {
+    expect(SHARE_PREVIEWS_PER_MINUTE).toBe(600)
+  })
+
   test("over the limit: the tags stay generic and the image is refused", async () => {
     const { shareSlug } = await publicReport()
-    for (let i = 0; i < 120; i++) await get(`/api/share/${shareSlug}/meta`)
+    for (let i = 0; i < SHARE_PREVIEWS_PER_MINUTE; i++) await get(`/api/share/${shareSlug}/meta`)
     const over = await get(`/api/share/${shareSlug}/meta`)
     expect(over.status).toBe(200)
     expect(await over.text()).toContain("A report on BugBerry")
