@@ -14,6 +14,8 @@ export interface MarkdownProps {
 interface TreeNode {
   type: string
   value?: string
+  alt?: string | null
+  url?: string
   children?: TreeNode[]
 }
 
@@ -46,6 +48,22 @@ function htmlAsText() {
     })
   }
   return visit
+}
+
+/**
+ * An image inside a link would become a second link inside the first. Its alt,
+ * or its URL when the alt is empty, becomes plain text in the outer link's
+ * label instead, so the label check below sees it.
+ */
+function imagesInLinksAsText() {
+  const visit = (parent: TreeNode, inLink: boolean) => {
+    parent.children = parent.children?.map((child) => {
+      if (inLink && (child.type === "image" || child.type === "imageReference")) return { type: "text", value: child.alt || child.url || "" }
+      visit(child, inLink || child.type === "link" || child.type === "linkReference")
+      return child
+    })
+  }
+  return (tree: TreeNode) => visit(tree, false)
 }
 
 const allowedUrl = /^(https?:\/\/|mailto:)/i
@@ -162,7 +180,7 @@ const commentComponents: Components = {
   h6: boldParagraph,
 }
 
-const remarkPlugins = [remarkGfm, htmlAsText, remarkBreaks]
+const remarkPlugins = [remarkGfm, htmlAsText, imagesInLinksAsText, remarkBreaks]
 
 export function Markdown({ children, look, className }: MarkdownProps) {
   return (

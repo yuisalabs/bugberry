@@ -106,4 +106,15 @@ describe("Markdown: links", () => {
     expect(box.querySelectorAll("a")).toHaveLength(2)
     expect(box.textContent).toContain("bad")
   })
+  test("an image inside a link is the link's label, not a second link", () => {
+    const box = show(
+      "[![build](https://a.test/b.png)](https://a.test/ci) [![](https://a.test/c.png)](https://a.test/d) [![https://bank.com](https://a.test/x.png)](https://evil.example/z)",
+    )
+    expect(box.querySelector("a a, img")).toBeNull()
+    expect(box.querySelectorAll("a")).toHaveLength(3)
+    expect(link("build").getAttribute("href")).toBe("https://a.test/ci")
+    expect(link("https://a.test/c.png").getAttribute("href")).toBe("https://a.test/d")
+    expect(link("https://evil.example/z")).toBeTruthy()
+    expect(screen.queryByText(/bank\.com/)).toBeNull()
+  })
 })
