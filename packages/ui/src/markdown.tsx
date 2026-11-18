@@ -228,6 +228,9 @@ function CodeOverride({ className, children, ...props }: ComponentProps<"code">)
 
 const headingClass = "font-heading font-semibold tracking-tight text-foreground"
 
+// The root's space-y reaches only its own children; this gives blocks inside items and quotes the same gap.
+const nestedGap = "[&>*+*]:mt-3"
+
 const shared: Components = {
   ul: ({ node, className, ...props }) => (
     <ul
@@ -243,7 +246,7 @@ const shared: Components = {
     <ol className={cn("list-decimal space-y-1 pl-6", className)} {...props} />
   ),
   blockquote: ({ node, ...props }) => (
-    <blockquote className="border-l-2 border-border pl-3 text-muted-foreground" {...props} />
+    <blockquote className={cn("border-l-2 border-border pl-3 text-muted-foreground", nestedGap)} {...props} />
   ),
   pre: ({ node, ...props }) => (
     <pre
@@ -257,8 +260,8 @@ const shared: Components = {
       <RunningText>{children}</RunningText>
     </p>
   ),
-  li: ({ node, children, ...props }) => (
-    <li {...props}>
+  li: ({ node, className, children, ...props }) => (
+    <li className={cn(nestedGap, className)} {...props}>
       <RunningText>{children}</RunningText>
     </li>
   ),

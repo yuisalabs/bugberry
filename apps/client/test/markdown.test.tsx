@@ -66,6 +66,13 @@ describe("Markdown: looks", () => {
     expect(screen.queryByRole("heading")).toBeNull()
     expect(box.querySelector("strong")?.textContent).toBe("Besar")
   })
+  test("paragraphs inside a list item or a quote keep the same gap as at the top", () => {
+    const box = show("- one\n\n  two\n\n> three\n>\n> four")
+    for (const element of [box.querySelector("li"), box.querySelector("blockquote")]) {
+      expect(element?.querySelectorAll(":scope > p")).toHaveLength(2)
+      expect(element?.className).toContain("[&>*+*]:mt-3")
+    }
+  })
   test("long words break instead of widening the box", () => {
     expect(show("x").className).toContain("break-words")
   })
