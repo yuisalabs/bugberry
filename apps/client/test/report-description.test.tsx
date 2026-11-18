@@ -24,5 +24,6 @@ test("a time in a description stays text, also on a video report", () => {
       <ReportDescription description="Fails at 0:52" />
     </ReportVideoContext.Provider>,
   )
+  expect(screen.getByText("Fails at 0:52")).toBeTruthy()
   expect(screen.queryByRole("button")).toBeNull()
 })

@@ -1,5 +1,5 @@
 import { RiPlayFill } from "@remixicon/react"
-import { useContext } from "react"
+import { memo, useContext } from "react"
 import { Markdown } from "@bugberry/ui/markdown"
 import { ReportVideoContext } from "../detail/video-context"
 import { videoTimes } from "./comment-feed"
@@ -31,8 +31,11 @@ function TimedText({ text }: { text: string }) {
   )
 }
 
-/** A comment body as Markdown, with mentions as highlighted names and video times as seek buttons. */
-export function CommentMarkdown({ body, names }: { body: string; names: Map<string, string> }) {
+/**
+ * A comment body as Markdown, with mentions as highlighted names and video times as seek buttons.
+ * Memoised so the feed's re-renders (the relative time ticks every minute) do not parse it again; `names` must keep its identity.
+ */
+export const CommentMarkdown = memo(function CommentMarkdown({ body, names }: { body: string; names: Map<string, string> }) {
   const { text, ids } = protectMentions(body)
   const nameAt = (index: number) => names.get(ids[index] ?? "")
 
@@ -66,4 +69,4 @@ export function CommentMarkdown({ body, names }: { body: string; names: Map<stri
       {text}
     </Markdown>
   )
-}
+})

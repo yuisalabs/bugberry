@@ -1,6 +1,6 @@
 import type { AccessRole } from "@bugberry/shared"
 import { RiMoreLine } from "@remixicon/react"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Avatar } from "@bugberry/ui/avatar"
 import { useConfirm } from "@bugberry/ui/confirm-dialog"
 import { Button } from "@bugberry/ui/button"
@@ -50,6 +50,7 @@ export function CommentItem({
   const author = comment.author
   const mine = author?.id === me.id
   const canDelete = mine || me.role === "admin"
+  const names = useMemo(() => new Map(comment.mentions.map((person) => [person.id, person.name])), [comment.mentions])
 
   if (comment.deleted || !author) {
     return (
@@ -60,7 +61,6 @@ export function CommentItem({
     )
   }
 
-  const names = new Map(comment.mentions.map((person) => [person.id, person.name]))
   const startEditing = () => {
     const editable = toEditable(comment.body, names, people)
     setPicked(editable.picked)

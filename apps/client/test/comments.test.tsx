@@ -1,6 +1,7 @@
 import { describe, expect, mock, test } from "bun:test"
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import type { ComponentProps } from "react"
+import { CommentItem } from "../src/features/reports/comments/CommentItem"
 import { CommentsSection } from "../src/features/reports/comments/CommentsSection"
 import { ReportVideoContext } from "../src/features/reports/detail/video-context"
 import { activityFixture, commentFixture, threadFixture } from "./fixtures"
@@ -431,4 +432,39 @@ describe("the comments section", () => {
       expect(props.onEdit).toHaveBeenCalledWith("c3", "@[user:u1] cek lagi @[user:u4]")
     })
   })
+})
+
+test("a comment is not parsed again when its parent re-renders with the same comment", () => {
+  let reads = 0
+  const video = {
+    seek: () => {},
+    get durationMs() {
+      reads += 1
+      return 116_000
+    },
+  }
+  const comment = commentFixture({ id: "c9", body: "@[user:u2] fails at 0:52", mentions: [{ id: "u2", name: "Budi" }] })
+  const props: ComponentProps<typeof CommentItem> = {
+    comment,
+    people,
+    me: { id: "u1", role: "member" },
+    busy: false,
+    onEdit: async () => {},
+    onDelete: () => {},
+    onReact: () => {},
+    onReply: () => {},
+  }
+  const { rerender } = render(
+    <ReportVideoContext.Provider value={video}>
+      <CommentItem {...props} />
+    </ReportVideoContext.Provider>,
+  )
+  expect(screen.getByRole("button", { name: "Play from 0:52" })).toBeTruthy()
+  const afterMount = reads
+  rerender(
+    <ReportVideoContext.Provider value={video}>
+      <CommentItem {...props} />
+    </ReportVideoContext.Provider>,
+  )
+  expect(reads).toBe(afterMount)
 })
