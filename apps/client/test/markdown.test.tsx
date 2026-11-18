@@ -127,6 +127,27 @@ describe("Markdown: links", () => {
     for (const n of [1, 2, 3, 4, 5, 6]) expect(link(`https://evil.example/${n}`)).toBeTruthy()
     expect(screen.queryByText(/bank\.com/)).toBeNull()
   })
+  test("variation selectors, combining marks and other invisible characters do not hide a URL in a label", () => {
+    for (const label of ["h\uFE0Fttps://bank.com/login", "h\u0301ttps://bank.com", "h\u180Bttps://bank.com"]) {
+      show(`[${label}](https://evil.example/1)`)
+      expect(link("https://evil.example/1")).toBeTruthy()
+      expect(document.body.textContent).not.toContain("bank.com")
+      document.body.innerHTML = ""
+    }
+  })
+  test("every URL in a label is checked, not only the first", () => {
+    show("[https://evil.example/ \u2192 https://bank.com](https://evil.example/2)")
+    expect(link("https://evil.example/2")).toBeTruthy()
+    expect(document.body.textContent).not.toContain("bank.com")
+  })
+  test("a label of URLs that all name the target's host stays", () => {
+    show("[https://a.test/a and https://a.test/b](https://a.test/c)")
+    expect(link("https://a.test/a and https://a.test/b").getAttribute("href")).toBe("https://a.test/c")
+  })
+  test("a label of only a Braille blank counts as empty", () => {
+    show("[\u2800](https://a.test)")
+    expect(link("https://a.test").getAttribute("href")).toBe("https://a.test")
+  })
   test("a mention whose name is a URL cannot name another site", () => {
     const box = render(
       <Markdown look="comment" literalText={(value) => value.replace("\uE000", "@https://bank.com")}>

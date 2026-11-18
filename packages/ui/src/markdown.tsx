@@ -219,21 +219,27 @@ const hostOf = (url: string) => {
   }
 }
 
-// Spaces, format characters and the blank-looking fillers, which would otherwise split or hide a URL in a label.
-const invisible = /[\s\p{Cf}\u034F\u115F\u1160\u3164\uFFA0]/gu
+// Characters that draw nothing or sit on another one, so they can split or hide a URL in a label; the Braille blank looks empty too.
+const invisible = /[\s\p{Cf}\p{Default_Ignorable_Code_Point}\p{M}\u2800]/gu
+
+// "https://www." is one start, so the "www." inside it does not cut the URL in two.
+const urlStart = /https?:\/\/(?:www\.)?|www\./gi
 
 /**
  * Whether a link may show its own label. A label naming another host than the
  * link is how phishing reads "bank.com" while going elsewhere, and an empty one
- * is an invisible link; both show the real target instead.
+ * is an invisible link; both show the real target instead. Every URL in the
+ * label must name the link's host; each runs until the next one starts.
  */
 const keepsLabel = (children: ReactNode, href: string, rewrite: (text: string) => string) => {
   const label = textOf(children, rewrite).replace(invisible, "")
   if (label === "") return false
-  const at = label.search(/https?:\/\/|www\./i)
-  if (at < 0) return true
-  const labelHost = hostOf(label.slice(at))
-  return labelHost !== null && labelHost === hostOf(href)
+  const starts = [...label.matchAll(urlStart)].map((match) => match.index)
+  const target = hostOf(href)
+  return starts.every((start, i) => {
+    const host = hostOf(label.slice(start, starts[i + 1]))
+    return host !== null && host === target
+  })
 }
 
 const unchanged = (text: string) => text
