@@ -327,6 +327,14 @@ describe("the comments section", () => {
     expect(commentEl("n2").textContent).not.toMatch(/[\uE000\uE001]/)
   })
 
+  test("a comment shown as typed writes its mentions as names", () => {
+    const body = `@[user:u1] lihat\n${"- ".repeat(1100)}x`
+    setup({ threads: [threadFixture({ id: "p1", body, mentions: anaMention })] })
+    expect(commentEl("p1").textContent).toContain("@Ana lihat")
+    expect(commentEl("p1").textContent).not.toMatch(/[\uE000\uE001]/)
+    expect(commentEl("p1").querySelector("ul, ol")).toBeNull()
+  })
+
   test("a video time is a seek button in text and in a list, never in code", () => {
     const seek = mock()
     const body = "lihat 0:52\n\n- juga 0:10\n\n`0:20` dan\n\n```\n0:30\n```"

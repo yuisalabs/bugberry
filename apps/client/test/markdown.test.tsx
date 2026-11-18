@@ -319,6 +319,25 @@ describe("Markdown: deep nesting", () => {
     expect(box.className).toContain("text-sm")
     expect(box.querySelector("b, strong")).toBeNull()
   })
+  test("text shown as typed goes through literalText, or stays as given when literalText throws", () => {
+    const quiet = spyOn(console, "error").mockImplementation(() => {})
+    const fail = () => {
+      throw new Error("boom")
+    }
+    const rewritten = render(
+      <Markdown look="comment" renderText={fail} literalText={(value) => value.replace("P", "@Ana")}>
+        {"**P**"}
+      </Markdown>,
+    ).container
+    const unrewritten = render(
+      <Markdown look="comment" literalText={fail}>
+        {`P\n${"> ".repeat(17)}x`}
+      </Markdown>,
+    ).container
+    quiet.mockRestore()
+    expect(rewritten.textContent).toBe("**@Ana**")
+    expect(unrewritten.textContent).toBe(`P\n${"> ".repeat(17)}x`)
+  })
   test("deep indentation scrolls inside the component instead of widening the page", () => {
     expect(show("x").className).toContain("overflow-x-auto")
   })

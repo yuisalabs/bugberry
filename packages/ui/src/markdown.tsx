@@ -420,7 +420,7 @@ const remarkPlugins = [capNesting, remarkGfm, htmlAsText, imagesInLinksAsText, r
 const rootClass = "space-y-3 overflow-x-auto break-words text-foreground"
 
 /** Shows the fallback while rendering `text` throws; a new text gets a fresh try. */
-class RenderFailure extends Component<{ text: string; fallback: ReactNode; children: ReactNode }, { failed: boolean; text: string }> {
+class RenderFailure extends Component<{ text: string; fallback: () => ReactNode; children: ReactNode }, { failed: boolean; text: string }> {
   state = { failed: false, text: this.props.text }
 
   static getDerivedStateFromProps(props: { text: string }, state: { text: string }) {
@@ -432,13 +432,23 @@ class RenderFailure extends Component<{ text: string; fallback: ReactNode; child
   }
 
   render() {
-    return this.state.failed ? this.props.fallback : this.props.children
+    return this.state.failed ? this.props.fallback() : this.props.children
+  }
+}
+
+/** The whole text rewritten like code, so a caller's placeholders read as what they stand for; as given if that throws. */
+const literally = (text: string, literalText: ((text: string) => string) | undefined) => {
+  if (!literalText) return text
+  try {
+    return literalText(text)
+  } catch {
+    return text
   }
 }
 
 export function Markdown({ children, look, className, renderText, literalText }: MarkdownProps) {
-  const asTyped = <div className={cn(rootClass, "whitespace-pre-wrap", className)}>{children}</div>
-  if (tooManyMarkers(children)) return asTyped
+  const asTyped = () => <div className={cn(rootClass, "whitespace-pre-wrap", className)}>{literally(children, literalText)}</div>
+  if (tooManyMarkers(children)) return asTyped()
   return (
     <RenderFailure text={children} fallback={asTyped}>
       <div className={cn(rootClass, className)}>
