@@ -268,6 +268,11 @@ describe("Markdown: deep nesting", () => {
     "> - ".repeat(800) + "x",
     "* ".repeat(2499) + "x",
     "-\t".repeat(2499) + "x",
+    "[^a]: " + "- ".repeat(2496) + "x",
+    "[^a]:" + "> - ".repeat(1248) + "x",
+    "[^a]: " + "-\t".repeat(2496) + "x",
+    ("- ".repeat(16) + "[^a]: ").repeat(130) + "x",
+    "lihat [^a]\n\n[^a]: " + "- ".repeat(2490) + "x",
   ]
   for (const text of cases) {
     test(`${JSON.stringify(text.slice(0, 4))} x ${text.length} chars is shown as typed, fast, without nesting`, () => {
@@ -283,6 +288,11 @@ describe("Markdown: deep nesting", () => {
     const box = show("> ".repeat(17) + "x")
     expect(box.querySelector("blockquote")).toBeNull()
     expect(box.textContent).toBe("> ".repeat(17) + "x")
+  })
+  test("an ordinary footnote is still Markdown", () => {
+    const box = show("lihat [^1]\n\n[^1]: catatan")
+    expect(box.className).not.toContain("whitespace-pre-wrap")
+    expect(box.querySelector("section")?.textContent).toContain("catatan")
   })
   test("a long rule of spaced dashes, stars or underscores is still a rule", () => {
     for (const mark of ["-", "*", "_"]) expect(show(Array(20).fill(mark).join(" ")).querySelector("hr")).not.toBeNull()

@@ -118,7 +118,19 @@ const afterListMarker = (text: string, i: number) => {
 }
 
 /**
- * Whether any line starts with more than 16 quote or list markers. The parser spends time quadratic in
+ * The index just past a footnote definition's "[^label]:" at `i`, or -1. Everything after it on the line
+ * nests inside the footnote, so it counts as a marker. The label is cut at 999 characters, the parser's
+ * own limit, so a "[^" that never closes costs one bounded look.
+ */
+const afterFootnoteStart = (text: string, i: number) => {
+  if (text[i] !== "[" || text[i + 1] !== "^") return -1
+  let end = i + 2
+  while (end - i - 2 < 999 && end < text.length && text[end] !== "]" && text[end] !== "\n" && text[end] !== "\r") end++
+  return end > i + 2 && text[end] === "]" && text[end + 1] === ":" ? end + 2 : -1
+}
+
+/**
+ * Whether any line starts with more than 16 quote, list or footnote markers. The parser spends time quadratic in
  * that count before any plugin runs: "- " 2,499 times on one line is about 2.4 s. Nesting spread over
  * lines needs indentation for every level, so it cannot grow that deep in 5,000 characters.
  * One pass over the text, at most two over a line that turns out to be a rule.
@@ -130,7 +142,7 @@ const tooManyMarkers = (text: string) => {
     let markers = 0
     while (isBlank(text[i])) i++
     while (markers <= maxNesting) {
-      const next = text[i] === ">" ? i + 1 : afterListMarker(text, i)
+      const next = text[i] === ">" ? i + 1 : text[i] === "[" ? afterFootnoteStart(text, i) : afterListMarker(text, i)
       if (next < 0) break
       i = next
       while (isBlank(text[i])) i++
