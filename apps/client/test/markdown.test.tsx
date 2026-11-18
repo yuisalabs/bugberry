@@ -144,6 +144,11 @@ describe("Markdown: links", () => {
     show("[https://a.test/a and https://a.test/b](https://a.test/c)")
     expect(link("https://a.test/a and https://a.test/b").getAttribute("href")).toBe("https://a.test/c")
   })
+  test("a label URL with a user name before the host shows the real target", () => {
+    show("[https://bank.com@evil.example/](https://evil.example/)")
+    expect(link("https://evil.example/")).toBeTruthy()
+    expect(document.body.textContent).not.toContain("bank.com")
+  })
   test("a label of only a Braille blank counts as empty", () => {
     show("[\u2800](https://a.test)")
     expect(link("https://a.test").getAttribute("href")).toBe("https://a.test")

@@ -223,9 +223,11 @@ const textOf = (node: ReactNode, rewrite: (text: string) => string): string => {
   return ""
 }
 
+// A URL with a user name reads as that name's site ("https://bank.com@evil.example"), so it names no host that can match.
 const hostOf = (url: string) => {
   try {
-    return new URL(/^www\./i.test(url) ? `https://${url}` : url).hostname.toLowerCase()
+    const parsed = new URL(/^www\./i.test(url) ? `https://${url}` : url)
+    return parsed.username || parsed.password ? null : parsed.hostname.toLowerCase()
   } catch {
     return null
   }
