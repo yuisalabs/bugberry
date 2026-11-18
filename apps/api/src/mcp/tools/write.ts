@@ -103,7 +103,7 @@ export function registerWriteTools(server: McpServer, ctx: McpContext): void {
         priority: z.enum(PRIORITIES).optional(),
         assignee: z.string().max(100).optional().describe('"me", "none", or a member id from listMembers.'),
         title: z.string().min(1).max(200).optional(),
-        description: z.string().max(5000).optional(),
+        description: z.string().max(5000).optional().describe("The report's description. Markdown: headings, lists, code and links render on the report page; images do not."),
         project: z.string().max(200).optional().describe('Project id or slug in the report\'s workspace, or "none".'),
         addLabels: z.array(z.string().max(40)).max(10).optional().describe("Names of existing labels (listLabels) to put on the report."),
         removeLabels: z.array(z.string().max(40)).max(10).optional().describe("Names of labels to take off the report."),

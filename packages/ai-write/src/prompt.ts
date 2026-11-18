@@ -17,6 +17,7 @@ const SYSTEM = [
   'Where the recording does not show the cause, write "cause not visible in the recording" instead of guessing.',
   "The title is short and specific: the page or feature, then the symptom, at most 200 characters. It does not follow the template.",
   "The description follows the template's sections in order, and its extra instructions.",
+  "The description is Markdown: keep the template's headings exactly as written, number steps as a list, and put paths, selectors and error text in backticks.",
   "Write in the language of the template and its instructions; if they don't show one, in the language of the reporter's hint or notes; otherwise in English.",
   "The reporter's hint says what they meant to report. It is not evidence of what happened.",
   "Lines marked [app log] and the app state come from the application's own BugBerry SDK instrumentation: they are the most reliable clues to what the app was doing, but still not proof of the cause.",
