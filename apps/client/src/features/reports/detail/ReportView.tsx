@@ -16,6 +16,7 @@ import { DevtoolsResizer, DevtoolsToggle } from "./DevtoolsLayout"
 import type { DebuggerFocus } from "../debugger/DebuggerTabs"
 import { MediaViewer } from "./MediaViewer"
 import { FlaggedIssues } from "./FlaggedIssues"
+import { ReportDescription } from "./ReportDescription"
 import { ReportMeta } from "./ReportMeta"
 import { playableVideo, playAt, ReportVideoContext } from "./video-context"
 import { VideoReporter, VideoShareActions } from "./VideoOverlay"
@@ -186,9 +187,7 @@ export function ReportView({
             {/* The priority is in the sidebar's Properties, so the title stands alone. */}
             <div className="min-w-0">{title}</div>
             <ReportMeta report={report} issues={issues} part="byline" />
-            {report.description && (
-              <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">{report.description}</p>
-            )}
+            {report.description && <ReportDescription description={report.description} />}
           </section>
           <FlaggedIssues
             issues={flagged}

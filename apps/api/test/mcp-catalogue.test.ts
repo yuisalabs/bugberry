@@ -43,4 +43,16 @@ describe("MCP tool catalogue", () => {
     }
     expect(tools.filter((tool) => /delete/i.test(tool.name)).map((tool) => tool.name)).toEqual(["deleteComment"])
   })
+
+  test("updateReport and createUpload tell the agent the description is Markdown", async () => {
+    const ctx = await setupTestApp()
+    const client = await mcpClient(ctx.app, (await createUserWithToken(ctx.db)).headers)
+    const { tools } = await client.listTools()
+
+    for (const name of ["updateReport", "createUpload"]) {
+      const tool = tools.find((candidate) => candidate.name === name)
+      const description = tool?.inputSchema.properties?.description as { description?: string } | undefined
+      expect(description?.description, name).toContain("Markdown")
+    }
+  })
 })

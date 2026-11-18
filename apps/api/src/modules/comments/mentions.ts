@@ -1,4 +1,5 @@
 import type { Db } from "../../db/client"
+import { stripMarkdown } from "../../lib/markdown-text"
 import { activeAmong } from "../account/repository"
 import { type CommentPlace, insertMentionNotifications, readersAmong } from "./repository"
 
@@ -17,9 +18,18 @@ export function renderMentions(body: string, names: Map<string, string>): string
 
 const SNIPPET_LENGTH = 140
 
-/** Plain text for the bell and email: names in place of tokens, whitespace collapsed, cut with "…". */
+/** Plain text for the bell and email: Markdown marks dropped, names in place of tokens, whitespace collapsed, cut with "…". */
 export function snippetOf(body: string, names: Map<string, string>): string {
-  const text = renderMentions(body, names).replace(/\s+/g, " ").trim()
+  // Tokens wait in placeholders while the marks go, so a name like "_ana_" is not read as Markdown. Placeholder
+  // characters already in the body are dropped first, or they would come back as a mention nobody wrote.
+  const ids: string[] = []
+  const held = body
+    .replace(/[\uE000\uE001]/g, "")
+    .replace(MENTION_TOKEN, (_token, id: string) => `\uE000${ids.push(id) - 1}\uE001`)
+  const text = stripMarkdown(held)
+    .replace(/\uE000(\d+)\uE001/g, (_held, index: string) => `@${names.get(ids[Number(index)] ?? "") ?? "former member"}`)
+    .replace(/\s+/g, " ")
+    .trim()
   return text.length > SNIPPET_LENGTH ? `${text.slice(0, SNIPPET_LENGTH - 1)}…` : text
 }
 

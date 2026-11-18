@@ -54,6 +54,23 @@ Open **Details** in the side panel for this part.
 - **Copy link** shares it; who can open the link depends on its access level, set from the arrow next to it.
 - Pasted into Slack, Discord, WhatsApp or any other app that shows link previews, a **Public** report's link shows its number, title, page, error counts and thumbnail. A link to a **Workspace** or **Internal** report shows a plain BugBerry card that names nothing.
 
+### Formatting
+
+Descriptions and comments are shown as Markdown, on the report page and on its share link:
+
+- Headings, bold, italic, strikethrough, bulleted and numbered lists, task lists, quotes, links, inline code, code
+  blocks and tables all work. In a comment, a heading shows as bold text. A task list's boxes show what is done, but
+  can't be clicked.
+- A single line break stays a line break. Leading spaces and runs of spaces are not kept, so put text that lines up
+  with spaces, such as a log or a stack trace, in a code block.
+- Put file paths, regular expressions and HTML entities in backticks. Outside them, a backslash before punctuation and
+  a character reference such as `&lt;` are read as Markdown, so `C:\_temp\*.log` shows as `C:_temp*.log`.
+- Links open in a new tab, and only `http`, `https` and `mailto` links work. A link whose text names a different site
+  than the one it opens shows the real address. An image shows as a link to it and is never loaded. HTML shows as the
+  characters you typed.
+- A description written with **Write with AI** and a comment from an AI agent arrive already formatted.
+- In a comment, `@` mentions and video times such as `0:52` work inside formatted text, but not inside code.
+
 ## Labels
 
 Labels sort reports your own way, such as by team, by area of the app or by kind of bug. They belong to the workspace, so one set works on every project.

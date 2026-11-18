@@ -46,7 +46,12 @@ export function registerUploadTools(server: McpServer, ctx: McpContext): void {
         "an upload link. Pass that link to the recorder's submitRecording to send the video and logs.",
       inputSchema: {
         title: z.string().min(1).max(200).describe("What is broken, in a few words."),
-        description: z.string().max(5000).describe("What you did, what happened, and what you expected."),
+        description: z
+          .string()
+          .max(5000)
+          .describe(
+            "What you did, what happened, and what you expected. Markdown: headings, lists, code and links render on the report page; images do not.",
+          ),
         project: z.string().min(1).max(200).optional().describe("Project id or slug; left out, the page URL picks it."),
         workspace: z.string().max(200).optional().describe("Workspace id or slug; left out, your current workspace."),
         priority: z

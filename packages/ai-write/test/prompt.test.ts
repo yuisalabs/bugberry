@@ -25,6 +25,7 @@ describe("buildMessages", () => {
     expect(system?.content).toContain("only from the numbered events")
     expect(system?.content).toContain("cause not visible in the recording")
     expect(system?.content).toContain('"title"')
+    expect(system?.content).toContain("The description is Markdown")
     expect(user?.content).toContain("## Steps to reproduce")
     expect(user?.content).toContain("Write in Indonesian")
     expect(user?.content).toContain("pay fails with debit card")

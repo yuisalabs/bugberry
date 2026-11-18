@@ -49,7 +49,8 @@ export async function listNotifications(
       snippet:
         row.kind === "resolved"
           ? noteOf(row)
-            ? snippetOf(`${fixedIn(row.report.id)}. ${noteOf(row)}`, namesIn(row.workspaceId))
+            ? // The note starts its own line so its leading heading or list marks are read as marks.
+              snippetOf(`${fixedIn(row.report.id)}.\n${noteOf(row)}`, namesIn(row.workspaceId))
             : fixedIn(row.report.id)
           : snippetOf(row.body ?? "", namesIn(row.workspaceId)),
       viaAgent: row.notificationViaAgent ?? row.commentViaAgent,

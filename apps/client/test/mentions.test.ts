@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { commentParts, type Mentionable, mentionLabel, mentionQuery, suggestions, toEditable, toStored } from "../src/features/reports/comments/mentions"
+import { type Mentionable, mentionLabel, mentionParts, mentionQuery, protectMentions, suggestions, toEditable, toStored } from "../src/features/reports/comments/mentions"
 
 const ana: Mentionable = { id: "u1", name: "Ana", email: "ana@kantor.test" }
 const budi: Mentionable = { id: "u2", name: "Budi Santoso", email: "budi@kantor.test" }
@@ -73,15 +73,36 @@ describe("people who share a name", () => {
   })
 })
 
-describe("commentParts", () => {
-  test("splits text and mentions, unknown ids are null", () => {
-    expect(commentParts("hi @[user:u1] and @[user:x]!", new Map([["u1", "Ana"]]))).toEqual([
-      { text: "hi " },
-      { mention: { id: "u1", name: "Ana" } },
-      { text: " and " },
-      { mention: null },
-      { text: "!" },
-    ])
-    expect(commentParts("plain", new Map())).toEqual([{ text: "plain" }])
+describe("mention placeholders", () => {
+  test("mention tokens become placeholders that carry no Markdown syntax", () => {
+    expect(protectMentions("hi @[user:_a_] and @[user:b]")).toEqual({ text: "hi \uE0000\uE001 and \uE0001\uE001", ids: ["_a_", "b"] })
+    expect(protectMentions("x\uE000y\uE001")).toEqual({ text: "xy", ids: [] })
+    expect(protectMentions("no mention")).toEqual({ text: "no mention", ids: [] })
+  })
+
+  test("text splits around placeholders", () => {
+    expect(mentionParts("a \uE0000\uE001 b\uE00012\uE001")).toEqual([{ text: "a " }, { mention: 0 }, { text: " b" }, { mention: 12 }])
+    expect(mentionParts("plain")).toEqual([{ text: "plain" }])
+  })
+
+  test("placeholder characters written as numeric references are dropped, and stray ones never show", () => {
+    expect(protectMentions("a &#57344;0&#57345; &#xe000;&#X0E001;&#057344;&#xE001; b")).toEqual({ text: "a 0  b", ids: [] })
+    expect(mentionParts("x\uE000y \uE0000\uE001 z\uE001")).toEqual([{ text: "xy " }, { mention: 0 }, { text: " z" }])
+  })
+
+  test("references that only form once something inside them is removed are dropped too", () => {
+    const reference = /&#(?:[xX]0*[eE]00[01]|0*5734[45]);/
+    const forged = [
+      "&#5734&#57344;4;0&#5734&#57345;5;",
+      "&#&#57344;57344;",
+      "&#57344;0&#57345;",
+      "&#5734&#5734&#xE000;4;4;0&#x&#xE&#57344;001;E001;",
+      "&#5734\uE0004;0&#5734\uE0015;",
+    ]
+    for (const input of forged) {
+      const { text } = protectMentions(input)
+      expect(text).not.toMatch(/[\uE000\uE001]/)
+      expect(text).not.toMatch(reference)
+    }
   })
 })
