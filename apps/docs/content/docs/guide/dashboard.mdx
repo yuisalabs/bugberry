@@ -63,6 +63,8 @@ Descriptions and comments are shown as Markdown, on the report page and on its s
   can't be clicked.
 - A single line break stays a line break. Leading spaces and runs of spaces are not kept, so put text that lines up
   with spaces, such as a log or a stack trace, in a code block.
+- Put file paths, regular expressions and HTML entities in backticks. Outside them, a backslash before punctuation and
+  a character reference such as `&lt;` are read as Markdown, so `C:\_temp\*.log` shows as `C:_temp*.log`.
 - Links open in a new tab, and only `http`, `https` and `mailto` links work. A link whose text names a different site
   than the one it opens shows the real address. An image shows as a link to it and is never loaded. HTML shows as the
   characters you typed.
