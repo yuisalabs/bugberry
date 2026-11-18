@@ -54,6 +54,26 @@ describe("the recording layer", () => {
     expect(root()).toBeNull()
   })
 
+  test("every frame is light whatever the page's color-scheme, so Chrome keeps it transparent", () => {
+    const { ui, root } = setup()
+    document.documentElement.style.setProperty("color-scheme", "dark")
+    try {
+      ui.showRecording("s1")
+      ui.showCamera("t1", "circle")
+      ui.showReview("d1")
+      for (const frame of root()?.querySelectorAll("iframe") ?? []) expect(frame.style.getPropertyValue("color-scheme")).toBe("light")
+    } finally {
+      document.documentElement.style.removeProperty("color-scheme")
+    }
+  })
+
+  test("the pages shown in those frames say light too", async () => {
+    for (const page of ["draw", "recorder-bar", "camera-bubble", "review", "microphone", "confirm-server", "camera"]) {
+      const html = await Bun.file(new URL(`../../entrypoints/${page}/index.html`, import.meta.url)).text()
+      expect(html).toContain("color-scheme: light")
+    }
+  })
+
   test("the bar has no grip of its own: it is dragged from inside its frame", () => {
     const { ui, root } = setup()
     ui.showRecording("s1")
