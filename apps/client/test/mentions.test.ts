@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { commentParts, type Mentionable, mentionLabel, mentionQuery, suggestions, toEditable, toStored } from "../src/features/reports/comments/mentions"
+import { commentParts, type Mentionable, mentionLabel, mentionParts, mentionQuery, protectMentions, suggestions, toEditable, toStored } from "../src/features/reports/comments/mentions"
 
 const ana: Mentionable = { id: "u1", name: "Ana", email: "ana@kantor.test" }
 const budi: Mentionable = { id: "u2", name: "Budi Santoso", email: "budi@kantor.test" }
@@ -83,5 +83,18 @@ describe("commentParts", () => {
       { text: "!" },
     ])
     expect(commentParts("plain", new Map())).toEqual([{ text: "plain" }])
+  })
+})
+
+describe("mention placeholders", () => {
+  test("mention tokens become placeholders that carry no Markdown syntax", () => {
+    expect(protectMentions("hi @[user:_a_] and @[user:b]")).toEqual({ text: "hi \uE0000\uE001 and \uE0001\uE001", ids: ["_a_", "b"] })
+    expect(protectMentions("x\uE000y\uE001")).toEqual({ text: "xy", ids: [] })
+    expect(protectMentions("no mention")).toEqual({ text: "no mention", ids: [] })
+  })
+
+  test("text splits around placeholders", () => {
+    expect(mentionParts("a \uE0000\uE001 b\uE00012\uE001")).toEqual([{ text: "a " }, { mention: 0 }, { text: " b" }, { mention: 12 }])
+    expect(mentionParts("plain")).toEqual([{ text: "plain" }])
   })
 })

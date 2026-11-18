@@ -1,72 +1,20 @@
 import type { AccessRole } from "@bugberry/shared"
-import { RiMoreLine, RiPlayFill } from "@remixicon/react"
-import { useContext, useState } from "react"
+import { RiMoreLine } from "@remixicon/react"
+import { useState } from "react"
 import { Avatar } from "@bugberry/ui/avatar"
 import { useConfirm } from "@bugberry/ui/confirm-dialog"
 import { Button } from "@bugberry/ui/button"
 import { Menu, MenuItem, MenuTrigger } from "@bugberry/ui/menu"
 import { useNow } from "../../../hooks/useNow"
-import { videoTimes } from "./comment-feed"
 import { formatDateTime, formatRelative } from "../../../lib/format"
-import { commentParts, type Mentionable, type Picked, toEditable, toStored } from "./mentions"
+import { type Mentionable, type Picked, toEditable, toStored } from "./mentions"
 import { initialsOf } from "../../../lib/people"
 import { workspaceColor } from "../../workspaces/workspace"
 import { MentionTextarea } from "./MentionTextarea"
-import { ReportVideoContext } from "../detail/video-context"
+import { CommentMarkdown } from "./CommentMarkdown"
 import { addPicked } from "./CommentComposer"
 import { ReactionBar } from "./ReactionBar"
 import type { Comment } from "../queries"
-
-/** Text with "0:52"-style times as buttons that seek the report's video (only on a video report). */
-function TimedText({ text }: { text: string }) {
-  const video = useContext(ReportVideoContext)
-  return (
-    <>
-      {videoTimes(text, video?.durationMs ?? null).map((part, index) =>
-        "text" in part ? (
-          part.text
-        ) : (
-          <button
-            // biome-ignore lint/suspicious/noArrayIndexKey: parts never reorder
-            key={index}
-            type="button"
-            aria-label={`Play from ${part.time}`}
-            onClick={() => video?.seek(part.ms)}
-            className="mx-0.5 inline-flex items-center gap-0.5 rounded-md bg-foreground px-1.5 align-baseline font-mono text-xs leading-5 font-semibold text-background hover:bg-foreground/85"
-          >
-            <RiPlayFill aria-hidden className="size-3" />
-            {part.time}
-          </button>
-        ),
-      )}
-    </>
-  )
-}
-
-/** The comment text with mentions as highlighted names; React escapes everything else. */
-function CommentBody({ comment }: { comment: Comment }) {
-  const names = new Map(comment.mentions.map((person) => [person.id, person.name]))
-  return (
-    <p className="mt-1 text-sm whitespace-pre-wrap break-words text-foreground">
-      {commentParts(comment.body, names).map((part, index) =>
-        "text" in part ? (
-          // biome-ignore lint/suspicious/noArrayIndexKey: parts never reorder
-          <TimedText key={index} text={part.text} />
-        ) : part.mention ? (
-          // biome-ignore lint/suspicious/noArrayIndexKey: parts never reorder
-          <span key={index} className="rounded bg-primary-subtle px-1 font-medium text-primary-subtle-foreground">
-            @{part.mention.name}
-          </span>
-        ) : (
-          // biome-ignore lint/suspicious/noArrayIndexKey: parts never reorder
-          <span key={index} className="text-muted-foreground">
-            @former member
-          </span>
-        ),
-      )}
-    </p>
-  )
-}
 
 /**
  * One comment in the feed: avatar, name, "You", time, "edited", "via AI" and a ⋯ menu (Edit for its author,
@@ -112,8 +60,9 @@ export function CommentItem({
     )
   }
 
+  const names = new Map(comment.mentions.map((person) => [person.id, person.name]))
   const startEditing = () => {
-    const editable = toEditable(comment.body, new Map(comment.mentions.map((person) => [person.id, person.name])), people)
+    const editable = toEditable(comment.body, names, people)
     setPicked(editable.picked)
     setDraft(editable.text)
   }
@@ -185,7 +134,9 @@ export function CommentItem({
         </div>
         {draft === null ? (
           <>
-            <CommentBody comment={comment} />
+            <div className="mt-1 text-sm text-foreground">
+              <CommentMarkdown body={comment.body} names={names} />
+            </div>
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <ReactionBar reactions={comment.reactions} meId={me.id} onReact={(emoji) => onReact(comment.id, emoji)} />
               <Button intent="plain" size="xs" onPress={() => onReply(comment)} className="text-muted-foreground">

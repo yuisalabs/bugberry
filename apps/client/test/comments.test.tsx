@@ -42,6 +42,24 @@ const setup = (overrides: Partial<Props> = {}) => {
   }
   return { props, ...render(<CommentsSection {...props} />) }
 }
+const setupOnVideo = (threads: CommentThread[], seek: (ms: number) => void) =>
+  render(
+    <ReportVideoContext.Provider value={{ seek, durationMs: 116_000 }}>
+      <CommentsSection
+        threads={threads}
+        activity={null}
+        people={people}
+        me={{ id: "u1", role: "member", name: "Ana", image: null }}
+        busy={false}
+        showActivity={false}
+        onShowActivity={mock()}
+        onAdd={mock(async () => {})}
+        onEdit={mock(async () => {})}
+        onDelete={mock()}
+        onReact={mock()}
+      />
+    </ReportVideoContext.Provider>,
+  )
 const commentEl = (id: string) => document.getElementById(`comment-${id}`) as HTMLElement
 const openActions = (id: string) => fireEvent.click(within(commentEl(id)).getByRole("button", { name: "Comment actions" }))
 
@@ -241,25 +259,55 @@ describe("the comments section", () => {
     unmount()
 
     const seek = mock()
-    render(
-      <ReportVideoContext.Provider value={{ seek, durationMs: 116_000 }}>
-        <CommentsSection
-          threads={timed}
-          activity={null}
-          people={people}
-          me={{ id: "u1", role: "member", name: "Ana", image: null }}
-          busy={false}
-          showActivity={false}
-          onShowActivity={mock()}
-          onAdd={mock(async () => {})}
-          onEdit={mock(async () => {})}
-          onDelete={mock()}
-          onReact={mock()}
-        />
-      </ReportVideoContext.Provider>,
-    )
+    setupOnVideo(timed, seek)
     fireEvent.click(within(commentEl("c8")).getByRole("button", { name: /0:52/ }))
     expect(seek).toHaveBeenCalledWith(52_000)
+  })
+
+  const anaMention = [{ id: "u1", name: "Ana" }]
+
+  test("a comment renders Markdown", () => {
+    setup({ threads: [threadFixture({ id: "m1", body: "**tebal** dan `kode`\n\n- satu\n- dua" })] })
+    const comment = within(commentEl("m1"))
+    expect(commentEl("m1").querySelector("strong")?.textContent).toBe("tebal")
+    expect(commentEl("m1").querySelector("code")?.textContent).toBe("kode")
+    expect(comment.getAllByRole("listitem")).toHaveLength(2)
+  })
+
+  test("a mention survives an id that looks like emphasis, and brackets glued to it", () => {
+    setup({
+      threads: [
+        threadFixture({ id: "m2", body: "cc @[user:_u9_] tolong", mentions: [{ id: "_u9_", name: "Rani" }] }),
+        threadFixture({ id: "m3", body: "@[user:u1](tadi) sudah", mentions: anaMention }),
+        threadFixture({ id: "m6", body: "<div> @[user:u1]", mentions: anaMention }),
+      ],
+    })
+    expect(within(commentEl("m6")).getByText("@Ana").className).toContain("bg-primary-subtle")
+    expect(commentEl("m6").textContent).not.toContain("\uE000")
+    expect(within(commentEl("m2")).getByText("@Rani").className).toContain("bg-primary-subtle")
+    expect(commentEl("m2").querySelector("em")).toBeNull()
+    expect(within(commentEl("m3")).getByText("@Ana").className).toContain("bg-primary-subtle")
+    expect(commentEl("m3").querySelector("a")).toBeNull()
+    expect(commentEl("m3").textContent).toContain("(tadi) sudah")
+  })
+
+  test("a mention works in a list, a table, a quote and bold text; in code it is plain text", () => {
+    const body = "- @[user:u1] satu\n\n> @[user:u1] dua\n\n**@[user:u1] tiga**\n\n| @[user:u1] |\n| - |\n| x |\n\n`@[user:u1]` dan @[user:gone]"
+    setup({ threads: [threadFixture({ id: "m4", body, mentions: anaMention })] })
+    expect(within(commentEl("m4")).getAllByText("@Ana").filter((el) => el.className.includes("bg-primary-subtle"))).toHaveLength(4)
+    expect(commentEl("m4").querySelector("code")?.textContent).toBe("@Ana")
+    expect(within(commentEl("m4")).getByText("@former member")).toBeTruthy()
+    expect(commentEl("m4").textContent).not.toContain("\uE000")
+  })
+
+  test("a video time is a seek button in text and in a list, never in code", () => {
+    const seek = mock()
+    const body = "lihat 0:52\n\n- juga 0:10\n\n`0:20` dan\n\n```\n0:30\n```"
+    setupOnVideo([threadFixture({ id: "m5", body })], seek)
+    const buttons = within(commentEl("m5")).getAllByRole("button", { name: /^Play from/ })
+    expect(buttons.map((button) => button.textContent)).toEqual(["0:52", "0:10"])
+    fireEvent.click(buttons[1] as HTMLElement)
+    expect(seek).toHaveBeenCalledWith(10_000)
   })
 
   describe("mentions", () => {

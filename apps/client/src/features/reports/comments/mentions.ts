@@ -70,7 +70,38 @@ export function toEditable(
   return { text, picked: [...picked.values()] }
 }
 
-export type CommentPart = { text: string } | { mention: Named | null }
+const OPEN = ""
+const CLOSE = ""
+const PLACEHOLDER = /(\d+)/g
+
+/**
+ * The body with each mention token swapped for a placeholder Markdown cannot read as syntax:
+ * U+E000, the token's index in `ids`, U+E001. Any U+E000 or U+E001 already in the body is dropped first.
+ */
+export function protectMentions(body: string): { text: string; ids: string[] } {
+  const ids: string[] = []
+  const text = body.replace(/[]/g, "").replace(TOKEN, (_token, id: string) => {
+    ids.push(id)
+    return `${OPEN}${ids.length - 1}${CLOSE}`
+  })
+  return { text, ids }
+}
+
+/** Text split around placeholders; `mention` is an index into `ids`. */
+export function mentionParts(text: string): Array<{ text: string } | { mention: number }> {
+  const parts: Array<{ text: string } | { mention: number }> = []
+  let last = 0
+  for (const match of text.matchAll(PLACEHOLDER)) {
+    const index = match.index ?? 0
+    if (index > last) parts.push({ text: text.slice(last, index) })
+    parts.push({ mention: Number(match[1]) })
+    last = index + match[0].length
+  }
+  if (last < text.length || parts.length === 0) parts.push({ text: text.slice(last) })
+  return parts
+}
+
+export type CommentPart ={ text: string } | { mention: Named | null }
 
 /** The body split into text and mentions; a mention of someone no longer in the workspace is null. */
 export function commentParts(body: string, names: Map<string, string>): CommentPart[] {
