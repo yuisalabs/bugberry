@@ -89,4 +89,20 @@ describe("mention placeholders", () => {
     expect(protectMentions("a &#57344;0&#57345; &#xe000;&#X0E001;&#057344;&#xE001; b")).toEqual({ text: "a 0  b", ids: [] })
     expect(mentionParts("x\uE000y \uE0000\uE001 z\uE001")).toEqual([{ text: "xy " }, { mention: 0 }, { text: " z" }])
   })
+
+  test("references that only form once something inside them is removed are dropped too", () => {
+    const reference = /&#(?:[xX]0*[eE]00[01]|0*5734[45]);/
+    const forged = [
+      "&#5734&#57344;4;0&#5734&#57345;5;",
+      "&#&#57344;57344;",
+      "&#57344;0&#57345;",
+      "&#5734&#5734&#xE000;4;4;0&#x&#xE&#57344;001;E001;",
+      "&#5734\uE0004;0&#5734\uE0015;",
+    ]
+    for (const input of forged) {
+      const { text } = protectMentions(input)
+      expect(text).not.toMatch(/[\uE000\uE001]/)
+      expect(text).not.toMatch(reference)
+    }
+  })
 })

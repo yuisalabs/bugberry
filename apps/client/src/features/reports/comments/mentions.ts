@@ -77,19 +77,27 @@ const PLACEHOLDER_CHAR = /[\uE000\uE001]/g
 // Markdown decodes "&#57344;" and "&#xE000;" into the placeholder characters after this step runs, so they go too.
 const PLACEHOLDER_REFERENCE = /&#(?:[xX]0*[eE]00[01]|0*5734[45]);/g
 
+/** Removing one character or reference can join its neighbours into a new reference, so removal repeats until nothing changes. */
+function withoutPlaceholderCharacters(body: string): string {
+  let text = body
+  let previous: string
+  do {
+    previous = text
+    text = text.replace(PLACEHOLDER_CHAR, "").replace(PLACEHOLDER_REFERENCE, "")
+  } while (text !== previous)
+  return text
+}
+
 /**
  * The body with each mention token swapped for a placeholder Markdown cannot read as syntax:
  * U+E000, the token's index in `ids`, U+E001. Any U+E000 or U+E001 already in the body is dropped first.
  */
 export function protectMentions(body: string): { text: string; ids: string[] } {
   const ids: string[] = []
-  const text = body
-    .replace(PLACEHOLDER_CHAR, "")
-    .replace(PLACEHOLDER_REFERENCE, "")
-    .replace(TOKEN, (_token, id: string) => {
-      ids.push(id)
-      return `${OPEN}${ids.length - 1}${CLOSE}`
-    })
+  const text = withoutPlaceholderCharacters(body).replace(TOKEN, (_token, id: string) => {
+    ids.push(id)
+    return `${OPEN}${ids.length - 1}${CLOSE}`
+  })
   return { text, ids }
 }
 

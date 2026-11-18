@@ -313,6 +313,19 @@ describe("the comments section", () => {
     expect(commentEl("f3").textContent).not.toMatch(/[\uE000\uE001]/)
   })
 
+  test("a nested character reference cannot forge a mention placeholder either", () => {
+    setup({
+      threads: [
+        threadFixture({ id: "n1", body: "@[user:u1] dan &#5734&#57344;4;0&#5734&#57345;5;", mentions: anaMention }),
+        threadFixture({ id: "n2", body: "a &#5734&#57344;4;0&#5734&#57345;5; b" }),
+      ],
+    })
+    expect(within(commentEl("n1")).getAllByText("@Ana")).toHaveLength(1)
+    expect(within(commentEl("n2")).queryByText("@former member")).toBeNull()
+    expect(commentEl("n1").textContent).not.toMatch(/[\uE000\uE001]/)
+    expect(commentEl("n2").textContent).not.toMatch(/[\uE000\uE001]/)
+  })
+
   test("a video time is a seek button in text and in a list, never in code", () => {
     const seek = mock()
     const body = "lihat 0:52\n\n- juga 0:10\n\n`0:20` dan\n\n```\n0:30\n```"
