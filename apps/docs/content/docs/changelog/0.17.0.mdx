@@ -1,0 +1,15 @@
+---
+title: 0.17.0
+description: Released 18 November 2026.
+---
+
+- **Markdown in descriptions and comments.** A report's description and its comments are shown as Markdown, on the
+  report page and on its share link: headings, bold, italic, strikethrough, lists, task lists, quotes, links, inline
+  code, code blocks and tables. Links open in a new tab, and an image shows as a link to it instead of being loaded.
+  Mentions and video times still work inside formatted comments. Older text keeps its line breaks; text that relied
+  on leading spaces to line things up should go in a code block. See [Dashboard](/guide/dashboard).
+- **Notifications and emails:** the bell and the mention email show a comment without its Markdown marks, and the
+  "Your report is resolved" email shows the note as plain text, with its links written out.
+- **AI agents:** `updateReport` says a description may be Markdown, and **Write with AI** writes the description in
+  Markdown.
+- **Self-hosting:** no migration and no new setting. The extension does not change in this release.
