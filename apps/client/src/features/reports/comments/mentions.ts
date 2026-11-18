@@ -70,9 +70,12 @@ export function toEditable(
   return { text, picked: [...picked.values()] }
 }
 
-const OPEN = ""
-const CLOSE = ""
-const PLACEHOLDER = /(\d+)/g
+const OPEN = "\uE000"
+const CLOSE = "\uE001"
+const PLACEHOLDER = /\uE000(\d+)\uE001/g
+const PLACEHOLDER_CHAR = /[\uE000\uE001]/g
+// Markdown decodes "&#57344;" and "&#xE000;" into the placeholder characters after this step runs, so they go too.
+const PLACEHOLDER_REFERENCE = /&#(?:[xX]0*[eE]00[01]|0*5734[45]);/g
 
 /**
  * The body with each mention token swapped for a placeholder Markdown cannot read as syntax:
@@ -80,41 +83,31 @@ const PLACEHOLDER = /(\d+)/g
  */
 export function protectMentions(body: string): { text: string; ids: string[] } {
   const ids: string[] = []
-  const text = body.replace(/[]/g, "").replace(TOKEN, (_token, id: string) => {
-    ids.push(id)
-    return `${OPEN}${ids.length - 1}${CLOSE}`
-  })
+  const text = body
+    .replace(PLACEHOLDER_CHAR, "")
+    .replace(PLACEHOLDER_REFERENCE, "")
+    .replace(TOKEN, (_token, id: string) => {
+      ids.push(id)
+      return `${OPEN}${ids.length - 1}${CLOSE}`
+    })
   return { text, ids }
 }
 
-/** Text split around placeholders; `mention` is an index into `ids`. */
+/** Text split around placeholders; `mention` is an index into `ids`. A placeholder character outside a placeholder is dropped. */
 export function mentionParts(text: string): Array<{ text: string } | { mention: number }> {
   const parts: Array<{ text: string } | { mention: number }> = []
+  const pushText = (value: string) => {
+    const clean = value.replace(PLACEHOLDER_CHAR, "")
+    if (clean) parts.push({ text: clean })
+  }
   let last = 0
   for (const match of text.matchAll(PLACEHOLDER)) {
     const index = match.index ?? 0
-    if (index > last) parts.push({ text: text.slice(last, index) })
+    pushText(text.slice(last, index))
     parts.push({ mention: Number(match[1]) })
     last = index + match[0].length
   }
-  if (last < text.length || parts.length === 0) parts.push({ text: text.slice(last) })
-  return parts
-}
-
-export type CommentPart ={ text: string } | { mention: Named | null }
-
-/** The body split into text and mentions; a mention of someone no longer in the workspace is null. */
-export function commentParts(body: string, names: Map<string, string>): CommentPart[] {
-  const parts: CommentPart[] = []
-  let last = 0
-  for (const match of body.matchAll(TOKEN)) {
-    const index = match.index ?? 0
-    if (index > last) parts.push({ text: body.slice(last, index) })
-    const id = match[1] as string
-    const name = names.get(id)
-    parts.push({ mention: name === undefined ? null : { id, name } })
-    last = index + match[0].length
-  }
-  if (last < body.length) parts.push({ text: body.slice(last) })
+  pushText(text.slice(last))
+  if (parts.length === 0) parts.push({ text: "" })
   return parts
 }

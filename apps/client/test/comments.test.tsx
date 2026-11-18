@@ -300,6 +300,19 @@ describe("the comments section", () => {
     expect(commentEl("m4").textContent).not.toContain("\uE000")
   })
 
+  test("a placeholder written as a character reference is neither a mention nor a visible character", () => {
+    setup({
+      threads: [
+        threadFixture({ id: "f1", body: "@[user:u1] dan &#57344;0&#57345;", mentions: anaMention }),
+        threadFixture({ id: "f2", body: "a &#xe000;0&#X0E001; b" }),
+        threadFixture({ id: "f3", body: "lone &#057344; open" }),
+      ],
+    })
+    expect(within(commentEl("f1")).getAllByText("@Ana")).toHaveLength(1)
+    expect(within(commentEl("f2")).queryByText("@former member")).toBeNull()
+    expect(commentEl("f3").textContent).not.toMatch(/[\uE000\uE001]/)
+  })
+
   test("a video time is a seek button in text and in a list, never in code", () => {
     const seek = mock()
     const body = "lihat 0:52\n\n- juga 0:10\n\n`0:20` dan\n\n```\n0:30\n```"
