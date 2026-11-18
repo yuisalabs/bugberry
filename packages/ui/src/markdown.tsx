@@ -1,4 +1,5 @@
 import { cn } from "cn"
+import { isValidElement, type ReactNode } from "react"
 import ReactMarkdown, { type Components } from "react-markdown"
 import remarkBreaks from "remark-breaks"
 import remarkGfm from "remark-gfm"
@@ -47,6 +48,49 @@ function htmlAsText() {
   return visit
 }
 
+const allowedUrl = /^(https?:\/\/|mailto:)/i
+
+/** Runs for every href and src; an empty result tells the components below to drop the link. */
+const urlTransform = (url: string) => (allowedUrl.test(url) ? url : "")
+
+const textOf = (node: ReactNode): string => {
+  if (typeof node === "string" || typeof node === "number") return String(node)
+  if (Array.isArray(node)) return node.map(textOf).join("")
+  if (isValidElement<{ children?: ReactNode }>(node)) return textOf(node.props.children)
+  return ""
+}
+
+const hostOf = (url: string) => {
+  try {
+    return new URL(/^www\./i.test(url) ? `https://${url}` : url).hostname.toLowerCase()
+  } catch {
+    return null
+  }
+}
+
+/**
+ * A label that looks like a URL but points at another host than the link is
+ * how phishing reads "bank.com" while going elsewhere, so such a label is
+ * replaced by the real target.
+ */
+const honestLabel = (children: ReactNode, href: string): ReactNode => {
+  const label = textOf(children)
+  if (!/^(https?:\/\/|www\.)/i.test(label)) return children
+  const labelHost = hostOf(label)
+  return labelHost !== null && labelHost === hostOf(href) ? children : href
+}
+
+const ExternalLink = ({ href, children }: { href: string; children: ReactNode }) => (
+  <a
+    href={href}
+    target="_blank"
+    rel="noopener noreferrer nofollow"
+    className="text-primary underline underline-offset-2"
+  >
+    {children}
+  </a>
+)
+
 const headingClass = "font-heading font-semibold tracking-tight text-foreground"
 
 const shared: Components = {
@@ -85,6 +129,11 @@ const shared: Components = {
   ),
   td: ({ node, ...props }) => <td className="border border-border px-2 py-1" {...props} />,
   hr: ({ node, ...props }) => <hr className="border-border" {...props} />,
+  a: ({ href, children }) =>
+    href ? <ExternalLink href={href}>{honestLabel(children, href)}</ExternalLink> : <>{children}</>,
+  // Loading an image would fetch a URL chosen by whoever wrote the text, so it is offered as a link instead.
+  img: ({ src, alt }) =>
+    typeof src === "string" && src ? <ExternalLink href={src}>{alt || src}</ExternalLink> : <>{alt}</>,
 }
 
 const descriptionComponents: Components = {
@@ -120,6 +169,7 @@ export function Markdown({ children, look, className }: MarkdownProps) {
     <div className={cn("space-y-3 break-words text-foreground", className)}>
       <ReactMarkdown
         remarkPlugins={remarkPlugins}
+        urlTransform={urlTransform}
         components={look === "description" ? descriptionComponents : commentComponents}
       >
         {children}

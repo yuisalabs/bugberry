@@ -70,3 +70,40 @@ describe("Markdown: looks", () => {
     expect(show("x").className).toContain("break-words")
   })
 })
+
+describe("Markdown: links", () => {
+  const link = (name: string) => screen.getByRole("link", { name }) as HTMLAnchorElement
+
+  test("http, https and mailto links open in a new tab and pass nothing on", () => {
+    show("[site](https://a.test/x) [mail](mailto:a@b.test) lihat http://c.test/p")
+    expect(link("site").getAttribute("href")).toBe("https://a.test/x")
+    expect(link("site").target).toBe("_blank")
+    expect(link("site").rel).toBe("noopener noreferrer nofollow")
+    expect(link("mail").getAttribute("href")).toBe("mailto:a@b.test")
+    expect(link("http://c.test/p").getAttribute("href")).toBe("http://c.test/p")
+  })
+  test("any other target shows its label as text", () => {
+    const box = show("[a](javascript:alert(1)) [b](data:text/html,hi) [c](/relative) [d](ftp://a.test) [e](#top)")
+    expect(box.querySelector("a")).toBeNull()
+    expect(box.textContent).toBe("a b c d e")
+  })
+  test("a label that names another site shows the real target", () => {
+    show("[https://bank.com](https://evil.example/login) [www.bank.com](https://evil.example/2)")
+    expect(link("https://evil.example/login")).toBeTruthy()
+    expect(link("https://evil.example/2")).toBeTruthy()
+    expect(screen.queryByText(/bank\.com/)).toBeNull()
+  })
+  test("a label on the same host, or one that is not a URL, stays", () => {
+    show("[https://a.test/docs](https://a.test/other) [Bank](https://evil.example)")
+    expect(link("https://a.test/docs").getAttribute("href")).toBe("https://a.test/other")
+    expect(link("Bank").getAttribute("href")).toBe("https://evil.example")
+  })
+  test("an image is a link to it, never a loaded image", () => {
+    const box = show("![diagram](https://a.test/p.png) ![](https://a.test/q.png) ![bad](javascript:1)")
+    expect(box.querySelector("img")).toBeNull()
+    expect(link("diagram").getAttribute("href")).toBe("https://a.test/p.png")
+    expect(link("https://a.test/q.png")).toBeTruthy()
+    expect(box.querySelectorAll("a")).toHaveLength(2)
+    expect(box.textContent).toContain("bad")
+  })
+})
