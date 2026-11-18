@@ -92,7 +92,8 @@ const hostOf = (url: string) => {
  * replaced by the real target.
  */
 const honestLabel = (children: ReactNode, href: string): ReactNode => {
-  const label = textOf(children)
+  // Spaces and invisible format characters (zero-width space, word joiner) would otherwise let "​https://bank.com" skip the check.
+  const label = textOf(children).replace(/[\s\p{Cf}]/gu, "")
   if (!/^(https?:\/\/|www\.)/i.test(label)) return children
   const labelHost = hostOf(label)
   return labelHost !== null && labelHost === hostOf(href) ? children : href
@@ -151,7 +152,7 @@ const shared: Components = {
     href ? <ExternalLink href={href}>{honestLabel(children, href)}</ExternalLink> : <>{children}</>,
   // Loading an image would fetch a URL chosen by whoever wrote the text, so it is offered as a link instead.
   img: ({ src, alt }) =>
-    typeof src === "string" && src ? <ExternalLink href={src}>{alt || src}</ExternalLink> : <>{alt}</>,
+    typeof src === "string" && src ? <ExternalLink href={src}>{honestLabel(alt || src, src)}</ExternalLink> : <>{alt}</>,
 }
 
 const descriptionComponents: Components = {

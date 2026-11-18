@@ -93,6 +93,19 @@ describe("Markdown: links", () => {
     expect(link("https://evil.example/2")).toBeTruthy()
     expect(screen.queryByText(/bank\.com/)).toBeNull()
   })
+  test("spaces or invisible characters before a URL label do not hide it", () => {
+    show("[ https://bank.com](https://evil.example/s) [​https://bank.com](https://evil.example/z) [⁠www.bank.com](https://evil.example/w)")
+    expect(link("https://evil.example/s")).toBeTruthy()
+    expect(link("https://evil.example/z")).toBeTruthy()
+    expect(link("https://evil.example/w")).toBeTruthy()
+    expect(screen.queryByText(/bank\.com/)).toBeNull()
+  })
+  test("an image whose alt names another site shows the real target", () => {
+    show("![https://bank.com/login](https://evil.example/x.png) ![https://a.test/p](https://a.test/p.png)")
+    expect(link("https://evil.example/x.png")).toBeTruthy()
+    expect(link("https://a.test/p").getAttribute("href")).toBe("https://a.test/p.png")
+    expect(screen.queryByText(/bank\.com/)).toBeNull()
+  })
   test("a label on the same host, or one that is not a URL, stays", () => {
     show("[https://a.test/docs](https://a.test/other) [Bank](https://evil.example)")
     expect(link("https://a.test/docs").getAttribute("href")).toBe("https://a.test/other")
