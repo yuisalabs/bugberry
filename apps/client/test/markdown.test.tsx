@@ -240,22 +240,44 @@ const deepestNesting = (root: Element) => {
 }
 
 describe("Markdown: deep nesting", () => {
-  // No time limit on the "- " shapes: the parser itself spends over a second on them, before any step of ours runs.
-  const cases: [string, boolean][] = [
-    [">".repeat(2500) + " x", true],
-    ["- ".repeat(1100) + "x", false],
-    ["1. ".repeat(1000) + "x", true],
-    ["> - ".repeat(800) + "x", false],
+  const cases = [
+    ">".repeat(2500) + " x",
+    "- ".repeat(1100) + "x",
+    "1. ".repeat(1000) + "x",
+    "> - ".repeat(800) + "x",
+    "* ".repeat(2499) + "x",
+    "-\t".repeat(2499) + "x",
   ]
-  for (const [text, timed] of cases) {
-    test(`${JSON.stringify(text.slice(0, 4))} x ${text.length} chars stops nesting at 16 levels and keeps the text`, () => {
+  for (const text of cases) {
+    test(`${JSON.stringify(text.slice(0, 4))} x ${text.length} chars is shown as typed, fast, without nesting`, () => {
       const start = performance.now()
       const box = show(text)
-      if (timed) expect(performance.now() - start).toBeLessThan(1000)
-      expect(deepestNesting(box)).toBeLessThanOrEqual(16)
-      expect(box.textContent).toContain("x")
+      expect(performance.now() - start).toBeLessThan(1000)
+      expect(box.textContent).toBe(text)
+      expect(box.querySelector("blockquote, ul, ol")).toBeNull()
     })
   }
+  test("16 markers on one line are still Markdown; 17 are text", () => {
+    expect(show("> ".repeat(16) + "x").querySelectorAll("blockquote")).toHaveLength(16)
+    const box = show("> ".repeat(17) + "x")
+    expect(box.querySelector("blockquote")).toBeNull()
+    expect(box.textContent).toBe("> ".repeat(17) + "x")
+  })
+  test("a long rule of spaced dashes, stars or underscores is still a rule", () => {
+    for (const mark of ["-", "*", "_"]) expect(show(Array(20).fill(mark).join(" ")).querySelector("hr")).not.toBeNull()
+  })
+  test("one line with too many markers turns the whole text into text", () => {
+    const text = `# Judul\n\n**tebal**\n\n${"- ".repeat(20)}x\n\nakhir`
+    const box = show(text)
+    expect(box.querySelector("h2, strong, ul")).toBeNull()
+    expect(box.textContent).toBe(text)
+  })
+  test("nesting spread over lines stops at 16 levels and keeps the text", () => {
+    const text = Array.from({ length: 40 }, (_, level) => `${"  ".repeat(level)}- x${level}`).join("\n")
+    const box = show(text)
+    expect(deepestNesting(box)).toBeLessThanOrEqual(16)
+    expect(box.textContent).toContain("x39")
+  })
   test("a three-level list inside a quote keeps its three levels", () => {
     const box = show("> - one\n>   - two\n>     - three")
     expect(box.querySelector("blockquote > ul > li > ul > li > ul > li")?.textContent).toBe("three")

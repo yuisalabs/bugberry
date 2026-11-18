@@ -88,6 +88,62 @@ function capNesting() {
   }
 }
 
+const isBlank = (char: string | undefined) => char === " " || char === "\t"
+const isDigit = (char: string | undefined) => char !== undefined && char >= "0" && char <= "9"
+
+/** Whether the line from `start` to `end` is only one of "-", "*" or "_", three or more times, with blanks between. */
+const isRule = (text: string, start: number, end: number) => {
+  let mark = ""
+  let count = 0
+  for (let i = start; i < end; i++) {
+    const char = text[i] as string
+    if (isBlank(char)) continue
+    if (mark === "") mark = char
+    if (char !== mark || !"-*_".includes(char)) return false
+    count++
+  }
+  return count >= 3
+}
+
+/** The index of the blank after a list marker ("-", "*", "+", or up to nine digits and "." or ")") at `i`, or -1. */
+const afterListMarker = (text: string, i: number) => {
+  let end = i
+  if (text[i] === "-" || text[i] === "*" || text[i] === "+") end = i + 1
+  else {
+    while (end - i < 9 && isDigit(text[end])) end++
+    if (end === i || (text[end] !== "." && text[end] !== ")")) return -1
+    end++
+  }
+  return isBlank(text[end]) ? end : -1
+}
+
+/**
+ * Whether any line starts with more than 16 quote or list markers. The parser spends time quadratic in
+ * that count before any plugin runs: "- " 2,499 times on one line is about 2.4 s. Nesting spread over
+ * lines needs indentation for every level, so it cannot grow that deep in 5,000 characters.
+ * One pass over the text, at most two over a line that turns out to be a rule.
+ */
+const tooManyMarkers = (text: string) => {
+  let i = 0
+  while (i < text.length) {
+    const start = i
+    let markers = 0
+    while (isBlank(text[i])) i++
+    while (markers <= maxNesting) {
+      const next = text[i] === ">" ? i + 1 : afterListMarker(text, i)
+      if (next < 0) break
+      i = next
+      while (isBlank(text[i])) i++
+      markers++
+    }
+    let lineEnd = i
+    while (lineEnd < text.length && text[lineEnd] !== "\n" && text[lineEnd] !== "\r") lineEnd++
+    if (markers > maxNesting && !isRule(text, start, lineEnd)) return true
+    i = lineEnd + 1
+  }
+  return false
+}
+
 /** Parents whose children are inline text, so raw HTML inside them is inline too. */
 const inlineParents = new Set([
   "paragraph",
@@ -375,8 +431,10 @@ class RenderFailure extends Component<{ text: string; fallback: ReactNode; child
 }
 
 export function Markdown({ children, look, className, renderText, literalText }: MarkdownProps) {
+  const asTyped = <div className={cn(rootClass, "whitespace-pre-wrap", className)}>{children}</div>
+  if (tooManyMarkers(children)) return asTyped
   return (
-    <RenderFailure text={children} fallback={<div className={cn(rootClass, "whitespace-pre-wrap", className)}>{children}</div>}>
+    <RenderFailure text={children} fallback={asTyped}>
       <div className={cn(rootClass, className)}>
         <TextHooksContext.Provider value={{ renderText, literalText, inLabel: false }}>
           <ReactMarkdown
