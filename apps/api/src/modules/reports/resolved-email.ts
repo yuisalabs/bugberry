@@ -1,5 +1,6 @@
 import { fixLinkLabel } from "@bugberry/shared"
 import { escapeHtml } from "../../lib/email/escape"
+import { stripMarkdown } from "../../lib/markdown-text"
 
 const BERRY = "#D61F69"
 const INK = "#1C1022"
@@ -19,12 +20,13 @@ export function resolvedEmail(input: {
   const where = `BB-${input.reportNumber}`
   const who = input.viaAgent ? `${input.actorName} (via ${input.viaAgent})` : input.actorName
   const links = input.links.map((url) => ({ url, label: fixLinkLabel(url).label }))
+  const noteText = input.note ? stripMarkdown(input.note, { keepLayout: true }) : null
   const text = [
     `${who} resolved ${where} · ${input.reportTitle}`,
     "",
     "Fixed in:",
     ...links.map((link) => `- ${link.label} ${link.url}`),
-    ...(input.note ? ["", input.note] : []),
+    ...(noteText ? ["", noteText] : []),
     "",
     `Open report: ${input.url}`,
   ].join("\n")
@@ -34,8 +36,8 @@ export function resolvedEmail(input: {
         `<tr><td style="padding-top:6px;font-size:14px"><a href="${escapeHtml(link.url)}" style="color:${BERRY}">${escapeHtml(link.label)}</a></td></tr>`,
     )
     .join("\n      ")
-  const note = input.note
-    ? `<tr><td style="padding-top:16px"><div style="border-left:3px solid ${BERRY};padding:8px 12px;font-size:14px;color:${INK};white-space:pre-wrap">${escapeHtml(input.note)}</div></td></tr>`
+  const note = noteText
+    ? `<tr><td style="padding-top:16px"><div style="border-left:3px solid ${BERRY};padding:8px 12px;font-size:14px;color:${INK};white-space:pre-wrap">${escapeHtml(noteText)}</div></td></tr>`
     : ""
   const html = `<!doctype html>
 <html><body style="margin:0;padding:32px 16px;background:#F7F6FA;font-family:'DM Sans',Arial,sans-serif;color:${INK}">

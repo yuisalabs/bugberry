@@ -28,4 +28,20 @@ describe("resolvedEmail", () => {
     expect(email.text.split("\n")[0]).toBe("Ana resolved BB-3 · T")
     expect(email.text).not.toContain("null")
   })
+
+  test("a Markdown note is sent as plain text that still reads as a list", () => {
+    const email = resolvedEmail({
+      actorName: "Ana",
+      reportNumber: 3,
+      reportTitle: "T",
+      links: ["https://x.test/c/1"],
+      note: "**Fixed** in `createOrder`:\n- stock check <first>\n- see [PR #88](https://g.test/88)",
+      url: "u",
+    })
+    const plain = "Fixed in createOrder:\n- stock check <first>\n- see PR #88 (https://g.test/88)"
+    expect(email.text).toContain(plain)
+    expect(email.html).toContain("Fixed in createOrder:\n- stock check &lt;first&gt;\n- see PR #88 (https://g.test/88)")
+    expect(email.html).not.toContain("**")
+    expect(email.html).not.toContain("`")
+  })
 })
