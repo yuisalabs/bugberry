@@ -163,16 +163,20 @@ const hostOf = (url: string) => {
   }
 }
 
+// Spaces, format characters and the blank-looking fillers, which would otherwise split or hide a URL in a label.
+const invisible = /[\s\p{Cf}\u034F\u115F\u1160\u3164\uFFA0]/gu
+
 /**
- * A label that looks like a URL but points at another host than the link is
- * how phishing reads "bank.com" while going elsewhere, so such a label is
- * replaced by the real target.
+ * Whether a link may show its own label. A label naming another host than the
+ * link is how phishing reads "bank.com" while going elsewhere, and an empty one
+ * is an invisible link; both show the real target instead.
  */
-const isHonest = (children: ReactNode, href: string, rewrite: (text: string) => string) => {
-  // Spaces and invisible format characters (zero-width space, word joiner) would otherwise let "​https://bank.com" skip the check.
-  const label = textOf(children, rewrite).replace(/[\s\p{Cf}]/gu, "")
-  if (!/^(https?:\/\/|www\.)/i.test(label)) return true
-  const labelHost = hostOf(label)
+const keepsLabel = (children: ReactNode, href: string, rewrite: (text: string) => string) => {
+  const label = textOf(children, rewrite).replace(invisible, "")
+  if (label === "") return false
+  const at = label.search(/https?:\/\/|www\./i)
+  if (at < 0) return true
+  const labelHost = hostOf(label.slice(at))
   return labelHost !== null && labelHost === hostOf(href)
 }
 
@@ -202,7 +206,7 @@ function Label({ children }: { children?: ReactNode }) {
 function LinkOverride({ href, children }: { href?: string; children?: ReactNode }) {
   const { literalText = unchanged } = useContext(TextHooksContext)
   if (!href) return <Label>{children}</Label>
-  return <ExternalLink href={href}>{isHonest(children, href, literalText) ? <Label>{children}</Label> : href}</ExternalLink>
+  return <ExternalLink href={href}>{keepsLabel(children, href, literalText) ? <Label>{children}</Label> : href}</ExternalLink>
 }
 
 // Loading an image would fetch a URL chosen by whoever wrote the text, so it is offered as a link instead.
@@ -210,7 +214,7 @@ function ImageOverride({ src, alt }: { src?: string | Blob; alt?: string }) {
   const { literalText = unchanged } = useContext(TextHooksContext)
   if (typeof src !== "string" || !src) return <>{literalText(alt ?? "")}</>
   const label = literalText(alt || src)
-  return <ExternalLink href={src}>{isHonest(label, src, unchanged) ? label : src}</ExternalLink>
+  return <ExternalLink href={src}>{keepsLabel(label, src, unchanged) ? label : src}</ExternalLink>
 }
 
 function CodeOverride({ className, children, ...props }: ComponentProps<"code">) {

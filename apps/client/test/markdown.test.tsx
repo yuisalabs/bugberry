@@ -94,7 +94,7 @@ describe("Markdown: links", () => {
     expect(screen.queryByText(/bank\.com/)).toBeNull()
   })
   test("spaces or invisible characters before a URL label do not hide it", () => {
-    show("[ https://bank.com](https://evil.example/s) [​https://bank.com](https://evil.example/z) [⁠www.bank.com](https://evil.example/w)")
+    show("[ https://bank.com](https://evil.example/s) [\u200Bhttps://bank.com](https://evil.example/z) [\u2060www.bank.com](https://evil.example/w)")
     expect(link("https://evil.example/s")).toBeTruthy()
     expect(link("https://evil.example/z")).toBeTruthy()
     expect(link("https://evil.example/w")).toBeTruthy()
@@ -106,10 +106,48 @@ describe("Markdown: links", () => {
     expect(link("https://a.test/p").getAttribute("href")).toBe("https://a.test/p.png")
     expect(screen.queryByText(/bank\.com/)).toBeNull()
   })
+  test("a URL anywhere in the label is checked, not only at its start", () => {
+    show(
+      [
+        "[→ https://bank.com/login](https://evil.example/1)",
+        "[(https://bank.com)](https://evil.example/2)",
+        "[Visit https://bank.com](https://evil.example/3)",
+        "[\u3164https://bank.com](https://evil.example/4)",
+        "[\u034Fhttps://bank.com](https://evil.example/5)",
+        "[<b>https://bank.com</b>](https://evil.example/6)",
+      ].join(" "),
+    )
+    for (const n of [1, 2, 3, 4, 5, 6]) expect(link(`https://evil.example/${n}`)).toBeTruthy()
+    expect(screen.queryByText(/bank\.com/)).toBeNull()
+  })
+  test("a mention whose name is a URL cannot name another site", () => {
+    const box = render(
+      <Markdown look="comment" literalText={(value) => value.replace("\uE000", "@https://bank.com")}>
+        {"[\uE000](https://evil.example/m)"}
+      </Markdown>,
+    ).container
+    expect(link("https://evil.example/m")).toBeTruthy()
+    expect(box.textContent).not.toContain("bank.com")
+  })
   test("a label on the same host, or one that is not a URL, stays", () => {
-    show("[https://a.test/docs](https://a.test/other) [Bank](https://evil.example)")
+    show("[https://a.test/docs](https://a.test/other) [Bank](https://evil.example) [docs at https://a.test/x](https://a.test/y)")
     expect(link("https://a.test/docs").getAttribute("href")).toBe("https://a.test/other")
     expect(link("Bank").getAttribute("href")).toBe("https://evil.example")
+    expect(link("docs at https://a.test/x").getAttribute("href")).toBe("https://a.test/y")
+  })
+  test("a link with an empty label shows its target", () => {
+    show("[](https://a.test) [![][i]][r]\n\n[i]: https://a.test/i.png\n[r]: https://a.test/r")
+    expect(link("https://a.test").getAttribute("href")).toBe("https://a.test")
+    const reference = screen.getAllByRole("link").find((a) => a.getAttribute("href") === "https://a.test/r")
+    expect(reference?.textContent?.trim()).not.toBe("")
+  })
+  test("reference links and images obey the same URL rule", () => {
+    const bad = show("[x][r]\n\n[r]: javascript:alert(1)")
+    expect(bad.querySelector("a")).toBeNull()
+    expect(bad.textContent).toBe("x")
+    const image = show("![x][p]\n\n[p]: https://a.test/p.png")
+    expect(image.querySelector("img")).toBeNull()
+    expect(image.querySelector("a")?.getAttribute("href")).toBe("https://a.test/p.png")
   })
   test("an image is a link to it, never a loaded image", () => {
     const box = show("![diagram](https://a.test/p.png) ![](https://a.test/q.png) ![bad](javascript:1)")
