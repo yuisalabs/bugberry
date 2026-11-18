@@ -3,10 +3,13 @@ const HEADING = /^ {0,3}#{1,6} /
 // Only stripped when text follows, so a lone "- " or "> " stays as typed.
 const QUOTE_OR_LIST = /^ {0,3}(?:>|[-*+]|\d{1,9}[.)]) (?=\s*\S)/
 const ESCAPABLE = /[!-/:-@[-`{-~]/
-// Text set aside while the marks are read: escaped characters, code spans and link targets.
+// Text set aside while the marks are read: escaped characters, code spans, link targets and bare URLs.
 const SLOT = /\uE002(\d+)\uE003/g
 const LINK = /!?\[([^[\]]*)\]\(([^()\s]*)\)/g
 const AUTOLINK = /<((?:https?:\/\/|mailto:)[^\s<>]*)>/g
+// Trailing punctuation stays outside, as GFM reads it, so "_https://a.test_" still loses its marks. Linear: a start
+// fails only on a run of punctuation, and such a run holds no second "http".
+const BARE_URL = /https?:\/\/[^\s<>]*[^\s<>?!.,:*_~]/gi
 const EMPHASIS = [
   /\*\*([^\s*](?:[^*]*[^\s*])?)\*\*/g,
   /(?<![\p{L}\p{N}_])__([^\s_](?:[^_]*[^\s_])?)__(?![\p{L}\p{N}_])/gu,
@@ -66,6 +69,7 @@ function stripLine(line: string, keepLayout: boolean): string {
       return resolve(label) === resolve(url) ? slot(url) : `${label} (${slot(url)})`
     })
     .replace(AUTOLINK, (_match, url: string) => slot(url))
+    .replace(BARE_URL, (url) => slot(url))
   // Two passes so a mark inside another ("**a *b* c**") goes as well.
   for (let pass = 0; pass < 2; pass++) {
     for (const pattern of EMPHASIS) text = text.replace(pattern, "$1")

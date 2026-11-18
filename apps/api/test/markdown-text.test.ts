@@ -48,6 +48,12 @@ describe("stripMarkdown", () => {
     })
   }
 
+  test("marks inside a bare URL stay, so an email never prints a wrong address", () => {
+    expect(stripMarkdown("see http://a.test/_x_/y and _it_")).toBe("see http://a.test/_x_/y and it")
+    expect(stripMarkdown("see http://a.test/_x_/y and _it_", { keepLayout: true })).toBe("see http://a.test/_x_/y and it")
+    expect(stripMarkdown("**https://a.test/a*b** and _https://a.test_.")).toBe("https://a.test/a*b and https://a.test.")
+  })
+
   test("a heading behind a quote or list marker loses its hashes", () => {
     expect(stripMarkdown("> ## Title")).toBe("Title")
     expect(stripMarkdown("- ## Title")).toBe("Title")

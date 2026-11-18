@@ -182,5 +182,11 @@ describe("resolved notifications", () => {
     await createCommentsService(ctx).remove(budi.user, note?.id ?? "")
     expect((await list(ana)).data?.items[0]?.snippet).toBe("Fixed in PR #42 · shop/web")
   })
+
+  test("a note that opens with a heading or a list loses its marks in the bell", async () => {
+    await resolveReport(ctx, budi.user, reportId, { links: ["https://github.com/shop/web/pull/42"], note: "## Done\n- stock check" })
+    const snippet = (await list(ana)).data?.items[0]?.snippet ?? ""
+    expect(snippet).toBe("Fixed in PR #42 · shop/web. Done stock check")
+  })
 })
 
