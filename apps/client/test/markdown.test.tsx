@@ -131,3 +131,60 @@ describe("Markdown: links", () => {
     expect(screen.queryByText(/bank\.com/)).toBeNull()
   })
 })
+
+describe("Markdown: the caller's text", () => {
+  const shout = (text: string) => <mark>{text.toUpperCase()}</mark>
+  const marked = (text: string) =>
+    render(<Markdown look="comment" renderText={shout} literalText={(value) => value.replaceAll("x", "LIT")}>{text}</Markdown>).container
+      .firstElementChild as HTMLElement
+
+  test("running text is replaced in every place a sentence can be", () => {
+    const cases = ["satu", "- satu", "- satu\n\n- dua", "| satu |\n| - |\n| dua |", "# satu", "> satu", "**satu**", "_satu_", "~~satu~~"]
+    for (const text of cases) {
+      const box = marked(text)
+      expect(box.textContent?.replace(/\s/g, "")).toMatch(/^(SATU)(DUA)?$/)
+      expect(box.querySelector("mark")).not.toBeNull()
+    }
+  })
+  test("text from a raw HTML block is running text too", () => {
+    expect(marked("<div>satu").querySelector("mark")?.textContent).toBe("<DIV>SATU")
+  })
+  test("code and link labels are never replaced; they are rewritten instead", () => {
+    const box = marked("`x1` [x2](https://a.test) ![x3](https://a.test/p.png)\n\n```\nx4\n```")
+    expect(box.querySelector("code mark, pre mark, a mark")).toBeNull()
+    expect(box.querySelector("p code")?.textContent).toBe("LIT1")
+    expect([...box.querySelectorAll("a")].map((a) => a.textContent)).toEqual(["LIT2", "LIT3"])
+    expect(box.querySelector("pre")?.textContent).toBe("LIT4\n")
+  })
+  test("formatted text, images and dropped links inside a label are rewritten, not replaced", () => {
+    const box = marked("[**x5** _x6_](https://a.test) [![x7](https://a.test/i.png)](https://a.test/l) [x8](/relative) ![x9](javascript:1)")
+    expect([...box.querySelectorAll("mark")].map((mark) => mark.textContent?.trim())).toEqual(["", "", ""])
+    expect([...box.querySelectorAll("a")].map((a) => a.textContent)).toEqual(["LIT5 LIT6", "LIT7"])
+    expect(box.textContent).toContain("LIT8")
+    expect(box.textContent).toContain("LIT9")
+  })
+  test("the label check judges the label after it is rewritten", () => {
+    const hooks = { literalText: (value: string) => value.replace("site", "https://bank.com") }
+    const box = render(
+      <Markdown look="comment" {...hooks}>
+        {"[site](https://evil.example/a) ![site](https://evil.example/b.png) [![site](https://a.test/c.png)](https://evil.example/c)"}
+      </Markdown>,
+    ).container
+    expect([...box.querySelectorAll("a")].map((a) => a.textContent)).toEqual([
+      "https://evil.example/a",
+      "https://evil.example/b.png",
+      "https://evil.example/c",
+    ])
+  })
+  test("without the hooks text is untouched", () => {
+    expect(show("satu `x`").textContent).toBe("satu x")
+  })
+})
+
+describe("Markdown: code", () => {
+  test("a fenced block with a language keeps the code styling next to its language class", () => {
+    const code = show("```js\nlet a\n```").querySelector("pre code")
+    expect(code?.className).toContain("language-js")
+    expect(code?.className).toContain("font-mono")
+  })
+})
