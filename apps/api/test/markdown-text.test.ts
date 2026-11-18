@@ -29,6 +29,31 @@ describe("stripMarkdown", () => {
       "Fixed in createOrder:\n- stock check\n1. see PR #88 (https://g.test/88)\n> thanks\nhttps://g.test",
     )
   })
+
+  const held: Array<[string, string, boolean]> = [
+    ["[](https://a.test/a\\_b)", "https://a.test/a_b", false],
+    ["<https://a.test/a\\_b>", "https://a.test/a_b", false],
+    ["[](`x`)", "x", false],
+    ["[x](https://a.test/a\\_b)", "x (https://a.test/a_b)", true],
+    ["[`x`](https://a.test)", "x", false],
+    ["[a\\_b](https://a.test)", "a_b", false],
+    ["![`x` \\*](https://a.test/p.png)", "x *", false],
+    ["[`x`](https://a.test/\\_)", "x (https://a.test/_)", true],
+  ]
+  for (const [input, output, keepLayout] of held) {
+    test(`escapes and code inside a link come back once: ${JSON.stringify(input)}`, () => {
+      const result = stripMarkdown(input, { keepLayout })
+      expect(result).toBe(output)
+      expect(result).not.toMatch(/[\uE000-\uE003]/)
+    })
+  }
+
+  test("a heading behind a quote or list marker loses its hashes", () => {
+    expect(stripMarkdown("> ## Title")).toBe("Title")
+    expect(stripMarkdown("- ## Title")).toBe("Title")
+    expect(stripMarkdown("> ## Title", { keepLayout: true })).toBe("> Title")
+    expect(stripMarkdown("- ## Title", { keepLayout: true })).toBe("- Title")
+  })
 })
 
 describe("snippetOf", () => {
@@ -51,5 +76,10 @@ describe("snippetOf", () => {
     const names = new Map([["b", "Budi"]])
     expect(snippetOf("x \uE0000\uE001 y @[user:b]", names)).toBe("x 0 y @Budi")
     expect(snippetOf("\uE0005\uE001 halo", names)).toBe("5 halo")
+  })
+  test("an escape inside an autolink comes back as itself", () => {
+    const snippet = snippetOf("see <https://a.test/q\\*> @[user:b]", new Map([["b", "Budi"]]))
+    expect(snippet).toBe("see https://a.test/q* @Budi")
+    expect(snippet).not.toMatch(/[\uE000-\uE003]/)
   })
 })

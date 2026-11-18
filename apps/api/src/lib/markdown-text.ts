@@ -43,27 +43,34 @@ export function stripMarkdown(text: string, options?: { keepLayout?: boolean }):
 }
 
 function stripLine(line: string, keepLayout: boolean): string {
-  let text = line.replace(/[\uE002\uE003]/g, "").replace(HEADING, "")
-  if (!keepLayout) {
-    // A quote can hold a list item, so a second marker may follow the first.
-    for (let i = 0; i < 2; i++) text = text.replace(QUOTE_OR_LIST, "")
+  let text = line.replace(/[\uE002\uE003]/g, "")
+  // A quote can hold a list item, so a second marker may follow the first, and a heading may follow both.
+  let markers = ""
+  for (let i = 0; i < 2; i++) {
+    const marker = QUOTE_OR_LIST.exec(text)?.[0]
+    if (marker === undefined) break
+    markers += marker
+    text = text.slice(marker.length)
   }
+  text = (keepLayout ? markers : "") + text.replace(HEADING, "")
   const slots: string[] = []
-  const slot = (value: string) => `\uE002${slots.push(value) - 1}\uE003`
+  const resolve = (value: string) => value.replace(SLOT, (_match, index: string) => slots[Number(index)] ?? "")
+  // A slot's value is resolved first, so restoring once at the end never leaves a marker from an inner slot.
+  const slot = (value: string) => `\uE002${slots.push(resolve(value)) - 1}\uE003`
 
   text = setAsideEscapesAndCode(text, slot)
   text = text
     .replace(LINK, (_match, label: string, url: string) => {
       if (label === "") return slot(url)
       if (!keepLayout || url === "") return label
-      return label === url ? slot(url) : `${label} (${slot(url)})`
+      return resolve(label) === resolve(url) ? slot(url) : `${label} (${slot(url)})`
     })
     .replace(AUTOLINK, (_match, url: string) => slot(url))
   // Two passes so a mark inside another ("**a *b* c**") goes as well.
   for (let pass = 0; pass < 2; pass++) {
     for (const pattern of EMPHASIS) text = text.replace(pattern, "$1")
   }
-  return text.replace(SLOT, (_match, index: string) => slots[Number(index)] ?? "")
+  return resolve(text)
 }
 
 /** Swaps backslash escapes and code spans for slots in one left-to-right scan, as Markdown reads them. */
