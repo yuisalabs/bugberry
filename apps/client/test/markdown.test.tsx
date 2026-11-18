@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test"
+import { describe, expect, spyOn, test } from "bun:test"
 import { render, screen } from "@testing-library/react"
 import { Markdown } from "@bugberry/ui/markdown"
 
@@ -178,6 +178,61 @@ describe("Markdown: the caller's text", () => {
   })
   test("without the hooks text is untouched", () => {
     expect(show("satu `x`").textContent).toBe("satu x")
+  })
+})
+
+/** The longest chain of nested block quotes and lists, counted without recursion. */
+const deepestNesting = (root: Element) => {
+  let deepest = 0
+  const stack: [Element, number][] = [[root, 0]]
+  while (stack.length > 0) {
+    const [element, depth] = stack.pop() as [Element, number]
+    const here = depth + (["BLOCKQUOTE", "UL", "OL"].includes(element.tagName) ? 1 : 0)
+    deepest = Math.max(deepest, here)
+    for (const child of element.children) stack.push([child, here])
+  }
+  return deepest
+}
+
+describe("Markdown: deep nesting", () => {
+  // No time limit on the "- " shapes: the parser itself spends over a second on them, before any step of ours runs.
+  const cases: [string, boolean][] = [
+    [">".repeat(2500) + " x", true],
+    ["- ".repeat(1100) + "x", false],
+    ["1. ".repeat(1000) + "x", true],
+    ["> - ".repeat(800) + "x", false],
+  ]
+  for (const [text, timed] of cases) {
+    test(`${JSON.stringify(text.slice(0, 4))} x ${text.length} chars stops nesting at 16 levels and keeps the text`, () => {
+      const start = performance.now()
+      const box = show(text)
+      if (timed) expect(performance.now() - start).toBeLessThan(1000)
+      expect(deepestNesting(box)).toBeLessThanOrEqual(16)
+      expect(box.textContent).toContain("x")
+    })
+  }
+  test("a three-level list inside a quote keeps its three levels", () => {
+    const box = show("> - one\n>   - two\n>     - three")
+    expect(box.querySelector("blockquote > ul > li > ul > li > ul > li")?.textContent).toBe("three")
+  })
+  test("if rendering throws, the text is shown as typed and nothing crashes", () => {
+    const quiet = spyOn(console, "error").mockImplementation(() => {})
+    const fail = () => {
+      throw new Error("boom")
+    }
+    const box = render(
+      <Markdown look="comment" className="text-sm" renderText={fail}>
+        {"**satu**\n<b>dua</b>"}
+      </Markdown>,
+    ).container.firstElementChild as HTMLElement
+    quiet.mockRestore()
+    expect(box.textContent).toBe("**satu**\n<b>dua</b>")
+    expect(box.className).toContain("whitespace-pre-wrap")
+    expect(box.className).toContain("text-sm")
+    expect(box.querySelector("b, strong")).toBeNull()
+  })
+  test("deep indentation scrolls inside the component instead of widening the page", () => {
+    expect(show("x").className).toContain("overflow-x-auto")
   })
 })
 

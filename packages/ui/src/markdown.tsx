@@ -1,5 +1,5 @@
 import { cn } from "cn"
-import { Children, createContext, isValidElement, useContext, type ComponentProps, type ReactNode } from "react"
+import { Children, Component, createContext, isValidElement, useContext, type ComponentProps, type ReactNode } from "react"
 import ReactMarkdown, { type Components } from "react-markdown"
 import remarkBreaks from "remark-breaks"
 import remarkGfm from "remark-gfm"
@@ -39,6 +39,53 @@ interface TreeNode {
   alt?: string | null
   url?: string
   children?: TreeNode[]
+  position?: { start: { offset?: number }; end: { offset?: number } }
+}
+
+const maxNesting = 16
+const nestingTypes = new Set(["blockquote", "list", "listItem"])
+
+/** A node's text as it was typed, or its text values joined when the parser left no offsets. */
+const typedText = (node: TreeNode, source: string) => {
+  const start = node.position?.start.offset
+  const end = node.position?.end.offset
+  if (start !== undefined && end !== undefined) return source.slice(start, end)
+  const parts: string[] = []
+  const stack = [node]
+  while (stack.length > 0) {
+    const next = stack.pop() as TreeNode
+    if (next.value !== undefined) parts.push(next.value)
+    if (next.children) for (let i = next.children.length - 1; i >= 0; i--) stack.push(next.children[i] as TreeNode)
+  }
+  return parts.join("")
+}
+
+/**
+ * Quotes and lists nested past 16 levels become plain text. Deeper trees overflow the call stack in the
+ * markdown-to-HTML step and in React itself under V8, and a body of a few thousand ">" is enough.
+ * Walks with its own stack so the input it guards against cannot overflow it either.
+ */
+function capNesting() {
+  return (tree: TreeNode, file: { value?: unknown }) => {
+    const source = String(file.value ?? "")
+    const stack: [TreeNode, number][] = [[tree, 0]]
+    while (stack.length > 0) {
+      const [parent, depth] = stack.pop() as [TreeNode, number]
+      parent.children = parent.children?.map((child) => {
+        if (!nestingTypes.has(child.type)) {
+          stack.push([child, depth])
+          return child
+        }
+        const level = depth + 1
+        // A list is kept only when its items fit too, so no list is left holding paragraphs instead of items.
+        if (level > maxNesting || (child.type === "list" && level === maxNesting)) {
+          return { type: "paragraph", children: [{ type: "text", value: typedText(child, source) }] }
+        }
+        stack.push([child, level])
+        return child
+      })
+    }
+  }
 }
 
 /** Parents whose children are inline text, so raw HTML inside them is inline too. */
@@ -58,18 +105,21 @@ const inlineParents = new Set([
  * it as bare text outside any paragraph, which loses its line breaks.
  */
 function htmlAsText() {
-  const visit = (parent: TreeNode) => {
-    const inline = inlineParents.has(parent.type)
-    parent.children = parent.children?.map((child) => {
-      if (child.type !== "html") {
-        visit(child)
-        return child
-      }
-      const text = { type: "text", value: child.value ?? "" }
-      return inline ? text : { type: "paragraph", children: [text] }
-    })
+  return (tree: TreeNode) => {
+    const stack = [tree]
+    while (stack.length > 0) {
+      const parent = stack.pop() as TreeNode
+      const inline = inlineParents.has(parent.type)
+      parent.children = parent.children?.map((child) => {
+        if (child.type !== "html") {
+          stack.push(child)
+          return child
+        }
+        const text = { type: "text", value: child.value ?? "" }
+        return inline ? text : { type: "paragraph", children: [text] }
+      })
+    }
   }
-  return visit
 }
 
 /**
@@ -78,14 +128,17 @@ function htmlAsText() {
  * label instead, so the label check below sees it.
  */
 function imagesInLinksAsText() {
-  const visit = (parent: TreeNode, inLink: boolean) => {
-    parent.children = parent.children?.map((child) => {
-      if (inLink && (child.type === "image" || child.type === "imageReference")) return { type: "text", value: child.alt || child.url || "" }
-      visit(child, inLink || child.type === "link" || child.type === "linkReference")
-      return child
-    })
+  return (tree: TreeNode) => {
+    const stack: [TreeNode, boolean][] = [[tree, false]]
+    while (stack.length > 0) {
+      const [parent, inLink] = stack.pop() as [TreeNode, boolean]
+      parent.children = parent.children?.map((child) => {
+        if (inLink && (child.type === "image" || child.type === "imageReference")) return { type: "text", value: child.alt || child.url || "" }
+        stack.push([child, inLink || child.type === "link" || child.type === "linkReference"])
+        return child
+      })
+    }
   }
-  return (tree: TreeNode) => visit(tree, false)
 }
 
 const allowedUrl = /^(https?:\/\/|mailto:)/i
@@ -292,20 +345,42 @@ const commentComponents: Components = {
   h6: boldParagraph,
 }
 
-const remarkPlugins = [remarkGfm, htmlAsText, imagesInLinksAsText, remarkBreaks]
+// remarkGfm's own parsing runs before any of these, so capNesting is the first step to see the tree.
+const remarkPlugins = [capNesting, remarkGfm, htmlAsText, imagesInLinksAsText, remarkBreaks]
+
+const rootClass = "space-y-3 overflow-x-auto break-words text-foreground"
+
+/** Shows the fallback while rendering `text` throws; a new text gets a fresh try. */
+class RenderFailure extends Component<{ text: string; fallback: ReactNode; children: ReactNode }, { failed: boolean; text: string }> {
+  state = { failed: false, text: this.props.text }
+
+  static getDerivedStateFromProps(props: { text: string }, state: { text: string }) {
+    return props.text === state.text ? null : { failed: false, text: props.text }
+  }
+
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+
+  render() {
+    return this.state.failed ? this.props.fallback : this.props.children
+  }
+}
 
 export function Markdown({ children, look, className, renderText, literalText }: MarkdownProps) {
   return (
-    <div className={cn("space-y-3 break-words text-foreground", className)}>
-      <TextHooksContext.Provider value={{ renderText, literalText, inLabel: false }}>
-        <ReactMarkdown
-          remarkPlugins={remarkPlugins}
-          urlTransform={urlTransform}
-          components={look === "description" ? descriptionComponents : commentComponents}
-        >
-          {children}
-        </ReactMarkdown>
-      </TextHooksContext.Provider>
-    </div>
+    <RenderFailure text={children} fallback={<div className={cn(rootClass, "whitespace-pre-wrap", className)}>{children}</div>}>
+      <div className={cn(rootClass, className)}>
+        <TextHooksContext.Provider value={{ renderText, literalText, inLabel: false }}>
+          <ReactMarkdown
+            remarkPlugins={remarkPlugins}
+            urlTransform={urlTransform}
+            components={look === "description" ? descriptionComponents : commentComponents}
+          >
+            {children}
+          </ReactMarkdown>
+        </TextHooksContext.Provider>
+      </div>
+    </RenderFailure>
   )
 }
