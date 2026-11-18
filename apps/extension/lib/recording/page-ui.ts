@@ -92,7 +92,8 @@ function frame(doc: Document, src: string, style: string): HTMLIFrameElement {
   const element = doc.createElement("iframe")
   element.src = src
   element.setAttribute("allowtransparency", "true")
-  element.style.cssText = `border:0;background:transparent;color-scheme:normal;${style}`
+  // Chrome paints a frame opaque when its color-scheme differs from its page's; `normal` turns dark on a dark page.
+  element.style.cssText = `border:0;background:transparent;color-scheme:light;${style}`
   return element
 }
 
