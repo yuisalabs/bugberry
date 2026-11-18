@@ -120,12 +120,16 @@ const afterListMarker = (text: string, i: number) => {
 /**
  * The index just past a footnote definition's "[^label]:" at `i`, or -1. Everything after it on the line
  * nests inside the footnote, so it counts as a marker. The label is cut at 999 characters, the parser's
- * own limit, so a "[^" that never closes costs one bounded look.
+ * own limit, so a "[^" that never closes costs one bounded look. A backslash takes the next character
+ * into the label, as the parser reads it, so "[^\]]:" is one definition.
  */
 const afterFootnoteStart = (text: string, i: number) => {
   if (text[i] !== "[" || text[i + 1] !== "^") return -1
+  const isLineEnd = (char: string | undefined) => char === "\n" || char === "\r"
   let end = i + 2
-  while (end - i - 2 < 999 && end < text.length && text[end] !== "]" && text[end] !== "\n" && text[end] !== "\r") end++
+  while (end - i - 2 < 999 && end < text.length && text[end] !== "]" && !isLineEnd(text[end])) {
+    end += text[end] === "\\" && end + 1 < text.length && !isLineEnd(text[end + 1]) ? 2 : 1
+  }
   return end > i + 2 && text[end] === "]" && text[end + 1] === ":" ? end + 2 : -1
 }
 
